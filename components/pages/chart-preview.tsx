@@ -141,7 +141,7 @@ export default function ChartPreviewSignal() {
   ];
 
   return (
-    <Card className="max-w-xl w-[800px]">
+    <Card className="xl:max-w-xl xl:w-[800px] max-w-sm">
       <CardHeader>
         <div className="flex flex-row justify-between items-center">
           <CardTitle>QuecManager Quick Stats</CardTitle>
@@ -156,7 +156,7 @@ export default function ChartPreviewSignal() {
           <Separator orientation="vertical" className="mx-2 h-10 w-px" />
           <div>{bands}</div>
         </div>
-        <div className="flex gap-4 p-4 pb-2">
+        <div className="flex gap-4 xl:p-4 p-2 pb-2">
           <ChartContainer
             config={{
               sinr: {
@@ -209,11 +209,11 @@ export default function ChartPreviewSignal() {
         </div>
       </CardContent>
       <CardFooter className="flex flex-col gap-4">
-        <div className="flex flex-row border-t border-b p-4 w-full">
+        <div className="flex flex-row border-t border-b xl:p-4 p-2 w-full">
           <div className="flex w-full items-center gap-2">
             <div className="grid flex-1 auto-rows-min gap-0.5">
               <div className="text-xs text-muted-foreground">RSRP</div>
-              <div className="flex items-baseline gap-1 text-2xl font-bold tabular-nums leading-none">
+              <div className="flex items-baseline gap-1 xl:text-2xl text-md font-bold tabular-nums leading-none">
                 {rsrp?.toFixed(1)}
                 <span className="text-sm font-normal text-muted-foreground">
                   dBm
@@ -223,7 +223,7 @@ export default function ChartPreviewSignal() {
             <Separator orientation="vertical" className="mx-2 h-10 w-px" />
             <div className="grid flex-1 auto-rows-min gap-0.5">
               <div className="text-xs text-muted-foreground">RSRQ</div>
-              <div className="flex items-baseline gap-1 text-2xl font-bold tabular-nums leading-none">
+              <div className="flex items-baseline gap-1 xl:text-2xl text-md font-bold tabular-nums leading-none">
                 {rsrq?.toFixed(1)}
                 <span className="text-sm font-normal text-muted-foreground">
                   dB
@@ -233,7 +233,7 @@ export default function ChartPreviewSignal() {
             <Separator orientation="vertical" className="mx-2 h-10 w-px" />
             <div className="grid flex-1 auto-rows-min gap-0.5">
               <div className="text-xs text-muted-foreground">SINR</div>
-              <div className="flex items-baseline gap-1 text-2xl font-bold tabular-nums leading-none">
+              <div className="flex items-baseline gap-1 xl:text-2xl text-md font-bold tabular-nums leading-none">
                 {sinr?.toFixed(1)}
                 <span className="text-sm font-normal text-muted-foreground">
                   dB

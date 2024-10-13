@@ -4,15 +4,11 @@ import { useState } from "react";
 import { useAuth } from "@/hooks/auth";
 
 import Image from "next/image";
-import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import GithubButtonToast from "@/components/github-button";
-
-export const description =
-  "A login page with two columns. The first column has the login form with email and password. There's a Forgot your passwork link and a link to sign up if you do not have an account. The second column has a cover image.";
 
 const LoginPage = () => {
   const { toast } = useToast();
@@ -59,7 +55,8 @@ const LoginPage = () => {
                     toast({
                       variant: "destructive",
                       title: "Forgot your password?",
-                      description: "Use the toolkit script to create a new password.",
+                      description:
+                        "Use the toolkit script to create a new password.",
                       action: <GithubButtonToast />,
                     });
                   }}

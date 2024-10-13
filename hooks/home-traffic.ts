@@ -1,43 +1,47 @@
 // hooks/useTrafficStats.ts
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 const useTrafficStats = () => {
   const [bytesSent, setBytesSent] = useState<string>("0 Bytes");
   const [bytesReceived, setBytesReceived] = useState<string>("0 Bytes");
 
+  const fetchTrafficStats = useCallback(async () => {
+    const command = "AT+QGDCNT?";
+    try {
+      const response = await fetch("/api/at-handler", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ command }),
+      });
+
+      const data = await response.json();
+
+      const sent = parseInt(data.output.split("\n")[1].split(":")[1].split(",")[0]);
+      const received = parseInt(data.output.split("\n")[1].split(":")[1].split(",")[1]);
+
+      setBytesSent(formatBytes(sent));
+      setBytesReceived(formatBytes(received));
+    } catch (error) {
+      console.error("Error fetching traffic stats:", error);
+    }
+  }, []);
+
   useEffect(() => {
-    const fetchTrafficStats = async () => {
-      const command = "AT+QGDCNT?";
-      try {
-        const response = await fetch("/api/at-handler", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ command }),
-        });
-
-        const data = await response.json();
-
-        const sent = parseInt(data.output.split("\n")[1].split(":")[1].split(",")[0]);
-        const received = parseInt(data.output.split("\n")[1].split(":")[1].split(",")[1]);
-
-        setBytesSent(formatBytes(sent));
-        setBytesReceived(formatBytes(received));
-      } catch (error) {
-        console.error("Error fetching traffic stats:", error);
-      }
-    };
-
     fetchTrafficStats();
     // Set up an interval to fetch data every 5 seconds
     const intervalId = setInterval(fetchTrafficStats, 3000);
 
     // Clean up the interval on component unmount
     return () => clearInterval(intervalId);
-  }, []);
+  }, [fetchTrafficStats]);
 
-  return { bytesSent, bytesReceived };
+  const refresh = useCallback(() => {
+    fetchTrafficStats();
+  }, [fetchTrafficStats]);
+
+  return { bytesSent, bytesReceived, refresh };
 };
 
 const formatBytes = (bytes: number) => {

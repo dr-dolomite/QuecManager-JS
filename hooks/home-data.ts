@@ -1,140 +1,141 @@
 // hooks/useHomeData.ts
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { HomeData } from "@/types/types";
-import { BANDWIDTH_MAP } from "@/constants/home/index";
+import { BANDWIDTH_MAP, NR_BANDWIDTH_MAP } from "@/constants/home/index";
 
 const useHomeData = () => {
   const [data, setData] = useState<HomeData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchHomeData = async () => {
-      try {
-        setIsLoading(true);
-        const response = await fetch("/api/home-stats");
-        const rawData = await response.json();
-        console.log(rawData);
+  const fetchHomeData = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const response = await fetch("/api/home-stats");
+      const rawData = await response.json();
 
-        // Process the raw data into the HomeData format
-        const processedData: HomeData = {
-          simCard: {
-            slot:
-              rawData[0].response.split("\n")[1].split(":")[1].trim() ||
-              "Unknown",
-            state: rawData[6].response.match("READY")
-              ? "Inserted"
-              : "Not Inserted",
-            provider:
-              rawData[2].response
-                .split("\n")[1]
-                .split(":")[1]
-                .split(",")[2]
-                .replace(/"/g, "")
-                .trim() || "Unknown",
-            phoneNumber:
-              rawData[1].response
-                .split("\n")[1]
-                .split(":")[1]
-                .split(",")[1]
-                .replace(/"/g, "")
-                .trim() || "Unknown",
-            imsi: rawData[3].response.split("\n")[1].trim() || "Unknown",
-            iccid:
-              rawData[4].response.split("\n")[1].split(":")[1].trim() ||
-              "Unknown",
-            imei: rawData[5].response.split("\n")[1].trim() || "Unknown",
-          },
-          connection: {
-            apn:
-              rawData[7].response
-                .split("\n")[1]
-                .split(":")[1]
-                .split(",")[2]
-                .replace(/"/g, "")
-                .trim() ||
-              rawData[12].response
-                .split("\n")[1]
-                .split(":")[1]
-                .split(",")[2]
-                .replace(/"/g, "")
-                .trim() ||
-              "Unknown",
-            operatorState: getOperatorState(
-              rawData[8].response,
-              rawData[16].response
-            ),
-            functionalityState:
-              rawData[9].response.split("\n")[1].split(":")[1].trim() === "1"
-                ? "Enabled"
-                : "Disabled",
-            networkType: getNetworkType(rawData[13].response),
-            modemTemperature: getModemTemperature(rawData[11].response),
-            accessTechnology: rawData[2].response
+      // Process the raw data into the HomeData format
+      const processedData: HomeData = {
+        simCard: {
+          slot:
+            rawData[0].response.split("\n")[1].split(":")[1].trim() ||
+            "Unknown",
+          state: rawData[6].response.match("READY")
+            ? "Inserted"
+            : "Not Inserted",
+          provider:
+            rawData[2].response
               .split("\n")[1]
               .split(":")[1]
-              .split(",")[3]
-              .trim(),
-          },
-          dataTransmission: {
-            carrierAggregation:
-              rawData[13].response.match(/"LTE BAND \d+"|"NR5G BAND \d+"/g)
-                ?.length > 1
-                ? "Multi"
-                : "Inactive",
-            bandwidth: getBandwidth(rawData[13].response),
-            connectedBands: getConnectedBands(rawData[13].response),
-            signalStrength: getSignalStrength(rawData[14].response),
-            mimoLayers:
-              rawData[14].response
-                .split("\n")[1]
-                .match(/\d+/g)
-                ?.length.toString() || "Inactive",
-          },
-          cellularInfo: {
-            cellId: getCellID(
-              rawData[10].response,
-              getNetworkType(rawData[13].response)
-            ),
-            trackingAreaCode: getTAC(
-              rawData[10].response,
-              getNetworkType(rawData[13].response)
-            ),
-            physicalCellId: getPhysicalCellIDs(
-              rawData[13].response,
-              getNetworkType(rawData[13].response)
-            ),
-            earfcn: getEARFCN(rawData[13].response),
-            mcc: getMCC(
-              rawData[10].response,
-              getNetworkType(rawData[13].response)
-            ),
-            mnc: getMNC(
-              rawData[10].response,
-              getNetworkType(rawData[13].response)
-            ),
-            signalQuality: getSignalQuality(rawData[19].response),
-          },
-        };
+              .split(",")[2]
+              .replace(/"/g, "")
+              .trim() || "Unknown",
+          phoneNumber:
+            rawData[1].response
+              .split("\n")[1]
+              .split(":")[1]
+              .split(",")[1]
+              .replace(/"/g, "")
+              .trim() || "Unknown",
+          imsi: rawData[3].response.split("\n")[1].trim() || "Unknown",
+          iccid:
+            rawData[4].response.split("\n")[1].split(":")[1].trim() ||
+            "Unknown",
+          imei: rawData[5].response.split("\n")[1].trim() || "Unknown",
+        },
+        connection: {
+          apn:
+            rawData[7].response
+              .split("\n")[1]
+              .split(":")[1]
+              .split(",")[2]
+              .replace(/"/g, "")
+              .trim() ||
+            rawData[12].response
+              .split("\n")[1]
+              .split(":")[1]
+              .split(",")[2]
+              .replace(/"/g, "")
+              .trim() ||
+            "Unknown",
+          operatorState: getOperatorState(
+            rawData[8].response,
+            rawData[16].response
+          ),
+          functionalityState:
+            rawData[9].response.split("\n")[1].split(":")[1].trim() === "1"
+              ? "Enabled"
+              : "Disabled",
+          networkType: getNetworkType(rawData[13].response),
+          modemTemperature: getModemTemperature(rawData[11].response),
+          accessTechnology: rawData[2].response
+            .split("\n")[1]
+            .split(":")[1]
+            .split(",")[3]
+            .trim(),
+        },
+        dataTransmission: {
+          carrierAggregation:
+            rawData[13].response.match(/"LTE BAND \d+"|"NR5G BAND \d+"/g)
+              ?.length > 1
+              ? "Multi"
+              : "Inactive",
+          bandwidth: getBandwidth(
+            rawData[13].response,
+            getNetworkType(rawData[13].response)
+          ),
+          connectedBands: getConnectedBands(rawData[13].response),
+          signalStrength: getSignalStrength(rawData[14].response),
+          mimoLayers:
+            rawData[14].response
+              .split("\n")[1]
+              .match(/\d+/g)
+              ?.length.toString() || "Inactive",
+        },
+        cellularInfo: {
+          cellId: getCellID(
+            rawData[10].response,
+            getNetworkType(rawData[13].response)
+          ),
+          trackingAreaCode: getTAC(
+            rawData[10].response,
+            getNetworkType(rawData[13].response)
+          ),
+          physicalCellId: getPhysicalCellIDs(
+            rawData[13].response,
+            getNetworkType(rawData[13].response)
+          ),
+          earfcn: getEARFCN(rawData[13].response),
+          mcc: getMCC(
+            rawData[10].response,
+            getNetworkType(rawData[13].response)
+          ),
+          mnc: getMNC(
+            rawData[10].response,
+            getNetworkType(rawData[13].response)
+          ),
+          signalQuality: getSignalQuality(rawData[19].response),
+        },
+      };
 
-        setData(processedData);
-      } catch (error) {
-        console.error("Error fetching home data:", error);
-      } finally {
-        // Add a slight delay to prevent flickering
-        // await new Promise((resolve) => setTimeout(resolve, 500));
-        setIsLoading(false);
-      }
-    };
+      setData(processedData);
+    } catch (error) {
+      console.error("Error fetching home data:", error);
+    } finally {
+      // Add a delay to prevent flickering
+      setTimeout(() => setIsLoading(false), 300);
+    }
+  }, []);
 
+  useEffect(() => {
     fetchHomeData();
     // Set up an interval to fetch data every 5 seconds
-    const intervalId = setInterval(fetchHomeData, 5000);
+    const intervalId = setInterval(fetchHomeData, 30000);
 
     // Clean up the interval on component unmount
     return () => clearInterval(intervalId);
-  }, []);
+  }, [fetchHomeData]);
 
-  return { data, isLoading };
+  return { data, isLoading, refresh: fetchHomeData };
 };
 
 // Helper functions for data processing
@@ -177,7 +178,7 @@ const getModemTemperature = (response: string) => {
   return `${Math.round(avgTemp)}°C`;
 };
 
-const getBandwidth = (response: string) => {
+const getBandwidth = (response: string, networkType: string) => {
   // Get PCC bandwidth line
   let pccBandwidth = response.split("\n").find((l) => l.includes("PCC"));
   pccBandwidth = pccBandwidth?.split(":")[1].split(",")[2].trim();
@@ -198,33 +199,59 @@ const getBandwidth = (response: string) => {
     l.split(":")[1].split(",")[2].trim()
   );
 
-  // Display the bandwidths in a human-readable format
-  // If only PCC bandwidth is present
-  if (pccBandwidth && !sccBandwidthLTE.length && !sccBandwidthNR5G.length) {
-    return BANDWIDTH_MAP[pccBandwidth] || "Unknown";
+  // Return as a string in the format "PCC, SCC1, SCC2, ..."
+  if (networkType === "LTE") {
+    // If there is only PCC
+    if (!sccBandwidthLTE.length && pccBandwidth) {
+      return BANDWIDTH_MAP[pccBandwidth] || "Unknown";
+    }
+
+    // If there are both PCC and SCC
+    // Map the bandwidths to their respective values and join them with a comma
+    const parsedPCC = pccBandwidth ? BANDWIDTH_MAP[pccBandwidth] : "";
+    const parsedSCCs = sccBandwidthLTE.map((bw) => BANDWIDTH_MAP[bw]);
+
+    // Combine the PCC and SCC bandwidths into a single string separated by commas
+    return [parsedPCC, ...parsedSCCs].join(", ");
   }
 
-  // If PCC and SCC bandwidths are present for LTE
-  if (pccBandwidth && sccBandwidthLTE.length && !sccBandwidthNR5G.length) {
-    return `${BANDWIDTH_MAP[pccBandwidth]} + ${sccBandwidthLTE
-      .map((bw) => BANDWIDTH_MAP[bw])
-      .join("+ ")}`;
+  if (networkType === "NR5G-SA" && pccBandwidth) {
+    // If there is only PCC
+    if (!sccBandwidthNR5G.length) {
+      return NR_BANDWIDTH_MAP[pccBandwidth] || "Unknown";
+    }
+
+    // If there are both PCC and SCC
+    const parsedPCC = NR_BANDWIDTH_MAP[pccBandwidth];
+    const parsedSCCs = sccBandwidthNR5G.map((bw) => NR_BANDWIDTH_MAP[bw]);
+
+    // Combine the PCC and SCC bandwidths into a single string separated by commas
+    return [parsedPCC, ...parsedSCCs].join(", ");
   }
 
-  // If PCC and SCC bandwidths are present for NR5G
-  if (pccBandwidth && !sccBandwidthLTE.length && sccBandwidthNR5G.length) {
-    return `${BANDWIDTH_MAP[pccBandwidth]} + ${sccBandwidthNR5G
-      .map((bw) => BANDWIDTH_MAP[bw])
-      .join("+ ")}`;
-  }
+  if (networkType === "NR5G-NSA" && pccBandwidth) {
+    console.log([BANDWIDTH_MAP[pccBandwidth]]);
+    // If there is only PCC
+    if (!sccBandwidthLTE.length && !sccBandwidthNR5G.length) {
+      return BANDWIDTH_MAP[pccBandwidth] || "Unknown";
+    }
 
-  // If PCC and SCC bandwidths are present for both LTE and NR5G
-  if (pccBandwidth && sccBandwidthLTE.length && sccBandwidthNR5G.length) {
-    return `${BANDWIDTH_MAP[pccBandwidth]} + ${sccBandwidthLTE
-      .map((bw) => BANDWIDTH_MAP[bw])
-      .join("+ ")} + ${sccBandwidthNR5G
-      .map((bw) => BANDWIDTH_MAP[bw])
-      .join("+ ")}`;
+    // If there are only PCC and LTE SCC
+    if (sccBandwidthLTE.length && !sccBandwidthNR5G.length) {
+      const parsedPCC = BANDWIDTH_MAP[pccBandwidth];
+      const parsedSCCs = sccBandwidthLTE.map((bw) => BANDWIDTH_MAP[bw]);
+
+      // Combine the PCC and SCC bandwidths into a single string separated by commas
+      return [parsedPCC, ...parsedSCCs].join(", ");
+    }
+
+    // If there are LTE PCC, LTE SCC, and NR5G SCC
+    const parsedPCC = BANDWIDTH_MAP[pccBandwidth];
+    const parsedSCCsLTE = sccBandwidthLTE.map((bw) => BANDWIDTH_MAP[bw]);
+    const parsedSCCsNR5G = sccBandwidthNR5G.map((bw) => NR_BANDWIDTH_MAP[bw]);
+
+    // Combine the PCC and SCC bandwidths into a single string separated by commas
+    return [parsedPCC, ...parsedSCCsLTE, ...parsedSCCsNR5G].join(", ");
   }
 };
 
@@ -298,7 +325,7 @@ const getPhysicalCellIDs = (response: string, networkType: string) => {
     let sccPCIsNR5G = response
       .split("\n")
       .filter((l) => l.includes("SCC") && l.includes("NR5G"));
-    sccPCIsNR5G = sccPCIsNR5G.map((l) => l.split(":")[1].split(",")[5].trim());
+    sccPCIsNR5G = sccPCIsNR5G.map((l) => l.split(":")[1].split(",")[4].trim());
 
     // Combine the PCIs into a single string separated by commas
     // If only PCC PCI is present
