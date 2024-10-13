@@ -115,6 +115,38 @@ const useHomeData = () => {
           ),
           signalQuality: getSignalQuality(rawData[19].response),
         },
+        currentBands: {
+          // id is length of bandNumber
+          id: Array.from(
+            {
+              length:
+                getCurrentBandsBandNumber(rawData[13].response)?.length ?? 0,
+            },
+            (_, i) => i + 1
+          ),
+          bandNumber: getCurrentBandsBandNumber(rawData[13].response),
+          earfcn: getCurrentBandsEARFCN(rawData[13].response),
+          bandwidth: getCurrentBandsBandwidth(rawData[13].response),
+          pci: getCurrentBandsPCI(
+            rawData[13].response,
+            getNetworkType(rawData[13].response)
+          ),
+          rsrp: getCurrentBandsRSRP(
+            rawData[13].response,
+            getNetworkType(rawData[13].response),
+            rawData[10].response
+          ),
+          rsrq: getCurrentBandsRSRQ(
+            rawData[13].response,
+            getNetworkType(rawData[13].response),
+            rawData[10].response
+          ),
+          sinr: getCurrentBandsSINR(
+            rawData[13].response,
+            getNetworkType(rawData[13].response),
+            rawData[10].response
+          ),
+        },
       };
 
       setData(processedData);
@@ -129,7 +161,7 @@ const useHomeData = () => {
   useEffect(() => {
     fetchHomeData();
     // Set up an interval to fetch data every 5 seconds
-    const intervalId = setInterval(fetchHomeData, 30000);
+    const intervalId = setInterval(fetchHomeData, 60000);
 
     // Clean up the interval on component unmount
     return () => clearInterval(intervalId);
@@ -442,6 +474,232 @@ const getSignalQuality = (response: string) => {
 
   // Return the percentage as a string
   return `${Math.round(sinrPercentage)}%`;
+};
+
+// Get current band information
+const getCurrentBandsBandNumber = (response: string) => {
+  // Loop through the response and extract the band number
+  const bandsLte = response.split("\n").filter((l) => l.includes("LTE BAND"));
+  const bandsNr5g = response.split("\n").filter((l) => l.includes("NR5G BAND"));
+
+  if (bandsLte.length && bandsNr5g.length) {
+    return [...bandsLte, ...bandsNr5g].map((l) =>
+      l.split(":")[1].split(",")[3].replace(/"/g, "")
+    );
+  } else if (bandsLte.length) {
+    return bandsLte.map((l) => l.split(":")[1].split(",")[3].replace(/"/g, ""));
+  } else if (bandsNr5g.length) {
+    return bandsNr5g.map((l) =>
+      l.split(":")[1].split(",")[3].replace(/"/g, "")
+    );
+  } else {
+    return ["Unknown"];
+  }
+};
+
+const getCurrentBandsEARFCN = (response: string) => {
+  // Loop through the response and extract the EARFCN
+  const earfcnsLte = response.split("\n").filter((l) => l.includes("LTE BAND"));
+  const earfcnsNr5g = response
+    .split("\n")
+    .filter((l) => l.includes("NR5G BAND"));
+
+  if (earfcnsLte.length && earfcnsNr5g.length) {
+    return [...earfcnsLte, ...earfcnsNr5g].map(
+      (l) => l.split(":")[1].split(",")[1]
+    );
+  } else if (earfcnsLte.length) {
+    return earfcnsLte.map((l) => l.split(":")[1].split(",")[1]);
+  } else if (earfcnsNr5g.length) {
+    return earfcnsNr5g.map((l) => l.split(":")[1].split(",")[1]);
+  } else {
+    return ["Unknown"];
+  }
+};
+
+const getCurrentBandsBandwidth = (response: string) => {
+  // Loop through the response and extract the bandwidth
+  const bandwidthsLte = response
+    .split("\n")
+    .filter((l) => l.includes("LTE BAND"));
+  const bandwidthsNr5g = response
+    .split("\n")
+    .filter((l) => l.includes("NR5G BAND"));
+
+  // Convert the bandwidths to their respective values
+  const parsedBandwidthsLte = bandwidthsLte.map(
+    (l) => BANDWIDTH_MAP[l.split(":")[1].split(",")[2]]
+  );
+  const parsedBandwidthsNr5g = bandwidthsNr5g.map(
+    (l) => NR_BANDWIDTH_MAP[l.split(":")[1].split(",")[2]]
+  );
+
+  if (parsedBandwidthsLte.length && parsedBandwidthsNr5g.length) {
+    return [...parsedBandwidthsLte, ...parsedBandwidthsNr5g];
+  } else if (parsedBandwidthsLte.length) {
+    return parsedBandwidthsLte;
+  } else if (parsedBandwidthsNr5g.length) {
+    return parsedBandwidthsNr5g;
+  } else {
+    return ["Unknown"];
+  }
+};
+
+const getCurrentBandsPCI = (response: string, networkType: string) => {
+  // Loop through the response and extract the PCI
+  if (networkType === "LTE" || networkType === "NR5G-SA") {
+    const pcis = response.split("\n").filter((l) => l.includes("BAND"));
+    return pcis.map((l) => l.split(":")[1].split(",")[5]);
+  } else if (networkType === "NR5G-NSA") {
+    const pcisLte = response.split("\n").filter((l) => l.includes("LTE BAND"));
+    const pcisNr5g = response
+      .split("\n")
+      .filter((l) => l.includes("NR5G BAND"));
+
+    const pcisLteValues = pcisLte.map((l) => l.split(":")[1].split(",")[5]);
+    const pcisNr5gValues = pcisNr5g.map((l) => l.split(":")[1].split(",")[4]);
+
+    return [...pcisLteValues, ...pcisNr5gValues];
+  }
+};
+
+const getCurrentBandsRSRP = (
+  response: string,
+  networkType: string,
+  servingCell: string
+) => {
+  // Loop through the response and extract the RSRP
+  if (networkType === "LTE") {
+    const rsrps = response.split("\n").filter((l) => l.includes("LTE BAND"));
+    return rsrps.map((l) => l.split(":")[1].split(",")[6]);
+  }
+
+  if (networkType === "NR5G-NSA") {
+    // Map all the RSRP values for LTE and NR5G
+    let lteRSRP = response
+      .split("\n")
+      .filter((l) => l.includes("LTE BAND"))
+      .map((l) => l.split(":")[1].split(",")[6]);
+
+    const nr5gRSRP = servingCell
+      .split("\n")
+      .filter((l) => l.includes("NR5G-NSA"))
+      .map((l) => l.split(":")[1].split(",")[4]);
+
+    if (lteRSRP.length && nr5gRSRP.length) {
+      return [...lteRSRP, ...nr5gRSRP];
+    } else if (lteRSRP.length) {
+      return lteRSRP;
+    } else if (nr5gRSRP.length) {
+      return nr5gRSRP;
+    } else {
+      return ["Unknown"];
+    }
+  }
+
+  if (networkType === "NR5G-SA") {
+    const pccRSRP = servingCell.split("\n").find((l) => l.includes("NR5G-SA"));
+
+    if (pccRSRP) {
+      return [pccRSRP.split(":")[1].split(",")[12]];
+    } else {
+      return ["Unknown"];
+    }
+  }
+
+  return ["Unknown"];
+};
+
+const getCurrentBandsRSRQ = (
+  response: string,
+  networkType: string,
+  servingCell: string
+) => {
+  // Loop through the response and extract the RSRQ
+  if (networkType === "LTE") {
+    const rsrqs = response.split("\n").filter((l) => l.includes("BAND"));
+    return rsrqs.map((l) => l.split(":")[1].split(",")[7]);
+  }
+
+  if (networkType === "NR5G-SA") {
+    const pccRSRQ = servingCell.split("\n").find((l) => l.includes("NR5G-SA"));
+
+    if (pccRSRQ) {
+      return [pccRSRQ.split(":")[1].split(",")[13]];
+    } else {
+      return ["Unknown"];
+    }
+  }
+
+  if (networkType === "NR5G-NSA") {
+    const lteRSRQ = response
+      .split("\n")
+      .filter((l) => l.includes("LTE BAND"))
+      .map((l) => l.split(":")[1].split(",")[7]);
+
+    const nr5gRSRQ = servingCell
+      .split("\n")
+      .filter((l) => l.includes("NR5G-NSA"))
+      .map((l) => l.split(":")[1].split(",")[6]);
+
+    if (lteRSRQ.length && nr5gRSRQ.length) {
+      return [...lteRSRQ, ...nr5gRSRQ];
+    } else if (lteRSRQ.length) {
+      return lteRSRQ;
+    } else if (nr5gRSRQ.length) {
+      return nr5gRSRQ;
+    } else {
+      return ["Unknown"];
+    }
+  }
+
+  return ["Unknown"];
+};
+
+const getCurrentBandsSINR = (
+  response: string,
+  networkType: string,
+  servingCell: string
+) => {
+  // Loop through the response and extract the SINR
+  if (networkType === "LTE") {
+    const sinrs = response.split("\n").filter((l) => l.includes("BAND"));
+    return sinrs.map((l) => l.split(":")[1].split(",")[9]);
+  }
+
+  if (networkType === "NR5G-SA") {
+    const pccSINR = servingCell.split("\n").find((l) => l.includes("NR5G-SA"));
+
+    if (pccSINR) {
+      return [pccSINR.split(":")[1].split(",")[14]];
+    } else {
+      return ["Unknown"];
+    }
+  }
+
+  if (networkType === "NR5G-NSA") {
+    const lteSINR = response
+      .split("\n")
+      .filter((l) => l.includes("LTE BAND"))
+      .map((l) => l.split(":")[1].split(",")[9]);
+
+    const nr5gSINR = servingCell
+      .split("\n")
+      .filter((l) => l.includes("NR5G-NSA"))
+      .map((l) => l.split(":")[1].split(",")[5]);
+
+    if (lteSINR.length && nr5gSINR.length) {
+      return [...lteSINR, ...nr5gSINR];
+    } else if (lteSINR.length) {
+      return lteSINR;
+    } else if (nr5gSINR.length) {
+      return nr5gSINR;
+    } else {
+      return ["Unknown"];
+    }
+  }
+
+  return ["Unknown"];
 };
 
 export default useHomeData;

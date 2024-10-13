@@ -43,11 +43,34 @@ export interface CellularInfoData {
   signalQuality?: string;
 }
 
+export interface CurrentBandsData {
+  id?: number[],
+  bandNumber?: string[];
+  earfcn?: string[];
+  bandwidth?: string[];
+  pci?: string[];
+  rsrp?: string[];
+  rsrq?: string[];
+  sinr?: string[];
+}
+
 export interface HomeData {
   simCard: SimCardData;
   connection: ConnectionData;
   dataTransmission: DataTransmissionData;
   cellularInfo: CellularInfoData;
+  currentBands: CurrentBandsData;
+}
+
+export interface Band {
+  id: number;
+  bandNumber: string;
+  earfcn: string;
+  bandwidth: string;
+  pci: string;
+  rsrp: string;
+  rsrq: string;
+  sinr: string;
 }
 
 // You might also want to define some utility types for the bandwidth maps and access tech map
