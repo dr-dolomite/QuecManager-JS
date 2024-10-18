@@ -7,6 +7,9 @@ echo ""
 # Read POST data
 read POST_DATA
 
+# Debug log for generated hash
+DEBUG_LOG = "/tmp/auth.log"
+
 # Extract the password from POST data (URL encoded)
 USER="root"
 INPUT_PASSWORD=$(echo "$POST_DATA" | sed -n 's/^.*password=\([^&]*\).*$/\1/p')
@@ -32,7 +35,7 @@ SALT=$(echo "$USER_HASH" | cut -d'$' -f3)
 GENERATED_HASH=$(echo "$INPUT_PASSWORD" | openssl passwd -1 -salt "$SALT" -stdin)
 
 # Log generated hash for debugging
-echo "Generated hash: $GENERATED_HASH" >&2
+echo "Generated hash: $GENERATED_HASH" >> $DEBUG_LOG
 
 # Compare the generated hash with the one in the shadow file
 if [ "$GENERATED_HASH" = "$USER_HASH" ]; then

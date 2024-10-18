@@ -35,7 +35,11 @@ const BandCard = ({
 
   return (
     <Card
-      className="p-8 touch-action-none"
+      className={`${
+        bandNumber.includes("n")
+          ? "cursor-not-allowed opacity-70"
+          : "opacity-100"
+      } p-8 touch-action-none`}
       ref={setNodeRef}
       {...attributes}
       {...listeners}
@@ -44,7 +48,14 @@ const BandCard = ({
       <div className="flex flex-row items-center gap-6 justify-between">
         <div className="grid gap-2 w-[120px]">
           <h2 className="text-md font-bold">Band</h2>
-          <p>{bandNumber}</p>
+          <p className="flex items-center gap-2">
+            {bandNumber}
+            {bandNumber.includes("n") && (
+              <Badge variant="secondary" className="text-xs">
+                5G NR
+              </Badge>
+            )}
+          </p>
         </div>
 
         <div className="grid gap-2">
@@ -73,7 +84,7 @@ const BandCard = ({
                 : "bg-rose-500 hover:bg-rose-800"
             }
           >
-            {rsrp}
+            {rsrp} dBm
           </Badge>
         </div>
 
@@ -88,7 +99,7 @@ const BandCard = ({
                 : "bg-rose-500 hover:bg-rose-800"
             }
           >
-            {rsrq}
+            {rsrq} dB
           </Badge>
         </div>
 
@@ -103,7 +114,7 @@ const BandCard = ({
                 : "bg-rose-500 hover:bg-rose-800"
             }
           >
-            {sinr}
+            {sinr} dB
           </Badge>
         </div>
       </div>

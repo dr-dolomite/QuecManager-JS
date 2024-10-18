@@ -26,6 +26,7 @@ import useHomeData from "@/hooks/home-data";
 import useDataConnectionState from "@/hooks/home-connection";
 import useTrafficStats from "@/hooks/home-traffic";
 import BandTable from "@/components/home/band-table";
+import bandPrioritization from "@/hooks/band-prioritization";
 import { arrayMove, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 
 interface newBands {
@@ -48,6 +49,9 @@ const HomePage = () => {
     bytesReceived,
     refresh: refreshTrafficStats,
   } = useTrafficStats();
+
+  const { activePrioritizedBand, refresh: refreshPrioritizedBand } =
+    bandPrioritization();
 
   {
     /* Add rotation when the icon was clicked */
@@ -104,7 +108,7 @@ const HomePage = () => {
   return (
     <div className="grid xl:gap-y-12 gap-y-8 gap-4">
       <div className="grid xl:gap-6 gap-4">
-        <div className="flex flex-row gap-2">
+        <div className="flex flex-row gap-2 items-center">
           <h1 className="xl:text-3xl text-lg font-bold">Connection Summary</h1>
           <Button
             variant="ghost"
@@ -137,13 +141,13 @@ const HomePage = () => {
       </div>
 
       <div className="grid xl:gap-6 gap-4">
-        <h1 className="xl:text-3xl text-lg font-bold">Band Tables</h1>
+        <h1 className="xl:text-3xl text-lg font-bold">Current Active Bands</h1>
         <DndContext
           sensors={sensors}
           onDragEnd={handleDragEnd}
           collisionDetection={closestCorners}
         >
-          <BandTable bands={bands} isLoading={isLoading} />
+          <BandTable bands={bands} bandPrioState={activePrioritizedBand} isLoading={isLoading} />
         </DndContext>
       </div>
     </div>

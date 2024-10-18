@@ -80,18 +80,20 @@ export function useAuth() {
   }
 
   async function login(password: string) {
+    const encodedPassword = encodeURIComponent(password);
     try {
-      const response = await fetch("/api/auth", {
+      const response = await fetch("/cgi-bin/auth.sh", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ password }),
+        // body: JSON.stringify({ password }),
+        body: `password=${encodedPassword}`,
       });
 
       const result = await response.json();
 
-      if (result.success) {
+      if (result.state === "success") {
         const newToken = generateAuthToken();
         setSessionData(newToken);
         setIsAuthenticated(true);

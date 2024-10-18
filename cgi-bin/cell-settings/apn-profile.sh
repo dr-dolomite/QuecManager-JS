@@ -70,13 +70,48 @@ iccidProfile2=$(get_config_value "iccidProfile2")
 apnProfile2=$(get_config_value "apnProfile2")
 pdpType2=$(get_config_value "pdpType2")
 
+# Debug logging
+DEBUG_LOG="/tmp/debug.log"
+echo "Starting script at $(date)" > "$DEBUG_LOG"
+
+CONFIG_FILE="/etc/quecManager.conf"
+# Check config file
+if [ ! -f "$CONFIG_FILE" ]; then
+    echo "Config file not found: $CONFIG_FILE" >> "$DEBUG_LOG"
+    echo '{"error": "Config file not found"}'
+    exit 1
+fi
+
+# Get AT_PORT with debug logging
+AT_PORT=$(head -n 1 "$CONFIG_FILE" | cut -d'=' -f2 | tr -d ' \n\r' | sed 's|^dev/||')
+echo "Raw config line: $(head -n 1 "$CONFIG_FILE")" >> "$DEBUG_LOG"
+echo "Extracted AT_PORT: '$AT_PORT'" >> "$DEBUG_LOG"
+
+# List available devices for debugging
+ls -l /dev/smd* >> "$DEBUG_LOG" 2>&1
+
+if [ -z "$AT_PORT" ]; then
+    echo "AT_PORT is empty" >> "$DEBUG_LOG"
+    echo '{"error": "Failed to read AT_PORT from config"}'
+    exit 1
+fi
+
+# Check if AT_PORT exists
+if [ ! -c "/dev/$AT_PORT" ]; then
+    echo "AT_PORT device not found: /dev/$AT_PORT" >> "$DEBUG_LOG"
+    echo "Available smd devices:" >> "$DEBUG_LOG"
+    ls -l /dev/smd* >> "$DEBUG_LOG" 2>&1
+    echo '{"error": "AT_PORT device not found"}'
+    exit 1
+fi
+
 # Function to get current ICCID
 get_current_iccid() {
     local input_file="/tmp/inputICCID.txt"
     local output_file="/tmp/outputICCID.txt"
     
     echo "AT+ICCID" > "$input_file"
-    atinout "$input_file" /dev/smd11 "$output_file"
+    atinout "$input_file" "/dev/$AT_PORT" "$output_file"
     
     iccid=$(cat "$output_file" | grep "+ICCID:" | cut -d' ' -f2)
     
@@ -92,7 +127,7 @@ set_apn() {
     local output_file="/tmp/outputAPN.txt"
     
     echo "AT+CGDCONT=1,\"$pdp_type\",\"$apn\";+COPS=2;+COPS=0" > "$input_file"
-    atinout "$input_file" /dev/smd11 "$output_file"
+    atinout "$input_file" "/dev/$AT_PORT" "$output_file"
     
     local result=$(cat "$output_file")
     rm -f "$input_file" "$output_file"

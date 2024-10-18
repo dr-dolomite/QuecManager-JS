@@ -5,7 +5,7 @@ const useDataConnectionState = () => {
 
   const fetchDataConnectionState = useCallback(async () => {
     try {
-      const response = await fetch("/api/data-connection-state");
+      const response = await fetch("/cgi-bin/home/check_net.sh");
       const data = await response.json();
       setDataConnectionState(data === "ACTIVE" ? "Connected" : "Disconnected");
     } catch (error) {

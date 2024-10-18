@@ -10,8 +10,10 @@ const useHomeData = () => {
   const fetchHomeData = useCallback(async () => {
     try {
       setIsLoading(true);
-      const response = await fetch("/api/home-stats");
+      const response = await fetch("/cgi-bin/home/home_data.sh");
       const rawData = await response.json();
+
+      console.log(rawData);
 
       // Process the raw data into the HomeData format
       const processedData: HomeData = {
@@ -89,7 +91,8 @@ const useHomeData = () => {
             rawData[14].response
               .split("\n")[1]
               .match(/\d+/g)
-              ?.length.toString() || "Inactive",
+              ?.filter((v: string) => v !== "-32768")
+              .length.toString() || "Inactive",
         },
         cellularInfo: {
           cellId: getCellID(
@@ -461,12 +464,15 @@ const getMNC = (response: string, networkType: string) => {
 };
 
 const getSignalQuality = (response: string) => {
-  const sinrValues = response
-    .split("\n")[1]
+  
+  let sinrValues = response
     .match(/\d+/g)
     ?.map((num) => parseInt(num));
 
   if (!sinrValues) return "Unknown";
+
+  // filter -32768 values and remove them from the array
+  sinrValues = sinrValues.filter((v) => v !== -32768);
 
   // Calculate the average SINR value and get its percentage where 0 is the worst and 20 is the best
   const avgSINR = sinrValues.reduce((acc, v) => acc + v, 0) / sinrValues.length;

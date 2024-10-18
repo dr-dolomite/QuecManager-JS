@@ -8,9 +8,44 @@ urldecode() {
     echo -e "$(echo "$1" | sed 's/+/ /g;s/%\([0-9A-F][0-9A-F]\)/\\x\1/g')"
 }
 
+# Debug logging
+DEBUG_LOG="/tmp/debug.log"
+echo "Starting script at $(date)" > "$DEBUG_LOG"
+
+CONFIG_FILE="/etc/quecManager.conf"
+# Check config file
+if [ ! -f "$CONFIG_FILE" ]; then
+    echo "Config file not found: $CONFIG_FILE" >> "$DEBUG_LOG"
+    echo '{"error": "Config file not found"}'
+    exit 1
+fi
+
+# Get AT_PORT with debug logging
+AT_PORT=$(head -n 1 "$CONFIG_FILE" | cut -d'=' -f2 | tr -d ' \n\r' | sed 's|^dev/||')
+echo "Raw config line: $(head -n 1 "$CONFIG_FILE")" >> "$DEBUG_LOG"
+echo "Extracted AT_PORT: '$AT_PORT'" >> "$DEBUG_LOG"
+
+# List available devices for debugging
+ls -l /dev/smd* >> "$DEBUG_LOG" 2>&1
+
+if [ -z "$AT_PORT" ]; then
+    echo "AT_PORT is empty" >> "$DEBUG_LOG"
+    echo '{"error": "Failed to read AT_PORT from config"}'
+    exit 1
+fi
+
+# Check if AT_PORT exists
+if [ ! -c "/dev/$AT_PORT" ]; then
+    echo "AT_PORT device not found: /dev/$AT_PORT" >> "$DEBUG_LOG"
+    echo "Available smd devices:" >> "$DEBUG_LOG"
+    ls -l /dev/smd* >> "$DEBUG_LOG" 2>&1
+    echo '{"error": "AT_PORT device not found"}'
+    exit 1
+fi
+
 # Function to send AT commands silently
 send_at_command() {
-    echo "$1" | atinout - /dev/smd7 - >/dev/null 2>&1
+    echo "$1" | atinout - "/dev/$AT_PORT" - >/dev/null 2>&1
 }
 
 # Extract reset flags
