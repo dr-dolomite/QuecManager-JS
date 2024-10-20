@@ -31,7 +31,7 @@ const useTrafficStats = () => {
   useEffect(() => {
     fetchTrafficStats();
     // Set up an interval to fetch data every 5 seconds
-    const intervalId = setInterval(fetchTrafficStats, 3000);
+    const intervalId = setInterval(fetchTrafficStats, 2000);
 
     // Clean up the interval on component unmount
     return () => clearInterval(intervalId);

@@ -25,16 +25,17 @@ const BandCard = ({
   return (
     <Card className="p-8">
       <div className="flex flex-row items-center gap-6 justify-between">
-        <div className="grid gap-2 w-[120px]">
+        <div className="grid gap-2 w-[180px]">
           <h2 className="text-md font-bold">Band</h2>
-          <p className="flex items-center gap-2">
-            {bandNumber}
-            {bandNumber.includes("n") && (
-              <Badge variant="secondary" className="text-xs">
-                5G NR
+          <div className="flex flex-row items-center gap-2">
+            {/* Remove "LTE" or "NR5G" string from bandNumber */}
+            {bandNumber.replace("LTE BAND ", "B").replace("NR5G BAND ", "N")}
+            {bandNumber.includes("NR5G") && (
+              <Badge className="text-xs bg-blue-600 hover:bg-blue-800">
+                NR 5G
               </Badge>
             )}
-          </p>
+          </div>
         </div>
 
         <div className="grid gap-2">

@@ -5,15 +5,29 @@ import { BANDWIDTH_MAP, NR_BANDWIDTH_MAP } from "@/constants/home/index";
 
 const useHomeData = () => {
   const [data, setData] = useState<HomeData | null>(null);
+  const [refreshRate, setRefreshRate] = useState(60000);
   const [isLoading, setIsLoading] = useState(true);
+
+  const fetchRefreshRate = async () => {
+    try {
+      const refreshRateResponse = await fetch("/api/config-fetch");
+      const refreshRateData = await refreshRateResponse.json();
+      // Convert to number and ensure it's at least 1000ms
+      const newRate = Math.max(1000, parseInt(refreshRateData.data_refresh_rate));
+      setRefreshRate(newRate);
+    } catch (error) {
+      console.error("Error fetching refresh rate:", error);
+    }
+  };
 
   const fetchHomeData = useCallback(async () => {
     try {
       setIsLoading(true);
       const response = await fetch("/api/home-stats");
       const rawData = await response.json();
-
       console.log(rawData);
+
+      await fetchRefreshRate();
 
       // Process the raw data into the HomeData format
       const processedData: HomeData = {
@@ -162,13 +176,15 @@ const useHomeData = () => {
   }, []);
 
   useEffect(() => {
+    // Initial fetch
     fetchHomeData();
-    // Set up an interval to fetch data every 5 seconds
-    const intervalId = setInterval(fetchHomeData, 60000);
 
-    // Clean up the interval on component unmount
+    // Set up interval with current refresh rate
+    const intervalId = setInterval(fetchHomeData, refreshRate);
+
+    // Clean up interval on unmount or when refresh rate changes
     return () => clearInterval(intervalId);
-  }, [fetchHomeData]);
+  }, [fetchHomeData, refreshRate]); // Add refreshRate to dependencies
 
   return { data, isLoading, refresh: fetchHomeData };
 };
