@@ -4,11 +4,11 @@ import * as React from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 
-interface SettingsPageProps {
+interface SettingsPageLayoutProps {
   children: React.ReactNode;
 }
 
-const SettingsPage = ({ children }: SettingsPageProps) => {
+const SettingsPageLayout = ({ children }: SettingsPageLayoutProps) => {
   const currentPathName = usePathname();
 
   return (
@@ -32,4 +32,4 @@ const SettingsPage = ({ children }: SettingsPageProps) => {
   );
 };
 
-export default SettingsPage;
+export default SettingsPageLayout;

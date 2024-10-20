@@ -3,20 +3,21 @@ import { NextRequest, NextResponse } from 'next/server';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { password } = body;
+    const { oldPassword, newPassword } = body;
 
-    if (!password) {
+    if (!oldPassword && !newPassword) {
       return NextResponse.json({ error: 'Password is required' }, { status: 400 });
     }
 
-    const encodedPassword = encodeURIComponent(password);
+    const encodedOldPassword = encodeURIComponent(oldPassword);
+    const encodedNewPassword = encodeURIComponent(newPassword);
 
     const response = await fetch('http://192.168.224.1/cgi-bin/settings/change-password.sh', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
       },
-      body: `password=${encodedPassword}`,
+      body: `oldPassword=${encodedOldPassword}&newPassword=${encodedNewPassword}`,
     });
 
     const data = await response.json();

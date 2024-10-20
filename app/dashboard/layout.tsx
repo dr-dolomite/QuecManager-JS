@@ -21,10 +21,6 @@ import { Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
 
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-
-export const description =
-  "An Cellular Settings dashboard with a sidebar navigation. The sidebar has icon navigation. The content area has a breadcrumb and search in the header. The main area has a list of recent Cellular Settings with a filter and export button. The main area also has a detailed view of a single order with order details, shipping information, billing information, customer information, and payment information.";
-
 import { usePathname } from "next/navigation";
 
 interface DashboardLayoutProps {
@@ -39,13 +35,13 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   return (
     <div className="flex min-h-screen w-full flex-col">
       <header className="sticky top-0 flex h-16 items-center gap-4 border-b bg-background px-4 md:px-6">
-        <nav className="hidden flex-col gap-6 text-lg font-medium md:flex md:flex-row md:items-center md:gap-5 md:text-sm lg:gap-6">
+        <nav className="hidden flex-col gap-6 text-lg font-medium md:flex md:flex-row md:items-center md:gap-5 md:text-base lg:gap-6">
           <Link
             href="/dashboard/home/"
-            className="flex items-center gap-2 text-lg font-semibold md:text-base"
+            className="flex items-center gap-2 text-lg font-semibold md:text-xl md:mr-8"
           >
             <RadioTower className="h-6 w-6" />
-            <span className="sr-only">QuecManager</span>
+            <h1>QuecManager</h1>
           </Link>
           <Link
             href="/dashboard/home/"
@@ -58,9 +54,10 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
             Home
           </Link>
           <Link
-            href="/dashboard/cell-settings/"
+            href="/dashboard/cell-settings/basic-settings/"
             className={`${
-              currentPathName === "/dashboard/cell-settings/"
+              // If currentPathName have dashboard/cell-settings/* then it will be active
+              currentPathName.includes("/dashboard/cell-settings/")
                 ? "text-foreground"
                 : "text-muted-foreground"
             } transition-colors hover:text-foreground`}
@@ -195,7 +192,10 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
                 {/* a tag that redirects to a new tab */}
-                <a href="https://github.com/iamromulan/quectel-rgmii-toolkit/discussions/new/choose" target="_blank">
+                <a
+                  href="https://github.com/iamromulan/quectel-rgmii-toolkit/discussions/new/choose"
+                  target="_blank"
+                >
                   Support
                 </a>
               </DropdownMenuItem>
