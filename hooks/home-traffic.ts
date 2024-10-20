@@ -14,6 +14,7 @@ const useTrafficStats = () => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ command }),
+        // body: `command=${encodeURIComponent(command)}`,
       });
 
       const data = await response.json();

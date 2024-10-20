@@ -3,29 +3,8 @@ import Link from "next/link";
 import { useAuth } from "@/hooks/auth";
 import { ProtectedRoute } from "@/components/hoc/protected-route";
 import * as React from "react";
-import {
-  ContactRound,
-  EthernetPort,
-  FlaskConical,
-  Home,
-  PanelLeft,
-  Pyramid,
-  RadioTower,
-  Search,
-  Settings,
-  SignalHigh,
-  User2Icon,
-  Menu,
-} from "lucide-react";
-import { Input } from "@/components/ui/input";
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
+import { RadioTower, User2Icon, Menu } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
 
 import {
@@ -169,7 +148,10 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
               >
                 About
               </Link>
-              <Link href="/dashboard/settings/general" className="hover:text-foreground">
+              <Link
+                href="/dashboard/settings/general"
+                className="hover:text-foreground"
+              >
                 Settings
               </Link>
             </nav>
@@ -211,7 +193,12 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
               <DropdownMenuItem asChild>
                 <Link href="/dashboard/settings/general">Settings</Link>
               </DropdownMenuItem>
-              <DropdownMenuItem>Support</DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                {/* a tag that redirects to a new tab */}
+                <a href="https://github.com/iamromulan/quectel-rgmii-toolkit/discussions/new/choose" target="_blank">
+                  Support
+                </a>
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={logout}>Logout</DropdownMenuItem>
             </DropdownMenuContent>
