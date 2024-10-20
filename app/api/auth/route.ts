@@ -9,7 +9,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Password is required' }, { status: 400 });
     }
 
-    // Encode the password to handle special characters
     const encodedPassword = encodeURIComponent(password);
 
     const response = await fetch('http://192.168.224.1/cgi-bin/auth.sh', {
@@ -27,6 +26,8 @@ export async function POST(request: NextRequest) {
     } else {
       return NextResponse.json({ success: false, message: 'Invalid password' }, { status: 401 });
     }
+    return data;
+
   } catch (error) {
     console.error('Error during login:', error);
     return NextResponse.json({ error: 'Login failed' }, { status: 500 });

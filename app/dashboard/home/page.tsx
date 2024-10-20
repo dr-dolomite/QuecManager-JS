@@ -10,23 +10,11 @@ import CellularInformation from "@/components/home/cellular-info";
 import { Button } from "@/components/ui/button";
 import { RefreshCcw } from "lucide-react";
 
-// DND
-import {
-  closestCorners,
-  DndContext,
-  KeyboardSensor,
-  PointerSensor,
-  TouchSensor,
-  useSensor,
-  useSensors,
-} from "@dnd-kit/core";
-
 // Hooks
 import useHomeData from "@/hooks/home-data";
 import useDataConnectionState from "@/hooks/home-connection";
 import useTrafficStats from "@/hooks/home-traffic";
 import BandTable from "@/components/home/band-table";
-import { arrayMove, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 
 interface newBands {
   id: number;
@@ -41,7 +29,7 @@ interface newBands {
 
 const HomePage = () => {
   const { data: homeData, isLoading, refresh: refreshHomeData } = useHomeData();
-  const { dataConnectionState, refresh: refreshConnectionState } =
+  const { dataConnectionState, isStateLoading, refresh: refreshConnectionState } =
     useDataConnectionState();
   const {
     bytesSent,
@@ -49,9 +37,6 @@ const HomePage = () => {
     refresh: refreshTrafficStats,
   } = useTrafficStats();
 
-  {
-    /* Add rotation when the icon was clicked */
-  }
   const refreshData = useCallback(() => {
     refreshHomeData();
     refreshConnectionState();
@@ -78,33 +63,10 @@ const HomePage = () => {
     }
   }, [homeData]);
 
-  const getBandPos = (id: number) => bands.findIndex((band) => band.id === id);
-
-  const handleDragEnd = (event: { active: any; over: any }) => {
-    const { active, over } = event;
-
-    if (active.id === over.id) return;
-
-    setBands((bands) => {
-      const originalPos = getBandPos(active.id);
-      const newPos = getBandPos(over.id);
-
-      return arrayMove(bands, originalPos, newPos);
-    });
-  };
-
-  const sensors = useSensors(
-    useSensor(PointerSensor),
-    useSensor(TouchSensor),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
-  );
-
   return (
     <div className="grid xl:gap-y-12 gap-y-8 gap-4">
       <div className="grid xl:gap-6 gap-4">
-        <div className="flex flex-row gap-2">
+        <div className="flex flex-row gap-2 items-center">
           <h1 className="xl:text-3xl text-lg font-bold">Connection Summary</h1>
           <Button
             variant="ghost"
@@ -125,6 +87,7 @@ const HomePage = () => {
             data={homeData}
             isLoading={isLoading}
             dataConnectionState={dataConnectionState}
+            connectionStateLoading={isStateLoading}
           />
           <DataTransmission
             data={homeData}
@@ -137,14 +100,8 @@ const HomePage = () => {
       </div>
 
       <div className="grid xl:gap-6 gap-4">
-        <h1 className="xl:text-3xl text-lg font-bold">Band Tables</h1>
-        <DndContext
-          sensors={sensors}
-          onDragEnd={handleDragEnd}
-          collisionDetection={closestCorners}
-        >
-          <BandTable bands={bands} isLoading={isLoading} />
-        </DndContext>
+        <h1 className="xl:text-3xl text-lg font-bold">Current Active Bands</h1>
+        <BandTable bands={bands} isLoading={isLoading} />
       </div>
     </div>
   );

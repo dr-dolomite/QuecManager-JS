@@ -13,6 +13,8 @@ const useHomeData = () => {
       const response = await fetch("/api/home-stats");
       const rawData = await response.json();
 
+      console.log(rawData);
+
       // Process the raw data into the HomeData format
       const processedData: HomeData = {
         simCard: {
@@ -89,7 +91,8 @@ const useHomeData = () => {
             rawData[14].response
               .split("\n")[1]
               .match(/\d+/g)
-              ?.length.toString() || "Inactive",
+              ?.filter((v: string) => v !== "-32768")
+              .length.toString() || "Inactive",
         },
         cellularInfo: {
           cellId: getCellID(
@@ -262,7 +265,6 @@ const getBandwidth = (response: string, networkType: string) => {
   }
 
   if (networkType === "NR5G-NSA" && pccBandwidth) {
-    console.log([BANDWIDTH_MAP[pccBandwidth]]);
     // If there is only PCC
     if (!sccBandwidthLTE.length && !sccBandwidthNR5G.length) {
       return BANDWIDTH_MAP[pccBandwidth] || "Unknown";
@@ -301,15 +303,68 @@ const getConnectedBands = (response: string) => {
 };
 
 const getSignalStrength = (response: string) => {
-  const signalStrength = response
-    .split("\n")[1]
-    .match(/\d+/g)
-    ?.map((num) => parseInt(num));
-  if (!signalStrength) return "Unknown";
-  const avgSignalStrength =
-    signalStrength.reduce((acc, s) => acc + s, 0) / signalStrength.length;
-  const signalStrengthPercentage = ((-avgSignalStrength + 140) / 70) * 100;
-  return `${Math.round(signalStrengthPercentage)}%`;
+  // const RSRP LTE line
+  let rsrpLTE = response.split("\n").find((l) => l.includes("LTE"));
+  let rsrpNR5G = response.split("\n").find((l) => l.includes("NR5G"));
+
+  // Get the RSRP negative numerical values from rsrpLTE except -32768
+  if (rsrpLTE) {
+    let rsrpValuesLTE = rsrpLTE
+      .match(/\d+/g)
+      ?.map((num) => parseInt(num))
+      .filter((num) => num !== -32768);
+
+    if (rsrpNR5G) {
+      // Match all numerical values except for the 5 in NR5G and filter out -32768
+      let rsrpValuesNR5G = rsrpNR5G
+        .match(/\d+/g)
+        ?.map((num) => parseInt(num))
+        .filter((num) => num !== -32768);
+
+      // Remove the last value of the array
+      if (rsrpValuesNR5G && rsrpValuesNR5G.length > 1) {
+        rsrpValuesNR5G.pop();
+
+        // Combine the two arrays and calculate the average
+        if (rsrpValuesLTE) {
+          const rsrpValues = [...rsrpValuesLTE, ...rsrpValuesNR5G];
+          const avgRsrp =
+            rsrpValues.reduce((acc, v) => acc + v, 0) / rsrpValues.length;
+          // calculate the percentage where -140 is the worst and -75 is the best
+          const rsrpPercentage = ((-avgRsrp - -140) / (-75 - -140)) * 100;
+          // Return the percentage as a string
+          return `${Math.round(rsrpPercentage)}%`;
+        }
+      }
+    }
+
+    // Calculate the average RSRP value and get its percentage where -140 is the worst and -75 is the best
+    if (rsrpValuesLTE) {
+      const avgRsrp =
+        rsrpValuesLTE.reduce((acc, v) => acc + v, 0) / rsrpValuesLTE.length;
+      const rsrpPercentage = ((-avgRsrp - -140) / (-75 - -140)) * 100;
+      return `${Math.round(rsrpPercentage)}%`;
+    }
+  } else if (rsrpNR5G && !rsrpLTE) {
+    // Match all numerical values except for the 5 in NR5G and filter out -32768
+    let rsrpValuesNR5G = rsrpNR5G
+      .match(/\d+/g)
+      ?.map((num) => parseInt(num))
+      .filter((num) => num !== -32768);
+
+    // Remove the last value of the array
+    if (rsrpValuesNR5G && rsrpValuesNR5G.length > 1) {
+      rsrpValuesNR5G.pop();
+
+      // Calculate the average RSRP value and get its percentage where -140 is the worst and -75 is the best
+      const avgRsrp =
+        rsrpValuesNR5G.reduce((acc, v) => acc + v, 0) / rsrpValuesNR5G.length;
+      const rsrpPercentage = ((-avgRsrp - -140) / (-75 - -140)) * 100;
+      return `${Math.round(rsrpPercentage)}%`;
+    }
+  } else {
+    return "Unknown%";
+  }
 };
 
 const getCellID = (response: string, networkType: string) => {
@@ -461,19 +516,69 @@ const getMNC = (response: string, networkType: string) => {
 };
 
 const getSignalQuality = (response: string) => {
-  const sinrValues = response
-    .split("\n")[1]
-    .match(/\d+/g)
-    ?.map((num) => parseInt(num));
+  let sinrLTE = response.split("\n").find((l) => l.includes("LTE"));
+  let sinrNR5G = response.split("\n").find((l) => l.includes("NR5G"));
 
-  if (!sinrValues) return "Unknown";
+  // Get the SINR numerical values from sinrLTE except -32768
+  if (sinrLTE) {
+    let sinrValuesLTE = sinrLTE
+      .match(/\d+/g)
+      ?.map((num) => parseInt(num))
+      .filter((num) => num !== -32768);
 
-  // Calculate the average SINR value and get its percentage where 0 is the worst and 20 is the best
-  const avgSINR = sinrValues.reduce((acc, v) => acc + v, 0) / sinrValues.length;
-  const sinrPercentage = (avgSINR / 20) * 100;
+    if (sinrNR5G) {
+      // Match all numerical values except for the 5 in NR5G and filter out -32768
+      let sinrValuesNR5G = sinrNR5G
+        .match(/\d+/g)
+        ?.map((num) => parseInt(num))
+        .filter((num) => num !== -32768);
 
-  // Return the percentage as a string
-  return `${Math.round(sinrPercentage)}%`;
+      // Remove the last value of the array
+      if (sinrValuesNR5G && sinrValuesNR5G.length > 1) {
+        sinrValuesNR5G.pop();
+
+        // Combine the two arrays and calculate the average
+        if (sinrValuesLTE) {
+          const sinrValues = [...sinrValuesLTE, ...sinrValuesNR5G];
+          const avgSinr =
+            sinrValues.reduce((acc, v) => acc + v, 0) / sinrValues.length;
+
+          // calculate the percentage where 0 is the worst and 40 is the best
+          const sinrPercentage = (avgSinr / 40) * 100;
+
+          // Return the percentage as a string
+          return `${Math.round(sinrPercentage)}%`;
+        }
+      }
+    }
+
+    // Calculate the average SINR value and get its percentage where 0 is the worst and 40 is the best
+    if (sinrValuesLTE) {
+      const avgSinr =
+        sinrValuesLTE.reduce((acc, v) => acc + v, 0) / sinrValuesLTE.length;
+      const sinrPercentage = (avgSinr / 40) * 100;
+      return `${Math.round(sinrPercentage)}%`;
+    }
+  } else if (sinrNR5G && !sinrLTE) {
+    // Match all numerical values except for the 5 in NR5G and filter out -32768
+    let sinrValuesNR5G = sinrNR5G
+      .match(/\d+/g)
+      ?.map((num) => parseInt(num))
+      .filter((num) => num !== -32768);
+
+    // Remove the last value of the array
+    if (sinrValuesNR5G && sinrValuesNR5G.length > 1) {
+      sinrValuesNR5G.pop();
+
+      // Calculate the average SINR value and get its percentage where 0 is the worst and 40 is the best
+      const avgSinr =
+        sinrValuesNR5G.reduce((acc, v) => acc + v, 0) / sinrValuesNR5G.length;
+      const sinrPercentage = (avgSinr / 40) * 100;
+      return `${Math.round(sinrPercentage)}%`;
+    }
+  } else {
+    return "Unknown%";
+  }
 };
 
 // Get current band information

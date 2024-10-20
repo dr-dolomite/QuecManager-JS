@@ -1,3 +1,5 @@
+"use client";
+
 import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -9,9 +11,10 @@ interface ConnectionProps {
   data: HomeData | null;
   isLoading: boolean;
   dataConnectionState: string;
+  connectionStateLoading: boolean;
 }
 
-const Connection = ({ data, isLoading, dataConnectionState } : ConnectionProps) => {
+const Connection = ({ data, isLoading, dataConnectionState, connectionStateLoading } : ConnectionProps) => {
   return (
     <Card>
       <CardHeader>
@@ -64,7 +67,7 @@ const Connection = ({ data, isLoading, dataConnectionState } : ConnectionProps) 
 
         <div className="flex flex-row justify-between text-md">
           <p>Data Connection State</p>
-          {isLoading ? (
+          {connectionStateLoading ? (
             <Skeleton className="h-4 w-[100px]" />
           ) : (
             <Badge

@@ -29,7 +29,7 @@ export interface DataTransmissionData {
   carrierAggregation: "Multi" | "Inactive";
   bandwidth?: string| string[];
   connectedBands: string;
-  signalStrength: string;
+  signalStrength?: string;
   mimoLayers: string;
 }
 

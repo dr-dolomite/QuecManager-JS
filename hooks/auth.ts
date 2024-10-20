@@ -80,6 +80,7 @@ export function useAuth() {
   }
 
   async function login(password: string) {
+    const encodedPassword = encodeURIComponent(password);
     try {
       const response = await fetch("/api/auth", {
         method: "POST",
@@ -87,10 +88,20 @@ export function useAuth() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ password }),
+        // body: `password=${encodedPassword}`,
       });
 
       const result = await response.json();
 
+      // if (result.state === "success") {
+      //   const newToken = generateAuthToken();
+      //   setSessionData(newToken);
+      //   setIsAuthenticated(true);
+      //   router.push('/dashboard/home');
+      //   return true;
+      // } else {
+      //   return false;
+      // }
       if (result.success) {
         const newToken = generateAuthToken();
         setSessionData(newToken);

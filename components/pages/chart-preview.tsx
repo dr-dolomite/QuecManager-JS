@@ -53,7 +53,7 @@ export default function ChartPreviewSignal() {
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const response = await fetch("/api/quick-stats");
+        const response = await fetch("/cgi-bin/preview/quick-stats.sh");
         const data: ModemResponse[] = await response.json();
 
         if (data) {
@@ -124,19 +124,19 @@ export default function ChartPreviewSignal() {
       activity: "rsrp",
       value: rsrp !== null ? calculateSignalPercentage("rsrp", rsrp) : 0,
       label: rsrp !== null ? `${rsrp.toFixed(1)} dBm` : "No Signal",
-      fill: "var(--color-rsrp)",
+      fill: "hsl(var(--chart-1))",
     },
     {
       activity: "rsrq",
       value: rsrq !== null ? calculateSignalPercentage("rsrq", rsrq) : 0,
       label: rsrq !== null ? `${rsrq.toFixed(1)} dB` : "No Signal",
-      fill: "var(--color-rsrq)",
+      fill: "hsl(var(--chart-2))",
     },
     {
       activity: "sinr",
       value: sinr !== null ? calculateSignalPercentage("sinr", sinr) : 0,
       label: sinr !== null ? `${sinr.toFixed(1)} dB` : "No Signal",
-      fill: "var(--color-sinr)",
+      fill: "hsl(var(--chart-3))",
     },
   ];
 

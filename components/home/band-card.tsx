@@ -1,9 +1,6 @@
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
-import { useSortable } from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
-
 interface BandCardProps {
   id: number;
   bandNumber: string;
@@ -25,26 +22,19 @@ const BandCard = ({
   rsrq,
   sinr,
 }: BandCardProps) => {
-  const { attributes, listeners, setNodeRef, transform, transition } =
-    useSortable({ id });
-
-  const style = {
-    transition,
-    transform: CSS.Transform.toString(transform),
-  };
-
   return (
-    <Card
-      className="p-8 touch-action-none"
-      ref={setNodeRef}
-      {...attributes}
-      {...listeners}
-      style={style}
-    >
+    <Card className="p-8">
       <div className="flex flex-row items-center gap-6 justify-between">
         <div className="grid gap-2 w-[120px]">
           <h2 className="text-md font-bold">Band</h2>
-          <p>{bandNumber}</p>
+          <p className="flex items-center gap-2">
+            {bandNumber}
+            {bandNumber.includes("n") && (
+              <Badge variant="secondary" className="text-xs">
+                5G NR
+              </Badge>
+            )}
+          </p>
         </div>
 
         <div className="grid gap-2">
@@ -73,7 +63,7 @@ const BandCard = ({
                 : "bg-rose-500 hover:bg-rose-800"
             }
           >
-            {rsrp}
+            {rsrp} dBm
           </Badge>
         </div>
 
@@ -88,7 +78,7 @@ const BandCard = ({
                 : "bg-rose-500 hover:bg-rose-800"
             }
           >
-            {rsrq}
+            {rsrq} dB
           </Badge>
         </div>
 
@@ -103,7 +93,7 @@ const BandCard = ({
                 : "bg-rose-500 hover:bg-rose-800"
             }
           >
-            {sinr}
+            {sinr} dB
           </Badge>
         </div>
       </div>

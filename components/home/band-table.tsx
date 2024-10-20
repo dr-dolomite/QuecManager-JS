@@ -1,24 +1,25 @@
 "use client";
 
-import { useState } from "react";
-
 import {
   Card,
   CardContent,
   CardDescription,
   CardFooter,
-  CardHeader,
   CardTitle,
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { HomeData, Band } from "@/types/types";
+import { Band } from "@/types/types";
 
 import {
-  SortableContext,
-  verticalListSortingStrategy,
-} from "@dnd-kit/sortable";
-import BandCard from "./band-card";
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+} from "@/components/ui/carousel";
+
+import BandCard from "@/components/home/band-card";
 
 interface BandTableProps {
   isLoading: boolean;
@@ -26,84 +27,189 @@ interface BandTableProps {
 }
 
 const BandTable = ({ bands, isLoading }: BandTableProps) => {
+
   if (isLoading) {
     return (
-      <Card className="p-6 grid gap-4 bg-slate-950">
-        <Card className="p-8">
-          <div className="flex flex-row items-center gap-6 justify-between">
-            <div className="grid gap-2">
-              <h2 className="text-md font-bold">Band</h2>
-              <p>
-                <Skeleton className="w-16 h-4" />
-              </p>
-            </div>
+      <>
+        <div className="hidden lg:block">
+          <Card className="p-6 grid gap-4">
+            {bands && bands.map((band) => <BandCard key={band.id} {...band} />)}
 
-            <div className="grid gap-2">
-              <p className="text-sm font-bold">E/ARFCN</p>
-              <p>
-                <Skeleton className="w-16 h-4" />
-              </p>
-            </div>
+            <CardFooter className="w-full p-6 flex items-center justify-center">
+              <CardDescription className="text-md">
+                Currently bands connected.
+              </CardDescription>
+            </CardFooter>
+          </Card>
+        </div>
 
-            <div className="grid gap-2">
-              <p className="text-sm font-bold">Bandwidth</p>
-              <p>
-                <Skeleton className="w-16 h-4" />
-              </p>
-            </div>
+        <div className="flex items-center justify-center mx-auto lg:hidden">
+          <Carousel className="w-full max-w-xs">
+            <CarouselContent>
+              <CarouselItem>
+                <div className="p-0.5">
+                  <Card>
+                    <CardContent className="grid gap-2 p-2">
+                      <div className="flex justify-between">
+                        <p>Band</p>
+                        <p>
+                          <Skeleton className="w-16 h-4" />
+                        </p>
+                      </div>
 
-            <div className="grid gap-2">
-              <p className="text-sm font-bold">PCI</p>
-              <p>
-                <Skeleton className="w-16 h-4" />
-              </p>
-            </div>
+                      <div className="flex justify-between">
+                        <p>E/ARFCN</p>
+                        <p>
+                          <Skeleton className="w-16 h-4" />
+                        </p>
+                      </div>
 
-            <div className="grid gap-2">
-              <p className="text-sm font-bold">RSRP</p>
-              <p>
-                <Skeleton className="w-24 h-4" />
-              </p>
-            </div>
+                      <div className="flex justify-between">
+                        <p>Bandwidth</p>
+                        <p>
+                          <Skeleton className="w-16 h-4" />
+                        </p>
+                      </div>
 
-            <div className="grid gap-2">
-              <p className="text-sm font-bold">RSRQ</p>
-              <p>
-                <Skeleton className="w-24 h-4" />
-              </p>
-            </div>
+                      <div className="flex justify-between">
+                        <p>PCI</p>
+                        <p>
+                          <Skeleton className="w-16 h-4" />
+                        </p>
+                      </div>
 
-            <div className="grid gap-2">
-              <p className="text-sm font-bold">SINR</p>
-              <p>
-                <Skeleton className="w-24 h-4" />
-              </p>
-            </div>
-          </div>
-        </Card>
-      </Card>
+                      <div className="flex justify-between">
+                        <p>RSRP</p>
+                        <p>
+                          <Skeleton className="w-32 h-4" />
+                        </p>
+                      </div>
+
+                      <div className="flex justify-between">
+                        <p>RSRQ</p>
+                        <p>
+                          <Skeleton className="w-32 h-4" />
+                        </p>
+                      </div>
+
+                      <div className="flex justify-between">
+                        <p>SINR</p>
+                        <p>
+                          <Skeleton className="w-32 h-4" />
+                        </p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </CarouselItem>
+            </CarouselContent>
+            <CarouselPrevious />
+            <CarouselNext />
+          </Carousel>
+        </div>
+      </>
     );
   }
 
   return (
-    <Card className="p-6 grid gap-4 bg-slate-950">
-      {bands && (
-        <SortableContext items={bands} strategy={verticalListSortingStrategy}>
-          {bands.map((band: Band) => (
-            <BandCard key={band.id} {...band} />
-          ))}
-        </SortableContext>
-      )}
-      <CardFooter className="w-full p-6 flex flex-col gap-1 items-center justify-center">
-        <CardTitle className="text-lg font-bold">
-          Drag and drop the LTE bands to change LTE Band priority.
-        </CardTitle>
-        <CardDescription className="text-sm italic">
-          The bands will be saved automatically. This will not work with NR5G bands.
-        </CardDescription>
-      </CardFooter>
+    <>
+      <div className="hidden lg:block">
+        <Card className="p-6 grid gap-4">
+              {bands && bands.map((band: Band) => (
+                <BandCard key={band.id} {...band} />
+              ))}
+          <CardFooter className="w-full p-6 flex items-center justify-center">
+         
+            <CardDescription className="text-md">
+              Current bands connected.
+            </CardDescription>
+          </CardFooter>
+        </Card>
+      </div>
 
-    </Card>
+      <div className="flex items-center justify-center mx-auto lg:hidden">
+        <Carousel className="w-full max-w-xs">
+          <CarouselContent>
+            {bands?.map((band) => (
+              <CarouselItem key={band.id}>
+                <div className="p-0.5">
+                  <Card>
+                    <CardContent className="grid gap-2 p-6 aspect-square">
+                      <div className="flex justify-between">
+                        <p>Band</p>
+                        <p>{band.bandNumber}</p>
+                      </div>
+
+                      <div className="flex justify-between">
+                        <p>E/ARFCN</p>
+                        <p>{band.earfcn}</p>
+                      </div>
+
+                      <div className="flex justify-between">
+                        <p>Bandwidth</p>
+                        <p>{band.bandwidth}</p>
+                      </div>
+
+                      <div className="flex justify-between">
+                        <p>PCI</p>
+                        <p>{band.pci}</p>
+                      </div>
+
+                      <div className="flex justify-between">
+                        <p>RSRP</p>
+                        <Badge
+                          className={
+                            parseInt(band.rsrp) >= -80
+                              ? "bg-emerald-500 hover:bg-emerald-800"
+                              : parseInt(band.rsrp) >= -100
+                              ? "bg-orange-500 hover:bg-orange-800"
+                              : "bg-rose-500 hover:bg-rose-800"
+                          }
+                        >
+                          {band.rsrp} dBm
+                        </Badge>
+                      </div>
+
+                      <div className="flex justify-between">
+                        <p>RSRQ</p>
+                        <Badge
+                          className={
+                            parseInt(band.rsrq) <= 10
+                              ? "bg-emerald-500 hover:bg-emerald-800"
+                              : parseInt(band.rsrq) <= 20
+                              ? "bg-orange-500 hover:bg-orange-800"
+                              : "bg-rose-500 hover:bg-rose-800"
+                          }
+                        >
+                          {band.rsrq} dB
+                        </Badge>
+                      </div>
+
+                      <div className="flex justify-between">
+                        <p>SINR</p>
+                        <Badge
+                          className={
+                            parseInt(band.sinr) >= 20
+                              ? "bg-emerald-500 hover:bg-emerald-800"
+                              : parseInt(band.sinr) >= 0
+                              ? "bg-orange-500 hover:bg-orange-800"
+                              : "bg-rose-500 hover:bg-rose-800"
+                          }
+                        >
+                          {band.sinr} dB
+                        </Badge>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </CarouselItem>
+            ))}
+          </CarouselContent>
+          <CarouselPrevious />
+          <CarouselNext />
+        </Carousel>
+      </div>
+    </>
   );
 };
 

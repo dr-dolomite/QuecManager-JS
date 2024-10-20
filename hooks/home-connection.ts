@@ -2,15 +2,20 @@ import { useState, useEffect, useCallback } from 'react';
 
 const useDataConnectionState = () => {
   const [dataConnectionState, setDataConnectionState] = useState<string>("Unknown");
+  const [isStateLoading, setIsStateLoading] = useState(true);
 
   const fetchDataConnectionState = useCallback(async () => {
     try {
+      setIsStateLoading(true);
       const response = await fetch("/api/data-connection-state");
       const data = await response.json();
-      setDataConnectionState(data === "ACTIVE" ? "Connected" : "Disconnected");
+      console.log("Data connection state:", data);
+      setDataConnectionState(data.connection === "ACTIVE" ? "Connected" : "Disconnected");
+      setIsStateLoading(false);
     } catch (error) {
       console.error("Error fetching data connection state:", error);
       setDataConnectionState("Unknown");
+      setIsStateLoading(false);
     }
   }, []);
 
@@ -27,7 +32,7 @@ const useDataConnectionState = () => {
     fetchDataConnectionState();
   }, [fetchDataConnectionState]);
 
-  return { dataConnectionState, refresh };
+  return { dataConnectionState, refresh, isStateLoading };
 };
 
 export default useDataConnectionState;
