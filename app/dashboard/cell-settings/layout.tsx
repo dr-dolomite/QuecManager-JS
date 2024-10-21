@@ -27,6 +27,9 @@ const CellSettingsLayout = ({ children }: CellSettingsLayoutProps) => {
           <Link href="/dashboard/cell-settings/band-locking" className={`${currentPathName === "/dashboard/cell-settings/band-locking/" ? "font-semibold text-primary" : 'text-sm'}`}>
           Band Locking
           </Link>
+          <Link href="/dashboard/cell-settings/cell-locking" className={`${currentPathName === "/dashboard/cell-settings/cell-locking/" ? "font-semibold text-primary" : 'text-sm'}`}>
+          Cellular Locking
+          </Link>
         </nav>
         {children}
       </div>

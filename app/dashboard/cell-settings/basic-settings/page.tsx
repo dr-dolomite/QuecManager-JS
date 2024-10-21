@@ -22,6 +22,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { Trash2 } from "lucide-react";
 
 const BasicSettings = () => {
   return (
@@ -199,8 +200,12 @@ const BasicSettings = () => {
             </div>
           </form>
         </CardContent>
-        <CardFooter className="border-t px-6 py-4">
+        <CardFooter className="border-t px-6 py-4 flex space-x-6">
           <Button>Save</Button>
+          <Button variant="secondary">
+            <Trash2 className="h-4 w-4 mr-2" />
+            Remove APN Profiles
+            </Button>
         </CardFooter>
       </Card>
     </div>
