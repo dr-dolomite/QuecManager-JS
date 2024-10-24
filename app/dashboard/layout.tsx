@@ -3,13 +3,13 @@ import Link from "next/link";
 import { useAuth } from "@/hooks/auth";
 import { ProtectedRoute } from "@/components/hoc/protected-route";
 import * as React from "react";
-import { RadioTower, User2Icon, Menu } from "lucide-react";
+import { useState } from "react";
+import { RadioTower, User2Icon, Menu, Power } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 
 import {
   DropdownMenu,
-  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
@@ -17,10 +17,23 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+
 import { Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
 
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { useToast } from "@/hooks/use-toast";
 import { usePathname } from "next/navigation";
 
 interface DashboardLayoutProps {
@@ -31,6 +44,97 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const currentPathName = usePathname();
   const { logout } = useAuth();
   const { setTheme } = useTheme();
+  const [isRebooting, setIsRebooting] = useState(false);
+  const toast = useToast();
+
+  // API calls should be moved to a separate service/utility file
+  const atCommandSender = async (command: string) => {
+    try {
+      // Add error handling
+      const response = await fetch("/api/at-handler", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ command }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      return response;
+    } catch (error) {
+      console.error("AT Command error:", error);
+      throw error; // Re-throw to handle in calling function
+    }
+  };
+
+  // Consider extracting these handlers to custom hooks
+  const handleReboot = async () => {
+    try {
+      setIsRebooting(true);
+      await atCommandSender("AT+QPOWD=1"); // Handle response properly
+
+      toast.toast({
+        title: "Rebooting device",
+        description: "Please wait for the device to restart.",
+      });
+
+      // Use constants for timeout values
+      const REBOOT_TIMEOUT = 90000;
+      const RELOAD_DELAY = 2000;
+
+      setTimeout(() => {
+        toast.toast({
+          title: "Device is now active",
+          description: "The device has been rebooted successfully.",
+        });
+      }, REBOOT_TIMEOUT);
+
+      setTimeout(() => {
+        window.location.reload();
+      }, REBOOT_TIMEOUT + RELOAD_DELAY);
+    } catch (error) {
+      console.error("Reboot error:", error);
+      toast.toast({
+        title: "Failed to reboot device",
+        description: "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsRebooting(false);
+    }
+  };
+
+  const handleReconnect = async () => {
+    try {
+      await atCommandSender("AT+COPS=2");
+
+      toast.toast({
+        title: "Reconnecting to network",
+        description: "Please wait for the device to reconnect.",
+      });
+
+      // Use Promise instead of setTimeout for better error handling
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+      await atCommandSender("AT+COPS=0");
+
+      toast.toast({
+        title: "Reconnected to network",
+        description: "The device has been reconnected successfully.",
+      });
+
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+      window.location.reload();
+    } catch (error) {
+      toast.toast({
+        title: "Failed to reconnect to network",
+        description: "Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
 
   return (
     <div className="flex min-h-screen w-full flex-col">
@@ -198,6 +302,38 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                 >
                   Support
                 </a>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={handleReconnect}>
+                Reconnect
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <button className="relative flex w-full cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors hover:bg-accent hover:text-accent-foreground">
+                      Reboot
+                    </button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This will reboot your device. The connection will be
+                        lost temporarily. Please wait for the page to reload.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={handleReboot}
+                        disabled={isRebooting}
+                      >
+                        <Power className="size-4" />
+                        Reboot Now
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={logout}>Logout</DropdownMenuItem>

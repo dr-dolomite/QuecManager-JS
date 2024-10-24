@@ -73,6 +73,14 @@ export interface Band {
   sinr: string;
 }
 
+export interface CellSettingsData {
+  currentAPN?: string;
+  apnPDPType?: string;
+  preferredNetworkType?: string;
+  nr5gMode?: string;
+  simSlot?: string;
+}
+
 // You might also want to define some utility types for the bandwidth maps and access tech map
 
 export type BandwidthMap = {

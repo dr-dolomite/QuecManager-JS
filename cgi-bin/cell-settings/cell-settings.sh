@@ -11,6 +11,10 @@ LOCK_FILE="/tmp/home_data.lock"
 exec 200>$LOCK_FILE
 flock -x 200
 
+# Temporary files for input/output and AT port
+INPUT_FILE="/tmp/input_$$.txt"
+OUTPUT_FILE="/tmp/output_$$.txt"
+
 # Debug logging
 DEBUG_LOG="/tmp/debug.log"
 echo "Starting script at $(date)" > "$DEBUG_LOG"
@@ -48,7 +52,6 @@ fi
 
 # Function to escape JSON strings (handling quotes and newlines)
 escape_json() {
-    # Escape newlines and double quotes
     echo "$1" | sed ':a;N;$!ba;s/\n/\\n/g; s/"/\\"/g'
 }
 
@@ -56,20 +59,29 @@ escape_json() {
 JSON_RESPONSE="["
 
 # List of AT commands to run, one by one
-for COMMAND in 'AT+CGDCONT?' 'AT+QNWPREFCFG="mode_pref"' 'AT+QNWPREFCFG="nr5g_disable_mode"' 'AT+QUIMSLOT?'; do
+for COMMAND in 'AT+CGDCONT?' 'AT+CGCONTRDP' 'AT+QNWPREFCFG="mode_pref"' 'AT+QNWPREFCFG="nr5g_disable_mode"' 'AT+QUIMSLOT?' ; do
+    # Debug log for each command
+    echo "Processing command: $COMMAND" >> "$DEBUG_LOG"
+    
     # Write the command to the input file
     echo "$COMMAND" > "$INPUT_FILE"
+    
+    # Run the command using atinout with full path to device
+    atinout "$INPUT_FILE" "/dev/$AT_PORT" "$OUTPUT_FILE" 2>> "$DEBUG_LOG"
+    
+    # Check if output file exists and has content
+    if [ ! -f "$OUTPUT_FILE" ]; then
+        echo "Output file not created for command: $COMMAND" >> "$DEBUG_LOG"
+        OUTPUT="Error: No output file"
+    else
+        OUTPUT=$(cat "$OUTPUT_FILE" 2>> "$DEBUG_LOG" || echo "Error reading output")
+        echo "Command output: $OUTPUT" >> "$DEBUG_LOG"
+    fi
 
-    # Run the command using atinout
-    atinout "$INPUT_FILE" "/dev/$AT_PORT" "$OUTPUT_FILE"
-
-    # Read the output from the output file
-    OUTPUT=$(cat "$OUTPUT_FILE")
-
-    # Escape special characters for JSON (escape only output)
+    # Escape special characters for JSON
     ESCAPED_OUTPUT=$(escape_json "$OUTPUT")
 
-    # Append the response as an object to the JSON response array
+    # Append the response
     JSON_RESPONSE="${JSON_RESPONSE}{\"response\":\"$ESCAPED_OUTPUT\"},"
 done
 
@@ -80,11 +92,16 @@ else
     JSON_RESPONSE="${JSON_RESPONSE}]"
 fi
 
+# Write the JSON response to the debug file
+echo "$JSON_RESPONSE" >> "$DEBUG_LOG"
+
 # Return the output as a valid JSON response
 echo "$JSON_RESPONSE"
 
 # Clean up temporary files
-rm "$INPUT_FILE" "$OUTPUT_FILE"
+rm -f "$INPUT_FILE" "$OUTPUT_FILE"
 
 # Release the lock
 flock -u 200
+
+echo "Script completed at $(date)" >> "$DEBUG_LOG"

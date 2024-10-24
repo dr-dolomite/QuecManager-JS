@@ -21,6 +21,7 @@ export async function POST(request: NextRequest) {
     });
 
     const data = await response.json();
+    console.log('AT command response:', data);
     return NextResponse.json(data);
   } catch (error) {
     console.error('Error during login:', error);
