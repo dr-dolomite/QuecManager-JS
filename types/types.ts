@@ -135,3 +135,5 @@ const ACCESS_TECH_MAP: AccessTechMap = {
 // const BANDWIDTH_MAP: BandwidthMap = { ... };
 // const NR_BANDWIDTH_MAP: BandwidthMap = { ... };
 // const ACCESS_TECH_MAP: AccessTechMap = { ... };
+
+
