@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
     const encodedOldPassword = encodeURIComponent(oldPassword);
     const encodedNewPassword = encodeURIComponent(newPassword);
 
-    const response = await fetch('http://192.168.224.1/cgi-bin/settings/change-password.sh', {
+    const response = await fetch('/cgi-bin/settings/change-password.sh', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',

@@ -10,7 +10,8 @@ const useHomeData = () => {
 
   const fetchRefreshRate = async () => {
     try {
-      const refreshRateResponse = await fetch("/api/config-fetch");
+      // const refreshRateResponse = await fetch("/api/config-fetch");
+      const refreshRateResponse = await fetch("/cgi-bin/settings/fetch-config.sh");
       const refreshRateData = await refreshRateResponse.json();
       // Convert to number and ensure it's at least 1000ms
       const newRate = Math.max(1000, parseInt(refreshRateData.data_refresh_rate));
@@ -23,7 +24,7 @@ const useHomeData = () => {
   const fetchHomeData = useCallback(async () => {
     try {
       setIsLoading(true);
-      const response = await fetch("/api/home-stats");
+      const response = await fetch("/cgi-bin/home/home_data.sh");
       const rawData = await response.json();
       console.log(rawData);
 

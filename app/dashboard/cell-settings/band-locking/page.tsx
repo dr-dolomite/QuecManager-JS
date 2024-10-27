@@ -60,12 +60,14 @@ const BandLocking = () => {
 
   const atCommandSender = async (command: string): Promise<ATResponse> => {
     try {
-      const response = await fetch("/api/at-handler", {
+      const encodedCommand = encodeURIComponent(command);
+      const response = await fetch("/cgi-bin/atinout_handler.sh", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ command }),
+        // body: JSON.stringify({ command }),
+        body: `command=${encodedCommand}`,
         signal: AbortSignal.timeout(5000),
       });
 
@@ -132,6 +134,9 @@ const BandLocking = () => {
   };
 
   const fetchCheckedBands = async () => {
+    // Add a timeout that if the response is not received within 5 seconds, it will throw an error
+    // This is to prevent the app from hanging indefinitely
+
     try {
       const response = await atCommandSender(
         'AT+QNWPREFCFG="lte_band";+QNWPREFCFG="nsa_nr5g_band";+QNWPREFCFG="nr5g_band"'
@@ -235,9 +240,9 @@ const BandLocking = () => {
         <CardTitle>{title}</CardTitle>
         <CardDescription>{description}</CardDescription>
       </CardHeader>
-      <CardContent className="grid lg:grid-cols-8 md:grid-cols-6 grid-cols-4 grid-flow-row gap-4">
+      <CardContent className="grid lg:grid-cols-8 md:grid-cols-6 sm:grid-cols-4 grid-cols-3 grid-flow-row gap-4">
         {loading ? (
-          <div>Loading...</div>
+          <div className="col-span-8">Fetching bands...</div>
         ) : (
           bands[bandType].map((band) => (
             <div className="flex items-center space-x-2" key={band}>
@@ -257,9 +262,9 @@ const BandLocking = () => {
           ))
         )}
       </CardContent>
-      <CardFooter className="border-t py-4 px-6 flex flex-row items-center space-x-6 mt-2">
+      <CardFooter className="border-t py-4 grid grid-flow-row md:grid-cols-3 grid-cols-1 gap-3">
         <Button onClick={() => handleLockBands(bandType)}>
-          <LockIcon className="h-4 w-4 mr-2" />
+          <LockIcon className="h-4 w-4" />
           Lock Selected Bands
         </Button>
         <Button variant="secondary" onClick={() => handleUncheckAll(bandType)}>
@@ -269,7 +274,7 @@ const BandLocking = () => {
           variant="secondary"
           onClick={() => handleResetToDefault(bandType)}
         >
-          <RefreshCw className="h-4 w-4 mr-2" />
+          <RefreshCw className="h-4 w-4" />
           Reset to Default
         </Button>
       </CardFooter>

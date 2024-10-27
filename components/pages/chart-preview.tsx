@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Bar, BarChart, LabelList, XAxis, YAxis } from "recharts";
 import {
   Card,
@@ -8,14 +8,12 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from "@/components//ui/card";
-
-import { Button } from "@/components//ui/button";
-
+} from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 import Link from "next/link";
-
-import { ChartContainer } from "@/components//ui/chart";
-import { Separator } from "@/components//ui/separator";
+import { ChartContainer } from "@/components/ui/chart";
+import { Separator } from "@/components/ui/separator";
 import { ModeToggle } from "@/components/dark-mode-toggle";
 import { calculateSignalPercentage } from "@/utils/signalMetrics";
 import { ArrowRightIcon } from "@radix-ui/react-icons";
@@ -31,115 +29,134 @@ interface ChartDataItem {
   fill: string;
 }
 
+interface SignalData {
+  rsrp: number | null;
+  rsrq: number | null;
+  sinr: number | null;
+  networkType: string;
+  bands: string | null;
+  networkName: string;
+}
+
 const processSignalValues = (matches: string[] | null): number | null => {
   if (!matches) return null;
-
   const validValues = matches.map(Number).filter((val) => val !== -32768);
-
   if (validValues.length === 0) return null;
-
   const sum = validValues.reduce((acc, curr) => acc + curr, 0);
   return sum / validValues.length;
 };
 
 export default function ChartPreviewSignal() {
-  const [rsrp, setRsrp] = useState<number | null>(null);
-  const [rsrq, setRsrq] = useState<number | null>(null);
-  const [sinr, setSinr] = useState<number | null>(null);
-  const [networkType, setNetworkType] = useState<string>("");
-  const [bands, setBands] = useState<string | null>(null);
-  const [networkName, setNetworkName] = useState<string>("");
+  const [signalData, setSignalData] = useState<SignalData>({
+    rsrp: null,
+    rsrq: null,
+    sinr: null,
+    networkType: "",
+    bands: null,
+    networkName: "",
+  });
+  const [isLoading, setIsLoading] = useState(true);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const previousData = useRef<SignalData | null>(null);
 
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        // const response = await fetch("/cgi-bin/preview/quick-stats.sh");
-        const response = await fetch("/api/quick-stats");
+        const response = await fetch("/cgi-bin/preview/quick-stats.sh");
         const data: ModemResponse[] = await response.json();
 
         if (data) {
-          setRsrp(processSignalValues(data[0].response.match(/-?\d+/g)));
-          setRsrq(processSignalValues(data[1].response.match(/-?\d+/g)));
-          setSinr(processSignalValues(data[2].response.match(/-?\d+/g)));
+          const newData: SignalData = {
+            rsrp: processSignalValues(data[0].response.match(/-?\d+/g)),
+            rsrq: processSignalValues(data[1].response.match(/-?\d+/g)),
+            sinr: processSignalValues(data[2].response.match(/-?\d+/g)),
+            networkType: "",
+            bands: null,
+            networkName: "",
+          };
 
           const bands = data[3].response.match(
             /"LTE BAND \d+"|"NR5G BAND \d+"/g
           );
 
-          // Check bands for LTE and NR5G
           const hasLTE = bands?.some((band) => band.includes("LTE"));
           const hasNR5G = bands?.some((band) => band.includes("NR5G"));
 
-          // Get the network type
-          if (hasLTE && hasNR5G) {
-            setNetworkType("NR5G-NSA");
-          } else if (hasLTE) {
-            setNetworkType("LTE");
-          } else if (hasNR5G) {
-            setNetworkType("NR5G-SA");
-          } else {
-            setNetworkType("No Signal");
-          }
+          newData.networkType = hasLTE && hasNR5G
+            ? "NR5G-NSA"
+            : hasLTE
+            ? "LTE"
+            : hasNR5G
+            ? "NR5G-SA"
+            : "No Signal";
 
-          // Parse the bands to only show B<number> for LTE Bands and N<number> for NR5G Bands and then combine them separated by a comma like B1, N78
           const parsedBands = bands?.map((band) => {
             if (band.includes("LTE")) {
               return `B${band.match(/\d+/)}`;
             } else if (band.includes("NR5G")) {
-              // Remove quotes and spaces from the band number
               return `N${band.split(" ")[2].replace(/"/g, "").trim()}`;
             }
           });
-          if (parsedBands) {
-            setBands(parsedBands.join(", "));
+          
+          newData.bands = parsedBands ? parsedBands.join(", ") : "No Signal";
+          newData.networkName = data[4].response
+            .split("\n")[1]
+            .split(":")[1]
+            .split(",")[1]
+            .replace(/"/g, "")
+            .trim() || "No Signal";
+
+          // Check if any values have changed
+          const hasChanges = !previousData.current || Object.keys(newData).some(
+            (key) => previousData.current?.[key as keyof SignalData] !== newData[key as keyof SignalData]
+          );
+
+          if (hasChanges) {
+            setIsUpdating(true);
+            setTimeout(() => {
+              setSignalData(newData);
+              previousData.current = newData;
+              setIsUpdating(false);
+            }, 300);
           } else {
-            setBands("No Signal");
+            setSignalData(newData);
+            previousData.current = newData;
           }
-        }
-
-        //   Network Name
-        const networkName = data[4].response
-          .split("\n")[1]
-          .split(":")[1]
-          .split(",")[1]
-          .replace(/"/g, "")
-          .trim();
-
-        if (networkName) {
-          setNetworkName(networkName);
-        } else {
-          setNetworkName("No Signal");
         }
       } catch (error) {
         console.error("Error fetching stats:", error);
+      } finally {
+        setIsLoading(false);
       }
     };
 
     fetchStats();
-    const intervalId = setInterval(fetchStats, 5000);
+    const intervalId = setInterval(fetchStats, 3000);
     return () => clearInterval(intervalId);
   }, []);
 
   const chartData: ChartDataItem[] = [
     {
       activity: "rsrp",
-      value: rsrp !== null ? calculateSignalPercentage("rsrp", rsrp) : 0,
-      label: rsrp !== null ? `${rsrp.toFixed(1)} dBm` : "No Signal",
+      value: signalData.rsrp !== null ? calculateSignalPercentage("rsrp", signalData.rsrp) : 0,
+      label: signalData.rsrp !== null ? `${signalData.rsrp.toFixed(1)} dBm` : "No Signal",
       fill: "hsl(var(--chart-1))",
     },
     {
       activity: "rsrq",
-      value: rsrq !== null ? calculateSignalPercentage("rsrq", rsrq) : 0,
-      label: rsrq !== null ? `${rsrq.toFixed(1)} dB` : "No Signal",
+      value: signalData.rsrq !== null ? calculateSignalPercentage("rsrq", signalData.rsrq) : 0,
+      label: signalData.rsrq !== null ? `${signalData.rsrq.toFixed(1)} dB` : "No Signal",
       fill: "hsl(var(--chart-2))",
     },
     {
       activity: "sinr",
-      value: sinr !== null ? calculateSignalPercentage("sinr", sinr) : 0,
-      label: sinr !== null ? `${sinr.toFixed(1)} dB` : "No Signal",
+      value: signalData.sinr !== null ? calculateSignalPercentage("sinr", signalData.sinr) : 0,
+      label: signalData.sinr !== null ? `${signalData.sinr.toFixed(1)} dB` : "No Signal",
       fill: "hsl(var(--chart-3))",
     },
   ];
+
+  const showLoadingState = isLoading || isUpdating;
 
   return (
     <Card className="xl:max-w-xl xl:w-[800px] max-w-sm">
@@ -151,62 +168,78 @@ export default function ChartPreviewSignal() {
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         <div className="flex flex-row justify-evenly items-center w-full p-2 border-t border-b">
-          <div>{networkName}</div>
+          {showLoadingState ? (
+            <Skeleton className="h-8 w-24" />
+          ) : (
+            <div>{signalData.networkName}</div>
+          )}
           <Separator orientation="vertical" className="mx-2 h-10 w-px" />
-          <div>{networkType}</div>
+          {showLoadingState ? (
+            <Skeleton className="h-8 w-24" />
+          ) : (
+            <div>{signalData.networkType}</div>
+          )}
           <Separator orientation="vertical" className="mx-2 h-10 w-px" />
-          <div>{bands}</div>
+          {showLoadingState ? (
+            <Skeleton className="h-8 w-24" />
+          ) : (
+            <div>{signalData.bands}</div>
+          )}
         </div>
         <div className="flex gap-4 xl:p-4 p-2 pb-2">
-          <ChartContainer
-            config={{
-              sinr: {
-                label: "sinr",
-                color: "hsl(var(--chart-1))",
-              },
-              rsrp: {
-                label: "rsrp",
-                color: "hsl(var(--chart-2))",
-              },
-              rsrq: {
-                label: "rsrq",
-                color: "hsl(var(--chart-3))",
-              },
-            }}
-            className="h-[140px] w-full"
-          >
-            <BarChart
-              margin={{
-                left: 0,
-                right: 0,
-                top: 0,
-                bottom: 10,
+          {showLoadingState ? (
+            <Skeleton className="h-[140px] w-full" />
+          ) : (
+            <ChartContainer
+              config={{
+                sinr: {
+                  label: "sinr",
+                  color: "hsl(var(--chart-1))",
+                },
+                rsrp: {
+                  label: "rsrp",
+                  color: "hsl(var(--chart-2))",
+                },
+                rsrq: {
+                  label: "rsrq",
+                  color: "hsl(var(--chart-3))",
+                },
               }}
-              data={chartData}
-              layout="vertical"
-              barSize={32}
-              barGap={2}
+              className="h-[140px] w-full"
             >
-              <XAxis type="number" dataKey="value" hide />
-              <YAxis
-                dataKey="activity"
-                type="category"
-                tickLine={false}
-                tickMargin={4}
-                axisLine={false}
-                className="uppercase"
-              />
-              <Bar dataKey="value" radius={5}>
-                <LabelList
-                  position="insideLeft"
-                  dataKey="label"
-                  fill="white"
-                  offset={8}
-                  fontSize={12}
+              <BarChart
+                margin={{
+                  left: 0,
+                  right: 0,
+                  top: 0,
+                  bottom: 10,
+                }}
+                data={chartData}
+                layout="vertical"
+                barSize={32}
+                barGap={2}
+              >
+                <XAxis type="number" dataKey="value" hide />
+                <YAxis
+                  dataKey="activity"
+                  type="category"
+                  tickLine={false}
+                  tickMargin={4}
+                  axisLine={false}
+                  className="uppercase"
                 />
-              </Bar>
-            </BarChart>
-          </ChartContainer>
+                <Bar dataKey="value" radius={5}>
+                  <LabelList
+                    position="insideLeft"
+                    dataKey="label"
+                    fill="white"
+                    offset={8}
+                    fontSize={12}
+                  />
+                </Bar>
+              </BarChart>
+            </ChartContainer>
+          )}
         </div>
       </CardContent>
       <CardFooter className="flex flex-col gap-4">
@@ -214,32 +247,44 @@ export default function ChartPreviewSignal() {
           <div className="flex w-full items-center gap-2">
             <div className="grid flex-1 auto-rows-min gap-0.5">
               <div className="text-xs text-muted-foreground">RSRP</div>
-              <div className="flex items-baseline gap-1 xl:text-2xl text-md font-bold tabular-nums leading-none">
-                {rsrp?.toFixed(1)}
-                <span className="text-sm font-normal text-muted-foreground">
-                  dBm
-                </span>
-              </div>
+              {showLoadingState ? (
+                <Skeleton className="h-8 w-24" />
+              ) : (
+                <div className="flex items-baseline gap-1 xl:text-2xl text-md font-bold tabular-nums leading-none">
+                  {signalData.rsrp?.toFixed(1)}
+                  <span className="text-sm font-normal text-muted-foreground">
+                    dBm
+                  </span>
+                </div>
+              )}
             </div>
             <Separator orientation="vertical" className="mx-2 h-10 w-px" />
             <div className="grid flex-1 auto-rows-min gap-0.5">
               <div className="text-xs text-muted-foreground">RSRQ</div>
-              <div className="flex items-baseline gap-1 xl:text-2xl text-md font-bold tabular-nums leading-none">
-                {rsrq?.toFixed(1)}
-                <span className="text-sm font-normal text-muted-foreground">
-                  dB
-                </span>
-              </div>
+              {showLoadingState ? (
+                <Skeleton className="h-8 w-24" />
+              ) : (
+                <div className="flex items-baseline gap-1 xl:text-2xl text-md font-bold tabular-nums leading-none">
+                  {signalData.rsrq?.toFixed(1)}
+                  <span className="text-sm font-normal text-muted-foreground">
+                    dB
+                  </span>
+                </div>
+              )}
             </div>
             <Separator orientation="vertical" className="mx-2 h-10 w-px" />
             <div className="grid flex-1 auto-rows-min gap-0.5">
               <div className="text-xs text-muted-foreground">SINR</div>
-              <div className="flex items-baseline gap-1 xl:text-2xl text-md font-bold tabular-nums leading-none">
-                {sinr?.toFixed(1)}
-                <span className="text-sm font-normal text-muted-foreground">
-                  dB
-                </span>
-              </div>
+              {showLoadingState ? (
+                <Skeleton className="h-8 w-24" />
+              ) : (
+                <div className="flex items-baseline gap-1 xl:text-2xl text-md font-bold tabular-nums leading-none">
+                  {signalData.sinr?.toFixed(1)}
+                  <span className="text-sm font-normal text-muted-foreground">
+                    dB
+                  </span>
+                </div>
+              )}
             </div>
           </div>
         </div>

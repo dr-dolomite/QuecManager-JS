@@ -22,13 +22,16 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { LockIcon, RefreshCcw } from "lucide-react";
+import { Toggle } from "@/components/ui/toggle";
+import { LockIcon, RefreshCcw, Save } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const CellLockingPage = () => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [locked, setLocked] = useState(false);
+  const [ltePersist, setLtePersist] = useState(false);
+  const [nr5gPersist, setNr5gPersist] = useState(false);
 
   // LTE state
   const [lteState, setLteState] = useState({
@@ -49,13 +52,15 @@ const CellLockingPage = () => {
   });
 
   const handleATCommand = async (command: string) => {
+    const encodedCommand = encodeURIComponent(command);
     try {
-      const response = await fetch("/api/at-handler", {
+      const response = await fetch("/cgi-bin/atinout_handler.sh", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ command }),
+        // body: JSON.stringify({ command }),
+        body: `command=${encodedCommand}`,
       });
 
       const data = await response.json();
@@ -77,24 +82,49 @@ const CellLockingPage = () => {
     // Extract the content between +QNWLOCK: and OK
     const match = response.match(/\+QNWLOCK:\s*(.+?)\n/);
     if (!match) return null;
-    
+
     // Remove quotes and split by comma
-    return match[1].replace(/"/g, '').split(',').map(item => item.trim());
+    return match[1]
+      .replace(/"/g, "")
+      .split(",")
+      .map((item) => item.trim());
+  };
+
+  const fetchPersistStatus = async () => {
+    try {
+      const response = await handleATCommand('AT+QNWLOCK="save_ctrl"');
+      if (response && response.output) {
+        const parsedData = parseATResponse(response.output);
+        console.log("Persist status:", parsedData);
+        if (parsedData && parsedData.length >= 2) {
+          setLtePersist(parsedData[1] === "1");
+          setNr5gPersist(parsedData[2] === "1");
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching persist status:", error);
+    }
   };
 
   const fetchCurrentStatus = async () => {
     try {
       setLoading(true);
-      
+
+      // Fetch persist status
+      await fetchPersistStatus();
+
+      // Wait for a second
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
       // Fetch LTE status
       const lteResponse = await handleATCommand('AT+QNWLOCK="common/4g"');
       console.log("Current LTE lock status:", lteResponse);
-      
+
       if (lteResponse && lteResponse.output) {
         const parsedData = parseATResponse(lteResponse.output);
         if (parsedData) {
           const numCells = parseInt(parsedData[1]);
-          
+
           const newLteState = {
             EARFCN1: numCells >= 1 ? parsedData[2] : "",
             PCI1: numCells >= 1 ? parsedData[3] : "",
@@ -104,7 +134,7 @@ const CellLockingPage = () => {
             PCI3: numCells >= 3 ? parsedData[7] : "",
           };
           setLteState(newLteState);
-          
+
           if (numCells > 0) {
             setLocked(true);
           }
@@ -114,7 +144,7 @@ const CellLockingPage = () => {
       // Fetch NR5G status
       const nr5gResponse = await handleATCommand('AT+QNWLOCK="common/5g"');
       console.log("Current NR5G lock status:", nr5gResponse);
-      
+
       if (nr5gResponse && nr5gResponse.output) {
         const parsedData = parseATResponse(nr5gResponse.output);
         if (parsedData && parsedData.length >= 5) {
@@ -130,7 +160,6 @@ const CellLockingPage = () => {
           }
         }
       }
-      
     } catch (error) {
       console.error("Error fetching current status:", error);
       toast({
@@ -253,7 +282,7 @@ const CellLockingPage = () => {
       // Wait for 2 seconds
       await new Promise((resolve) => setTimeout(resolve, 2000));
       await handleATCommand("AT+COPS=0");
-      
+
       // Refetch status
       await fetchCurrentStatus();
 
@@ -280,7 +309,7 @@ const CellLockingPage = () => {
       // Wait for 2 seconds
       await new Promise((resolve) => setTimeout(resolve, 2000));
       await handleATCommand("AT+COPS=0");
-      
+
       // Refetch status
       await fetchCurrentStatus();
 
@@ -295,6 +324,60 @@ const CellLockingPage = () => {
         description: "Failed to reset NR5G cell locking",
         variant: "destructive",
       });
+    }
+  };
+
+  const handleLTEPersistToggle = async (pressed: boolean) => {
+    try {
+      setLoading(true);
+      await handleATCommand(
+        `AT+QNWLOCK="save_ctrl",${pressed ? "1" : "0"},${
+          nr5gPersist ? "1" : "0"
+        }`
+      );
+      await fetchPersistStatus();
+      toast({
+        title: "Success",
+        description: `LTE persist on boot ${pressed ? "enabled" : "disabled"}`,
+      });
+      // Wait for a 2 seconds
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+      window.location.reload();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update LTE persist setting",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleNR5GPersistToggle = async (pressed: boolean) => {
+    try {
+      setLoading(true);
+      await handleATCommand(
+        `AT+QNWLOCK="save_ctrl",${ltePersist ? "1" : "0"},${
+          pressed ? "1" : "0"
+        }`
+      );
+      await fetchPersistStatus();
+      toast({
+        title: "Success",
+        description: `NR5G persist on boot ${pressed ? "enabled" : "disabled"}`,
+      });
+      // Wait for a 2 seconds
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+      window.location.reload();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update NR5G persist setting",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -385,13 +468,25 @@ const CellLockingPage = () => {
             </div>
           </form>
         </CardContent>
-        <CardFooter className="border-t py-4 px-6 flex flex-row items-center space-x-6 mt-2">
+        <CardFooter className="border-t py-4 grid grid-flow-row md:grid-cols-3 grid-cols-1 gap-4">
           <Button onClick={handleLTELock} disabled={loading}>
-            <LockIcon className="h-4 w-4 mr-2" />
+            <LockIcon className="h-4 w-4" />
             Lock LTE Cells
           </Button>
-          <Button variant="secondary" onClick={handleLTEReset} disabled={loading || !locked}>
-            <RefreshCcw className="h-4 w-4 mr-2" />
+          <Toggle
+            pressed={ltePersist}
+            onPressedChange={handleLTEPersistToggle}
+            disabled={loading}
+          >
+            <Save className="h-4 w-4 mr-2" />
+            Persist on Reboot
+          </Toggle>
+          <Button
+            variant="secondary"
+            onClick={handleLTEReset}
+            disabled={loading || !locked}
+          >
+            <RefreshCcw className="h-4 w-4" />
             Reset to Default
           </Button>
         </CardFooter>
@@ -468,13 +563,25 @@ const CellLockingPage = () => {
             </div>
           </form>
         </CardContent>
-        <CardFooter className="border-t py-4 px-6 flex flex-row items-center space-x-6 mt-2">
+        <CardFooter className="border-t py-4 grid grid-flow-row md:grid-cols-3 grid-cols-1 gap-4">
           <Button onClick={handleNR5GLock} disabled={loading}>
-            <LockIcon className="h-4 w-4 mr-2" />
+            <LockIcon className="h-4 w-4" />
             Lock NR5G-SA Cell
           </Button>
-          <Button variant="secondary" onClick={handleNR5GReset} disabled={loading || !locked}>
-            <RefreshCcw className="h-4 w-4 mr-2" />
+          <Toggle
+            pressed={nr5gPersist}
+            onPressedChange={handleNR5GPersistToggle}
+            disabled={loading}
+          >
+            <Save className="h-4 w-4 mr-2" />
+            Persist on Reboot
+          </Toggle>
+          <Button
+            variant="secondary"
+            onClick={handleNR5GReset}
+            disabled={loading || !locked}
+          >
+            <RefreshCcw className="h-4 w-4" />
             Reset to Default
           </Button>
         </CardFooter>

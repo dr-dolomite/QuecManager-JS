@@ -52,51 +52,51 @@ const BandTable = ({ bands, isLoading }: BandTableProps) => {
                     <CardContent className="grid gap-2 p-2">
                       <div className="flex justify-between">
                         <p>Band</p>
-                        <p>
+                        <div>
                           <Skeleton className="w-16 h-4" />
-                        </p>
+                        </div>
                       </div>
 
                       <div className="flex justify-between">
                         <p>E/ARFCN</p>
-                        <p>
+                        <div>
                           <Skeleton className="w-16 h-4" />
-                        </p>
+                        </div>
                       </div>
 
                       <div className="flex justify-between">
                         <p>Bandwidth</p>
-                        <p>
+                        <div>
                           <Skeleton className="w-16 h-4" />
-                        </p>
+                        </div>
                       </div>
 
                       <div className="flex justify-between">
                         <p>PCI</p>
-                        <p>
+                        <div>
                           <Skeleton className="w-16 h-4" />
-                        </p>
+                        </div>
                       </div>
 
                       <div className="flex justify-between">
                         <p>RSRP</p>
-                        <p>
+                        <div>
                           <Skeleton className="w-32 h-4" />
-                        </p>
+                        </div>
                       </div>
 
                       <div className="flex justify-between">
                         <p>RSRQ</p>
-                        <p>
+                        <div>
                           <Skeleton className="w-32 h-4" />
-                        </p>
+                        </div>
                       </div>
 
                       <div className="flex justify-between">
                         <p>SINR</p>
-                        <p>
+                        <div>
                           <Skeleton className="w-32 h-4" />
-                        </p>
+                        </div>
                       </div>
                     </CardContent>
                   </Card>

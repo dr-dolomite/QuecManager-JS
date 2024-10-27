@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 
 export async function GET() {
   try {
-    const response = await fetch('/cgi-bin/home/check_net.sh');
+    const response = await fetch('/cgi-bin/cell-settings/fetch-apn-profiles.sh');
     const data = await response.json();
     return NextResponse.json(data);
   } catch (error) {

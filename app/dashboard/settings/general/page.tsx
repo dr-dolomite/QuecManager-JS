@@ -36,8 +36,8 @@ const GeneralSettingsPage = () => {
 
   const fetchConfig = async () => {
     try {
-      // const response = await fetch("/cgi-bin/settings/fetch-config.sh");
-      const response = await fetch("/api/config-fetch");
+      const response = await fetch("/cgi-bin/settings/fetch-config.sh");
+      // const response = await fetch("/api/config-fetch");
       const data = await response.json();
 
       if (data.error) {
@@ -67,8 +67,8 @@ const GeneralSettingsPage = () => {
   ) => {
     try {
       setSaving(true);
-      // const response = await fetch("/cgi-bin/settings/save-config.sh", {
-      const response = await fetch("/api/config-save", {
+      const response = await fetch("/cgi-bin/settings/save-config.sh", {
+      // const response = await fetch("/api/config-save", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

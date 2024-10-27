@@ -23,16 +23,16 @@ const Connection = ({ data, isLoading, dataConnectionState, connectionStateLoadi
       </CardHeader>
       <CardContent className="grid gap-2">
         <div className="flex flex-row justify-between text-md">
-          <p>APN</p>
+          <div>APN</div>
           {isLoading ? (
             <Skeleton className="h-4 w-[100px]" />
           ) : (
-            <p className="font-bold">{data?.connection.apn}</p>
+            <div className="font-bold">{data?.connection.apn}</div>
           )}
         </div>
 
         <div className="flex flex-row justify-between text-md">
-          <p>Operator State</p>
+          <div>Operator State</div>
           {isLoading ? (
             <Skeleton className="h-4 w-[100px]" />
           ) : (
@@ -49,7 +49,7 @@ const Connection = ({ data, isLoading, dataConnectionState, connectionStateLoadi
         </div>
 
         <div className="flex flex-row justify-between text-md">
-          <p>Functionality State</p>
+          <div>Functionality State</div>
           {isLoading ? (
             <Skeleton className="h-4 w-[100px]" />
           ) : (
@@ -66,7 +66,7 @@ const Connection = ({ data, isLoading, dataConnectionState, connectionStateLoadi
         </div>
 
         <div className="flex flex-row justify-between text-md">
-          <p>Data Connection State</p>
+          <div>Data Connection State</div>
           {connectionStateLoading ? (
             <Skeleton className="h-4 w-[100px]" />
           ) : (
@@ -83,33 +83,33 @@ const Connection = ({ data, isLoading, dataConnectionState, connectionStateLoadi
         </div>
 
         <div className="flex flex-row justify-between text-md">
-          <p>Network Type</p>
+          <div>Network Type</div>
           {isLoading ? (
             <Skeleton className="h-4 w-[100px]" />
           ) : (
-            <p className="font-bold">{data?.connection.networkType}</p>
+            <div className="font-bold">{data?.connection.networkType}</div>
           )}
         </div>
 
         <div className="flex flex-row justify-between text-md">
-          <p>Modem Temperature</p>
+          <div>Modem Temperature</div>
           {isLoading ? (
             <Skeleton className="h-4 w-[100px]" />
           ) : (
-            <p className="font-bold">{data?.connection.modemTemperature}</p>
+            <div className="font-bold">{data?.connection.modemTemperature}</div>
           )}
         </div>
 
         <div className="flex flex-row justify-between text-md">
-          <p>Access Technology</p>
+          <div>Access Technology</div>
           {isLoading ? (
             <Skeleton className="h-4 w-[100px]" />
           ) : (
-            <p className="font-bold">
+            <div className="font-bold">
               {data?.connection.accessTechnology 
                 ? getAccessTech(data.connection.accessTechnology)
                 : "Unknown"}
-            </p>
+            </div>
           )}
         </div>
       </CardContent>

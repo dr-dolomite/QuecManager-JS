@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
 
     const encodedPassword = encodeURIComponent(password);
 
-    const response = await fetch('http://192.168.224.1/cgi-bin/auth.sh', {
+    const response = await fetch('/cgi-bin/auth.sh', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',

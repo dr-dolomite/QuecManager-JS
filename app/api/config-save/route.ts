@@ -5,7 +5,7 @@ export async function POST(request: Request) {
     const body = await request.json();
     
     const response = await fetch(
-      "http://192.168.224.1/cgi-bin/settings/save-config.sh",
+      "/cgi-bin/settings/save-config.sh",
       {
         method: "POST",
         headers: {

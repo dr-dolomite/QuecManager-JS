@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import {
   Card,
   CardHeader,
@@ -21,12 +21,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 import useCellSettingsData from "@/hooks/cell-settings-data";
+import APNProfilesCard from "@/components/pages/apn-profile-card";
 
 interface FormData {
   currentAPN?: string;
@@ -121,12 +120,15 @@ const BasicSettings = () => {
       const command = constructATCommand(changes);
       console.log("Command to send:", command);
 
-      const response = await fetch("/api/at-handler", {
+      const encodedCommand = encodeURIComponent(command);
+
+      const response = await fetch("/cgi-bin/atinout_handler.sh", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ command }),
+        // body: JSON.stringify({ command }),
+        body: `command=${encodedCommand}`,
       });
 
       if (!response.ok) {
@@ -286,108 +288,16 @@ const BasicSettings = () => {
                 </Select>
               )}
             </div>
-
-            <div className="col-span-2">
-              <Button type="submit" disabled={isSaving}>
-                {isSaving ? "Saving..." : "Save"}
-              </Button>
-            </div>
           </form>
         </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>APN and ICCID Profiles</CardTitle>
-          <CardDescription>
-            Add a predefined APN based on the ICCID of the SIM card.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form className="grid grid-cols-1 lg:grid-cols-2 grid-flow-row gap-6">
-            <div className="grid w-full max-w-sm items-center gap-2">
-              <Label htmlFor="APNProfile1">APN Profile 1</Label>
-              <Input
-                type="text"
-                id="APNProfile1"
-                placeholder="APN for Profile 1"
-              />
-            </div>
-
-            <div className="grid w-full max-w-sm items-center gap-2">
-              <Label htmlFor="APN">APN PDP Type</Label>
-              <Select>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select PDP Type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    <SelectLabel>PDP Type</SelectLabel>
-                    <SelectItem value="ipv4">IPv4 Only</SelectItem>
-                    <SelectItem value="ipv6">IPv6 Only</SelectItem>
-                    <SelectItem value="ipv4v6">IPv4 and IPv6</SelectItem>
-                    <SelectItem value="p2p">P2P Protocol</SelectItem>
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="grid w-full max-w-sm items-center gap-2 col-span-2">
-              <Label htmlFor="APNProfile1">ICCID Profile 1</Label>
-              <Input
-                type="text"
-                id="APNProfile1"
-                placeholder="APN for Profile 1"
-              />
-            </div>
-
-            <Separator className="col-span-2 w-full my-2" />
-
-            <div className="grid w-full max-w-sm items-center gap-2">
-              <Label htmlFor="APNProfile2">APN Profile 2</Label>
-              <Input
-                type="text"
-                id="APNProfile2"
-                placeholder="APN for Profile 2"
-              />
-            </div>
-
-            <div className="grid w-full max-w-sm items-center gap-2">
-              <Label htmlFor="APN">APN PDP Type</Label>
-              <Select>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select PDP Type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    <SelectLabel>PDP Type</SelectLabel>
-                    <SelectItem value="ipv4">IPv4 Only</SelectItem>
-                    <SelectItem value="ipv6">IPv6 Only</SelectItem>
-                    <SelectItem value="ipv4v6">IPv4 and IPv6</SelectItem>
-                    <SelectItem value="p2p">P2P Protocol</SelectItem>
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="grid w-full max-w-sm items-center gap-2 col-span-2">
-              <Label htmlFor="APNProfile1">ICCID Profile 1</Label>
-              <Input
-                type="text"
-                id="APNProfile1"
-                placeholder="APN for Profile 1"
-              />
-            </div>
-          </form>
-        </CardContent>
-        <CardFooter className="border-t px-6 py-4 flex space-x-6">
-          <Button>Save</Button>
-          <Button variant="secondary">
-            <Trash2 className="h-4 w-4 mr-2" />
-            Remove APN Profiles
+        <CardFooter className="grid border-t py-4">
+          <Button type="submit" disabled={isSaving}>
+            {isSaving ? "Saving..." : "Save"}
           </Button>
         </CardFooter>
       </Card>
+
+      <APNProfilesCard />
     </div>
   );
 };

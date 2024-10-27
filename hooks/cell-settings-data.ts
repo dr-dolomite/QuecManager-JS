@@ -9,8 +9,9 @@ const useCellSettingsData = () => {
   const fetchCellSettingsData = useCallback(async () => {
     try {
       setIsLoading(true);
-      const response = await fetch("/api/fetch-cell-settings");
+      const response = await fetch("/cgi-bin/cell-settings/cell-settings.sh");
       const rawData = await response.json();
+      console.log("Fetched cell settings data:", rawData);
 
       const processedData: CellSettingsData = {
         currentAPN: processAPN(rawData[0].response, rawData[1].response),
