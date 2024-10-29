@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 export async function GET() {
   try {
     const response = await fetch(
-      "/cgi-bin/settings/fetch-config.sh",
+      "http://192.168.224.1/cgi-bin/settings/fetch-config.sh",
       {
         method: "GET",
         headers: {

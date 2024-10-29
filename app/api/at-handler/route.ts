@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
     // Encode the command to handle special characters
     const encodedCommand = encodeURIComponent(command);
 
-    const response = await fetch('/cgi-bin/atinout_handler.sh', {
+    const response = await fetch('http://192.168.224.1/cgi-bin/atinout_handler.sh', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
