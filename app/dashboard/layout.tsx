@@ -169,9 +169,9 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
             Cellular
           </Link>
           <Link
-            href="/dashboard/advanced-settings/"
+            href="/dashboard/advanced-settings/ttl-settings"
             className={`${
-              currentPathName === "/dashboard/advanced-settings/"
+              currentPathName.includes("/dashboard/advanced-settings")
                 ? "text-foreground"
                 : "text-muted-foreground"
             } transition-colors hover:text-foreground`}
