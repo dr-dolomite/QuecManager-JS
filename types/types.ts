@@ -81,6 +81,16 @@ export interface CellSettingsData {
   simSlot?: string;
 }
 
+export interface DiagnosticsData {
+  netRegistration?: string;
+  simState?: string;
+  manualAPN?: string;
+  wanIP?: string;
+  cellSignal?: string;
+  modemTemp?: string;
+  netReject?: string;
+}
+
 // You might also want to define some utility types for the bandwidth maps and access tech map
 
 export type BandwidthMap = {

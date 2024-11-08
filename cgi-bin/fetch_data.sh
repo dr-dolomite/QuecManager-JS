@@ -114,7 +114,7 @@ process_commands() {
 define_command_sets
 
 # Get command set from query string
-COMMAND_SET=$(echo "$QUERY_STRING" | grep -o 'set=[1-5]' | cut -d'=' -f2)
+COMMAND_SET=$(echo "$QUERY_STRING" | grep -o 'set=[1-6]' | cut -d'=' -f2)
 
 # Select the appropriate command set
 case "$COMMAND_SET" in
