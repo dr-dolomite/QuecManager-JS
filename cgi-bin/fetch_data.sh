@@ -21,6 +21,8 @@ define_command_sets() {
     COMMAND_SET_4='AT+QMAP="MPDN_RULE" AT+QMAP="DHCPV4DNS" AT+QCFG="usbnet"'
     
     COMMAND_SET_5='AT+QRSRP AT+QRSRQ AT+QSINR AT+QCAINFO AT+QSPN'
+
+    COMMAND_SET_6='AT+CEREG=2;+CEREG? AT+C5GREG=2;+C5GREG? AT+CPIN? AT+CGDCONT? AT+CGCONTRDP AT+QMAP="WWAN" AT+QRSRP AT+QTEMP AT+QNETRC?'
 }
 
 # Define the lock file
@@ -121,6 +123,7 @@ case "$COMMAND_SET" in
     3) COMMANDS="$COMMAND_SET_3";;
     4) COMMANDS="$COMMAND_SET_4";;
     5) COMMANDS="$COMMAND_SET_5";;
+    6) COMMANDS="$COMMAND_SET_6";;
     *) COMMANDS="$COMMAND_SET_1";; # Default to set 1 if no valid set specified
 esac
 

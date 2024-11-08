@@ -55,14 +55,12 @@ export default function ChartPreviewSignal() {
     bands: null,
     networkName: "",
   });
-  const [isLoading, setIsLoading] = useState(true);
-  const [isUpdating, setIsUpdating] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
   const previousData = useRef<SignalData | null>(null);
 
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        // const response = await fetch("/api/quick-stats");
         const response = await fetch("/cgi-bin/fetch_data.sh?set=5");
         const data: ModemResponse[] = await response.json();
         console.log(data);
@@ -84,13 +82,14 @@ export default function ChartPreviewSignal() {
           const hasLTE = bands?.some((band) => band.includes("LTE"));
           const hasNR5G = bands?.some((band) => band.includes("NR5G"));
 
-          newData.networkType = hasLTE && hasNR5G
-            ? "NR5G-NSA"
-            : hasLTE
-            ? "LTE"
-            : hasNR5G
-            ? "NR5G-SA"
-            : "No Signal";
+          newData.networkType =
+            hasLTE && hasNR5G
+              ? "NR5G-NSA"
+              : hasLTE
+              ? "LTE"
+              : hasNR5G
+              ? "NR5G-SA"
+              : "No Signal";
 
           const parsedBands = bands?.map((band) => {
             if (band.includes("LTE")) {
@@ -99,65 +98,71 @@ export default function ChartPreviewSignal() {
               return `N${band.split(" ")[2].replace(/"/g, "").trim()}`;
             }
           });
-          
+
           newData.bands = parsedBands ? parsedBands.join(", ") : "No Signal";
-          newData.networkName = data[4].response
-            .split("\n")[1]
-            .split(":")[1]
-            .split(",")[1]
-            .replace(/"/g, "")
-            .trim() || "No Signal";
+          newData.networkName =
+            data[4].response
+              .split("\n")[1]
+              .split(":")[1]
+              .split(",")[1]
+              .replace(/"/g, "")
+              .trim() || "No Signal";
 
-          // Check if any values have changed
-          const hasChanges = !previousData.current || Object.keys(newData).some(
-            (key) => previousData.current?.[key as keyof SignalData] !== newData[key as keyof SignalData]
-          );
-
-          if (hasChanges) {
-            setIsUpdating(true);
-            setTimeout(() => {
-              setSignalData(newData);
-              previousData.current = newData;
-              setIsUpdating(false);
-            }, 300);
-          } else {
-            setSignalData(newData);
-            previousData.current = newData;
-          }
+          setSignalData(newData);
+          previousData.current = newData;
         }
       } catch (error) {
         console.error("Error fetching stats:", error);
+      } finally {
+        if (initialLoading) {
+          setInitialLoading(false);
+        }
       }
     };
 
     fetchStats();
-    setIsLoading(false);
     const intervalId = setInterval(fetchStats, 2000);
     return () => clearInterval(intervalId);
-  }, []);
+  }, [initialLoading]);
 
   const chartData: ChartDataItem[] = [
     {
       activity: "rsrp",
-      value: signalData.rsrp !== null ? calculateSignalPercentage("rsrp", signalData.rsrp) : 0,
-      label: signalData.rsrp !== null ? `${signalData.rsrp.toFixed(1)} dBm` : "No Signal",
+      value:
+        signalData.rsrp !== null
+          ? calculateSignalPercentage("rsrp", signalData.rsrp)
+          : 0,
+      label:
+        signalData.rsrp !== null
+          ? `${signalData.rsrp.toFixed(1)} dBm`
+          : "No Signal",
       fill: "hsl(var(--chart-1))",
     },
     {
       activity: "rsrq",
-      value: signalData.rsrq !== null ? calculateSignalPercentage("rsrq", signalData.rsrq) : 0,
-      label: signalData.rsrq !== null ? `${signalData.rsrq.toFixed(1)} dB` : "No Signal",
+      value:
+        signalData.rsrq !== null
+          ? calculateSignalPercentage("rsrq", signalData.rsrq)
+          : 0,
+      label:
+        signalData.rsrq !== null
+          ? `${signalData.rsrq.toFixed(1)} dB`
+          : "No Signal",
       fill: "hsl(var(--chart-2))",
     },
     {
       activity: "sinr",
-      value: signalData.sinr !== null ? calculateSignalPercentage("sinr", signalData.sinr) : 0,
-      label: signalData.sinr !== null ? `${signalData.sinr.toFixed(1)} dB` : "No Signal",
+      value:
+        signalData.sinr !== null
+          ? calculateSignalPercentage("sinr", signalData.sinr)
+          : 0,
+      label:
+        signalData.sinr !== null
+          ? `${signalData.sinr.toFixed(1)} dB`
+          : "No Signal",
       fill: "hsl(var(--chart-3))",
     },
   ];
-
-  const showLoadingState = isLoading || isUpdating;
 
   return (
     <Card className="xl:max-w-xl xl:w-[800px] max-w-sm">
@@ -169,26 +174,26 @@ export default function ChartPreviewSignal() {
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         <div className="flex flex-row justify-evenly items-center w-full p-2 border-t border-b">
-          {showLoadingState ? (
+          {initialLoading ? (
             <Skeleton className="h-8 w-24" />
           ) : (
             <div>{signalData.networkName}</div>
           )}
           <Separator orientation="vertical" className="mx-2 h-10 w-px" />
-          {showLoadingState ? (
+          {initialLoading ? (
             <Skeleton className="h-8 w-24" />
           ) : (
             <div>{signalData.networkType}</div>
           )}
           <Separator orientation="vertical" className="mx-2 h-10 w-px" />
-          {showLoadingState ? (
+          {initialLoading ? (
             <Skeleton className="h-8 w-24" />
           ) : (
             <div>{signalData.bands}</div>
           )}
         </div>
         <div className="flex gap-4 xl:p-4 p-2 pb-2">
-          {showLoadingState ? (
+          {initialLoading ? (
             <Skeleton className="h-[140px] w-full" />
           ) : (
             <ChartContainer
@@ -230,13 +235,13 @@ export default function ChartPreviewSignal() {
                   className="uppercase"
                 />
                 <Bar dataKey="value" radius={5}>
-                  <LabelList
+                  {/* <LabelList
                     position="insideLeft"
                     dataKey="label"
                     fill="white"
                     offset={8}
                     fontSize={12}
-                  />
+                  /> */}
                 </Bar>
               </BarChart>
             </ChartContainer>
@@ -248,7 +253,7 @@ export default function ChartPreviewSignal() {
           <div className="flex w-full items-center gap-2">
             <div className="grid flex-1 auto-rows-min gap-0.5">
               <div className="text-xs text-muted-foreground">RSRP</div>
-              {showLoadingState ? (
+              {initialLoading ? (
                 <Skeleton className="h-8 w-24" />
               ) : (
                 <div className="flex items-baseline gap-1 xl:text-2xl text-md font-bold tabular-nums leading-none">
@@ -262,7 +267,7 @@ export default function ChartPreviewSignal() {
             <Separator orientation="vertical" className="mx-2 h-10 w-px" />
             <div className="grid flex-1 auto-rows-min gap-0.5">
               <div className="text-xs text-muted-foreground">RSRQ</div>
-              {showLoadingState ? (
+              {initialLoading ? (
                 <Skeleton className="h-8 w-24" />
               ) : (
                 <div className="flex items-baseline gap-1 xl:text-2xl text-md font-bold tabular-nums leading-none">
@@ -276,7 +281,7 @@ export default function ChartPreviewSignal() {
             <Separator orientation="vertical" className="mx-2 h-10 w-px" />
             <div className="grid flex-1 auto-rows-min gap-0.5">
               <div className="text-xs text-muted-foreground">SINR</div>
-              {showLoadingState ? (
+              {initialLoading ? (
                 <Skeleton className="h-8 w-24" />
               ) : (
                 <div className="flex items-baseline gap-1 xl:text-2xl text-md font-bold tabular-nums leading-none">

@@ -50,13 +50,15 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   // API calls should be moved to a separate service/utility file
   const atCommandSender = async (command: string) => {
     try {
+      const encodedCommand = encodeURIComponent(command);
       // Add error handling
       const response = await fetch("/cgi-bin/atinout_handler.sh", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ command }),
+        // body: JSON.stringify({ command }),
+        body: `command=${encodedCommand}`
       });
 
       if (!response.ok) {
