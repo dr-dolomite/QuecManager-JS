@@ -62,8 +62,10 @@ export default function ChartPreviewSignal() {
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const response = await fetch("/cgi-bin/preview/quick-stats.sh");
+        // const response = await fetch("/api/quick-stats");
+        const response = await fetch("/cgi-bin/fetch_data.sh?set=5");
         const data: ModemResponse[] = await response.json();
+        console.log(data);
 
         if (data) {
           const newData: SignalData = {
@@ -125,13 +127,12 @@ export default function ChartPreviewSignal() {
         }
       } catch (error) {
         console.error("Error fetching stats:", error);
-      } finally {
-        setIsLoading(false);
       }
     };
 
     fetchStats();
-    const intervalId = setInterval(fetchStats, 3000);
+    setIsLoading(false);
+    const intervalId = setInterval(fetchStats, 2000);
     return () => clearInterval(intervalId);
   }, []);
 

@@ -37,6 +37,7 @@ export async function POST(request: NextRequest) {
     }
 
     const data: ATResponse = await response.json();
+    console.log('Command: ', command);
     console.log('AT command response:', data);
 
     // If response from data have the word "ERROR" in it, throw an error

@@ -1,11 +1,18 @@
 "use client";
 
-import React from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import React from "react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { HomeData } from '@/types/types';
-import { getAccessTech } from '@/constants/home/index';
+import { HomeData } from "@/types/types";
+import { getAccessTech } from "@/constants/home/index";
 
 interface ConnectionProps {
   data: HomeData | null;
@@ -14,7 +21,12 @@ interface ConnectionProps {
   connectionStateLoading: boolean;
 }
 
-const Connection = ({ data, isLoading, dataConnectionState, connectionStateLoading } : ConnectionProps) => {
+const Connection = ({
+  data,
+  isLoading,
+  dataConnectionState,
+  connectionStateLoading,
+}: ConnectionProps) => {
   return (
     <Card>
       <CardHeader>
@@ -38,7 +50,8 @@ const Connection = ({ data, isLoading, dataConnectionState, connectionStateLoadi
           ) : (
             <Badge
               className={`font-bold ${
-                data?.connection.operatorState === "Unknown" || data?.connection.operatorState === "Denied"
+                data?.connection.operatorState === "Unknown" ||
+                data?.connection.operatorState === "Denied"
                   ? "bg-rose-500 hover:bg-rose-800"
                   : "bg-emerald-500 hover:bg-emerald-800"
               }`}
@@ -70,15 +83,15 @@ const Connection = ({ data, isLoading, dataConnectionState, connectionStateLoadi
           {connectionStateLoading ? (
             <Skeleton className="h-4 w-[100px]" />
           ) : (
-            <Badge
-              className={`font-bold ${
-                dataConnectionState === "Connected"
-                  ? "bg-emerald-500 hover:bg-emerald-800"
-                  : "bg-rose-500 hover:bg-rose-800"
-              }`}
-            >
-              {dataConnectionState}
-            </Badge>
+              <Badge
+                className={`font-bold ${
+                  dataConnectionState === "Connected"
+                    ? "bg-emerald-500 hover:bg-emerald-800"
+                    : "bg-rose-500 hover:bg-rose-800"
+                }`}
+              >
+                {dataConnectionState}
+              </Badge>
           )}
         </div>
 
@@ -106,7 +119,7 @@ const Connection = ({ data, isLoading, dataConnectionState, connectionStateLoadi
             <Skeleton className="h-4 w-[100px]" />
           ) : (
             <div className="font-bold">
-              {data?.connection.accessTechnology 
+              {data?.connection.accessTechnology
                 ? getAccessTech(data.connection.accessTechnology)
                 : "Unknown"}
             </div>

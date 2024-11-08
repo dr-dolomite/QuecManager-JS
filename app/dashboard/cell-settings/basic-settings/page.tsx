@@ -28,11 +28,11 @@ import useCellSettingsData from "@/hooks/cell-settings-data";
 import APNProfilesCard from "@/components/pages/apn-profile-card";
 
 interface FormData {
-  currentAPN?: string;
-  apnPDPType?: string;
-  preferredNetworkType?: string;
-  nr5gMode?: string;
-  simSlot?: string;
+  currentAPN: string;
+  apnPDPType: string;
+  preferredNetworkType: string;
+  nr5gMode: string;
+  simSlot: string;
 }
 
 const BasicSettings = () => {
@@ -43,6 +43,7 @@ const BasicSettings = () => {
     fetchCellSettingsData,
   } = useCellSettingsData();
   const [isSaving, setIsSaving] = useState<boolean>(false);
+  const [isDataLoaded, setIsDataLoaded] = useState<boolean>(false);
   const [formData, setFormData] = useState<FormData>({
     currentAPN: "",
     apnPDPType: "",
@@ -53,15 +54,30 @@ const BasicSettings = () => {
 
   // Initialize form data when initial data loads
   useEffect(() => {
-    if (initialData) {
-      setFormData(initialData);
+    if (initialData && !isDataLoaded) {
+      const sanitizedData: FormData = {
+        currentAPN: String(initialData.currentAPN || ""),
+        apnPDPType: String(initialData.apnPDPType || ""),
+        preferredNetworkType: String(initialData.preferredNetworkType || ""),
+        nr5gMode: String(initialData.nr5gMode || ""),
+        simSlot: String(initialData.simSlot || ""),
+      };
+      setFormData(sanitizedData);
+      setIsDataLoaded(true);
+      console.log("Initial data loaded:", sanitizedData);
+    }
+  }, [initialData, isDataLoaded]);
+
+  // Reset isDataLoaded when initialData changes
+  useEffect(() => {
+    if (!initialData) {
+      setIsDataLoaded(false);
     }
   }, [initialData]);
 
   const constructATCommand = (changes: Partial<FormData>): string => {
     const commands: string[] = [];
 
-    // Check if both APN and PDP type are present when either is changed
     if (changes.currentAPN || changes.apnPDPType) {
       const pdpType = changes.apnPDPType || formData.apnPDPType;
       const apn = changes.currentAPN || formData.currentAPN;
@@ -79,7 +95,7 @@ const BasicSettings = () => {
     }
 
     if (changes.simSlot) {
-      const command = `+QUIMSLOT=${changes.simSlot}`;
+      const command = `+QUIMSLOT=${changes.simSlot};+COPS=2;+COPS=0`;
       commands.push(commands.length === 0 ? `AT${command}` : command);
     }
 
@@ -93,14 +109,11 @@ const BasicSettings = () => {
     }));
   };
 
-  const handleSavedSettings = async (
-    event: React.FormEvent<HTMLFormElement>
-  ) => {
+  const handleSavedSettings = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setIsSaving(true);
 
     try {
-      // Compare with initial data to find changes
       const changes: Partial<FormData> = {};
       Object.keys(formData).forEach((key) => {
         const k = key as keyof FormData;
@@ -118,16 +131,12 @@ const BasicSettings = () => {
       }
 
       const command = constructATCommand(changes);
-      console.log("Command to send:", command);
-
       const encodedCommand = encodeURIComponent(command);
-
       const response = await fetch("/cgi-bin/atinout_handler.sh", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        // body: JSON.stringify({ command }),
         body: `command=${encodedCommand}`,
       });
 
@@ -135,8 +144,8 @@ const BasicSettings = () => {
         throw new Error("Failed to save settings");
       }
 
-      console.log("Response:", response);
       await fetchCellSettingsData();
+      setIsDataLoaded(false); // Reset to allow re-initialization
 
       toast.toast({
         title: "Settings saved!",
@@ -154,147 +163,193 @@ const BasicSettings = () => {
     }
   };
 
+  // Map PDP type values to display labels
+  const getPDPTypeLabel = (value: string) => {
+    const pdpTypes: Record<string, string> = {
+      "IPV4": "IPv4 Only",
+      "IPV6": "IPv6 Only",
+      "IPV4V6": "IPv4 and IPv6",
+      "P2P": "P2P Protocol"
+    };
+    return pdpTypes[value] || value;
+  };
+
+  // Helper function to get network type label
+  const getNetworkTypeLabel = (value: string) => {
+    const networkTypes: Record<string, string> = {
+      "AUTO": "Automatic",
+      "LTE": "LTE Only",
+      "LTE:NR5G": "NR5G-NSA",
+      "NR5G": "NR5G-SA"
+    };
+    return networkTypes[value] || value;
+  };
+
+  // Helper function to get NR5G mode label
+  const getNR5GModeLabel = (value: string) => {
+    const nr5gModes: Record<string, string> = {
+      "0": "NR5G-SA and NSA Enabled",
+      "1": "NR5G-NSA Only",
+      "2": "NR5G-SA Only"
+    };
+    return nr5gModes[value] || value;
+  };
+
   return (
     <div className="grid grid-cols-1 grid-flow-row gap-8">
       <Card>
-        <CardHeader>
-          <CardTitle>Network Settings</CardTitle>
-          <CardDescription>
-            Change the network settings of the device.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form
-            className="grid grid-cols-1 lg:grid-cols-2 grid-flow-row gap-6"
-            onSubmit={handleSavedSettings}
-          >
-            <div className="grid w-full max-w-sm items-center gap-2">
-              <Label htmlFor="APN">Current APN</Label>
-              {isLoading ? (
-                <Skeleton className="h-8" />
-              ) : (
-                <Input
-                  type="text"
-                  id="APN"
-                  placeholder="Current APN"
-                  value={formData.currentAPN}
-                  onChange={(e) =>
-                    handleFieldChange("currentAPN", e.target.value)
-                  }
-                />
-              )}
-            </div>
+        <form onSubmit={handleSavedSettings}>
+          <CardHeader>
+            <CardTitle>Network Settings</CardTitle>
+            <CardDescription>
+              Change the network settings of the device.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 lg:grid-cols-2 grid-flow-row gap-6">
+              <div className="grid w-full max-w-sm items-center gap-2">
+                <Label htmlFor="APN">Current APN</Label>
+                {isLoading ? (
+                  <Skeleton className="h-8" />
+                ) : (
+                  <Input
+                    type="text"
+                    id="APN"
+                    placeholder="Current APN"
+                    value={formData.currentAPN}
+                    onChange={(e) =>
+                      handleFieldChange("currentAPN", e.target.value)
+                    }
+                  />
+                )}
+              </div>
 
-            <div className="grid w-full max-w-sm items-center gap-2">
-              <Label htmlFor="APN">APN PDP Type</Label>
-              {isLoading ? (
-                <Skeleton className="h-8" />
-              ) : (
-                <Select
-                  value={formData.apnPDPType}
-                  onValueChange={(value) =>
-                    handleFieldChange("apnPDPType", value)
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select PDP Type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectGroup>
-                      <SelectLabel>PDP Type</SelectLabel>
-                      <SelectItem value="IPV4">IPv4 Only</SelectItem>
-                      <SelectItem value="IPV6">IPv6 Only</SelectItem>
-                      <SelectItem value="IPV4V6">IPv4 and IPv6</SelectItem>
-                      <SelectItem value="P2P">P2P Protocol</SelectItem>
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
-              )}
-            </div>
+              <div className="grid w-full max-w-sm items-center gap-2">
+                <Label htmlFor="APN">APN PDP Type</Label>
+                {isLoading ? (
+                  <Skeleton className="h-8" />
+                ) : (
+                  <Select
+                    key={`pdp-type-${formData.apnPDPType}`}
+                    value={formData.apnPDPType}
+                    onValueChange={(value) =>
+                      handleFieldChange("apnPDPType", value)
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue>
+                        {formData.apnPDPType ? getPDPTypeLabel(formData.apnPDPType) : "Select PDP Type"}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        <SelectLabel>PDP Type</SelectLabel>
+                        <SelectItem value="IPV4">IPv4 Only</SelectItem>
+                        <SelectItem value="IPV6">IPv6 Only</SelectItem>
+                        <SelectItem value="IPV4V6">IPv4 and IPv6</SelectItem>
+                        <SelectItem value="P2P">P2P Protocol</SelectItem>
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
 
-            {/* Similar pattern for other fields */}
-            <div className="grid w-full max-w-sm items-center gap-2">
-              <Label>Preferred Network Type</Label>
-              {isLoading ? (
-                <Skeleton className="h-8" />
-              ) : (
-                <Select
-                  value={formData.preferredNetworkType}
-                  onValueChange={(value) =>
-                    handleFieldChange("preferredNetworkType", value)
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select Preferred Network Type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectGroup>
-                      <SelectLabel>Preferred Network Type</SelectLabel>
-                      <SelectItem value="AUTO">Automatic</SelectItem>
-                      <SelectItem value="LTE">LTE Only</SelectItem>
-                      <SelectItem value="LTE:NR5G">NR5G-NSA</SelectItem>
-                      <SelectItem value="NR5G">NR5G-SA</SelectItem>
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
-              )}
-            </div>
+              <div className="grid w-full max-w-sm items-center gap-2">
+                <Label>Preferred Network Type</Label>
+                {isLoading ? (
+                  <Skeleton className="h-8" />
+                ) : (
+                  <Select
+                    key={`network-type-${formData.preferredNetworkType}`}
+                    value={formData.preferredNetworkType}
+                    onValueChange={(value) =>
+                      handleFieldChange("preferredNetworkType", value)
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue>
+                        {formData.preferredNetworkType ? getNetworkTypeLabel(formData.preferredNetworkType) : "Select Network Type"}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        <SelectLabel>Preferred Network Type</SelectLabel>
+                        <SelectItem value="AUTO">Automatic</SelectItem>
+                        <SelectItem value="LTE">LTE Only</SelectItem>
+                        <SelectItem value="LTE:NR5G">NR5G-NSA</SelectItem>
+                        <SelectItem value="NR5G">NR5G-SA</SelectItem>
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
 
-            <div className="grid w-full max-w-sm items-center gap-2">
-              <Label>NR5G Mode Control</Label>
-              {isLoading ? (
-                <Skeleton className="h-8" />
-              ) : (
-                <Select
-                  value={formData.nr5gMode}
-                  onValueChange={(value) =>
-                    handleFieldChange("nr5gMode", value)
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select NR5G Mode" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectGroup>
-                      <SelectLabel>NR5G Mode</SelectLabel>
-                      <SelectItem value="0">NR5G-SA and NSA Enabled</SelectItem>
-                      <SelectItem value="1">NR5G-NSA Only</SelectItem>
-                      <SelectItem value="2">NR5G-SA Only</SelectItem>
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
-              )}
-            </div>
+              <div className="grid w-full max-w-sm items-center gap-2">
+                <Label>NR5G Mode Control</Label>
+                {isLoading ? (
+                  <Skeleton className="h-8" />
+                ) : (
+                  <Select
+                    key={`nr5g-mode-${formData.nr5gMode}`}
+                    value={formData.nr5gMode}
+                    onValueChange={(value) =>
+                      handleFieldChange("nr5gMode", value)
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue>
+                        {formData.nr5gMode ? getNR5GModeLabel(formData.nr5gMode) : "Select NR5G Mode"}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        <SelectLabel>NR5G Mode</SelectLabel>
+                        <SelectItem value="0">
+                          NR5G-SA and NSA Enabled
+                        </SelectItem>
+                        <SelectItem value="1">NR5G-NSA Only</SelectItem>
+                        <SelectItem value="2">NR5G-SA Only</SelectItem>
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
 
-            <div className="grid w-full max-w-sm items-center gap-2">
-              <Label>U-SIM Slot Configuration</Label>
-              {isLoading ? (
-                <Skeleton className="h-8" />
-              ) : (
-                <Select
-                  value={formData.simSlot}
-                  onValueChange={(value) => handleFieldChange("simSlot", value)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select U-SIM Slot" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectGroup>
-                      <SelectLabel>U-SIM Slot</SelectLabel>
-                      <SelectItem value="1">U-SIM Slot 1</SelectItem>
-                      <SelectItem value="2">U-SIM Slot 2</SelectItem>
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
-              )}
+              <div className="grid w-full max-w-sm items-center gap-2">
+                <Label>U-SIM Slot Configuration</Label>
+                {isLoading ? (
+                  <Skeleton className="h-8" />
+                ) : (
+                  <Select
+                    key={`sim-slot-${formData.simSlot}`}
+                    value={formData.simSlot}
+                    onValueChange={(value) =>
+                      handleFieldChange("simSlot", value)
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue>
+                        {formData.simSlot ? `U-SIM Slot ${formData.simSlot}` : "Select U-SIM Slot"}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        <SelectLabel>U-SIM Slot</SelectLabel>
+                        <SelectItem value="1">U-SIM Slot 1</SelectItem>
+                        <SelectItem value="2">U-SIM Slot 2</SelectItem>
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
             </div>
-          </form>
-        </CardContent>
-        <CardFooter className="grid border-t py-4">
-          <Button type="submit" disabled={isSaving}>
-            {isSaving ? "Saving..." : "Save"}
-          </Button>
-        </CardFooter>
+          </CardContent>
+          <CardFooter className="grid border-t py-4">
+            <Button type="submit" disabled={isSaving}>
+              {isSaving ? "Saving..." : "Save"}
+            </Button>
+          </CardFooter>
+        </form>
       </Card>
 
       <APNProfilesCard />

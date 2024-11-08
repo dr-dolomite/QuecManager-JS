@@ -8,13 +8,14 @@ const useTrafficStats = () => {
   const fetchTrafficStats = useCallback(async () => {
     const command = "AT+QGDCNT?";
     try {
-      const response = await fetch("/api/at-handler", {
+      // const response = await fetch("/api/at-handler", {
+      const response = await fetch("/cgi-bin/atinout_handler.sh", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ command }),
-        // body: `command=${encodeURIComponent(command)}`,
+        // body: JSON.stringify({ command }),
+        body: `command=${encodeURIComponent(command)}`,
       });
 
       const data = await response.json();

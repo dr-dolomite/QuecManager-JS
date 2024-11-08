@@ -269,7 +269,7 @@ const APNProfilesCard = () => {
           <div className="col-span-2">
             <CardFooter className="border-t py-4 grid md:grid-cols-2 grid-cols-1 gap-4 px-0">
               <Button type="submit" disabled={isSaving || isDeleting}>
-                <Save className="h-4 w-4 mr-2" />
+                <Save className="h-4 w-4" />
                 {isSaving ? "Saving..." : "Save Profiles"}
               </Button>
               <Button
@@ -278,7 +278,7 @@ const APNProfilesCard = () => {
                 onClick={handleDelete}
                 disabled={isSaving || isDeleting}
               >
-                <Trash2 className="h-4 w-4 mr-2" />
+                <Trash2 className="h-4 w-4" />
                 {isDeleting ? "Deleting..." : "Delete Profiles"}
               </Button>
             </CardFooter>
