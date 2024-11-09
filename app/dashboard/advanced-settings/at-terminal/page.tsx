@@ -42,30 +42,56 @@ interface CommandResponse {
 const ATTerminalPage = () => {
   const [output, setOutput] = useState<string>("");
   const [input, setInput] = useState<string>("");
-  const [commandHistory, setCommandHistory] = useState<CommandHistoryItem[]>(
-    []
-  );
+  const [commandHistory, setCommandHistory] = useState<CommandHistoryItem[]>([]);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [previousCommands, setPreviousCommands] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
   // Load previous commands and history from localStorage on component mount
   useEffect(() => {
-    const storedCommands = localStorage.getItem("atCommands");
-    const storedHistory = localStorage.getItem("atCommandHistory");
+    const storedHistory = window.localStorage.getItem("atCommandHistory");
+    const storedCommands = window.localStorage.getItem("atCommands");
+
+    if (storedHistory) {
+      try {
+        const parsedHistory = JSON.parse(storedHistory);
+        setCommandHistory(parsedHistory);
+      } catch (e) {
+        console.error("Failed to parse command history:", e);
+        setCommandHistory([]);
+      }
+    }
 
     if (storedCommands) {
-      setPreviousCommands(JSON.parse(storedCommands));
-    }
-    if (storedHistory) {
-      setCommandHistory(JSON.parse(storedHistory));
+      try {
+        const parsedCommands = JSON.parse(storedCommands);
+        setPreviousCommands(parsedCommands);
+      } catch (e) {
+        console.error("Failed to parse previous commands:", e);
+        setPreviousCommands([]);
+      }
     }
   }, []);
 
-  // Save history to localStorage whenever it changes
+  // Save command history to localStorage whenever it changes
   useEffect(() => {
-    localStorage.setItem("atCommandHistory", JSON.stringify(commandHistory));
+    if (commandHistory.length > 0) {
+      window.localStorage.setItem(
+        "atCommandHistory",
+        JSON.stringify(commandHistory)
+      );
+    }
   }, [commandHistory]);
+
+  // Save previous commands to localStorage whenever they change
+  useEffect(() => {
+    if (previousCommands.length > 0) {
+      window.localStorage.setItem(
+        "atCommands",
+        JSON.stringify(previousCommands)
+      );
+    }
+  }, [previousCommands]);
 
   const constructATCommand = (command: string): string => {
     return command.trim();
@@ -84,9 +110,12 @@ const ATTerminalPage = () => {
     if (!input.trim()) return;
 
     setIsLoading(true);
+    const currentCommand = input;
+    setInput("");
     setOutput("");
+
     try {
-      const command = constructATCommand(input);
+      const command = constructATCommand(currentCommand);
       const response = await fetch("/api/at-handler", {
         method: "POST",
         headers: {
@@ -98,30 +127,32 @@ const ATTerminalPage = () => {
       const rawResult = await response.text();
       const parsedResult = parseResponse(rawResult);
 
+      // Create new history item
       const newHistoryItem: CommandHistoryItem = {
-        command: input,
+        command: currentCommand,
         response: parsedResult,
         timestamp: new Date().toISOString(),
       };
 
+      // Update command history
       setCommandHistory((prev) => [newHistoryItem, ...prev]);
+
+      // Update output
       setOutput(
-        (prev) => `${prev}${prev ? "\n" : ""}> ${input}\n${parsedResult}`
+        (prev) =>
+          `${prev}${prev ? "\n" : ""}> ${currentCommand}\n${parsedResult}`
       );
 
-      if (response.ok && !previousCommands.includes(input)) {
-        const updatedCommands = Array.from(
-          new Set([...previousCommands, input])
-        );
-        setPreviousCommands(updatedCommands);
-        localStorage.setItem("atCommands", JSON.stringify(updatedCommands));
+      // Update previous commands for autocomplete
+      if (!previousCommands.includes(currentCommand)) {
+        setPreviousCommands((prev) => [...prev, currentCommand]);
       }
-
-      setInput("");
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : "An unknown error occurred";
-      setOutput((prev) => `${prev}${prev ? "\n" : ""}Error: ${errorMessage}`);
+      setOutput(
+        (prev) => `${prev}${prev ? "\n" : ""}Error: ${errorMessage}`
+      );
     } finally {
       setIsLoading(false);
     }
@@ -131,9 +162,10 @@ const ATTerminalPage = () => {
     const value = e.target.value;
     setInput(value);
 
-    if (value) {
+    // Update suggestions
+    if (value.trim()) {
       const filtered = previousCommands.filter((cmd) =>
-        cmd.toLowerCase().startsWith(value.toLowerCase())
+        cmd.toLowerCase().includes(value.toLowerCase())
       );
       setSuggestions(filtered);
     } else {
@@ -153,18 +185,23 @@ const ATTerminalPage = () => {
     }
   };
 
-  // New function to remove individual history item
   const removeHistoryItem = (index: number) => {
     setCommandHistory((prev) => {
       const newHistory = [...prev];
       newHistory.splice(index, 1);
+      
+      // Update localStorage after removing item
+      if (newHistory.length === 0) {
+        window.localStorage.removeItem("atCommandHistory");
+      }
+      
       return newHistory;
     });
   };
 
-  // New function to clear all history
   const clearHistory = () => {
     setCommandHistory([]);
+    window.localStorage.removeItem("atCommandHistory");
   };
 
   return (
@@ -188,12 +225,11 @@ const ATTerminalPage = () => {
 
           <div>
             <Separator className="mb-2" />
-            {commandHistory.length <= 0 && (
+            {commandHistory.length === 0 ? (
               <p className="italic text-sm text-muted-foreground font-medium text-center">
                 Command History is Empty
               </p>
-            )}
-            {commandHistory.length > 0 && (
+            ) : (
               <div>
                 <div className="flex justify-between items-center mb-2">
                   <Label>Command History</Label>
@@ -206,12 +242,9 @@ const ATTerminalPage = () => {
                     </AlertDialogTrigger>
                     <AlertDialogContent>
                       <AlertDialogHeader>
-                        <AlertDialogTitle>
-                          Clear Command History
-                        </AlertDialogTitle>
+                        <AlertDialogTitle>Clear Command History</AlertDialogTitle>
                         <AlertDialogDescription>
-                          This action cannot be undone. This will permanently
-                          delete your command history.
+                          This action cannot be undone. This will permanently delete your command history.
                         </AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>
@@ -226,7 +259,7 @@ const ATTerminalPage = () => {
                 <ScrollArea className="h-[160px] p-4">
                   <div className="grid gap-y-2">
                     {commandHistory.map((item, index) => (
-                      <Card key={index}>
+                      <Card key={`${item.timestamp}-${index}`}>
                         <CardContent className="p-4 relative">
                           <Button
                             variant="ghost"
@@ -237,6 +270,7 @@ const ATTerminalPage = () => {
                             <X className="h-4 w-4" />
                           </Button>
                           <div className="grid gap-2">
+                            <p className="text-sm font-medium">{item.command}</p>
                             <p className="whitespace-pre-wrap font-mono">
                               {item.response}
                             </p>
@@ -248,7 +282,6 @@ const ATTerminalPage = () => {
                 </ScrollArea>
               </div>
             )}
-
             <Separator className="mt-2" />
           </div>
 
