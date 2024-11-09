@@ -13,7 +13,6 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { Skeleton } from "@/components/ui/skeleton";
 
 import GithubButtonToast from "@/components/github-button";
 
@@ -78,17 +77,15 @@ const TTLSettingsPage = () => {
       const data = await response.json();
 
       if (data.success === true) {
-        setSuccess("Settings saved successfully");
         toast.toast({
           title: "Success",
-          description: success,
+          description: "Settings saved successfully",
         });
       } else {
-        setError(data.error || "Failed to save settings");
         toast.toast({
           variant: "destructive",
           title: "Uh oh! Something went wrong.",
-          description: error,
+          description: "Failed to save settings",
           action: <GithubButtonToast />,
         });
       }
