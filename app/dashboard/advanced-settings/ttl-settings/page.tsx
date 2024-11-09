@@ -29,7 +29,8 @@ const TTLSettingsPage = () => {
   useEffect(() => {
     const fetchTTLState = async () => {
       try {
-        const response = await fetch("/api/fetch-ttl");
+        // const response = await fetch("/api/fetch-ttl");
+        const response = await fetch("/cgi-bin/advance/ttl.sh");
         const data = await response.json();
         setTtlState(data.isEnabled);
         setTtlValue(data.currentValue.toString());
@@ -64,13 +65,14 @@ const TTLSettingsPage = () => {
     const valueToSend = ttlState ? ttlValue : "0";
 
     try {
-      const response = await fetch("/api/save-ttl", {
+      // const response = await fetch("/api/save-ttl", {
+      const response = await fetch("/cgi-bin/advance/ttl.sh", {
         method: "POST",
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",
         },
-        // body: `ttl=${valueToSend}`,
-        body: JSON.stringify({ command: valueToSend }),
+        body: `ttl=${valueToSend}`,
+        // body: JSON.stringify({ command: valueToSend }),
       });
 
       const data = await response.json();
@@ -142,22 +144,6 @@ const TTLSettingsPage = () => {
               <Switch checked={ttlState} onCheckedChange={setTtlState} />
             </div>
           </div>
-
-          {/* {error && (
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
-              <AlertTitle>Error</AlertTitle>
-              <AlertDescription>
-                {error}
-              </AlertDescription>
-            </Alert>
-          )}
-
-          {success && (
-            <Alert>
-              <AlertDescription>{success}</AlertDescription>
-            </Alert>
-          )} */}
 
           <Button type="submit" className="w-full">
             Save Configuration

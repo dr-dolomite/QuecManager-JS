@@ -171,7 +171,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
             Cellular
           </Link>
           <Link
-            href="/dashboard/advanced-settings/ttl-settings"
+            href="/dashboard/advanced-settings/connectivity"
             className={`${
               currentPathName.includes("/dashboard/advanced-settings")
                 ? "text-foreground"
