@@ -279,7 +279,7 @@ const APNProfilesCard = () => {
                 disabled={isSaving || isDeleting}
               >
                 <Trash2 className="h-4 w-4" />
-                {isDeleting ? "Deleting..." : "Delete Profiles"}
+                {isDeleting ? "Deleting..." : "Delete All Profiles"}
               </Button>
             </CardFooter>
           </div>

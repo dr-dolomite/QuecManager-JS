@@ -338,7 +338,7 @@ const ATTerminalPage = () => {
                 value={output}
                 placeholder="AT command output will appear here..."
                 readOnly
-                className="h-[200px] font-mono"
+                className="h-[240px] font-mono"
                 id="ATOutput"
               />
             </div>
@@ -379,7 +379,7 @@ const ATTerminalPage = () => {
                       </AlertDialogContent>
                     </AlertDialog>
                   </div>
-                  <ScrollArea className="h-[160px] p-4">
+                  <ScrollArea className="h-[180px] p-4">
                     <div className="grid gap-y-2">
                       {commandHistory.map((item, index) => (
                         <Card key={`${item.timestamp}-${index}`}>

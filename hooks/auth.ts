@@ -80,31 +80,22 @@ export function useAuth() {
   }
 
   async function login(password: string) {
-    // const encodedPassword = encodeURIComponent(password);
+    const encodedPassword = encodeURIComponent(password);
     try {
-      const response = await fetch("/api/auth", {
-      // const response = await fetch("/cgi-bin/auth.sh", {
+      // const response = await fetch("/api/auth", {
+      const response = await fetch("/cgi-bin/auth.sh", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ password }),
-        // body: `password=${encodedPassword}`,
+        // body: JSON.stringify({ password }),
+        body: `password=${encodedPassword}`,
       });
 
       const result = await response.json();
       console.log(result);
 
-      // if (result.state === "success") {
-      //   const newToken = generateAuthToken();
-      //   setSessionData(newToken);
-      //   setIsAuthenticated(true);
-      //   router.push('/dashboard/home');
-      //   return true;
-      // } else {
-      //   return false;
-      // }
-      if (result.success) {
+      if (result.state === "success") {
         const newToken = generateAuthToken();
         setSessionData(newToken);
         setIsAuthenticated(true);
@@ -113,6 +104,15 @@ export function useAuth() {
       } else {
         return false;
       }
+    //   if (result.success) {
+    //     const newToken = generateAuthToken();
+    //     setSessionData(newToken);
+    //     setIsAuthenticated(true);
+    //     router.push('/dashboard/home');
+    //     return true;
+    //   } else {
+    //     return false;
+    //   }
     } catch (error) {
       console.error("Login error:", error);
       return false;

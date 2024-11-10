@@ -30,6 +30,9 @@ const CellSettingsLayout = ({ children }: CellSettingsLayoutProps) => {
           <Link href="/dashboard/cell-settings/cell-locking" className={`${currentPathName === "/dashboard/cell-settings/cell-locking/" ? "font-semibold text-primary" : 'text-sm'}`}>
           Cellular Locking
           </Link>
+          <Link href="/dashboard/cell-settings/imei-mangling" className={`${currentPathName === "/dashboard/cell-settings/imei-mangling/" ? "font-semibold text-primary" : 'text-sm'}`}>
+          IMEI Mangling
+          </Link>
         </nav>
         {children}
       </div>

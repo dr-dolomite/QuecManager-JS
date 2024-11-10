@@ -81,6 +81,21 @@ export interface CellSettingsData {
   simSlot?: string;
 }
 
+export interface AboutData {
+  manufacturer?: string;
+  model?: string;
+  firmwareVersion?: string;
+  lteCategory?: string;
+  phoneNum?: string;
+  imsi?: string;
+  iccid?: string;
+  imei?: string;
+  currentDeviceIP?: string;
+  lanGateway?: string;
+  wwanIPv4?: string;
+  wwanIPv6?: string;
+}
+
 export interface DiagnosticsData {
   netRegistration?: string;
   simState?: string;
