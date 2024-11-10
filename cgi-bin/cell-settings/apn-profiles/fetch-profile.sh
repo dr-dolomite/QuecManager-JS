@@ -3,7 +3,7 @@
 echo "Content-type: application/json"
 echo ""
 
-CONFIG_FILE="/etc/quecmanager/apn_config.txt"
+CONFIG_FILE="/etc/quecmanager/apn_profile/apn_config.txt"
 
 if [ ! -f "$CONFIG_FILE" ]; then
     echo "{}"

@@ -2,7 +2,7 @@
 echo "Content-type: application/json"
 echo ""
 
-CONFIG_FILE="/etc/quecmanager/imei_config.txt"
+CONFIG_FILE="/etc/quecmanager/imei_profile/imei_config.txt"
 
 if [ ! -f "$CONFIG_FILE" ]; then
     echo "{}"
