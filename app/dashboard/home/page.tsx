@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useState, useEffect } from "react";
+import { useToast } from "@/hooks/use-toast";
 
 // Components
 import SimCard from "@/components/home/sim-data";
@@ -41,6 +42,7 @@ interface newBands {
 }
 
 const HomePage = () => {
+  const { toast } = useToast();
   const { data: homeData, isLoading, refresh: refreshHomeData } = useHomeData();
   const {
     dataConnectionState,
@@ -57,11 +59,49 @@ const HomePage = () => {
     refresh: refreshTrafficStats,
   } = useTrafficStats();
 
-  const refreshData = useCallback(() => {
-    refreshHomeData();
-    refreshConnectionState();
-    refreshTrafficStats();
-  }, [refreshHomeData, refreshConnectionState, refreshTrafficStats]);
+  const forceRerunScripts = async () => {
+    try {
+      const response = await fetch("/cgi-bin/settings/force-rerun.sh");
+      const data = await response.json();
+      
+      if (data.status === "success") {
+        toast({
+          title: "Data Refreshed",
+          description: "Data has been refreshed successfully",
+        });
+      } else {
+        throw new Error("Failed to restart scripts");
+      }
+    } catch (error) {
+      console.error("Error rerunning scripts:", error);
+      toast({
+        variant: "destructive",
+        title: "Script Restart Failed",
+        description: "Failed to restart the required scripts",
+      });
+    }
+  };
+
+  const refreshData = useCallback(async () => {
+    try {
+      // Perform all refresh operations
+      await Promise.all([
+        refreshHomeData(),
+        refreshConnectionState(),
+        refreshTrafficStats(),
+      ]);
+
+      // After successful refresh, run the force-rerun script
+      await forceRerunScripts();
+    } catch (error) {
+      console.error("Error refreshing data:", error);
+      toast({
+        variant: "destructive",
+        title: "Refresh Failed",
+        description: "Failed to refresh the data",
+      });
+    }
+  }, [refreshHomeData, refreshConnectionState, refreshTrafficStats, toast]);
 
   const [bands, setBands] = useState<newBands[]>([]);
 

@@ -118,7 +118,6 @@ const CellLockingPage = () => {
 
       // Fetch LTE status
       const lteResponse = await handleATCommand('AT+QNWLOCK="common/4g"');
-      console.log("Current LTE lock status:", lteResponse);
 
       if (lteResponse && lteResponse.output) {
         const parsedData = parseATResponse(lteResponse.output);
@@ -160,6 +159,10 @@ const CellLockingPage = () => {
           }
         }
       }
+      toast({
+        title: "Success",
+        description: "Fetched cell locking status successfully",
+      });
     } catch (error) {
       console.error("Error fetching current status:", error);
       toast({

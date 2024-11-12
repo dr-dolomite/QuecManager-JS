@@ -123,6 +123,11 @@ const BandLocking = () => {
       });
 
       setBands(newBands);
+
+      toast({
+        title: "Success",
+        description: "Fetched available bands successfully.",
+      });
     } catch (error) {
       console.error("Error fetching bands:", error);
       toast({

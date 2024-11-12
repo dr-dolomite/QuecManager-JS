@@ -449,15 +449,25 @@ const getPhysicalCellIDs = (response: string, networkType: string) => {
 
   // Get the physical cell IDs for NR5G
   if (networkType === "NR5G-SA") {
+    /*
+    "AT+QCAINFO
+    +QCAINFO: "PCC",521310,11,"NR5G BAND 41",328
+    +QCAINFO: "SCC",125290,3,"NR5G BAND 71",1,239,0,-,-
+    +QCAINFO: "SCC",387410,2,"NR5G BAND 25",1,796,0,-,-
+    +QCAINFO: "SCC",501390,12,"NR5G BAND 41",1,328,0,-,-
+
+    OK"
+    */
     // Get the PCC PCI first
     let pccPCI = response.split("\n").find((l) => l.includes("PCC"));
     pccPCI = pccPCI?.split(":")[1].split(",")[4].trim();
+    console.log(pccPCI);
 
     // Map the SCC PCIs lines
     let sccPCIs = response
       .split("\n")
       .filter((l) => l.includes("SCC") && l.includes("NR5G"));
-    sccPCIs = sccPCIs.map((l) => l.split(":")[5].split(",")[6].trim());
+    sccPCIs = sccPCIs.map((l) => l.split(":")[1].split(",")[5].trim());
 
     // If only PCC PCI is present
     if (!sccPCIs.length) {

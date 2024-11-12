@@ -78,6 +78,11 @@ const IMEIManglingPage = () => {
       } else {
         throw new Error("IMEI not found in response");
       }
+
+      toast({
+        title: "Success",
+        description: "Fetched IMEI settings successfully"
+      });
     } catch (err) {
       toast({
         title: "Failed to fetch IMEI",

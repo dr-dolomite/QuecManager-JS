@@ -36,7 +36,7 @@ interface FormData {
 }
 
 const BasicSettings = () => {
-  const toast = useToast();
+  const { toast } = useToast();
   const {
     data: initialData,
     isLoading,
@@ -64,7 +64,10 @@ const BasicSettings = () => {
       };
       setFormData(sanitizedData);
       setIsDataLoaded(true);
-      console.log("Initial data loaded:", sanitizedData);
+      toast({
+        title: "Success",
+        description: "The settings have been loaded successfully",
+      });
     }
   }, [initialData, isDataLoaded]);
 
@@ -109,6 +112,29 @@ const BasicSettings = () => {
     }));
   };
 
+  const forceRerunScripts = async () => {
+    try {
+      const response = await fetch("/cgi-bin/settings/force-rerun.sh");
+      const data = await response.json();
+      
+      if (data.status === "success") {
+        toast({
+          title: "Scripts Restarted",
+          description: data.message,
+        });
+      } else {
+        throw new Error("Failed to restart scripts");
+      }
+    } catch (error) {
+      console.error("Error rerunning scripts:", error);
+      toast({
+        variant: "destructive",
+        title: "Script Restart Failed",
+        description: "Failed to restart the required scripts",
+      });
+    }
+  };
+
   const handleSavedSettings = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setIsSaving(true);
@@ -123,7 +149,7 @@ const BasicSettings = () => {
       });
 
       if (Object.keys(changes).length === 0) {
-        toast.toast({
+        toast({
           title: "No changes detected",
           description: "Try changing some settings before saving",
         });
@@ -147,13 +173,22 @@ const BasicSettings = () => {
       await fetchCellSettingsData();
       setIsDataLoaded(false); // Reset to allow re-initialization
 
-      toast.toast({
+      toast({
         title: "Settings saved!",
         description: "The settings have been saved successfully",
+        duration: 3000,
       });
+
+      // If SIM slot was changed, trigger the force-rerun script
+      if (changes.simSlot) {
+        // wait for 3.1 seconds before restarting scripts
+        setTimeout(() => {
+          forceRerunScripts();
+        }, 3100);
+      }
     } catch (error) {
       console.error("Error saving settings:", error);
-      toast.toast({
+      toast({
         variant: "destructive",
         title: "Failed to save settings!",
         description: "An error occurred while saving the settings",

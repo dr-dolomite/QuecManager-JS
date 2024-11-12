@@ -3,7 +3,7 @@ import Link from "next/link";
 import { useAuth } from "@/hooks/auth";
 import { ProtectedRoute } from "@/components/hoc/protected-route";
 import * as React from "react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { RadioTower, User2Icon, Menu, Power } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -40,11 +40,16 @@ interface DashboardLayoutProps {
   children: React.ReactNode;
 }
 
+interface IpResponse {
+  br_lan_ip: string;
+}
+
 const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const currentPathName = usePathname();
   const { logout } = useAuth();
   const { setTheme } = useTheme();
   const [isRebooting, setIsRebooting] = useState(false);
+  const [luciIp, setLuciIp] = useState("192.168.224.1");
   const toast = useToast();
 
   // API calls should be moved to a separate service/utility file
@@ -58,7 +63,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
           "Content-Type": "application/json",
         },
         // body: JSON.stringify({ command }),
-        body: `command=${encodedCommand}`
+        body: `command=${encodedCommand}`,
       });
 
       if (!response.ok) {
@@ -136,6 +141,28 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
         variant: "destructive",
       });
     }
+
+    useEffect(() => {
+      const fetchIpAddress = async () => {
+        try {
+          const response = await fetch("/cgi-bin/settings/get-ip.sh");
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+          const data: IpResponse = await response.json();
+          setLuciIp(data.br_lan_ip);
+        } catch (error) {
+          console.error("Failed to fetch IP address:", error);
+          toast.toast({
+            title: "Failed to fetch IP address",
+            description: "Using default IP address",
+            variant: "destructive",
+          });
+        }
+      };
+
+      fetchIpAddress();
+    }, []); // Empty dependency array means this runs once on mount
   };
 
   return (
@@ -295,6 +322,9 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
               <DropdownMenuSeparator />
               <DropdownMenuItem asChild>
                 <Link href="/dashboard/settings/general">Settings</Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <a href="http://192.168.224.1/cgi-bin/luci">Luci</a>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
                 {/* a tag that redirects to a new tab */}
