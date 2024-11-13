@@ -195,6 +195,8 @@ const BandTable = ({ bands, isLoading }: BandTableProps) => {
               </CarouselItem>
             ))}
           </CarouselContent>
+          <CarouselPrevious />
+          <CarouselNext />
         </Carousel>
     </div>
   );

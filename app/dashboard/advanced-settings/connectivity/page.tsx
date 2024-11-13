@@ -314,10 +314,6 @@ const ConnectivitySettingsPage = () => {
         setCurrentSettings(parsedSettings);
 
         setLoading(false);
-        toast({
-          title: "Success",
-          description: "Fetched connectivity settings successfully",
-        });
       } catch (err) {
         setLoading(false);
         toast({

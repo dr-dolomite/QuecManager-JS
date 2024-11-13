@@ -40,10 +40,10 @@ interface SignalData {
 
 const processSignalValues = (matches: string[] | null): number | null => {
   if (!matches) return null;
-  const validValues = matches.map(Number).filter((val) => val !== -32768);
+  const validValues = matches.map(Number).filter((val) => val !== -32768 && val !== 5 && val !== -140);
   if (validValues.length === 0) return null;
   const sum = validValues.reduce((acc, curr) => acc + curr, 0);
-  return sum / validValues.length;
+  return Math.round(sum / validValues.length);
 };
 
 export default function ChartPreviewSignal() {
@@ -74,6 +74,8 @@ export default function ChartPreviewSignal() {
             bands: null,
             networkName: "",
           };
+
+          console.log(newData);
 
           const bands = data[3].response.match(
             /"LTE BAND \d+"|"NR5G BAND \d+"/g

@@ -78,7 +78,7 @@ const DataTransmission = ({
                   ? "bg-emerald-500 hover:bg-emerald-800"
                   : data?.dataTransmission.signalStrength &&
                     parseInt(data?.dataTransmission.signalStrength) > 40
-                  ? "bg-orange-500"
+                  ? "bg-orange-500 hover:bg-orange-800"
                   : "bg-rose-500 hover:bg-rose-800"
               }`}
             >

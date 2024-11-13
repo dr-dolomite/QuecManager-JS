@@ -32,7 +32,12 @@ import {
 import { Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
 
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import {
+  Sheet,
+  SheetClose,
+  SheetContent,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import { useToast } from "@/hooks/use-toast";
 import { usePathname } from "next/navigation";
 
@@ -241,73 +246,93 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
           </SheetTrigger>
           <SheetContent side="left">
             <nav className="grid gap-6 text-lg font-medium">
-              <Link
-                href="/dashboard/home/"
-                className="flex items-center gap-2 text-lg font-semibold"
-              >
-                <RadioTower className="h-6 w-6" />
-                <span>QuecManager</span>
-              </Link>
-              <Link
-                href="/dashboard/home/"
-                className={`${
-                  currentPathName === "/dashboard/home/"
-                    ? "text-foreground"
-                    : "text-muted-foreground"
-                } transition-colors hover:text-foreground`}
-              >
-                Home
-              </Link>
-              <Link
-                href="/dashboard/cell-settings/basic-settings/"
-                className={`${
-                  currentPathName.includes("/dashboard/cell-settings")
-                    ? "text-foreground"
-                    : "text-muted-foreground"
-                } transition-colors hover:text-foreground`}
-              >
-                Cellular
-              </Link>
-              <Link
-                href="/dashboard/advanced-settings/connectivity"
-                className={`${
-                  currentPathName.includes("/dashboard/advanced-settings")
-                    ? "text-foreground"
-                    : "text-muted-foreground"
-                } transition-colors hover:text-foreground`}
-              >
-                Advance
-              </Link>
-              <Link
-                href="/dashboard/experimental/"
-                className={`${
-                  currentPathName === "/dashboard/experimental/"
-                    ? "text-foreground"
-                    : "text-muted-foreground"
-                } transition-colors hover:text-foreground`}
-              >
-                Experimental
-              </Link>
-              <Link
-                href="/dashboard/about/"
-                className={`${
-                  currentPathName === "/dashboard/about/"
-                    ? "text-foreground"
-                    : "text-muted-foreground"
-                } transition-colors hover:text-foreground`}
-              >
-                About
-              </Link>
-              <Link
-                href="/dashboard/settings/general"
-                className={`${
-                  currentPathName.includes("/dashboard/settings")
-                    ? "text-foreground"
-                    : "text-muted-foreground"
-                } transition-colors hover:text-foreground`}
-              >
-                Settings
-              </Link>
+              <SheetClose asChild>
+                <Link
+                  href="/dashboard/home/"
+                  className="flex items-center gap-2 text-lg font-semibold"
+                >
+                  <RadioTower className="h-6 w-6" />
+                  <span>QuecManager</span>
+                </Link>
+              </SheetClose>
+
+              <SheetClose asChild>
+                <Link
+                  href="/dashboard/home/"
+                  className={`${
+                    currentPathName === "/dashboard/home/"
+                      ? "text-foreground"
+                      : "text-muted-foreground"
+                  } transition-colors hover:text-foreground`}
+                >
+                  Home
+                </Link>
+              </SheetClose>
+
+              <SheetClose asChild>
+                <Link
+                  href="/dashboard/cell-settings/basic-settings/"
+                  className={`${
+                    currentPathName.includes("/dashboard/cell-settings")
+                      ? "text-foreground"
+                      : "text-muted-foreground"
+                  } transition-colors hover:text-foreground`}
+                >
+                  Cellular
+                </Link>
+              </SheetClose>
+
+              <SheetClose asChild>
+                <Link
+                  href="/dashboard/advanced-settings/connectivity"
+                  className={`${
+                    currentPathName.includes("/dashboard/advanced-settings")
+                      ? "text-foreground"
+                      : "text-muted-foreground"
+                  } transition-colors hover:text-foreground`}
+                >
+                  Advance
+                </Link>
+              </SheetClose>
+
+              <SheetClose asChild>
+                <Link
+                  href="/dashboard/experimental/"
+                  className={`${
+                    currentPathName === "/dashboard/experimental/"
+                      ? "text-foreground"
+                      : "text-muted-foreground"
+                  } transition-colors hover:text-foreground`}
+                >
+                  Experimental
+                </Link>
+              </SheetClose>
+
+              <SheetClose asChild>
+                <Link
+                  href="/dashboard/about/"
+                  className={`${
+                    currentPathName === "/dashboard/about/"
+                      ? "text-foreground"
+                      : "text-muted-foreground"
+                  } transition-colors hover:text-foreground`}
+                >
+                  About
+                </Link>
+              </SheetClose>
+
+              <SheetClose asChild>
+                <Link
+                  href="/dashboard/settings/general"
+                  className={`${
+                    currentPathName.includes("/dashboard/settings")
+                      ? "text-foreground"
+                      : "text-muted-foreground"
+                  } transition-colors hover:text-foreground`}
+                >
+                  Settings
+                </Link>
+              </SheetClose>
             </nav>
           </SheetContent>
         </Sheet>

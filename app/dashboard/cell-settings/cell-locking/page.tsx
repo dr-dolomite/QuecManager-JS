@@ -159,10 +159,10 @@ const CellLockingPage = () => {
           }
         }
       }
-      toast({
-        title: "Success",
-        description: "Fetched cell locking status successfully",
-      });
+      // toast({
+      //   title: "Success",
+      //   description: "Fetched cell locking status successfully",
+      // });
     } catch (error) {
       console.error("Error fetching current status:", error);
       toast({

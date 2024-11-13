@@ -6,11 +6,11 @@ import { BANDWIDTH_MAP, NR_BANDWIDTH_MAP } from "@/constants/home/index";
 const useHomeData = () => {
   const [data, setData] = useState<HomeData | null>(null);
   const [refreshRate, setRefreshRate] = useState(60000);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true); // Start with true for initial load
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
 
   const fetchRefreshRate = async () => {
     try {
-      // const refreshRateResponse = await fetch("/api/config-fetch");
       const refreshRateResponse = await fetch(
         "/cgi-bin/settings/fetch-config.sh"
       );
@@ -28,7 +28,10 @@ const useHomeData = () => {
 
   const fetchHomeData = useCallback(async () => {
     try {
-      setIsLoading(true);
+      // Only set loading state during initial fetch
+      if (isInitialLoad) {
+        setIsLoading(true);
+      }
       // const response = await fetch("/api/home-stats");
       const response = await fetch("/cgi-bin/fetch_data.sh?set=1");
       const rawData = await response.json();
@@ -172,10 +175,15 @@ const useHomeData = () => {
     } catch (error) {
       console.error("Error fetching home data:", error);
     } finally {
-      // Add a delay to prevent flickering
-      setTimeout(() => setIsLoading(false), 300);
+      if (isInitialLoad) {
+        // Add a delay to prevent flickering only on initial load
+        setTimeout(() => {
+          setIsLoading(false);
+          setIsInitialLoad(false); // Mark initial load as complete
+        }, 300);
+      }
     }
-  }, []);
+  }, [isInitialLoad]);
 
   useEffect(() => {
     // Initial fetch
@@ -324,62 +332,62 @@ const getSignalStrength = (response: string) => {
   // const RSRP LTE line
   let rsrpLTE = response.split("\n").find((l) => l.includes("LTE"));
   let rsrpNR5G = response.split("\n").find((l) => l.includes("NR5G"));
+  let rsrpLteArr: any[] = [];
+  let rsrpNrArr: any[] = [];
 
-  // Get the RSRP negative numerical values from rsrpLTE except -32768
+  // if RSRP LTE exists
   if (rsrpLTE) {
-    let rsrpValuesLTE = rsrpLTE
-      .match(/\d+/g)
-      ?.map((num) => parseInt(num))
-      .filter((num) => num !== -32768 && num !== -140);
+    rsrpLteArr = rsrpLTE
+      .split(":")[1]
+      .split(",")
+      .slice(0, 4)
+      .map((v) => parseInt(v.trim()));
+  }
 
-    if (rsrpNR5G) {
-      // Match all numerical values except for the 5 in NR5G and filter out -32768
-      let rsrpValuesNR5G = rsrpNR5G
-        .match(/\d+/g)
-        ?.map((num) => parseInt(num))
-        .filter((num) => num !== -32768 && num !== -140);
+  // If RSRP NR5G exists
+  if (rsrpNR5G) {
+    rsrpNrArr = rsrpNR5G
+      .split(":")[1]
+      .split(",")
+      .slice(0, 4)
+      .map((v) => parseInt(v.trim()));
+  }
 
-      // Remove the last value of the array
-      if (rsrpValuesNR5G && rsrpValuesNR5G.length > 1) {
-        rsrpValuesNR5G.pop();
+  // Filter out -140 and -37625 from the arrays
+  rsrpLteArr = rsrpLteArr.filter((v) => v !== -140 && v !== -37625);
+  rsrpNrArr = rsrpNrArr.filter((v) => v !== -140 && v !== -37625);
 
-        // Combine the two arrays and calculate the average
-        if (rsrpValuesLTE) {
-          const rsrpValues = [...rsrpValuesLTE, ...rsrpValuesNR5G];
-          const avgRsrp =
-            rsrpValues.reduce((acc, v) => acc + v, 0) / rsrpValues.length;
-          // calculate the percentage where -140 is the worst and -75 is the best
-          const rsrpPercentage = ((-avgRsrp - -140) / (-75 - -140)) * 100;
-          // Return the percentage as a string
-          return `${Math.round(rsrpPercentage)}%`;
-        }
-      }
+  // Calculate the average RSRP values average percentage where -75 is best and -125 is worst
+  if (rsrpLteArr.length) {
+    if (rsrpNrArr.length) {
+      const lteAvg =
+        rsrpLteArr.reduce((acc, v) => acc + v, 0) / rsrpLteArr.length;
+      const nrAvg = rsrpNrArr.reduce((acc, v) => acc + v, 0) / rsrpNrArr.length;
+      const ltePercentage = Math.max(
+        0,
+        Math.min(100, ((lteAvg + 125) / 50) * 100)
+      );
+      const nrPercentage = Math.max(
+        0,
+        Math.min(100, ((nrAvg + 125) / 50) * 100)
+      );
+
+      // Get the final average percentage
+      const finalAverage = (ltePercentage + nrPercentage) / 2;
+      return `${Math.round(finalAverage)}%`;
+    } else {
+      const lteAvg =
+        rsrpLteArr.reduce((acc, v) => acc + v, 0) / rsrpLteArr.length;
+      const ltePercentage = Math.max(
+        0,
+        Math.min(100, ((lteAvg + 125) / 50) * 100)
+      );
+      return `${Math.round(ltePercentage)}%`;
     }
-
-    // Calculate the average RSRP value and get its percentage where -140 is the worst and -75 is the best
-    if (rsrpValuesLTE) {
-      const avgRsrp =
-        rsrpValuesLTE.reduce((acc, v) => acc + v, 0) / rsrpValuesLTE.length;
-      const rsrpPercentage = ((-avgRsrp - -140) / (-75 - -140)) * 100;
-      return `${Math.round(rsrpPercentage)}%`;
-    }
-  } else if (rsrpNR5G && !rsrpLTE) {
-    // Match all numerical values except for the 5 in NR5G and filter out -32768
-    let rsrpValuesNR5G = rsrpNR5G
-      .match(/\d+/g)
-      ?.map((num) => parseInt(num))
-      .filter((num) => num !== -32768);
-
-    // Remove the last value of the array
-    if (rsrpValuesNR5G && rsrpValuesNR5G.length > 1) {
-      rsrpValuesNR5G.pop();
-
-      // Calculate the average RSRP value and get its percentage where -140 is the worst and -75 is the best
-      const avgRsrp =
-        rsrpValuesNR5G.reduce((acc, v) => acc + v, 0) / rsrpValuesNR5G.length;
-      const rsrpPercentage = ((-avgRsrp - -140) / (-75 - -140)) * 100;
-      return `${Math.round(rsrpPercentage)}%`;
-    }
+  } else if (rsrpNrArr.length) {
+    const nrAvg = rsrpNrArr.reduce((acc, v) => acc + v, 0) / rsrpNrArr.length;
+    const nrPercentage = Math.max(0, Math.min(100, ((nrAvg + 125) / 50) * 100));
+    return `${Math.round(nrPercentage)}%`;
   } else {
     return "Unknown%";
   }
@@ -452,7 +460,6 @@ const getPhysicalCellIDs = (response: string, networkType: string) => {
     // Get the PCC PCI first
     let pccPCI = response.split("\n").find((l) => l.includes("PCC"));
     pccPCI = pccPCI?.split(":")[1].split(",")[4].trim();
-    console.log(pccPCI);
 
     // Map the SCC PCIs lines
     let sccPCIs = response
@@ -535,68 +542,68 @@ const getMNC = (response: string, networkType: string) => {
 };
 
 const getSignalQuality = (response: string) => {
-  // Constants for signal quality calculation
-  const NONE_VALUES = [-32768, -145, -140];
-  const MAX_SINR = 40; // Best possible SINR value
-  const MIN_SINR = -20; // Worst acceptable SINR value
+  // const RSRP LTE line
+  let sinrLTE = response.split("\n").find((l) => l.includes("LTE"));
+  let sinrNR5G = response.split("\n").find((l) => l.includes("NR5G"));
+  let sinrLteArr: any[] = [];
+  let sinrNrArr: any[] = [];
 
-  // Helper function to extract SINR values from a line
-  const extractSinrValues = (line: string | undefined): number[] => {
-    if (!line) return [];
+  // if RSRP LTE exists
+  if (sinrLTE) {
+    sinrLteArr = sinrLTE
+      .split(":")[1]
+      .split(",")
+      .slice(0, 4)
+      .map((v) => parseInt(v.trim()));
+  }
 
-    // Match numbers including negative values
-    const matches = line.match(/-?\d+/g);
-    if (!matches) return [];
+  // If RSRP NR5G exists
+  if (sinrNR5G) {
+    sinrNrArr = sinrNR5G
+      .split(":")[1]
+      .split(",")
+      .slice(0, 4)
+      .map((v) => parseInt(v.trim()));
+  }
 
-    return matches
-      .map((num) => parseInt(num))
-      .filter(
-        (num) =>
-          // Filter out NONE_VALUES and ensure value is within acceptable range
-          !NONE_VALUES.includes(num) && num >= MIN_SINR && num <= MAX_SINR
+  // Filter out -140 and -37625 from the arrays
+  sinrLteArr = sinrLteArr.filter((v) => v !== -140 && v !== -37625);
+  sinrNrArr = sinrNrArr.filter((v) => v !== -140 && v !== -37625);
+
+  // Calculate the average RSRP values average percentage where -75 is best and -125 is worst
+  if (sinrLteArr.length) {
+    if (sinrNrArr.length) {
+      const lteAvg =
+        sinrLteArr.reduce((acc, v) => acc + v, 0) / sinrLteArr.length;
+      const nrAvg = sinrNrArr.reduce((acc, v) => acc + v, 0) / sinrNrArr.length;
+      const ltePercentage = Math.max(
+        0,
+        Math.min(100, ((lteAvg + 125) / 50) * 100)
       );
-  };
+      const nrPercentage = Math.max(
+        0,
+        Math.min(100, ((nrAvg + 125) / 50) * 100)
+      );
 
-  // Helper function to calculate percentage
-  const calculatePercentage = (values: number[]): string => {
-    if (values.length === 0) return "Unknown%";
-
-    const avgSinr = values.reduce((acc, v) => acc + v, 0) / values.length;
-
-    // Normalize SINR value to percentage (from MIN_SINR to MAX_SINR range)
-    const normalizedPercentage =
-      ((avgSinr - MIN_SINR) / (MAX_SINR - MIN_SINR)) * 100;
-
-    // Clamp percentage between 0 and 100
-    const clampedPercentage = Math.max(0, Math.min(100, normalizedPercentage));
-
-    return `${Math.round(clampedPercentage)}%`;
-  };
-
-  // Find LTE and NR5G lines
-  const lines = response.split("\n");
-  const sinrLTE = lines.find((l) => l.includes("LTE"));
-  const sinrNR5G = lines.find((l) => l.includes("NR5G"));
-
-  // Extract SINR values
-  const lteSinrValues = extractSinrValues(sinrLTE);
-  const nr5gSinrValues = extractSinrValues(sinrNR5G);
-
-  if (nr5gSinrValues.length > 0) {
-    // Remove the last value for NR5G as it's not part of SINR values
-    nr5gSinrValues.pop();
+      // Get the final average percentage
+      const finalAverage = (ltePercentage + nrPercentage) / 2;
+      return `${Math.round(finalAverage)}%`;
+    } else {
+      const lteAvg =
+        sinrLteArr.reduce((acc, v) => acc + v, 0) / sinrLteArr.length;
+      const ltePercentage = Math.max(
+        0,
+        Math.min(100, ((lteAvg + 125) / 50) * 100)
+      );
+      return `${Math.round(ltePercentage)}%`;
+    }
+  } else if (sinrNrArr.length) {
+    const nrAvg = sinrNrArr.reduce((acc, v) => acc + v, 0) / sinrNrArr.length;
+    const nrPercentage = Math.max(0, Math.min(100, ((nrAvg + 125) / 50) * 100));
+    return `${Math.round(nrPercentage)}%`;
+  } else {
+    return "Unknown%";
   }
-
-  // Combine values if both LTE and NR5G are present
-  if (lteSinrValues.length > 0 && nr5gSinrValues.length > 0) {
-    return calculatePercentage([...lteSinrValues, ...nr5gSinrValues]);
-  } else if (lteSinrValues.length > 0) {
-    return calculatePercentage(lteSinrValues);
-  } else if (nr5gSinrValues.length > 0) {
-    return calculatePercentage(nr5gSinrValues);
-  }
-
-  return "Unknown%";
 };
 
 // Get current band information
@@ -841,33 +848,46 @@ const getCurrentBandsSINR = (
 const getMimoLayers = (response: string) => {
   // Constants for invalid signal values
   const INVALID_VALUES = [-32768, -140];
+  const lteRSRPExists = response.split("\n").find((l) => l.includes("LTE"));
+  const nr5gRSRPExists = response.split("\n").find((l) => l.includes("NR5G"));
 
-  // If no response or invalid format, return "Inactive"
-  if (!response || !response.includes("+QRSRP")) {
-    return "Inactive";
+  // Get the RSRP values for LTE and NR5G
+  let lteRSRPArr: any[] = [];
+  let nr5gRSRPArr: any[] = [];
+
+  // If RSRP LTE exists
+  if (lteRSRPExists) {
+    lteRSRPArr = lteRSRPExists
+      .split(":")[1]
+      .split(",")
+      .slice(0, 4)
+      .map((v) => parseInt(v.trim()));
   }
 
-  try {
-    // Split the response and get the relevant line
-    const lines = response.split("\n");
-    const rsrpLine = lines.find((line) => line.includes("+QRSRP:"));
+  // If RSRP NR5G exists
+  if (nr5gRSRPExists) {
+    nr5gRSRPArr = nr5gRSRPExists
+      .split(":")[1]
+      .split(",")
+      .slice(0, 4)
+      .map((v) => parseInt(v.trim()));
+  }
 
-    if (!rsrpLine) {
-      return "Inactive";
+  // Filter out invalid values
+  lteRSRPArr = lteRSRPArr.filter((v) => !INVALID_VALUES.includes(v));
+  nr5gRSRPArr = nr5gRSRPArr.filter((v) => !INVALID_VALUES.includes(v));
+
+  // Get the length of the arrays and return as MIMO layers
+  if (lteRSRPArr.length) {
+    if (nr5gRSRPArr.length) {
+      return `LTE ${lteRSRPArr.length.toString()} / NR ${nr5gRSRPArr.length.toString()}`;
+    } else {
+      return `LTE ${lteRSRPArr.length.toString()}`;
     }
-
-    // Extract all numbers (including negative values)
-    const values =
-      rsrpLine
-        .match(/-?\d+/g)
-        ?.map((v) => parseInt(v))
-        .filter((v) => !INVALID_VALUES.includes(v)) ?? [];
-
-    // Return the count of valid values as string, or "Inactive" if no valid values
-    return values.length > 0 ? values.length.toString() : "Inactive";
-  } catch (error) {
-    console.error("Error calculating MIMO layers:", error);
-    return "Inactive";
+  } else if (nr5gRSRPArr.length) {
+    return `NR ${nr5gRSRPArr.length.toString()}`;
+  } else {
+    return "Unknown";
   }
 };
 

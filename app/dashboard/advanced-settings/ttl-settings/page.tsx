@@ -35,11 +35,6 @@ const TTLSettingsPage = () => {
         setTtlValue(data.currentValue.toString());
         setLoading(false);
 
-        toast.toast({
-          title: "Success",
-          description: "Fetched TTL settings successfully",
-        });
-
       } catch (err) {
         setError("Failed to fetch TTL settings");
         setLoading(false);

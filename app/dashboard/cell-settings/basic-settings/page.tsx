@@ -64,10 +64,10 @@ const BasicSettings = () => {
       };
       setFormData(sanitizedData);
       setIsDataLoaded(true);
-      toast({
-        title: "Success",
-        description: "The settings have been loaded successfully",
-      });
+      // toast({
+      //   title: "Success",
+      //   description: "The settings have been loaded successfully",
+      // });
     }
   }, [initialData, isDataLoaded]);
 
