@@ -12,7 +12,7 @@ interface IMEIProfiles {
 
 interface UseIMEIConfigReturn {
   profiles: IMEIProfiles;
-  profileLoading: boolean;
+  hasActiveProfile: boolean;
   updateIMEIProfile: (profileId: 'profile1' | 'profile2', data: IMEIProfile) => Promise<boolean>;
   deleteIMEIProfiles: () => Promise<boolean>;
 }
@@ -20,6 +20,7 @@ interface UseIMEIConfigReturn {
 export function useIMEIConfig(): UseIMEIConfigReturn {
   const [profiles, setProfiles] = useState<IMEIProfiles>({});
   const [profileLoading, setprofileLoading] = useState(true);
+  const [hasActiveProfile, setHasActiveProfile] = useState(false);
 
   const fetchProfiles = async () => {
     try {
@@ -37,8 +38,10 @@ export function useIMEIConfig(): UseIMEIConfigReturn {
       }
 
       const data = await response.json();
-      console.log('Fetched IMEI profiles data:', data);
       setProfiles(data);
+      if (data.profile1 || data.profile2) {
+        setHasActiveProfile(true);
+      }
     } catch (error) {
       console.error('Error fetching IMEI profiles:', error);
     } finally {
@@ -133,7 +136,7 @@ export function useIMEIConfig(): UseIMEIConfigReturn {
 
   return {
     profiles,
-    profileLoading,
+    hasActiveProfile,
     updateIMEIProfile,
     deleteIMEIProfiles,
   };

@@ -19,7 +19,12 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 
-import { AlertCircle, CheckCircle2, CirclePlay, RefreshCcw } from "lucide-react";
+import {
+  AlertCircle,
+  CheckCircle2,
+  CirclePlay,
+  RefreshCcw,
+} from "lucide-react";
 
 import PropagateLoader from "react-spinners/PropagateLoader";
 import BandTable from "@/components/home/band-table";
@@ -63,7 +68,7 @@ const HomePage = () => {
     try {
       const response = await fetch("/cgi-bin/settings/force-rerun.sh");
       const data = await response.json();
-      
+
       if (data.status === "success") {
         toast({
           title: "Data Refreshed",
@@ -162,11 +167,11 @@ const HomePage = () => {
               <DialogTrigger>
                 <Button variant="secondary" onClick={runDiagnostics}>
                   <CirclePlay className="xl:size-6 size-5" />
-                  Run Diagnostics
+                  <span className="hidden md:block">Run Diagnostics</span>
                 </Button>
               </DialogTrigger>
               {!isRunningDiagnostics && (
-                <DialogContent>
+                <DialogContent className="max-w-xs md:max-w-lg">
                   <DialogHeader>
                     <DialogTitle>Diagnostics Result</DialogTitle>
                   </DialogHeader>
@@ -178,7 +183,7 @@ const HomePage = () => {
                     <div className="flex items-center justify-between">
                       <h3 className="font-semibold">Network Registration </h3>
                       {runDiagnosticsData?.netRegistration === "Registered" ? (
-                      <CheckCircle2 className="text-green-500" />
+                        <CheckCircle2 className="text-green-500" />
                       ) : (
                         <AlertCircle className="text-red-500" />
                       )}
@@ -187,7 +192,7 @@ const HomePage = () => {
                     <div className="flex items-center justify-between">
                       <h3 className="font-semibold">U-SIM State</h3>
                       {runDiagnosticsData?.simState === "READY" ? (
-                      <CheckCircle2 className="text-green-500" />
+                        <CheckCircle2 className="text-green-500" />
                       ) : (
                         <AlertCircle className="text-red-500" />
                       )}
@@ -196,7 +201,7 @@ const HomePage = () => {
                     <div className="flex items-center justify-between">
                       <h3 className="font-semibold">Manual APN</h3>
                       {runDiagnosticsData?.manualAPN === "Enabled" ? (
-                      <CheckCircle2 className="text-green-500" />
+                        <CheckCircle2 className="text-green-500" />
                       ) : (
                         <AlertCircle className="text-red-500" />
                       )}
@@ -205,7 +210,7 @@ const HomePage = () => {
                     <div className="flex items-center justify-between">
                       <h3 className="font-semibold">WAN IP</h3>
                       {runDiagnosticsData?.wanIP === "Connected" ? (
-                      <CheckCircle2 className="text-green-500" />
+                        <CheckCircle2 className="text-green-500" />
                       ) : (
                         <AlertCircle className="text-red-500" />
                       )}
@@ -214,7 +219,7 @@ const HomePage = () => {
                     <div className="flex items-center justify-between">
                       <h3 className="font-semibold">Cellular Signal</h3>
                       {runDiagnosticsData?.cellSignal === "Good" ? (
-                      <CheckCircle2 className="text-green-500" />
+                        <CheckCircle2 className="text-green-500" />
                       ) : (
                         <AlertCircle className="text-red-500" />
                       )}
@@ -223,7 +228,7 @@ const HomePage = () => {
                     <div className="flex items-center justify-between">
                       <h3 className="font-semibold">Modem Temperature</h3>
                       {runDiagnosticsData?.modemTemp === "Normal" ? (
-                      <CheckCircle2 className="text-green-500" />
+                        <CheckCircle2 className="text-green-500" />
                       ) : (
                         <AlertCircle className="text-red-500" />
                       )}
@@ -232,10 +237,10 @@ const HomePage = () => {
                     <div className="flex items-center justify-between mt-6">
                       <h3 className="font-semibold">Net Reject Cause</h3>
                       {runDiagnosticsData?.netReject === "None" ? (
-                      <div className="flex space-x-2 items-center">
-                        <CheckCircle2 className="text-green-500" />
-                        <span>None</span>
-                      </div>
+                        <div className="flex space-x-2 items-center">
+                          <CheckCircle2 className="text-green-500" />
+                          <span>None</span>
+                        </div>
                       ) : (
                         <div className="flex space-x-2 items-center">
                           <AlertCircle className="text-red-500" />
@@ -248,7 +253,7 @@ const HomePage = () => {
               )}
 
               {isRunningDiagnostics && (
-                <DialogContent>
+                <DialogContent className="max-w-xs md:max-w-lg">
                   <DialogHeader>
                     <DialogTitle>Running Diagnostics</DialogTitle>
                   </DialogHeader>

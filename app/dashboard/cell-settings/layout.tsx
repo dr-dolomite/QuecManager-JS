@@ -33,6 +33,9 @@ const CellSettingsLayout = ({ children }: CellSettingsLayoutProps) => {
           <Link href="/dashboard/cell-settings/imei-mangling" className={`${currentPathName === "/dashboard/cell-settings/imei-mangling/" ? "font-semibold text-primary" : 'text-sm'}`}>
           IMEI Mangling
           </Link>
+          <Link href="/dashboard/cell-settings/sms" className={`${currentPathName === "/dashboard/cell-settings/sms/" ? "font-semibold text-primary" : 'text-sm'}`}>
+          SMS Inbox
+          </Link>
         </nav>
         {children}
       </div>

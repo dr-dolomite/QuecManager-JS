@@ -78,44 +78,36 @@ const useRunDiagnostics = () => {
       .slice(0, 4)
       .map((value) => value.trim());
 
-    const rsrp5GValues = cellSignal
-      .split("\n")[2]
-      .split(":")[1]
-      .split(",")
-      .slice(0, 4)
-      .map((value) => value.trim());
+    // Check if "NR5G" is present in the cellSignal string
+    const hasNR5G = cellSignal.includes("NR5G");
+    let rsrp5GValues = null;
 
-    if (rsrpLTEValues) {
+    if (hasNR5G) {
+      rsrp5GValues = cellSignal
+        .split("\n")[2]
+        .split(":")[1]
+        .split(",")
+        .slice(0, 4)
+        .map((value) => value.trim());
+    }
+
+    if (rsrpLTEValues && rsrpLTEValues.length > 0) {
       const rsrpLTEAverage =
         rsrpLTEValues.reduce((acc, value) => acc + parseInt(value), 0) /
         rsrpLTEValues.length;
 
-      if (rsrp5GValues) {
+      if (hasNR5G && rsrp5GValues && rsrp5GValues.length > 0) {
         const rsrp5GAverage =
           rsrp5GValues.reduce((acc, value) => acc + parseInt(value), 0) /
           rsrp5GValues.length;
 
         const rsrpAverage = (rsrpLTEAverage + rsrp5GAverage) / 2;
-        if (rsrpAverage < -100) {
-          return "Poor";
-        }
-        return "Good";
+        return rsrpAverage < -100 ? "Poor" : "Good";
       } else {
-        if (rsrpLTEAverage < -100) {
-          return "Poor";
-        }
-        return "Good";
+        return rsrpLTEAverage < -100 ? "Poor" : "Good";
       }
-    } else if (rsrp5GValues) {
-      const rsrp5GAverage =
-        rsrp5GValues.reduce((acc, value) => acc + parseInt(value), 0) /
-        rsrp5GValues.length;
-
-      if (rsrp5GAverage < -100) {
-        return "Poor";
-      }
-      return "Good";
     }
+
     return "N/A";
   };
 

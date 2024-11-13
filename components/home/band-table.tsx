@@ -27,14 +27,12 @@ interface BandTableProps {
 }
 
 const BandTable = ({ bands, isLoading }: BandTableProps) => {
-
   if (isLoading) {
     return (
-      <>
-        <div className="hidden lg:block">
+      <div className="flex items-center justify-center">
+        <div className="hidden lg:block w-full">
           <Card className="p-6 grid gap-4">
             {bands && bands.map((band) => <BandCard key={band.id} {...band} />)}
-
             <CardFooter className="w-full p-6 flex items-center justify-center">
               <CardDescription className="text-md">
                 Currently bands connected.
@@ -43,56 +41,54 @@ const BandTable = ({ bands, isLoading }: BandTableProps) => {
           </Card>
         </div>
 
-        <div className="flex items-center justify-center mx-auto lg:hidden">
-          <Carousel className="w-full max-w-xs">
+          <Carousel className="lg:hidden w-full max-w-xs">
             <CarouselContent>
               <CarouselItem>
-                <div className="p-0.5">
+                <div className="p-1">
                   <Card>
-                    <CardContent className="grid gap-2 p-2">
-                      <div className="flex justify-between">
+                    <CardContent className="aspect-square p-4 gap-4 flex flex-col items-center justify-center flex-grow">
+                      <div className="flex justify-between w-full">
                         <p>Band</p>
                         <div>
                           <Skeleton className="w-16 h-4" />
                         </div>
                       </div>
-
-                      <div className="flex justify-between">
+                      <div className="flex justify-between w-full">
                         <p>E/ARFCN</p>
                         <div>
                           <Skeleton className="w-16 h-4" />
                         </div>
                       </div>
 
-                      <div className="flex justify-between">
+                      <div className="flex justify-between w-full">
                         <p>Bandwidth</p>
                         <div>
                           <Skeleton className="w-16 h-4" />
                         </div>
                       </div>
 
-                      <div className="flex justify-between">
+                      <div className="flex justify-between w-full">
                         <p>PCI</p>
                         <div>
                           <Skeleton className="w-16 h-4" />
                         </div>
                       </div>
 
-                      <div className="flex justify-between">
+                      <div className="flex justify-between w-full">
                         <p>RSRP</p>
                         <div>
                           <Skeleton className="w-32 h-4" />
                         </div>
                       </div>
 
-                      <div className="flex justify-between">
+                      <div className="flex justify-between w-full">
                         <p>RSRQ</p>
                         <div>
                           <Skeleton className="w-32 h-4" />
                         </div>
                       </div>
 
-                      <div className="flex justify-between">
+                      <div className="flex justify-between w-full">
                         <p>SINR</p>
                         <div>
                           <Skeleton className="w-32 h-4" />
@@ -103,23 +99,18 @@ const BandTable = ({ bands, isLoading }: BandTableProps) => {
                 </div>
               </CarouselItem>
             </CarouselContent>
-            <CarouselPrevious />
-            <CarouselNext />
           </Carousel>
-        </div>
-      </>
+      </div>
     );
   }
 
   return (
-    <>
-      <div className="hidden lg:block">
+    <div className="flex items-center justify-center">
+      <div className="hidden lg:block w-full">
         <Card className="p-6 grid gap-4">
-              {bands && bands.map((band: Band) => (
-                <BandCard key={band.id} {...band} />
-              ))}
+          {bands &&
+            bands.map((band: Band) => <BandCard key={band.id} {...band} />)}
           <CardFooter className="w-full p-6 flex items-center justify-center">
-         
             <CardDescription className="text-md">
               Current bands connected.
             </CardDescription>
@@ -127,35 +118,34 @@ const BandTable = ({ bands, isLoading }: BandTableProps) => {
         </Card>
       </div>
 
-      <div className="flex items-center justify-center mx-auto lg:hidden">
-        <Carousel className="w-full max-w-xs">
+      <Carousel className="lg:hidden w-full max-w-xs">
           <CarouselContent>
             {bands?.map((band) => (
-              <CarouselItem key={band.id}>
-                <div className="p-0.5">
+              <CarouselItem key={band.id} className="md:basis-1/2 lg:basis-1/3">
+                <div className="p-1">
                   <Card>
-                    <CardContent className="grid gap-2 p-6 aspect-square">
-                      <div className="flex justify-between">
+                    <CardContent className="aspect-square p-4 gap-4 flex flex-col items-center justify-center flex-grow">
+                      <div className="flex justify-between w-full">
                         <p>Band</p>
                         <p>{band.bandNumber}</p>
                       </div>
 
-                      <div className="flex justify-between">
+                      <div className="flex justify-between w-full">
                         <p>E/ARFCN</p>
                         <p>{band.earfcn}</p>
                       </div>
 
-                      <div className="flex justify-between">
+                      <div className="flex justify-between w-full">
                         <p>Bandwidth</p>
                         <p>{band.bandwidth}</p>
                       </div>
 
-                      <div className="flex justify-between">
+                      <div className="flex justify-between w-full">
                         <p>PCI</p>
                         <p>{band.pci}</p>
                       </div>
 
-                      <div className="flex justify-between">
+                      <div className="flex justify-between w-full">
                         <p>RSRP</p>
                         <Badge
                           className={
@@ -170,7 +160,7 @@ const BandTable = ({ bands, isLoading }: BandTableProps) => {
                         </Badge>
                       </div>
 
-                      <div className="flex justify-between">
+                      <div className="flex justify-between w-full">
                         <p>RSRQ</p>
                         <Badge
                           className={
@@ -185,7 +175,7 @@ const BandTable = ({ bands, isLoading }: BandTableProps) => {
                         </Badge>
                       </div>
 
-                      <div className="flex justify-between">
+                      <div className="flex justify-between w-full">
                         <p>SINR</p>
                         <Badge
                           className={
@@ -205,11 +195,8 @@ const BandTable = ({ bands, isLoading }: BandTableProps) => {
               </CarouselItem>
             ))}
           </CarouselContent>
-          <CarouselPrevious />
-          <CarouselNext />
         </Carousel>
-      </div>
-    </>
+    </div>
   );
 };
 

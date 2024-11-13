@@ -11,10 +11,15 @@ const useHomeData = () => {
   const fetchRefreshRate = async () => {
     try {
       // const refreshRateResponse = await fetch("/api/config-fetch");
-      const refreshRateResponse = await fetch("/cgi-bin/settings/fetch-config.sh");
+      const refreshRateResponse = await fetch(
+        "/cgi-bin/settings/fetch-config.sh"
+      );
       const refreshRateData = await refreshRateResponse.json();
       // Convert to number and ensure it's at least 1000ms
-      const newRate = Math.max(1000, parseInt(refreshRateData.data_refresh_rate));
+      const newRate = Math.max(
+        1000,
+        parseInt(refreshRateData.data_refresh_rate)
+      );
       setRefreshRate(newRate);
     } catch (error) {
       console.error("Error fetching refresh rate:", error);
@@ -103,12 +108,7 @@ const useHomeData = () => {
           ),
           connectedBands: getConnectedBands(rawData[13].response),
           signalStrength: getSignalStrength(rawData[14].response),
-          mimoLayers:
-            rawData[14].response
-              .split("\n")[1]
-              .match(/\d+/g)
-              ?.filter((v: string) => v !== "-32768")
-              .length.toString() || "Inactive",
+          mimoLayers: getMimoLayers(rawData[14].response),
         },
         cellularInfo: {
           cellId: getCellID(
@@ -330,14 +330,14 @@ const getSignalStrength = (response: string) => {
     let rsrpValuesLTE = rsrpLTE
       .match(/\d+/g)
       ?.map((num) => parseInt(num))
-      .filter((num) => num !== -32768);
+      .filter((num) => num !== -32768 && num !== -140);
 
     if (rsrpNR5G) {
       // Match all numerical values except for the 5 in NR5G and filter out -32768
       let rsrpValuesNR5G = rsrpNR5G
         .match(/\d+/g)
         ?.map((num) => parseInt(num))
-        .filter((num) => num !== -32768);
+        .filter((num) => num !== -32768 && num !== -140);
 
       // Remove the last value of the array
       if (rsrpValuesNR5G && rsrpValuesNR5G.length > 1) {
@@ -449,15 +449,6 @@ const getPhysicalCellIDs = (response: string, networkType: string) => {
 
   // Get the physical cell IDs for NR5G
   if (networkType === "NR5G-SA") {
-    /*
-    "AT+QCAINFO
-    +QCAINFO: "PCC",521310,11,"NR5G BAND 41",328
-    +QCAINFO: "SCC",125290,3,"NR5G BAND 71",1,239,0,-,-
-    +QCAINFO: "SCC",387410,2,"NR5G BAND 25",1,796,0,-,-
-    +QCAINFO: "SCC",501390,12,"NR5G BAND 41",1,328,0,-,-
-
-    OK"
-    */
     // Get the PCC PCI first
     let pccPCI = response.split("\n").find((l) => l.includes("PCC"));
     pccPCI = pccPCI?.split(":")[1].split(",")[4].trim();
@@ -544,69 +535,68 @@ const getMNC = (response: string, networkType: string) => {
 };
 
 const getSignalQuality = (response: string) => {
-  let sinrLTE = response.split("\n").find((l) => l.includes("LTE"));
-  let sinrNR5G = response.split("\n").find((l) => l.includes("NR5G"));
+  // Constants for signal quality calculation
+  const NONE_VALUES = [-32768, -145, -140];
+  const MAX_SINR = 40; // Best possible SINR value
+  const MIN_SINR = -20; // Worst acceptable SINR value
 
-  // Get the SINR numerical values from sinrLTE except -32768
-  if (sinrLTE) {
-    let sinrValuesLTE = sinrLTE
-      .match(/\d+/g)
-      ?.map((num) => parseInt(num))
-      .filter((num) => num !== -32768);
+  // Helper function to extract SINR values from a line
+  const extractSinrValues = (line: string | undefined): number[] => {
+    if (!line) return [];
 
-    if (sinrNR5G) {
-      // Match all numerical values except for the 5 in NR5G and filter out -32768
-      let sinrValuesNR5G = sinrNR5G
-        .match(/\d+/g)
-        ?.map((num) => parseInt(num))
-        .filter((num) => num !== -32768);
+    // Match numbers including negative values
+    const matches = line.match(/-?\d+/g);
+    if (!matches) return [];
 
-      // Remove the last value of the array
-      if (sinrValuesNR5G && sinrValuesNR5G.length > 1) {
-        sinrValuesNR5G.pop();
+    return matches
+      .map((num) => parseInt(num))
+      .filter(
+        (num) =>
+          // Filter out NONE_VALUES and ensure value is within acceptable range
+          !NONE_VALUES.includes(num) && num >= MIN_SINR && num <= MAX_SINR
+      );
+  };
 
-        // Combine the two arrays and calculate the average
-        if (sinrValuesLTE) {
-          const sinrValues = [...sinrValuesLTE, ...sinrValuesNR5G];
-          const avgSinr =
-            sinrValues.reduce((acc, v) => acc + v, 0) / sinrValues.length;
+  // Helper function to calculate percentage
+  const calculatePercentage = (values: number[]): string => {
+    if (values.length === 0) return "Unknown%";
 
-          // calculate the percentage where 0 is the worst and 40 is the best
-          const sinrPercentage = (avgSinr / 40) * 100;
+    const avgSinr = values.reduce((acc, v) => acc + v, 0) / values.length;
 
-          // Return the percentage as a string
-          return `${Math.round(sinrPercentage)}%`;
-        }
-      }
-    }
+    // Normalize SINR value to percentage (from MIN_SINR to MAX_SINR range)
+    const normalizedPercentage =
+      ((avgSinr - MIN_SINR) / (MAX_SINR - MIN_SINR)) * 100;
 
-    // Calculate the average SINR value and get its percentage where 0 is the worst and 40 is the best
-    if (sinrValuesLTE) {
-      const avgSinr =
-        sinrValuesLTE.reduce((acc, v) => acc + v, 0) / sinrValuesLTE.length;
-      const sinrPercentage = (avgSinr / 40) * 100;
-      return `${Math.round(sinrPercentage)}%`;
-    }
-  } else if (sinrNR5G && !sinrLTE) {
-    // Match all numerical values except for the 5 in NR5G and filter out -32768
-    let sinrValuesNR5G = sinrNR5G
-      .match(/\d+/g)
-      ?.map((num) => parseInt(num))
-      .filter((num) => num !== -32768);
+    // Clamp percentage between 0 and 100
+    const clampedPercentage = Math.max(0, Math.min(100, normalizedPercentage));
 
-    // Remove the last value of the array
-    if (sinrValuesNR5G && sinrValuesNR5G.length > 1) {
-      sinrValuesNR5G.pop();
+    return `${Math.round(clampedPercentage)}%`;
+  };
 
-      // Calculate the average SINR value and get its percentage where 0 is the worst and 40 is the best
-      const avgSinr =
-        sinrValuesNR5G.reduce((acc, v) => acc + v, 0) / sinrValuesNR5G.length;
-      const sinrPercentage = (avgSinr / 40) * 100;
-      return `${Math.round(sinrPercentage)}%`;
-    }
-  } else {
-    return "Unknown%";
+  // Find LTE and NR5G lines
+  const lines = response.split("\n");
+  const sinrLTE = lines.find((l) => l.includes("LTE"));
+  const sinrNR5G = lines.find((l) => l.includes("NR5G"));
+
+  // Extract SINR values
+  const lteSinrValues = extractSinrValues(sinrLTE);
+  const nr5gSinrValues = extractSinrValues(sinrNR5G);
+
+  if (nr5gSinrValues.length > 0) {
+    // Remove the last value for NR5G as it's not part of SINR values
+    nr5gSinrValues.pop();
   }
+
+  // Combine values if both LTE and NR5G are present
+  if (lteSinrValues.length > 0 && nr5gSinrValues.length > 0) {
+    return calculatePercentage([...lteSinrValues, ...nr5gSinrValues]);
+  } else if (lteSinrValues.length > 0) {
+    return calculatePercentage(lteSinrValues);
+  } else if (nr5gSinrValues.length > 0) {
+    return calculatePercentage(nr5gSinrValues);
+  }
+
+  return "Unknown%";
 };
 
 // Get current band information
@@ -681,19 +671,32 @@ const getCurrentBandsBandwidth = (response: string) => {
 const getCurrentBandsPCI = (response: string, networkType: string) => {
   // Loop through the response and extract the PCI
   if (networkType === "LTE" || networkType === "NR5G-SA") {
-    const pcis = response.split("\n").filter((l) => l.includes("BAND"));
-    return pcis.map((l) => l.split(":")[1].split(",")[5]);
+    let PCCpci = response.split("\n").find((l) => l.includes("PCC"));
+    PCCpci = PCCpci ? PCCpci.split(":")[1].split(",")[4].trim() : "Unknown";
+    const SCCpcis = response.split("\n").filter((l) => l.includes("BAND"));
+    // If only PCC PCI is present
+    if (!SCCpcis.length) {
+      return [PCCpci];
+    } else {
+      const pcis = SCCpcis.map(
+        (l) => l.split(":")[1].split(",")[5] || "Unknown"
+      );
+      return [PCCpci, ...pcis];
+    }
   } else if (networkType === "NR5G-NSA") {
     const pcisLte = response.split("\n").filter((l) => l.includes("LTE BAND"));
     const pcisNr5g = response
       .split("\n")
       .filter((l) => l.includes("NR5G BAND"));
-
-    const pcisLteValues = pcisLte.map((l) => l.split(":")[1].split(",")[5]);
-    const pcisNr5gValues = pcisNr5g.map((l) => l.split(":")[1].split(",")[4]);
-
+    const pcisLteValues = pcisLte.map(
+      (l) => l.split(":")[1].split(",")[5] || "Unknown"
+    );
+    const pcisNr5gValues = pcisNr5g.map(
+      (l) => l.split(":")[1].split(",")[4] || "Unknown"
+    );
     return [...pcisLteValues, ...pcisNr5gValues];
   }
+  return ["Unknown"];
 };
 
 const getCurrentBandsRSRP = (
@@ -833,6 +836,39 @@ const getCurrentBandsSINR = (
   }
 
   return ["Unknown"];
+};
+
+const getMimoLayers = (response: string) => {
+  // Constants for invalid signal values
+  const INVALID_VALUES = [-32768, -140];
+
+  // If no response or invalid format, return "Inactive"
+  if (!response || !response.includes("+QRSRP")) {
+    return "Inactive";
+  }
+
+  try {
+    // Split the response and get the relevant line
+    const lines = response.split("\n");
+    const rsrpLine = lines.find((line) => line.includes("+QRSRP:"));
+
+    if (!rsrpLine) {
+      return "Inactive";
+    }
+
+    // Extract all numbers (including negative values)
+    const values =
+      rsrpLine
+        .match(/-?\d+/g)
+        ?.map((v) => parseInt(v))
+        .filter((v) => !INVALID_VALUES.includes(v)) ?? [];
+
+    // Return the count of valid values as string, or "Inactive" if no valid values
+    return values.length > 0 ? values.length.toString() : "Inactive";
+  } catch (error) {
+    console.error("Error calculating MIMO layers:", error);
+    return "Inactive";
+  }
 };
 
 export default useHomeData;

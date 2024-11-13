@@ -9,6 +9,11 @@ import {
   CardTitle,
   CardDescription,
 } from "@/components/ui/card";
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from "@/components/ui/hover-card";
 import { Trash2, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,10 +49,12 @@ const IMEIManglingPage = () => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [currentIMEI, setCurrentIMEI] = useState("");
   const [newIMEI, setNewIMEI] = useState("");
+  const [originalFormData, setOriginalFormData] =
+    useState<IMEIProfileFormData>(INITIAL_FORM_STATE);
 
   const [formData, setFormData] =
     useState<IMEIProfileFormData>(INITIAL_FORM_STATE);
-  const { profiles, profileLoading, updateIMEIProfile, deleteIMEIProfiles } =
+  const { profiles, hasActiveProfile, updateIMEIProfile, deleteIMEIProfiles } =
     useIMEIConfig();
 
   const { toast } = useToast();
@@ -81,7 +88,7 @@ const IMEIManglingPage = () => {
 
       toast({
         title: "Success",
-        description: "Fetched IMEI settings successfully"
+        description: "Fetched IMEI settings successfully",
       });
     } catch (err) {
       toast({
@@ -99,6 +106,16 @@ const IMEIManglingPage = () => {
     fetchIMEI();
     if (profiles) {
       setFormData({
+        profile1: {
+          imei: profiles.profile1?.imei || "",
+          iccid: profiles.profile1?.iccid || "",
+        },
+        profile2: {
+          imei: profiles.profile2?.imei || "",
+          iccid: profiles.profile2?.iccid || "",
+        },
+      });
+      setOriginalFormData({
         profile1: {
           imei: profiles.profile1?.imei || "",
           iccid: profiles.profile1?.iccid || "",
@@ -156,7 +173,10 @@ const IMEIManglingPage = () => {
 
   const validateProfiles = (): boolean => {
     // Profile 1 is mandatory
-    if (!formData.profile1.imei || !formData.profile1.iccid) {
+    if (
+      !formData.profile1.imei ||
+      !formData.profile1.iccid
+    ) {
       toast({
         variant: "destructive",
         title: "Invalid Profile 1",
@@ -206,36 +226,36 @@ const IMEIManglingPage = () => {
 
   const handleSaveProfiles = async (e: React.FormEvent) => {
     e.preventDefault();
-
+  
     if (!validateProfiles()) {
       return;
     }
-
+  
     setIsSaving(true);
-
+  
     try {
       // Always update Profile 1
-      const profile1Success = await updateIMEIProfile(
-        "profile1",
-        formData.profile1
-      );
-
+      await updateIMEIProfile("profile1", formData.profile1);
+  
       // Only update Profile 2 if it has data
       const hasProfile2Data = Object.values(formData.profile2).some(
         (value) => value !== ""
       );
-      const profile2Success = hasProfile2Data
-        ? await updateIMEIProfile("profile2", formData.profile2)
-        : true;
-
-      if (profile1Success && profile2Success) {
-        toast({
-          title: "Success",
-          description: "IMEI profiles have been saved successfully",
-        });
-      } else {
-        throw new Error("Failed to save one or more profiles");
+      if (hasProfile2Data) {
+        await updateIMEIProfile("profile2", formData.profile2);
       }
+  
+      // Assume the updates were successful, since the device will restart
+      toast({
+        title: "Success",
+        description: "IMEI profiles have been saved successfully. Rebooting...",
+        duration: 90000,
+      });
+
+      // After 90 seconds, refresh the page to show the new IMEI
+      setTimeout(() => {
+        window.location.reload();
+      }, 90000);
     } catch (error) {
       toast({
         variant: "destructive",
@@ -251,7 +271,6 @@ const IMEIManglingPage = () => {
     if (!confirm("Are you sure you want to delete all IMEI profiles?")) {
       return;
     }
-
     setIsDeleting(true);
     try {
       const success = await deleteIMEIProfiles();
@@ -261,6 +280,7 @@ const IMEIManglingPage = () => {
           title: "Success",
           description: "IMEI profiles have been deleted successfully",
         });
+        // Timeout for 2 seconds to allow the toast to show
       } else {
         throw new Error("Failed to delete profiles");
       }
@@ -271,7 +291,10 @@ const IMEIManglingPage = () => {
         description: "Failed to delete IMEI profiles. Please try again.",
       });
     } finally {
-      setIsDeleting(false);
+      // Wait for the toast to show before resetting the state
+      setTimeout(() => {
+        setIsDeleting(false);
+      }, 2000);
     }
   };
 
@@ -287,6 +310,15 @@ const IMEIManglingPage = () => {
         [field]: value,
       },
     }));
+  };
+
+  const hasFormDataChanged = () => {
+    return (
+      formData.profile1.imei !== originalFormData.profile1.imei ||
+      formData.profile1.iccid !== originalFormData.profile1.iccid ||
+      formData.profile2.imei !== originalFormData.profile2.imei ||
+      formData.profile2.iccid !== originalFormData.profile2.iccid
+    );
   };
 
   return (
@@ -310,13 +342,33 @@ const IMEIManglingPage = () => {
                 <Skeleton className="h-8" />
               ) : (
                 <div className="grid gap-1.5">
-                  <Input
-                    type="text"
-                    id="IMEI"
-                    value={newIMEI}
-                    onChange={(e) => setNewIMEI(e.target.value)}
-                    placeholder={currentIMEI}
-                  />
+                  {hasActiveProfile ? (
+                    <div className="relative w-full">
+                      <HoverCard>
+                        <HoverCardTrigger>
+                          <Input
+                            className="pr-9"
+                            placeholder={currentIMEI}
+                            disabled
+                          />
+
+                          <TriangleAlert className="absolute right-0 top-0 m-2.5 h-4 w-4 text-muted-foreground" />
+                        </HoverCardTrigger>
+                        <HoverCardContent className="text-sm">
+                          You cannot use this feature while IMEI profiles are
+                          active.
+                        </HoverCardContent>
+                      </HoverCard>
+                    </div>
+                  ) : (
+                    <Input
+                      type="text"
+                      id="IMEI"
+                      value={newIMEI}
+                      onChange={(e) => setNewIMEI(e.target.value)}
+                      placeholder={currentIMEI}
+                    />
+                  )}
                   <p className="text-xs text-muted-foreground font-medium">
                     This will reboot the device.
                   </p>
@@ -421,7 +473,7 @@ const IMEIManglingPage = () => {
             <Button
               type="submit"
               className="w-full"
-              disabled={isLoading || isSaving}
+              disabled={isLoading || isSaving || !hasFormDataChanged()}
             >
               {isSaving ? "Saving..." : "Save IMEI Profiles"}
             </Button>

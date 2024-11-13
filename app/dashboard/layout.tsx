@@ -246,41 +246,65 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                 className="flex items-center gap-2 text-lg font-semibold"
               >
                 <RadioTower className="h-6 w-6" />
-                <span className="sr-only">QuecManager</span>
+                <span>QuecManager</span>
               </Link>
               <Link
                 href="/dashboard/home/"
-                className="text-muted-foreground hover:text-foreground"
+                className={`${
+                  currentPathName === "/dashboard/home/"
+                    ? "text-foreground"
+                    : "text-muted-foreground"
+                } transition-colors hover:text-foreground`}
               >
                 Home
               </Link>
               <Link
-                href="/dashboard/cell-settings/"
-                className="text-muted-foreground hover:text-foreground"
+                href="/dashboard/cell-settings/basic-settings/"
+                className={`${
+                  currentPathName.includes("/dashboard/cell-settings")
+                    ? "text-foreground"
+                    : "text-muted-foreground"
+                } transition-colors hover:text-foreground`}
               >
                 Cellular
               </Link>
               <Link
-                href="/dashboard/advanced-settings/"
-                className="text-muted-foreground hover:text-foreground"
+                href="/dashboard/advanced-settings/connectivity"
+                className={`${
+                  currentPathName.includes("/dashboard/advanced-settings")
+                    ? "text-foreground"
+                    : "text-muted-foreground"
+                } transition-colors hover:text-foreground`}
               >
                 Advance
               </Link>
               <Link
                 href="/dashboard/experimental/"
-                className="text-muted-foreground hover:text-foreground"
+                className={`${
+                  currentPathName === "/dashboard/experimental/"
+                    ? "text-foreground"
+                    : "text-muted-foreground"
+                } transition-colors hover:text-foreground`}
               >
                 Experimental
               </Link>
               <Link
                 href="/dashboard/about/"
-                className="text-muted-foreground hover:text-foreground"
+                className={`${
+                  currentPathName === "/dashboard/about/"
+                    ? "text-foreground"
+                    : "text-muted-foreground"
+                } transition-colors hover:text-foreground`}
               >
                 About
               </Link>
               <Link
                 href="/dashboard/settings/general"
-                className="hover:text-foreground"
+                className={`${
+                  currentPathName.includes("/dashboard/settings")
+                    ? "text-foreground"
+                    : "text-muted-foreground"
+                } transition-colors hover:text-foreground`}
               >
                 Settings
               </Link>

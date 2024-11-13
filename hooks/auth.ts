@@ -104,15 +104,15 @@ export function useAuth() {
       } else {
         return false;
       }
-    //   if (result.success) {
-    //     const newToken = generateAuthToken();
-    //     setSessionData(newToken);
-    //     setIsAuthenticated(true);
-    //     router.push('/dashboard/home');
-    //     return true;
-    //   } else {
-    //     return false;
-    //   }
+      // if (result.success) {
+      //   const newToken = generateAuthToken();
+      //   setSessionData(newToken);
+      //   setIsAuthenticated(true);
+      //   router.push('/dashboard/home');
+      //   return true;
+      // } else {
+      //   return false;
+      // }
     } catch (error) {
       console.error("Login error:", error);
       return false;
