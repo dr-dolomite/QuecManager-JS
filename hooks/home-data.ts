@@ -362,6 +362,8 @@ const getBandwidth = (response: string, networkType: string) => {
     // Combine the PCC and SCC bandwidths into a single string separated by commas
     return [parsedPCC, ...parsedSCCsLTE, ...parsedSCCsNR5G].join(", ");
   }
+
+  return "Unknown";
 };
 
 const getConnectedBands = (response: string) => {
@@ -578,6 +580,8 @@ const getMCC = (response: string, networkType: string) => {
   if (networkType === "NR5G-NSA") {
     return response.split("\n")[2].split(":")[1].split(",")[2].trim();
   }
+
+  return "Unknown";
 };
 
 const getMNC = (response: string, networkType: string) => {
