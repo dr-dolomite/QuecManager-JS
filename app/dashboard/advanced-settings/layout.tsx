@@ -41,6 +41,9 @@ const CellSettingsLayout = ({ children }: CellSettingsLayoutProps) => {
           >
             TTL Settings
           </Link>
+          <Link href="/dashboard/advanced-settings/mtu" className={`${currentPathName === "/dashboard/advanced-settings/mtu/" ? "font-semibold text-primary" : 'text-sm'}`}>
+            MTU Settings
+          </Link>
           <Link
             href="/dashboard/advanced-settings/at-terminal"
             className={`${

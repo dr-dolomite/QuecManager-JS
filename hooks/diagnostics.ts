@@ -63,7 +63,7 @@ const useRunDiagnostics = () => {
       .split(",")[1]
       .trim();
 
-    if (currentWANIPv4 === "1" || currentWANIPv6 === "1") {
+    if (currentWANIPv4 && currentWANIPv4 === "1" || currentWANIPv6 && currentWANIPv6 === "1") {
       return "Connected";
     } else {
       return "Disconnected";
@@ -150,17 +150,14 @@ const useRunDiagnostics = () => {
       .split(",")[1]
       .trim();
 
-    if (emmCause === "0" && esmCause === "0" && mm5GCause === "0") {
-      return "None";
-    } else if (emmCause !== "0") {
-      return emmCause;
-    } else if (esmCause !== "0") {
-      return esmCause;
-    } else if (mm5GCause !== "0") {
-      return mm5GCause;
-    } else {
-      return "Unknown";
-    }
+      const causes = [
+        emmCause !== "0" ? `${emmCause}` : null,
+        esmCause !== "0" ? `${esmCause}` : null,
+        mm5GCause !== "0" ? `${mm5GCause}` : null
+      ].filter(Boolean);
+      
+      return causes.length > 0 ? causes.join(", ") : "None";
+      
   };
 
   const startDiagnostics = async () => {

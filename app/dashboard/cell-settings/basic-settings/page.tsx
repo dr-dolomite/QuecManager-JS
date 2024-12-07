@@ -120,9 +120,15 @@ const BasicSettings = () => {
       if (data.status === "success") {
         toast({
           title: "Scripts Restarted",
-          description: data.message,
+          description: "Scripts have been restarted successfully",
         });
-      } else {
+      } else if (data.status === "info") {
+        toast({
+          title: "Info",
+          description: "No scripts were found to restart",
+        });
+      }
+      else {
         throw new Error("Failed to restart scripts");
       }
     } catch (error) {

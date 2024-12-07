@@ -6,7 +6,7 @@ const useTrafficStats = () => {
   const [bytesReceived, setBytesReceived] = useState<string>("0 Bytes");
 
   const fetchTrafficStats = useCallback(async () => {
-    const command = "AT+QGDCNT?";
+    const command = "AT+QGDCNT?;+QGDNRCNT?";
     try {
       // const response = await fetch("/api/at-handler", {
       const response = await fetch("/cgi-bin/atinout_handler.sh", {
@@ -19,9 +19,14 @@ const useTrafficStats = () => {
       });
 
       const data = await response.json();
+      // console.log("Traffic stats data:", data);
 
-      const sent = parseInt(data.output.split("\n")[1].split(":")[1].split(",")[0]);
-      const received = parseInt(data.output.split("\n")[1].split(":")[1].split(",")[1]);
+      const LTEreceived = parseInt(data.output.split("\n")[1].split(":")[1].split(",")[0]);
+      const LTEsent = parseInt(data.output.split("\n")[1].split(":")[1].split(",")[1]);
+      const NRsent = parseInt(data.output.split("\n")[3].split(":")[1].split(",")[0]);
+      const NRreceived = parseInt(data.output.split("\n")[3].split(":")[1].split(",")[1]);
+      const sent = LTEsent + NRsent;
+      const received = LTEreceived + NRreceived;
 
       setBytesSent(formatBytes(sent));
       setBytesReceived(formatBytes(received));
@@ -32,8 +37,8 @@ const useTrafficStats = () => {
 
   useEffect(() => {
     fetchTrafficStats();
-    // Set up an interval to fetch data every 5 seconds
-    const intervalId = setInterval(fetchTrafficStats, 5000);
+    // Set up an interval to fetch data every 2 seconds
+    const intervalId = setInterval(fetchTrafficStats, 2000);
 
     // Clean up the interval on component unmount
     return () => clearInterval(intervalId);

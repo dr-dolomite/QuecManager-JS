@@ -331,7 +331,7 @@ const ATTerminalPage = () => {
           <CardDescription>Send AT commands to your device</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-8">
+          <div className="grid gap-8 w-full max-w-screen p-4">
             <div className="grid gap-1.5">
               <Label htmlFor="ATOutput">AT Command Output</Label>
               <Textarea

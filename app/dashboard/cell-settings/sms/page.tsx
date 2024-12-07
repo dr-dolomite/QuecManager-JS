@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from 'react';
-import { Send, Trash2, Loader2, RotateCw } from 'lucide-react';
+import { useState, useEffect } from "react";
+import { Send, Trash2, Loader2, RotateCw } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -39,8 +39,8 @@ const SMSPage = () => {
   const [loading, setLoading] = useState(false);
   const [selectedMessages, setSelectedMessages] = useState<string[]>([]);
   const [newMessage, setNewMessage] = useState({
-    phoneNumber: '',
-    message: ''
+    phoneNumber: "",
+    message: "",
   });
 
   const sendCommand = async (command: string): Promise<any> => {
@@ -79,7 +79,7 @@ const SMSPage = () => {
         if (headerMatch) {
           // Parse the date and time from format "YY/MM/DD,HH:MM:SS"
           const [date, time] = headerMatch[4].replace("+32", "").split(",");
-          
+
           // Format date as YYYY-MM-DD
           const [year, month, day] = date.split("/");
           const formattedDate = `20${year}-${month}-${day}`;
@@ -94,7 +94,9 @@ const SMSPage = () => {
           };
         }
       } else if (currentMessage) {
-        currentMessage.message = `${currentMessage.message || ""}${currentMessage.message ? "\n" : ""}${line}`;
+        currentMessage.message = `${currentMessage.message || ""}${
+          currentMessage.message ? "\n" : ""
+        }${line}`;
       }
     }
 
@@ -133,15 +135,13 @@ const SMSPage = () => {
   };
 
   const handleSelectMessage = (index: string) => {
-    setSelectedMessages(prev => 
-      prev.includes(index)
-        ? prev.filter(i => i !== index)
-        : [...prev, index]
+    setSelectedMessages((prev) =>
+      prev.includes(index) ? prev.filter((i) => i !== index) : [...prev, index]
     );
   };
 
   const handleSelectAll = (checked: boolean) => {
-    setSelectedMessages(checked ? messages.map(m => m.index) : []);
+    setSelectedMessages(checked ? messages.map((m) => m.index) : []);
   };
 
   const handleDeleteSelected = async () => {
@@ -168,7 +168,7 @@ const SMSPage = () => {
     try {
       await sendCommand(`AT+CMGS="${phoneNumber}"`);
       await sendCommand(`${message}\x1A`);
-      setNewMessage({ phoneNumber: '', message: '' });
+      setNewMessage({ phoneNumber: "", message: "" });
       await refreshSMS();
     } catch (error) {
       console.error("Failed to send SMS:", error);
@@ -180,8 +180,8 @@ const SMSPage = () => {
   }, []);
 
   return (
-    <div className="grid gap-6 w-full">
-      <Card>
+    <div className="grid gap-6">
+      <Card className="w-full max-w-screen">
         <CardHeader>
           <CardTitle>SMS Inbox</CardTitle>
           <CardDescription>
@@ -198,72 +198,77 @@ const SMSPage = () => {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <ScrollArea className="h-[400px]">
-            {loading ? (
-              <div className="flex flex-col items-center justify-center py-8">
-                <Loader2 className="h-8 w-8 animate-spin" />
-                <p className="mt-2">Loading messages...</p>
-              </div>
-            ) : messages.length === 0 ? (
-              <p className="text-center py-8 text-muted-foreground">No messages found</p>
-            ) : (
-              messages.map((sms) => (
-                <Dialog key={sms.index}>
-                  <DialogTrigger className="w-full">
-                    <Card className="my-2 dark:hover:bg-slate-900 hover:bg-slate-100">
-                      <CardHeader>
-                        <div className="flex justify-between items-center">
-                          <CardTitle>{sms.sender}</CardTitle>
-                          <div className="flex items-center space-x-2" onClick={e => e.stopPropagation()}>
-                            <p className="text-muted-foreground font-medium text-xs">
-                              {sms.index}
-                            </p>
-                            <Checkbox
-                              checked={selectedMessages.includes(sms.index)}
-                              onCheckedChange={() => handleSelectMessage(sms.index)}
-                            />
+          <ScrollArea className="h-[400px] w-full xs:max-w-xs p-4 grid">
+              {loading ? (
+                <div className="flex flex-col items-center justify-center py-8">
+                  <Loader2 className="h-8 w-8 animate-spin" />
+                  <p className="mt-2">Loading messages...</p>
+                </div>
+              ) : messages.length === 0 ? (
+                <p className="text-center py-8 text-muted-foreground">
+                  No messages found
+                </p>
+              ) : (
+                messages.map((sms) => (
+                  <Dialog key={sms.index}>
+                    <DialogTrigger className="w-full">
+                      <Card className="my-2 dark:hover:bg-slate-900 hover:bg-slate-100">
+                        <CardHeader>
+                          <div className="flex justify-between items-center">
+                            <CardTitle>{sms.sender}</CardTitle>
+                            <div
+                              className="flex items-center space-x-2"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <p className="text-muted-foreground font-medium text-xs">
+                                {sms.index}
+                              </p>
+                              <Checkbox
+                                checked={selectedMessages.includes(sms.index)}
+                                onCheckedChange={() =>
+                                  handleSelectMessage(sms.index)
+                                }
+                              />
+                            </div>
                           </div>
-                        </div>
-                        <CardDescription className="text-left">
+                          <CardDescription className="text-left">
+                            {sms.date} at {sms.time}
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <p className="line-clamp-3">{sms.message}</p>
+                        </CardContent>
+                      </Card>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>{sms.sender}</DialogTitle>
+                        <DialogDescription>
                           {sms.date} at {sms.time}
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent className="text-left">
-                        <p className="line-clamp-3">{sms.message}</p>
-                      </CardContent>
-                    </Card>
-                  </DialogTrigger>
-                  <DialogContent className='lg:max-w-xl md:max-w-md max-w-xs'>
-                    <DialogHeader>
-                      <DialogTitle>{sms.sender}</DialogTitle>
-                      <DialogDescription>{sms.date} at {sms.time}</DialogDescription>
-                    </DialogHeader>
-                    <p>{sms.message}</p>
-                    <Separator className="my-2" />
-                    <Textarea
-                      placeholder={`Reply to ${sms.sender}...`}
-                      className="h-24"
-                      readOnly
-                    />
-                    <div className="flex justify-end">
-                      <Button onClick={handleSendSMS} disabled>
-                        <Send className="h-4 w-4 mr-2" />
-                        Send
-                      </Button>
-                    </div>
-                  </DialogContent>
-                </Dialog>
-              ))
-            )}
+                        </DialogDescription>
+                      </DialogHeader>
+                      <p>{sms.message}</p>
+                      <Separator className="my-2" />
+                      <Textarea
+                        placeholder={`Reply to ${sms.sender}...`}
+                        className="h-24"
+                        readOnly
+                      />
+                      <div className="flex justify-end">
+                        <Button onClick={handleSendSMS} disabled>
+                          <Send className="h-4 w-4 mr-2" />
+                          Send
+                        </Button>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                ))
+              )}
           </ScrollArea>
         </CardContent>
         <CardFooter className="border-t py-4">
           <div className="flex w-full justify-between items-center">
-            <Button
-              variant="outline"
-              onClick={refreshSMS}
-              disabled={loading}
-            >
+            <Button variant="outline" onClick={refreshSMS} disabled={loading}>
               <RotateCw className="h-4 w-4" />
               Refresh
             </Button>
@@ -289,14 +294,21 @@ const SMSPage = () => {
             <Input
               placeholder="Recipient Number"
               value={newMessage.phoneNumber}
-              onChange={e => setNewMessage(prev => ({ ...prev, phoneNumber: e.target.value }))}
+              onChange={(e) =>
+                setNewMessage((prev) => ({
+                  ...prev,
+                  phoneNumber: e.target.value,
+                }))
+              }
               readOnly
             />
             <Textarea
               placeholder="Sending message is still in development..."
               className="h-32"
               value={newMessage.message}
-              onChange={e => setNewMessage(prev => ({ ...prev, message: e.target.value }))}
+              onChange={(e) =>
+                setNewMessage((prev) => ({ ...prev, message: e.target.value }))
+              }
               readOnly
             />
             <div className="flex justify-end">

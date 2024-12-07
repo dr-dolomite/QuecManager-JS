@@ -72,7 +72,13 @@ const HomePage = () => {
       if (data.status === "success") {
         toast({
           title: "Data Refreshed",
-          description: "Data has been refreshed successfully",
+          description: "Data and scripts has been refreshed successfully",
+        });
+      } else if (data.status === "info") {
+        toast({
+          title: "Data Refreshed",
+          description:
+            "Data refreshed successfully, but no scripts to restart.",
         });
       } else {
         throw new Error("Failed to restart scripts");
@@ -162,111 +168,108 @@ const HomePage = () => {
               />
             </Button>
           </div>
-          {dataConnectionState !== "Connected" && (
-            <Dialog>
-              <DialogTrigger>
-                <Button variant="secondary" onClick={runDiagnostics}>
-                  <CirclePlay className="xl:size-6 size-5" />
-                  <span className="hidden md:block">Run Diagnostics</span>
-                </Button>
-              </DialogTrigger>
-              {!isRunningDiagnostics && (
-                <DialogContent className="max-w-xs md:max-w-lg">
-                  <DialogHeader>
-                    <DialogTitle>Diagnostics Result</DialogTitle>
-                  </DialogHeader>
-                  <DialogDescription>
-                    This is the result of the diagnostic test ran on your
-                    device.
-                  </DialogDescription>
-                  <div className="grid gap-4 py-4">
-                    <div className="flex items-center justify-between">
-                      <h3 className="font-semibold">Network Registration </h3>
-                      {runDiagnosticsData?.netRegistration === "Registered" ? (
-                        <CheckCircle2 className="text-green-500" />
-                      ) : (
-                        <AlertCircle className="text-red-500" />
-                      )}
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <h3 className="font-semibold">U-SIM State</h3>
-                      {runDiagnosticsData?.simState === "READY" ? (
-                        <CheckCircle2 className="text-green-500" />
-                      ) : (
-                        <AlertCircle className="text-red-500" />
-                      )}
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <h3 className="font-semibold">Manual APN</h3>
-                      {runDiagnosticsData?.manualAPN === "Enabled" ? (
-                        <CheckCircle2 className="text-green-500" />
-                      ) : (
-                        <AlertCircle className="text-red-500" />
-                      )}
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <h3 className="font-semibold">WAN IP</h3>
-                      {runDiagnosticsData?.wanIP === "Connected" ? (
-                        <CheckCircle2 className="text-green-500" />
-                      ) : (
-                        <AlertCircle className="text-red-500" />
-                      )}
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <h3 className="font-semibold">Cellular Signal</h3>
-                      {runDiagnosticsData?.cellSignal === "Good" ? (
-                        <CheckCircle2 className="text-green-500" />
-                      ) : (
-                        <AlertCircle className="text-red-500" />
-                      )}
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <h3 className="font-semibold">Modem Temperature</h3>
-                      {runDiagnosticsData?.modemTemp === "Normal" ? (
-                        <CheckCircle2 className="text-green-500" />
-                      ) : (
-                        <AlertCircle className="text-red-500" />
-                      )}
-                    </div>
-
-                    <div className="flex items-center justify-between mt-6">
-                      <h3 className="font-semibold">Net Reject Cause</h3>
-                      {runDiagnosticsData?.netReject === "None" ? (
-                        <div className="flex space-x-2 items-center">
-                          <CheckCircle2 className="text-green-500" />
-                          <span>None</span>
-                        </div>
-                      ) : (
-                        <div className="flex space-x-2 items-center">
-                          <AlertCircle className="text-red-500" />
-                          <span>{runDiagnosticsData?.netReject}</span>
-                        </div>
-                      )}
-                    </div>
+          <Dialog>
+            <DialogTrigger>
+              <Button variant="secondary" onClick={runDiagnostics}>
+                <CirclePlay className="xl:size-6 size-5" />
+                <span className="hidden md:block">Run Diagnostics</span>
+              </Button>
+            </DialogTrigger>
+            {!isRunningDiagnostics && (
+              <DialogContent className="max-w-xs md:max-w-lg">
+                <DialogHeader>
+                  <DialogTitle>Diagnostics Result</DialogTitle>
+                </DialogHeader>
+                <DialogDescription>
+                  This is the result of the diagnostic test ran on your device.
+                </DialogDescription>
+                <div className="grid gap-4 py-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-semibold">Network Registration </h3>
+                    {runDiagnosticsData?.netRegistration === "Registered" ? (
+                      <CheckCircle2 className="text-green-500" />
+                    ) : (
+                      <AlertCircle className="text-red-500" />
+                    )}
                   </div>
-                </DialogContent>
-              )}
 
-              {isRunningDiagnostics && (
-                <DialogContent className="max-w-xs md:max-w-lg">
-                  <DialogHeader>
-                    <DialogTitle>Running Diagnostics</DialogTitle>
-                  </DialogHeader>
-                  <div className="flex items-center justify-center my-4">
-                    <PropagateLoader color="#6D28D9" />
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-semibold">U-SIM State</h3>
+                    {runDiagnosticsData?.simState === "READY" ? (
+                      <CheckCircle2 className="text-green-500" />
+                    ) : (
+                      <AlertCircle className="text-red-500" />
+                    )}
                   </div>
-                  <DialogDescription className="text-center">
-                    Please wait while we run diagnostics on your device.
-                  </DialogDescription>
-                </DialogContent>
-              )}
-            </Dialog>
-          )}
+
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-semibold">Manual APN</h3>
+                    {runDiagnosticsData?.manualAPN === "Enabled" ? (
+                      <CheckCircle2 className="text-green-500" />
+                    ) : (
+                      <AlertCircle className="text-red-500" />
+                    )}
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-semibold">WAN IP</h3>
+                    {runDiagnosticsData?.wanIP === "Connected" ? (
+                      <CheckCircle2 className="text-green-500" />
+                    ) : (
+                      <AlertCircle className="text-red-500" />
+                    )}
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-semibold">Cellular Signal</h3>
+                    {runDiagnosticsData?.cellSignal === "Good" ? (
+                      <CheckCircle2 className="text-green-500" />
+                    ) : (
+                      <AlertCircle className="text-red-500" />
+                    )}
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-semibold">Modem Temperature</h3>
+                    {runDiagnosticsData?.modemTemp === "Normal" ? (
+                      <CheckCircle2 className="text-green-500" />
+                    ) : (
+                      <AlertCircle className="text-red-500" />
+                    )}
+                  </div>
+
+                  <div className="flex items-center justify-between mt-6">
+                    <h3 className="font-semibold">Net Reject Cause</h3>
+                    {runDiagnosticsData?.netReject === "None" ? (
+                      <div className="flex space-x-2 items-center">
+                        <CheckCircle2 className="text-green-500" />
+                        <span>None</span>
+                      </div>
+                    ) : (
+                      <div className="flex space-x-2 items-center">
+                        <AlertCircle className="text-red-500" />
+                        <span>{runDiagnosticsData?.netReject}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </DialogContent>
+            )}
+
+            {isRunningDiagnostics && (
+              <DialogContent className="max-w-xs md:max-w-lg">
+                <DialogHeader>
+                  <DialogTitle>Running Diagnostics</DialogTitle>
+                </DialogHeader>
+                <div className="flex items-center justify-center my-4">
+                  <PropagateLoader color="#6D28D9" />
+                </div>
+                <DialogDescription className="text-center">
+                  Please wait while we run diagnostics on your device.
+                </DialogDescription>
+              </DialogContent>
+            )}
+          </Dialog>
         </div>
 
         <div className="grid 2xl:grid-cols-4 lg:grid-cols-2 grid-cols-1 gap-4">

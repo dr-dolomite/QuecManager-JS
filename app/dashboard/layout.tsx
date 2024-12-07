@@ -213,9 +213,9 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
             Advance
           </Link>
           <Link
-            href="/dashboard/experimental/"
+            href="/dashboard/experimental/quecwatch"
             className={`${
-              currentPathName === "/dashboard/experimental/"
+              currentPathName.includes("/dashboard/experimental/")
                 ? "text-foreground"
                 : "text-muted-foreground"
             } transition-colors hover:text-foreground`}
@@ -373,7 +373,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                 <Link href="/dashboard/settings/general">Settings</Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
-                <a href="http://192.168.224.1/cgi-bin/luci">Luci</a>
+                <a href="/cgi-bin/luci">Luci</a>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
                 {/* a tag that redirects to a new tab */}

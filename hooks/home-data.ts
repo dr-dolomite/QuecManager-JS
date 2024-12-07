@@ -86,18 +86,18 @@ const useHomeData = () => {
           operatorState: getOperatorState(
             rawData[8].response,
             rawData[16].response
-          ),
+          ) || "Unknown",
           functionalityState:
             rawData[9].response.split("\n")[1].split(":")[1].trim() === "1"
               ? "Enabled"
               : "Disabled",
-          networkType: getNetworkType(rawData[13].response),
-          modemTemperature: getModemTemperature(rawData[11].response),
+          networkType: getNetworkType(rawData[13].response) || "No Signal",
+          modemTemperature: getModemTemperature(rawData[11].response) || "Unknown",
           accessTechnology: rawData[2].response
             .split("\n")[1]
             .split(":")[1]
             .split(",")[3]
-            .trim(),
+            .trim() || "Unknown",
         },
         dataTransmission: {
           carrierAggregation:
@@ -108,20 +108,20 @@ const useHomeData = () => {
           bandwidth: getBandwidth(
             rawData[13].response,
             getNetworkType(rawData[13].response)
-          ),
-          connectedBands: getConnectedBands(rawData[13].response),
-          signalStrength: getSignalStrength(rawData[14].response),
-          mimoLayers: getMimoLayers(rawData[14].response),
+          ) || "Unknown",
+          connectedBands: getConnectedBands(rawData[13].response) || "Unknown",
+          signalStrength: getSignalStrength(rawData[14].response) || "Unknown",
+          mimoLayers: getMimoLayers(rawData[14].response) || "Unknown",
         },
         cellularInfo: {
           cellId: getCellID(
             rawData[10].response,
             getNetworkType(rawData[13].response)
-          ),
+          ) || "Unknown",
           trackingAreaCode: getTAC(
             rawData[10].response,
             getNetworkType(rawData[13].response)
-          ),
+          ) || "Unknown",
           physicalCellId: getPhysicalCellIDs(
             rawData[13].response,
             getNetworkType(rawData[13].response)
@@ -130,12 +130,12 @@ const useHomeData = () => {
           mcc: getMCC(
             rawData[10].response,
             getNetworkType(rawData[13].response)
-          ),
+          ) || "Unknown",
           mnc: getMNC(
             rawData[10].response,
             getNetworkType(rawData[13].response)
-          ),
-          signalQuality: getSignalQuality(rawData[19].response),
+          ) || "Unknown",
+          signalQuality: getSignalQuality(rawData[19].response) || "Unknown",
         },
         currentBands: {
           // id is length of bandNumber
@@ -145,14 +145,14 @@ const useHomeData = () => {
                 getCurrentBandsBandNumber(rawData[13].response)?.length ?? 0,
             },
             (_, i) => i + 1
-          ),
-          bandNumber: getCurrentBandsBandNumber(rawData[13].response),
+          ) || [1],
+          bandNumber: getCurrentBandsBandNumber(rawData[13].response) || ["Unknown"],
           earfcn: getCurrentBandsEARFCN(rawData[13].response),
-          bandwidth: getCurrentBandsBandwidth(rawData[13].response),
+          bandwidth: getCurrentBandsBandwidth(rawData[13].response) || ["Unknown"],
           pci: getCurrentBandsPCI(
             rawData[13].response,
             getNetworkType(rawData[13].response)
-          ),
+          ) || ["Unknown"],
           rsrp: getCurrentBandsRSRP(
             rawData[13].response,
             getNetworkType(rawData[13].response),
@@ -162,18 +162,67 @@ const useHomeData = () => {
             rawData[13].response,
             getNetworkType(rawData[13].response),
             rawData[10].response
-          ),
+          ) || ["Unknown"],
           sinr: getCurrentBandsSINR(
             rawData[13].response,
             getNetworkType(rawData[13].response),
             rawData[10].response
-          ),
+          ) || ["Unknown"],
         },
       };
 
       setData(processedData);
     } catch (error) {
       console.error("Error fetching home data:", error);
+
+      // Make all values as "Unknown" if there is an error
+      const errorData: HomeData = {
+        simCard: {
+          slot: "Unknown",
+          state: "Not Inserted",
+          provider: "Unknown",
+          phoneNumber: "Unknown",
+          imsi: "Unknown",
+          iccid: "Unknown",
+          imei: "Unknown",
+        },
+        connection: {
+          apn: "Unknown",
+          operatorState: "Unknown",
+          functionalityState: "Disabled",
+          networkType: "No Signal",
+          modemTemperature: "Unknown",
+          accessTechnology: "Unknown",
+        },
+        dataTransmission: {
+          carrierAggregation:
+          "Inactive",
+          connectedBands: "Unknown",
+          signalStrength: "Unknown",
+          mimoLayers: "Unknown",
+        },
+        cellularInfo: {
+          cellId: "Unknown",
+          trackingAreaCode: "Unknown",
+          physicalCellId: "Unknown",
+          earfcn: "Unknown",
+          mnc: "Unknown",
+          signalQuality: "Unknown",
+        },
+        currentBands: {
+          // id is length of bandNumber
+          id: [1],
+          bandNumber: ["Unknown"],
+          earfcn: ["Unknown"],
+          bandwidth: ["Unknown"],
+          pci: ["Unknown"],
+          rsrp: ["Unknown"],
+          rsrq: ["Unknown"],
+          sinr: ["Unknown"],
+        },
+      };
+
+      setData(errorData);
     } finally {
       if (isInitialLoad) {
         // Add a delay to prevent flickering only on initial load
