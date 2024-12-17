@@ -595,66 +595,57 @@ const getMNC = (response: string, networkType: string) => {
 };
 
 const getSignalQuality = (response: string) => {
-  // const RSRP LTE line
-  let sinrLTE = response.split("\n").find((l) => l.includes("LTE"));
-  let sinrNR5G = response.split("\n").find((l) => l.includes("NR5G"));
-  let sinrLteArr: any[] = [];
-  let sinrNrArr: any[] = [];
+  // Split the response into lines
+  const lines = response.split("\n");
 
-  // if RSRP LTE exists
-  if (sinrLTE) {
-    sinrLteArr = sinrLTE
+  // Find RSRP lines for LTE and NR5G
+  const sinrLTE = lines.find((l) => l.includes("LTE"));
+  const sinrNR5G = lines.find((l) => l.includes("NR5G"));
+
+  // Parsing function to extract and clean numeric values
+  const parseSignalValues = (line?: string): number[] => {
+    if (!line) return [];
+
+    return line
       .split(":")[1]
       .split(",")
       .slice(0, 4)
-      .map((v) => parseInt(v.trim()));
-  }
+      .map((v) => parseInt(v.trim()))
+      .filter((v) => v !== -140 && v !== -37625);
+  };
 
-  // If RSRP NR5G exists
-  if (sinrNR5G) {
-    sinrNrArr = sinrNR5G
-      .split(":")[1]
-      .split(",")
-      .slice(0, 4)
-      .map((v) => parseInt(v.trim()));
-  }
+  // Calculation function for percentage
+  const calculatePercentage = (values: number[]): number => {
+    if (!values.length) return 0;
 
-  // Filter out -140 and -37625 from the arrays
-  sinrLteArr = sinrLteArr.filter((v) => v !== -140 && v !== -37625);
-  sinrNrArr = sinrNrArr.filter((v) => v !== -140 && v !== -37625);
+    const avg = values.reduce((acc, v) => acc + v, 0) / values.length;
+    
+    // Adjust calculation: -10 to 30 range
+    const percentage = Math.max(0, Math.min(100, ((avg - (-10)) / (30 - (-10))) * 100));
+    
+    return percentage;
+  };
 
-  // Calculate the average RSRP values average percentage where -75 is best and -125 is worst
-  if (sinrLteArr.length) {
-    if (sinrNrArr.length) {
-      const lteAvg =
-        sinrLteArr.reduce((acc, v) => acc + v, 0) / sinrLteArr.length;
-      const nrAvg = sinrNrArr.reduce((acc, v) => acc + v, 0) / sinrNrArr.length;
-      const ltePercentage = Math.max(
-        0,
-        Math.min(100, ((lteAvg + 125) / 50) * 100)
-      );
-      const nrPercentage = Math.max(
-        0,
-        Math.min(100, ((nrAvg + 125) / 50) * 100)
-      );
+  // Parse signal values
+  const sinrLteArr = parseSignalValues(sinrLTE);
+  const sinrNrArr = parseSignalValues(sinrNR5G);
 
-      // Get the final average percentage
-      const finalAverage = (ltePercentage + nrPercentage) / 2;
-      return `${Math.round(finalAverage)}%`;
-    } else {
-      const lteAvg =
-        sinrLteArr.reduce((acc, v) => acc + v, 0) / sinrLteArr.length;
-      const ltePercentage = Math.max(
-        0,
-        Math.min(100, ((lteAvg + 125) / 50) * 100)
-      );
-      return `${Math.round(ltePercentage)}%`;
-    }
+  // Calculate percentages
+  const ltePercentage = calculatePercentage(sinrLteArr);
+  const nrPercentage = calculatePercentage(sinrNrArr);
+
+  // Determine final percentage
+  if (sinrLteArr.length && sinrNrArr.length) {
+    // If both LTE and NR5G are present, take the average
+    return `${Math.round((ltePercentage + nrPercentage) / 2)}%`;
+  } else if (sinrLteArr.length) {
+    // If only LTE is present
+    return `${Math.round(ltePercentage)}%`;
   } else if (sinrNrArr.length) {
-    const nrAvg = sinrNrArr.reduce((acc, v) => acc + v, 0) / sinrNrArr.length;
-    const nrPercentage = Math.max(0, Math.min(100, ((nrAvg + 125) / 50) * 100));
+    // If only NR5G is present
     return `${Math.round(nrPercentage)}%`;
   } else {
+    // If no valid signal data
     return "Unknown%";
   }
 };

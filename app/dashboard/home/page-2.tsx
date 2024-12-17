@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState, useEffect, useMemo } from "react";
+import { useCallback, useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 
 // Components
@@ -8,11 +8,7 @@ import SimCard from "@/components/home/sim-data";
 import Connection from "@/components/home/connection";
 import DataTransmission from "@/components/home/data-transmission";
 import CellularInformation from "@/components/home/cellular-info";
-import SignalChart from "@/components/home/signal-chart";
-import EthernetCard from "@/components/home/ethernet-card";
-import MemoryCard from "@/components/home/memory-card";
-import PingCard from "@/components/home/ping-card";
-
+import { BsSimSlashFill } from "react-icons/bs";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -31,7 +27,6 @@ import {
   RefreshCcw,
 } from "lucide-react";
 
-
 import PropagateLoader from "react-spinners/PropagateLoader";
 import BandTable from "@/components/home/band-table";
 
@@ -40,8 +35,6 @@ import useHomeData from "@/hooks/home-data";
 import useDataConnectionState from "@/hooks/home-connection";
 import useTrafficStats from "@/hooks/home-traffic";
 import useRunDiagnostics from "@/hooks/diagnostics";
-import { BsEthernet, BsMemory, BsSimSlashFill } from "react-icons/bs";
-import SpeedtestStream from "@/components/home/test";
 
 interface newBands {
   id: number;
@@ -56,7 +49,6 @@ interface newBands {
 
 const HomePage = () => {
   const { toast } = useToast();
-
   const { data: homeData, isLoading, refresh: refreshHomeData } = useHomeData();
   const {
     dataConnectionState,
@@ -106,7 +98,9 @@ const HomePage = () => {
     try {
       const currentSimSlot = homeData?.simCard?.slot;
       const command =
-        currentSimSlot === "Slot 1" ? "AT+QUIMSLOT=1" : "AT+QUIMSLOT=2";
+        currentSimSlot === "Slot 1"
+          ? "AT+QUIMSLOT=2;+COPS=0;"
+          : "AT+QUIMSLOT=1;+COPS=0;";
 
       const encodedCommand = encodeURIComponent(command);
       const response = await fetch("/cgi-bin/atinout_handler.sh", {
@@ -131,10 +125,10 @@ const HomePage = () => {
         title: "SIM Slot Changed",
         description: "The SIM slot has been changed successfully",
       });
-
+      
       // Wait for 2 seconds then send COPS command
       setTimeout(async () => {
-        const copsCommand = "AT+COPS=0;+COPS=2";
+        const copsCommand = "AT+COPS=2";
         const encodedCopsCommand = encodeURIComponent(copsCommand);
         const copsResponse = await fetch("/cgi-bin/atinout_handler.sh", {
           method: "POST",
@@ -224,10 +218,10 @@ const HomePage = () => {
 
   return (
     <div className="grid xl:gap-y-12 gap-y-8 gap-4">
-      <div className="grid gap-4">
+      <div className="grid xl:gap-6 gap-4">
         <div className="flex flex-row justify-between items-center">
           <div className="flex flex-row gap-2 items-center">
-            <h1 className="xl:text-3xl text-base font-bold">
+            <h1 className="xl:text-3xl text-lg font-bold">
               Connection Summary
             </h1>
             <Button
@@ -386,18 +380,6 @@ const HomePage = () => {
             </Dialog>
           </div>
         </div>
-        <div className="grid lg:grid-cols-2 grid-cols-1 grid-flow-row gap-4">
-          <div>
-            <SignalChart />
-          </div>
-          <div className="grid gap-2 lg:grid-cols-2 grid-cols-1 grid-flow-row">
-            <EthernetCard />
-            <MemoryCard />
-            {/* <SpeedTestCard /> */}
-            <SpeedtestStream />
-            <PingCard />
-          </div>
-        </div>
 
         <div className="grid 2xl:grid-cols-4 lg:grid-cols-2 grid-cols-1 gap-4">
           <SimCard data={homeData} isLoading={isLoading} />
@@ -418,9 +400,7 @@ const HomePage = () => {
       </div>
 
       <div className="grid xl:gap-6 gap-4">
-        <h1 className="xl:text-3xl text-base font-bold">
-          Current Active Bands
-        </h1>
+        <h1 className="xl:text-3xl text-lg font-bold">Current Active Bands</h1>
         <BandTable bands={bands} isLoading={isLoading} />
       </div>
     </div>

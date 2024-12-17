@@ -71,44 +71,78 @@ const useRunDiagnostics = () => {
   };
 
   const getCellSignalStrength = (cellSignal: string) => {
-    const rsrpLTEValues = cellSignal
-      .split("\n")[1]
-      .split(":")[1]
-      .split(",")
-      .slice(0, 4)
-      .map((value) => value.trim());
-
-    // Check if "NR5G" is present in the cellSignal string
-    const hasNR5G = cellSignal.includes("NR5G");
-    let rsrp5GValues = null;
-
-    if (hasNR5G) {
-      rsrp5GValues = cellSignal
-        .split("\n")[2]
-        .split(":")[1]
-        .split(",")
-        .slice(0, 4)
-        .map((value) => value.trim());
-    }
-
-    if (rsrpLTEValues && rsrpLTEValues.length > 0) {
-      const rsrpLTEAverage =
-        rsrpLTEValues.reduce((acc, value) => acc + parseInt(value), 0) /
-        rsrpLTEValues.length;
-
-      if (hasNR5G && rsrp5GValues && rsrp5GValues.length > 0) {
-        const rsrp5GAverage =
-          rsrp5GValues.reduce((acc, value) => acc + parseInt(value), 0) /
-          rsrp5GValues.length;
-
-        const rsrpAverage = (rsrpLTEAverage + rsrp5GAverage) / 2;
-        return rsrpAverage < -100 ? "Poor" : "Good";
-      } else {
-        return rsrpLTEAverage < -100 ? "Poor" : "Good";
+    try {
+      // Remove any trailing whitespace and split into lines
+      const lines = cellSignal.trim().split("\n").map(line => line.trim());
+  
+      // Find the lines containing RSRP values
+      const lteRsrpLine = lines.find(line => line.includes("+QRSRP:") && line.includes("LTE"));
+      const nr5gRsrpLine = lines.find(line => line.includes("+QRSRP:") && line.includes("NR5G"));
+  
+      // Extract LTE values
+      let lteRsrpValues: number[] = [];
+      if (lteRsrpLine) {
+        lteRsrpValues = lteRsrpLine
+          .split(":")[1]
+          .split(",")
+          .slice(0, 4)
+          .map(value => value.trim())
+          .filter(value => !isNaN(parseInt(value)))
+          .map(value => parseInt(value));
       }
-    }
 
-    return "N/A";
+      // Extract 5G values
+      let nr5gRsrpValues: number[] = [];
+      if (nr5gRsrpLine) {
+        nr5gRsrpValues = nr5gRsrpLine
+          .split(":")[1]
+          .split(",")
+          .slice(0, 4)
+          .map(value => value.trim())
+          .filter(value => !isNaN(parseInt(value)))
+          .map(value => parseInt(value));
+      }
+
+      // remove -32768 values from the array
+      lteRsrpValues = lteRsrpValues.filter(value => value !== -32768);
+      nr5gRsrpValues = nr5gRsrpValues.filter(value => value !== -32768);
+
+      // remove -140 values from the array
+      lteRsrpValues = lteRsrpValues.filter(value => value !== -140);
+      nr5gRsrpValues = nr5gRsrpValues.filter(value => value !== -140);
+  
+      // Calculate signal strength
+      if (lteRsrpValues.length > 0) {
+        const lteRsrpAverage = 
+          lteRsrpValues.reduce((acc, value) => acc + value, 0) / 
+          lteRsrpValues.length;
+  
+        // If both LTE and 5G values exist (NSA scenario)
+        if (nr5gRsrpValues.length > 0) {
+          const nr5gRsrpAverage = 
+            nr5gRsrpValues.reduce((acc, value) => acc + value, 0) / 
+            nr5gRsrpValues.length;
+  
+          const combinedRsrpAverage = (lteRsrpAverage + nr5gRsrpAverage) / 2;
+          return combinedRsrpAverage < -100 ? "Poor" : "Good";
+        } 
+        
+        // LTE only scenario
+        return lteRsrpAverage < -100 ? "Poor" : "Good";
+      } else if (nr5gRsrpValues.length > 0) {
+        // 5G only scenario
+        const nr5gRsrpAverage = 
+          nr5gRsrpValues.reduce((acc, value) => acc + value, 0) / 
+          nr5gRsrpValues.length;
+  
+        return nr5gRsrpAverage < -100 ? "Poor" : "Good";
+      }
+  
+      return "N/A";
+    } catch (error) {
+      console.error("Error processing cell signal:", error);
+      return "N/A";
+    }
   };
 
   const getModemTempState = (modemTemp: string) => {
