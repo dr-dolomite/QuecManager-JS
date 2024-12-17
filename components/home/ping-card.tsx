@@ -95,18 +95,18 @@ const PingCard = () => {
   }, [isInitialLoad, chartData]);
 
   // Loading skeleton for initial load
-  if (isInitialLoad) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Ping Latency</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Skeleton className="w-full h-[200px]" />
-        </CardContent>
-      </Card>
-    );
-  }
+  // if (isInitialLoad) {
+  //   return (
+  //     <Card>
+  //       <CardHeader>
+  //         <CardTitle>Ping Latency</CardTitle>
+  //       </CardHeader>
+  //       <CardContent>
+  //         <Skeleton className="w-full h-[200px]" />
+  //       </CardContent>
+  //     </Card>
+  //   );
+  // }
 
   return (
     <Card>

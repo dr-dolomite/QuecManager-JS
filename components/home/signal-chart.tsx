@@ -114,16 +114,6 @@ const SignalChart = () => {
     [chartData]
   );
 
-  if (isLoading) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Loading Signal Metrics...</CardTitle>
-        </CardHeader>
-      </Card>
-    );
-  }
-
   if (error) {
     return (
       <Card>

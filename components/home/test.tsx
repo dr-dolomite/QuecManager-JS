@@ -1,39 +1,36 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useRef, useCallback } from "react";
 import {
   Card,
   CardHeader,
   CardTitle,
   CardContent,
   CardDescription,
+  CardFooter,
 } from "@/components/ui/card";
 
 import {
   Drawer,
-  DrawerClose,
   DrawerContent,
-  DrawerDescription,
-  DrawerFooter,
-  DrawerHeader,
-  DrawerTitle,
   DrawerTrigger,
 } from "@/components/ui/drawer";
 
 import {
-  Download,
-  Upload,
   Gauge,
   Clock,
   Zap,
   Network,
-  MapPin,
-  Globe,
   Link,
-  Wifi,
-  RefreshCw,
   Play,
   CirclePlay,
+  ArrowDownCircle,
+  ArrowUpCircle,
+  CircleArrowDown,
+  CircleArrowUp,
+  TrendingUp,
+  TrendingDown,
+  TriangleAlert,
 } from "lucide-react";
 
 import { PuffLoader } from "react-spinners";
@@ -100,7 +97,6 @@ const formatBytes = (bytes?: number): string => {
 
 const formatSpeed = (bandwidth?: number): string => {
   if (bandwidth == null) return "N/A";
-
   const bitsPerSecond = bandwidth * 8;
   const units = ["bps", "Kbps", "Mbps", "Gbps"];
   let value = bitsPerSecond;
@@ -111,7 +107,7 @@ const formatSpeed = (bandwidth?: number): string => {
     unitIndex++;
   }
 
-  return `${value.toFixed(2)} ${units[unitIndex]}`;
+  return `${Math.round(value)} ${units[unitIndex]}`;
 };
 
 const SpeedtestStream = () => {
@@ -272,8 +268,18 @@ const SpeedtestStream = () => {
   const renderSpeedtestContent = () => {
     if (error) {
       return (
-        <div className="text-red-500 flex items-center justify-center">
-          <RefreshCw className="mr-2 animate-spin" /> {error}
+        <div className="flex flex-col items-center justify-center space-y-4">
+          <TriangleAlert className="text-rose-600 lg:size-48 size-16 animate-pulse" />
+          <h3 className="text-xl font-semibold">Network Speedtest Failed</h3>
+          <p className="text-sm text-gray-500">
+            Something went wrong while running the speedtest.
+            <span
+              className="underline cursor-pointer ml-2"
+              onClick={startSpeedtest}
+            >
+              Please try again.
+            </span>
+          </p>
         </div>
       );
     }
@@ -282,10 +288,12 @@ const SpeedtestStream = () => {
     if (isStarting) {
       return (
         <div className="flex flex-col items-center justify-center space-y-4">
-          <Play className="text-primary lg:size-32 size-16 animate-pulse" />
-          <h3 className="text-xl font-semibold">Starting Speedtest</h3>
-          <p className="text-sm text-gray-500">
-            Please wait while searching and connecting to a server...
+          <Play className="text-primary lg:size-48 size-16 animate-pulse" />
+          <h3 className="text-xl font-semibold">
+            Initiating Network Speedtest
+          </h3>
+          <p className="text-sm text-gray-500 text-center">
+            Locating and establishing a connection to a server. Please wait...
           </p>
         </div>
       );
@@ -316,152 +324,210 @@ const SpeedtestStream = () => {
     // Result view
     if (showResults) {
       return (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Card className="p-4">
+        <div className="grid lg:grid-cols-2 grid-cols-1 grid-flow-row gap-4 w-full min-w-sm">
+          <Card>
             <CardHeader>
               <CardTitle className="flex items-center">
-                <Network className="mr-2 text-blue-600" /> Connection Details
+                <Gauge className="mr-4 text-violet-600" /> Speedtest Result
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="lg:py-12 py-6 min-w-sm w-full">
+              <div className="grid lg:grid-cols-2 grid-cols-1 grid-flow-row gap-4 lg:gap-y-0 gap-y-8 gap-x-8">
+                <div className="grid gap-1 place-items-center">
+                  <div className="flex items-center space-x-2">
+                    <CircleArrowDown className="text-green-600 lg:size-6 size-4" />
+                    <p className="font-semibold">Download</p>
+                  </div>
+                  <h1 className="text-[3rem] font-semibold text-center antialiased leading-tight">
+                    {formatSpeed(speedtestData?.download.bandwidth)}
+                  </h1>
+                  <div className="grid gap-0.5 lg:flex lg:items-center lg:space-x-1">
+                    <div className="flex items-center justify-center gap-x-2">
+                      <TrendingDown className="text-gray-600 lg:size-6 size-4" />
+                      <p className="text-foreground-muted text-sm text-center">
+                        Latency
+                      </p>
+                    </div>
+                    <p className="text-foreground-muted text-sm text-center">
+                      {speedtestData?.download.latency?.iqm?.toFixed(2) ??
+                        "N/A"}{" "}
+                      ms
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid gap-1.5 place-items-center">
+                  <div className="flex items-center space-x-2">
+                    <CircleArrowUp className="text-violet-600 lg:size-6 size-4" />
+                    <p className="font-semibold">Upload</p>
+                  </div>
+                  <h1 className="text-[3rem] font-semibold text-center antialiased leading-tight">
+                    {formatSpeed(speedtestData?.upload.bandwidth)}
+                  </h1>
+                  <div className="grid gap-0.5 lg:flex lg:items-center lg:space-x-1">
+                    <div className="flex items-center justify-center gap-x-2">
+                      <TrendingDown className="text-gray-600 lg:size-6 size-4" />
+                      <p className="text-foreground-muted text-sm text-center">
+                        Latency
+                      </p>
+                    </div>
+                    <p className="text-foreground-muted text-sm text-center">
+                      {speedtestData?.upload.latency?.iqm?.toFixed(2) ?? "N/A"}{" "}
+                      ms
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+            <CardFooter className="mt-4 flex items-center justify-between">
+              <div className="grid gap-0.5 lg:flex lg:items-center lg:space-x-1">
+                <div className="flex items-center justify-center gap-x-2">
+                  <Clock className="text-gray-600 lg:size-6 size-4" />
+                  <p className="text-foreground-muted text-sm text-center">
+                    Ping
+                  </p>
+                </div>
+                <p className="text-foreground-muted text-sm text-center">
+                  {speedtestData?.ping.latency.toFixed(2) ?? "N/A"} ms
+                </p>
+              </div>
+
+              <div className="grid gap-0.5 lg:flex lg:items-center lg:space-x-1">
+                <div className="flex items-center justify-center gap-x-2">
+                  <TrendingUp className="text-gray-600 lg:size-6 size-4" />
+                  <p className="text-foreground-muted text-sm text-center">
+                    Jitter
+                  </p>
+                </div>
+                <p className="text-foreground-muted text-sm text-center">
+                  {speedtestData?.ping.jitter.toFixed(2) ?? "N/A"} ms
+                </p>
+              </div>
+            </CardFooter>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <Network className="mr-4 text-blue-600" /> Connection & Server
+                Details
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-2">
-                <div className="flex justify-between">
+              <div className="grid gap-2">
+                <div className="flex items-center justify-between">
                   <span className="font-medium">ISP:</span>
                   <span>{speedtestData?.isp}</span>
                 </div>
-                <div className="flex justify-between">
+
+                <div className="flex items-center justify-between">
                   <span className="font-medium">Internal IP:</span>
                   <span>{speedtestData?.interface.internalIp}</span>
                 </div>
-                <div className="flex justify-between">
+
+                <div className="flex items-center justify-between">
                   <span className="font-medium">External IP:</span>
                   <span>{speedtestData?.interface.externalIp}</span>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
 
-          <Card className="p-4">
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <MapPin className="mr-2 text-green-600" /> Server Details
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                <div className="flex justify-between">
-                  <span className="font-medium">Name:</span>
+                <div className="flex items-center justify-between">
+                  <span className="font-medium">Server Name:</span>
                   <span>{speedtestData?.server.name}</span>
                 </div>
-                <div className="flex justify-between">
+
+                <div className="flex items-center justify-between">
                   <span className="font-medium">Location:</span>
-                  <span>
-                    {speedtestData?.server.location},{" "}
-                    {speedtestData?.server.country}
-                  </span>
+                  <span>{speedtestData?.server.location}</span>
                 </div>
-                <div className="flex justify-between">
+
+                <div className="flex items-center justify-between">
+                  <span className="font-medium">Country:</span>
+                  <span>{speedtestData?.server.country}</span>
+                </div>
+
+                <div className="flex items-center justify-between">
                   <span className="font-medium">Server IP:</span>
                   <span>{speedtestData?.server.host}</span>
                 </div>
+
+                {speedtestData?.result.url && (
+                  <div className="flex items-center gap-x-2 mt-4">
+                    <Link className="text-blue-600 size-4" />
+                    <a
+                      href={speedtestData.result.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-medium text-blue-600 hover:underline"
+                    >
+                      View Full Result Online
+                    </a>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
-
-          <Card className="p-4 md:col-span-2">
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Gauge className="mr-2 text-purple-600" /> Speed & Ping Results
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <h4 className="font-semibold flex items-center">
-                    <Download className="mr-2 text-blue-600" /> Download
-                  </h4>
-                  <p>{formatSpeed(speedtestData?.download.bandwidth)}</p>
-                  <small>
-                    Latency:{" "}
-                    {speedtestData?.download.latency?.iqm?.toFixed(2) ?? "N/A"}{" "}
-                    ms
-                  </small>
-                </div>
-                <div>
-                  <h4 className="font-semibold flex items-center">
-                    <Upload className="mr-2 text-green-600" /> Upload
-                  </h4>
-                  <p>{formatSpeed(speedtestData?.upload.bandwidth)}</p>
-                  <small>
-                    Latency:{" "}
-                    {speedtestData?.upload.latency?.iqm?.toFixed(2) ?? "N/A"} ms
-                  </small>
-                </div>
-                <div>
-                  <h4 className="font-semibold flex items-center">
-                    <Clock className="mr-2 text-gray-600" /> Ping
-                  </h4>
-                  <p>{speedtestData?.ping.latency.toFixed(2)} ms</p>
-                  <small>
-                    Jitter: {speedtestData?.ping.jitter.toFixed(2)} ms
-                  </small>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {speedtestData?.result.url && (
-            <div className="md:col-span-2 text-center mt-4">
-              <a
-                href={speedtestData.result.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center justify-center text-blue-600 hover:underline"
-              >
-                <Link className="mr-2" /> View Full Result Online
-              </a>
-            </div>
-          )}
         </div>
       );
     }
 
     // Previous download/upload view
     if (!currentType) return null;
-
     if (!speedtestData) return null;
     const data = speedtestData[currentType];
     const isDownload = currentType === "download";
 
     return (
-      <Card className="grid lg:grid-cols-2 grid-cols-1 grid-flow-row gap-4 p-6 w-full items-center">
-        <Card className="p-2 max-w-sm mx-auto">
-          <div className="grid gap-1.5">
-          <h1 className="lg:text-4rem text-3rem font-semibold text-center">
-          {formatSpeed(data.bandwidth)}
-          </h1>
-          <CardDescription className="text-center">
-            {isDownload ? "Download" : "Upload"} Speed
-          </CardDescription>
-          </div>
-        </Card>
-
-        <div className="grid grid-rows-3 gap-2">
-          <div className="flex items-center">
-            <Zap className="mr-2 text-yellow-600" />
-            <span>Bytes Transferred: {formatBytes(data.bytes)}</span>
-          </div>
-          <div className="flex items-center">
-            <Gauge className="mr-2 text-purple-600" />
-            <span>Elapsed Time: {(data.elapsed / 1000).toFixed(2)} sec</span>
-          </div>
-          <div className="flex items-center">
-            <Clock className="mr-2 text-gray-600" />
-            <span>
-              Latency (IQM): {data.latency?.iqm?.toFixed(2) ?? "N/A"} ms
+      <Card className="p-4 w-full">
+        <CardHeader>
+          <CardTitle className="flex items-center">
+            {isDownload ? (
+              <ArrowDownCircle className="text-green-500 lg:size-6 size-4 mr-1" />
+            ) : (
+              <ArrowUpCircle className="text-violet-500 lg:size-6 size-4 mr-1" />
+            )}
+            <span className="ml-2">
+              Testing {isDownload ? "Download" : "Upload"} Speed
             </span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid place-items-center max-w-sm lg:max-w-full mx-auto w-full">
+            <h1 className="lg:text-[4rem] text-[3rem] font-semibold text-center">
+              {formatSpeed(data.bandwidth)}
+            </h1>
           </div>
-        </div>
+        </CardContent>
+        <CardFooter>
+          <div className="grid lg:grid-cols-3 grid-cols-1 grid-flow-row gap-4">
+            <div className="grid gap-1 place-items-center">
+              <div className="flex items-center">
+                <Zap className="mr-2 text-yellow-600" />
+                Bytes Transferred
+              </div>
+              <span className="lg:text-md text-base text-muted font-semibold">
+                {formatBytes(data.bytes)}
+              </span>
+            </div>
+            <div className="grid gap-1 place-items-center">
+              <div className="flex items-center">
+                <Gauge className="mr-2 text-purple-600" />
+                Elapsed Time
+              </div>
+              <span className="lg:text-md text-base text-muted font-semibold">
+                {(data.elapsed / 1000).toFixed(2)} sec
+              </span>
+            </div>
+            <div className="grid gap-1 place-items-center">
+              <div className="flex items-center">
+                <Clock className="mr-2 text-gray-600" />
+                Latency (IQM)
+              </div>
+              <span className="lg:text-md text-base text-muted font-semibold">
+                {data.latency?.iqm?.toFixed(2) ?? "N/A"} ms
+              </span>
+            </div>
+          </div>
+        </CardFooter>
       </Card>
     );
   };
@@ -490,7 +556,7 @@ const SpeedtestStream = () => {
             </div>
           </DrawerTrigger>
           <DrawerContent>
-            <div className="lg:max-w-full max-w-sm mx-auto p-6 py-12">
+            <div className="lg:max-w-full max-w-sm mx-auto min-w-sm p-6 py-12">
               {renderSpeedtestContent()}
             </div>
           </DrawerContent>
