@@ -144,7 +144,7 @@ const IMEIManglingPage = () => {
     }
 
     try {
-      const command = `AT+EGMR=1,7,"${newIMEI};+QPOWD=1"`;
+      const command = `AT+EGMR=1,7,"${newIMEI}";+QPOWD=1`;
       const encodedCommand = encodeURIComponent(command);
       const response = await fetch("/cgi-bin/atinout_handler.sh", {
         method: "POST",
@@ -154,9 +154,17 @@ const IMEIManglingPage = () => {
         body: `command=${encodedCommand}`,
       });
 
+      console.log(response);
+
       if (!response.ok) {
         throw new Error("Failed to update IMEI");
       }
+
+      toast({
+        title: "Success",
+        description: "IMEI has been updated successfully. Rebooting...",
+        duration: 90000,
+      })
 
       // The device will reboot after this command, so we don't need to handle the response
     } catch (err) {

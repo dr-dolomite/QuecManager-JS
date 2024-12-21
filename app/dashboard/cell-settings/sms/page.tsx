@@ -111,6 +111,8 @@ const SMSPage = () => {
     setLoading(true);
     try {
       await sendCommand("AT+CMGF=1");
+      // wait for 2 seconds to ensure the mode is set
+      await new Promise((resolve) => setTimeout(resolve, 2000));
       const response = await sendCommand('AT+CMGL="ALL"');
 
       let rawData: string;

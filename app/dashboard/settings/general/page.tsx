@@ -151,7 +151,7 @@ const GeneralSettingsPage = () => {
         <CardHeader>
           <CardTitle>AT Port Custom Command Interface</CardTitle>
           <CardDescription>
-            Change the custom command interface of the AT Port configuration.
+            Change the custom command interface of the AT Port configuration. This is used for logging.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -164,7 +164,7 @@ const GeneralSettingsPage = () => {
             {loading && <Skeleton className="h-8" />}
             {!loading && (
               <Input
-                placeholder="Custom AT port interface"
+                placeholder="Custom AT port interface (logging)"
                 value={config.AT_port_custom}
                 onChange={(e) =>
                   setConfig((prev) => ({

@@ -1,35 +1,42 @@
-// hooks/useTrafficStats.ts
 import { useState, useEffect, useCallback } from 'react';
+
+interface DataUsageEntry {
+  datetime: string;
+  output: string;
+}
 
 const useTrafficStats = () => {
   const [bytesSent, setBytesSent] = useState<string>("0 Bytes");
   const [bytesReceived, setBytesReceived] = useState<string>("0 Bytes");
 
   const fetchTrafficStats = useCallback(async () => {
-    const command = "AT+QGDCNT?;+QGDNRCNT?";
     try {
-      // const response = await fetch("/api/at-handler", {
-      const response = await fetch("/cgi-bin/atinout_handler.sh", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        // body: JSON.stringify({ command }),
-        body: `command=${encodeURIComponent(command)}`,
-      });
-
-      const data = await response.json();
-      // console.log("Traffic stats data:", data);
-
-      const LTEreceived = parseInt(data.output.split("\n")[1].split(":")[1].split(",")[0]);
-      const LTEsent = parseInt(data.output.split("\n")[1].split(":")[1].split(",")[1]);
-      const NRsent = parseInt(data.output.split("\n")[3].split(":")[1].split(",")[0]);
-      const NRreceived = parseInt(data.output.split("\n")[3].split(":")[1].split(",")[1]);
-      const sent = LTEsent + NRsent;
-      const received = LTEreceived + NRreceived;
-
-      setBytesSent(formatBytes(sent));
-      setBytesReceived(formatBytes(received));
+      const response = await fetch("/cgi-bin/home/fetch_data_usage.sh");
+      const latestEntry = await response.json() as DataUsageEntry;
+      
+      if (latestEntry) {
+        const output = latestEntry.output;
+        // Split the combined output into individual command responses
+        const [qgdcnt, qgdnrcnt] = output.split('+QGDNRCNT:').map(part => part.trim());
+        
+        // Parse LTE data usage (QGDCNT)
+        const [LTEreceived, LTEsent] = qgdcnt
+          .replace('+QGDCNT:', '')
+          .split(',')
+          .map(num => parseInt(num.trim()));
+        
+        // Parse NR data usage (QGDNRCNT)
+        const [NRsent, NRreceived] = qgdnrcnt
+          .split(',')
+          .map(num => parseInt(num.trim()));
+        
+        // Calculate totals
+        const sent = LTEsent + NRsent;
+        const received = LTEreceived + NRreceived;
+        
+        setBytesSent(formatBytes(sent));
+        setBytesReceived(formatBytes(received));
+      }
     } catch (error) {
       console.error("Error fetching traffic stats:", error);
     }
@@ -37,9 +44,8 @@ const useTrafficStats = () => {
 
   useEffect(() => {
     fetchTrafficStats();
-    // Set up an interval to fetch data every 2 seconds
-    const intervalId = setInterval(fetchTrafficStats, 2000);
-
+    // Set up an interval to fetch data every 12 seconds
+    const intervalId = setInterval(fetchTrafficStats, 12000);
     // Clean up the interval on component unmount
     return () => clearInterval(intervalId);
   }, [fetchTrafficStats]);

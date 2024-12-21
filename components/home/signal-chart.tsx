@@ -1,4 +1,4 @@
-import { useCallback, useState, useEffect, useMemo } from "react";
+import { useCallback, useState, useEffect } from "react";
 
 import {
   Card,
@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/chart";
 
 import { CartesianGrid, Line, LineChart, XAxis } from "recharts";
+import { Skeleton } from "../ui/skeleton";
 
 // Define the shape of the signal metrics data
 interface SignalMetrics {
@@ -57,62 +58,64 @@ const parseSignalOutput = (output: string): number[] => {
 
 const SignalChart = () => {
   const [chartData, setChartData] = useState<ChartDataPoint[]>([]);
-  const [activeChart, setActiveChart] = useState<keyof typeof chartConfig>("rsrp");
-  const [isLoading, setIsLoading] = useState(true);
+  const [activeChart, setActiveChart] =
+    useState<keyof typeof chartConfig>("rsrp");
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const fetchSignalMetrics = useCallback(async () => {
     try {
-      setIsLoading(true);
-      const response = await fetch('http://192.168.224.1/cgi-bin/home/fetch_signal_metrics.sh');
-      
+      const response = await fetch("/cgi-bin/home/fetch_signal_metrics.sh");
+
       if (!response.ok) {
-        throw new Error('Failed to fetch signal metrics');
+        throw new Error("Failed to fetch signal metrics");
       }
-      
+
       const data = await response.json();
-      
+
       // Transform the raw data into chart-compatible format
-      const transformedData: ChartDataPoint[] = data.rsrp.map((item: SignalMetrics, index: number) => {
-        const rsrpValues = parseSignalOutput(item.output);
-        const rsrqValues = parseSignalOutput(data.rsrq[index]?.output || '');
-        const sinrValues = parseSignalOutput(data.sinr[index]?.output || '');
-        
-        return {
-          time: item.datetime,
-          rsrp: rsrpValues[0] || 0, // Take first RSRP value
-          rsrq: rsrqValues[0] || 0, // Take first RSRQ value
-          sinr: sinrValues[0] || 0, // Take first SINR value
-        };
-      });
+      const transformedData: ChartDataPoint[] = data.rsrp.map(
+        (item: SignalMetrics, index: number) => {
+          const rsrpValues = parseSignalOutput(item.output);
+          const rsrqValues = parseSignalOutput(data.rsrq[index]?.output || "");
+          const sinrValues = parseSignalOutput(data.sinr[index]?.output || "");
+
+          return {
+            time: item.datetime,
+            rsrp: rsrpValues[0] || 0, // Take first RSRP value
+            rsrq: rsrqValues[0] || 0, // Take first RSRQ value
+            sinr: sinrValues[0] || 0, // Take first SINR value
+          };
+        }
+      );
 
       setChartData(transformedData);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An unknown error occurred');
+      setError(
+        err instanceof Error ? err.message : "An unknown error occurred"
+      );
       setChartData([]);
     } finally {
-      setIsLoading(false);
+      setIsInitialLoading(false);
     }
   }, []);
 
   useEffect(() => {
     fetchSignalMetrics();
-    
+
     // Optional: Set up polling to refresh data periodically
-    const intervalId = setInterval(fetchSignalMetrics, 31000); // Refresh every minute
-    
+    const intervalId = setInterval(fetchSignalMetrics, 15000); // Refresh every 15 seconds
+
     return () => clearInterval(intervalId);
   }, [fetchSignalMetrics]);
 
-  const bestValues = useMemo(
-    () => ({
-      rsrp: Math.max(...chartData.map((item) => item.rsrp)), 
-      rsrq: Math.max(...chartData.map((item) => item.rsrq)), 
-      sinr: Math.max(...chartData.map((item) => item.sinr)), 
-    }),
-    [chartData]
-  );
+  // Get the latest values instead of the best values
+  const currentValues = chartData.length > 0 ? chartData[chartData.length - 1] : {
+    rsrp: 0,
+    rsrq: 0,
+    sinr: 0
+  };
 
   if (error) {
     return (
@@ -130,9 +133,7 @@ const SignalChart = () => {
       <CardHeader className="flex flex-col items-stretch space-y-0 border-b p-0 sm:flex-row">
         <div className="flex flex-1 flex-col justify-center gap-1 px-6 py-5 sm:py-6">
           <CardTitle>Signal Metrics</CardTitle>
-          <CardDescription>
-            Realtime Signal performance
-          </CardDescription>
+          <CardDescription>Realtime Signal performance</CardDescription>
         </div>
         <div className="flex">
           {["rsrp", "rsrq", "sinr"].map((key) => {
@@ -147,9 +148,13 @@ const SignalChart = () => {
                 <span className="text-xs text-muted-foreground">
                   {chartConfig[chart].label}
                 </span>
-                <span className="text-base font-bold leading-none sm:text-3xl">
-                  {bestValues[key as keyof typeof bestValues].toFixed(0)}
-                </span>
+                {isInitialLoading ? (
+                  <Skeleton className="lg:h-10 h-6 w-full" />
+                ) : (
+                  <span className="text-base font-bold leading-none sm:text-3xl">
+                    {currentValues[key as keyof typeof currentValues].toFixed(0)}
+                  </span>
+                )}
               </button>
             );
           })}
@@ -212,7 +217,7 @@ const SignalChart = () => {
       </CardContent>
       <CardFooter className="flex-col items-start gap-2 text-sm">
         <div className="flex gap-2 font-medium leading-none">
-          The tabs show the best value for each metric over time.
+          The tabs show the current value for each metric.
         </div>
         <div className="leading-none text-muted-foreground italic">
           The higher the value, the better the signal quality.

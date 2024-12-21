@@ -25,7 +25,7 @@ const MemoryCard = () => {
   useEffect(() => {
     const fetchMemoryInfo = async () => {
       try {
-        const response = await fetch('http://192.168.224.1/cgi-bin/home/memory.sh', {
+        const response = await fetch('/cgi-bin/home/memory.sh', {
           method: 'GET',
           cache: 'no-store',
           headers: {

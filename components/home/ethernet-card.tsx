@@ -21,7 +21,7 @@ const EthernetCard = () => {
     const fetchEthernetInfo = async () => {
       try {
         const response = await fetch(
-          "http://192.168.224.1/cgi-bin/home/ethtool.sh",
+          "/cgi-bin/home/ethtool.sh",
           {
             method: "GET",
             cache: "no-store", // Disable caching to get fresh data

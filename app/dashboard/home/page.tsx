@@ -41,7 +41,7 @@ import useDataConnectionState from "@/hooks/home-connection";
 import useTrafficStats from "@/hooks/home-traffic";
 import useRunDiagnostics from "@/hooks/diagnostics";
 import { BsEthernet, BsMemory, BsSimSlashFill } from "react-icons/bs";
-import SpeedtestStream from "@/components/home/test";
+import SpeedtestStream from "@/components/home/speedtest-card";
 
 interface newBands {
   id: number;

@@ -18,12 +18,20 @@ import {
   SelectGroup,
   SelectLabel,
 } from "@/components/ui/select";
+
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Toggle } from "@/components/ui/toggle";
-import { LockIcon, RefreshCcw, Save } from "lucide-react";
+import { Clock1, Info, LockIcon, RefreshCcw, Save } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const CellLockingPage = () => {
@@ -32,6 +40,9 @@ const CellLockingPage = () => {
   const [locked, setLocked] = useState(false);
   const [ltePersist, setLtePersist] = useState(false);
   const [nr5gPersist, setNr5gPersist] = useState(false);
+  const [scheduling, setScheduling] = useState(false);
+  const [startTime, setStartTime] = useState("");
+  const [endTime, setEndTime] = useState("");
 
   // LTE state
   const [lteState, setLteState] = useState({
@@ -175,10 +186,53 @@ const CellLockingPage = () => {
     }
   };
 
-  // Fetch data on component mount
-  useEffect(() => {
-    fetchCurrentStatus();
-  }, []);
+  const handleScheduleToggle = async (pressed: boolean) => {
+    try {
+      setLoading(true);
+
+      if (pressed && (!startTime || !endTime)) {
+        throw new Error("Please set both start and end times");
+      }
+
+      const response = await fetch(
+        "/cgi-bin/cell-settings/scheduled_cell_locking.sh",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
+          body: pressed
+            ? `web=true&start_time=${encodeURIComponent(
+                startTime
+              )}&end_time=${encodeURIComponent(endTime)}`
+            : "web=true&disable=true",
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to update scheduling");
+      }
+
+      setScheduling(pressed);
+      toast({
+        title: "Success",
+        description: pressed
+          ? "Cell locking schedule enabled"
+          : "Cell locking schedule disabled",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Failed to update scheduling",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleLTELock = async () => {
     try {
@@ -384,6 +438,30 @@ const CellLockingPage = () => {
     }
   };
 
+  // Fetch data on component mount
+  useEffect(() => {
+    const fetchScheduleStatus = async () => {
+      try {
+        const response = await fetch(
+          "/cgi-bin/cell-settings/scheduled_cell_locking.sh?status=true"
+        );
+        if (response.ok) {
+          const data = await response.json();
+          if (data.enabled) {
+            setScheduling(true);
+            setStartTime(data.start_time || "");
+            setEndTime(data.end_time || "");
+          }
+        }
+      } catch (error) {
+        console.error("Failed to fetch schedule status:", error);
+      }
+    };
+
+    fetchScheduleStatus();
+    fetchCurrentStatus();
+  }, []);
+
   return (
     <div className="grid gap-6">
       <Card>
@@ -587,6 +665,67 @@ const CellLockingPage = () => {
             <RefreshCcw className="h-4 w-4" />
             Reset to Default
           </Button>
+        </CardFooter>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center">
+            <span>Scheduled Cell Locking</span>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger>
+                  <Info className="h-4 w-4 ml-2 text-orange-500" />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>
+                    Make sure to properly set the timezone using Luci for this
+                    to properly work.
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </CardTitle>
+          <CardDescription>
+            Schedule the device to lock to specific cells at certain times.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid lg:grid-cols-2 grid-cols-1 grid-flow-row gap-4">
+            <div className="grid w-full max-w-sm items-center gap-2">
+              <Label htmlFor="start-time">Start Time</Label>
+              <Input
+                type="time"
+                id="start-time"
+                value={startTime}
+                onChange={(e) => setStartTime(e.target.value)}
+                disabled={loading || scheduling}
+                placeholder="START TIME"
+              />
+            </div>
+
+            <div className="grid w-full max-w-sm items-center gap-2">
+              <Label htmlFor="end-time">End Time</Label>
+              <Input
+                type="time"
+                id="end-time"
+                value={endTime}
+                onChange={(e) => setEndTime(e.target.value)}
+                disabled={loading || scheduling}
+                placeholder="END TIME"
+              />
+            </div>
+          </div>
+        </CardContent>
+        <CardFooter className="border-t py-4">
+          <Toggle
+            disabled={loading || !startTime || !endTime || !locked} 
+            pressed={scheduling}
+            onPressedChange={handleScheduleToggle}
+          >
+            <Clock1 className="h-4 w-4 mr-2" />
+            Schedule Cell Locking {scheduling ? "Enabled" : "Disabled"}
+          </Toggle>
         </CardFooter>
       </Card>
     </div>
