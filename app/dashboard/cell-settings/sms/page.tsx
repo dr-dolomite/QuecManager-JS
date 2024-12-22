@@ -111,8 +111,10 @@ const SMSPage = () => {
   const refreshSMS = async () => {
     setLoading(true);
     try {
-      const response = await fetch("/cgi-bin/settings/change_sms_code.sh?refresh_sms");
+      const response = await fetch("/cgi-bin/cell-settings/fetch_sms.sh");
       const data = await response.json();
+
+      console.log("SMS data:", data);
       
       if (!data?.messages || !Array.isArray(data.messages)) {
         throw new Error("Invalid response format");

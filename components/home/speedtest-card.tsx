@@ -136,7 +136,7 @@ const SpeedtestStream = () => {
       setIsCooldown(true);
       const timer = setTimeout(() => {
         setIsCooldown(false);
-      }, 5000);
+      }, 10000);
       return () => clearTimeout(timer);
     }
   }, [showResults, isTestRunning]);
@@ -578,7 +578,7 @@ const SpeedtestStream = () => {
         </Drawer>
         <CardDescription>
           {isCooldown
-            ? " Please wait 5 seconds before starting another test."
+            ? " Please wait 10 seconds before starting another test."
             : "Run a speed test to check your internet connection."}
         </CardDescription>
       </CardContent>
