@@ -1,5 +1,4 @@
 import { useCallback, useState, useEffect } from "react";
-
 import {
   Card,
   CardContent,
@@ -8,18 +7,15 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-
 import {
   ChartConfig,
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
-
 import { CartesianGrid, Line, LineChart, XAxis } from "recharts";
 import { Skeleton } from "../ui/skeleton";
 
-// Define the shape of the signal metrics data
 interface SignalMetrics {
   datetime: string;
   output: string;
@@ -50,10 +46,28 @@ const chartConfig = {
   },
 } satisfies ChartConfig;
 
-const parseSignalOutput = (output: string): number[] => {
-  // Extract numbers from the output string
-  const matches = output.match(/[-+]?\d+/g);
-  return matches ? matches.map(Number) : [];
+const parseSignalOutput = (output: string): number => {
+  // Extract numbers that are part of the signal readings (after +Q... and before LTE/NR5G)
+  const matches = output.matchAll(/\+Q(?:RSRP|RSRQ|SINR):\s*([-\d,]+)(?=,(?:LTE|NR5G))/g);
+  const allNumbers: number[] = [];
+
+  for (const match of matches) {
+    if (match[1]) {
+      const numbers = match[1].split(',').map(Number);
+      allNumbers.push(...numbers);
+    }
+  }
+
+  // Filter out invalid values (-140 and -32768)
+  const validNumbers = allNumbers.filter(num => num !== -140 && num !== -32768);
+
+  // Return 0 if no valid numbers after filtering
+  if (validNumbers.length === 0) return 0;
+
+  // Calculate average of remaining numbers
+  const sum = validNumbers.reduce((acc, curr) => acc + curr, 0);
+
+  return Math.round(sum / validNumbers.length);
 };
 
 const SignalChart = () => {
@@ -73,20 +87,13 @@ const SignalChart = () => {
 
       const data = await response.json();
 
-      // Transform the raw data into chart-compatible format
       const transformedData: ChartDataPoint[] = data.rsrp.map(
-        (item: SignalMetrics, index: number) => {
-          const rsrpValues = parseSignalOutput(item.output);
-          const rsrqValues = parseSignalOutput(data.rsrq[index]?.output || "");
-          const sinrValues = parseSignalOutput(data.sinr[index]?.output || "");
-
-          return {
-            time: item.datetime,
-            rsrp: rsrpValues[0] || 0, // Take first RSRP value
-            rsrq: rsrqValues[0] || 0, // Take first RSRQ value
-            sinr: sinrValues[0] || 0, // Take first SINR value
-          };
-        }
+        (item: SignalMetrics, index: number) => ({
+          time: item.datetime,
+          rsrp: parseSignalOutput(item.output),
+          rsrq: parseSignalOutput(data.rsrq[index]?.output || ""),
+          sinr: parseSignalOutput(data.sinr[index]?.output || ""),
+        })
       );
 
       setChartData(transformedData);
@@ -103,14 +110,10 @@ const SignalChart = () => {
 
   useEffect(() => {
     fetchSignalMetrics();
-
-    // Optional: Set up polling to refresh data periodically
-    const intervalId = setInterval(fetchSignalMetrics, 15000); // Refresh every 15 seconds
-
+    const intervalId = setInterval(fetchSignalMetrics, 15000);
     return () => clearInterval(intervalId);
   }, [fetchSignalMetrics]);
 
-  // Get the latest values instead of the best values
   const currentValues = chartData.length > 0 ? chartData[chartData.length - 1] : {
     rsrp: 0,
     rsrq: 0,
@@ -217,7 +220,7 @@ const SignalChart = () => {
       </CardContent>
       <CardFooter className="flex-col items-start gap-2 text-sm">
         <div className="flex gap-2 font-medium leading-none">
-          The tabs show the current value for each metric.
+          The tabs show the average value for each metric.
         </div>
         <div className="leading-none text-muted-foreground italic">
           The higher the value, the better the signal quality.

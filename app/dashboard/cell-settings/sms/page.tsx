@@ -31,6 +31,7 @@ interface SMSMessage {
   sender: string;
   timestamp: string;
   message: string;
+  originalIndices?: number[]; // To keep track of combined message indices
 }
 
 const SMSPage = () => {
@@ -43,19 +44,18 @@ const SMSPage = () => {
   });
 
   const parseSMSMessages = (rawMessages: string[]): SMSMessage[] => {
-    const parsedMessages: SMSMessage[] = [];
+    const tempMessages: SMSMessage[] = [];
     let currentMessage: Partial<SMSMessage> | null = null;
 
+    // First pass: Parse individual messages
     for (let i = 0; i < rawMessages.length; i++) {
       const line = rawMessages[i];
       
       if (line.startsWith("+CMGL:")) {
-        // If we have a complete message, add it to our results
         if (currentMessage?.message) {
-          parsedMessages.push(currentMessage as SMSMessage);
+          tempMessages.push(currentMessage as SMSMessage);
         }
 
-        // Parse the CMGL line
         const match = line.match(/\+CMGL: (\d+),"([^"]+)","([^"]+)",,\"([^"]+)\"/);
         if (match) {
           currentMessage = {
@@ -63,32 +63,56 @@ const SMSPage = () => {
             status: match[2],
             sender: match[3],
             timestamp: match[4],
-            message: "" // Will be set by next line(s)
+            message: "",
+            originalIndices: [parseInt(match[1])]
           };
         }
       } else if (currentMessage && line !== "OK" && !line.startsWith("AT+")) {
-        // Append message content, handling multi-line messages
         currentMessage.message = currentMessage.message 
           ? `${currentMessage.message}\n${line}`
           : line;
       }
     }
 
-    // Don't forget the last message
     if (currentMessage?.message) {
-      parsedMessages.push(currentMessage as SMSMessage);
+      tempMessages.push(currentMessage as SMSMessage);
     }
 
-    return parsedMessages;
+    // Second pass: Combine messages with same sender and timestamp
+    const combinedMessages: SMSMessage[] = [];
+    let currentCombined: SMSMessage | null = null;
+
+    tempMessages.forEach((msg) => {
+      if (!currentCombined) {
+        currentCombined = { ...msg };
+      } else if (
+        currentCombined.sender === msg.sender &&
+        currentCombined.timestamp === msg.timestamp
+      ) {
+        // Combine messages
+        currentCombined.message += '\n' + msg.message;
+        currentCombined.originalIndices = [
+          ...(currentCombined.originalIndices || []),
+          ...(msg.originalIndices || [])
+        ];
+      } else {
+        combinedMessages.push(currentCombined);
+        currentCombined = { ...msg };
+      }
+    });
+
+    if (currentCombined) {
+      combinedMessages.push(currentCombined);
+    }
+
+    return combinedMessages;
   };
 
   const refreshSMS = async () => {
     setLoading(true);
     try {
-      const response = await fetch("/cgi-bin/settings/change_sms_code.sh");
+      const response = await fetch("/cgi-bin/settings/change_sms_code.sh?refresh_sms");
       const data = await response.json();
-
-      console.log(data);
       
       if (!data?.messages || !Array.isArray(data.messages)) {
         throw new Error("Invalid response format");
@@ -104,14 +128,24 @@ const SMSPage = () => {
     }
   };
 
-  const handleSelectMessage = (index: number) => {
-    setSelectedMessages((prev) =>
-      prev.includes(index) ? prev.filter((i) => i !== index) : [...prev, index]
-    );
+  const handleSelectMessage = (indices: number[]) => {
+    setSelectedMessages((prev) => {
+      const allIndicesIncluded = indices.every(index => prev.includes(index));
+      if (allIndicesIncluded) {
+        return prev.filter(index => !indices.includes(index));
+      } else {
+        return [...new Set([...prev, ...indices])];
+      }
+    });
   };
 
   const handleSelectAll = (checked: boolean) => {
-    setSelectedMessages(checked ? messages.map((m) => m.index) : []);
+    if (checked) {
+      const allIndices = messages.flatMap(msg => msg.originalIndices || [msg.index]);
+      setSelectedMessages(allIndices);
+    } else {
+      setSelectedMessages([]);
+    }
   };
 
   const formatDateTime = (timestamp: string) => {
@@ -147,7 +181,7 @@ const SMSPage = () => {
               <span>View and manage SMS messages</span>
               <div className="flex items-center space-x-1.5">
                 <Checkbox
-                  checked={selectedMessages.length === messages.length}
+                  checked={selectedMessages.length === messages.flatMap(m => m.originalIndices || [m.index]).length}
                   onCheckedChange={handleSelectAll}
                 />
                 <span className="text-sm">Select All</span>
@@ -169,8 +203,10 @@ const SMSPage = () => {
             ) : (
               messages.map((sms) => {
                 const { date, time } = formatDateTime(sms.timestamp);
+                const indices = sms.originalIndices || [sms.index];
+                
                 return (
-                  <Dialog key={sms.index}>
+                  <Dialog key={indices.join('-')}>
                     <DialogTrigger className="w-full">
                       <Card className="my-2 dark:hover:bg-slate-900 hover:bg-slate-100">
                         <CardHeader>
@@ -181,13 +217,11 @@ const SMSPage = () => {
                               onClick={(e) => e.stopPropagation()}
                             >
                               <p className="text-muted-foreground font-medium text-xs">
-                                {sms.index}
+                                {indices.join(', ')}
                               </p>
                               <Checkbox
-                                checked={selectedMessages.includes(sms.index)}
-                                onCheckedChange={() =>
-                                  handleSelectMessage(sms.index)
-                                }
+                                checked={indices.every(index => selectedMessages.includes(index))}
+                                onCheckedChange={() => handleSelectMessage(indices)}
                               />
                             </div>
                           </div>
@@ -207,7 +241,7 @@ const SMSPage = () => {
                           {date} at {time}
                         </DialogDescription>
                       </DialogHeader>
-                      <p>{sms.message}</p>
+                      <p className="whitespace-pre-line">{sms.message}</p>
                       <Separator className="my-2" />
                       <Textarea
                         placeholder={`Reply to ${sms.sender}...`}
