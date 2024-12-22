@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useCallback } from "react";
+import React, { useState, useRef, useCallback, useEffect } from "react";
 import {
   Card,
   CardHeader,
@@ -97,15 +97,15 @@ const formatSpeed = (bandwidth?: number): string => {
   const units = ["bps", "Kbps", "Mbps", "Gbps"];
   let value = bitsPerSecond;
   let unitIndex = 0;
-  
+
   while (value >= 1000 && unitIndex < units.length - 1) {
     value /= 1000;
     unitIndex++;
   }
-  
+
   // Only use decimal for Gbps, round for other units
   if (units[unitIndex] === "Gbps") {
-    return `${value.toFixed(1)} ${units[unitIndex]}`;
+    return `${value.toFixed(2)} ${units[unitIndex]}`;
   } else {
     return `${Math.round(value)} ${units[unitIndex]}`;
   }
@@ -124,12 +124,26 @@ const SpeedtestStream = () => {
   const [isTestRunning, setIsTestRunning] = useState<boolean>(false);
   const [isStarting, setIsStarting] = useState<boolean>(false);
   const [pingProgress, setPingProgress] = useState<number>(0);
+  const [isCooldown, setIsCooldown] = useState<boolean>(false);
 
   // Refs to track state without causing re-renders
   const speedtestDataRef = useRef<SpeedtestData | null>(null);
   const abortControllerRef = useRef<AbortController>(new AbortController());
 
+  // Handle cooldown period
+  useEffect(() => {
+    if (showResults && !isTestRunning) {
+      setIsCooldown(true);
+      const timer = setTimeout(() => {
+        setIsCooldown(false);
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [showResults, isTestRunning]);
+
   const startSpeedtest = useCallback(async () => {
+    if (isCooldown) return; // Prevent starting if in cooldown
+
     try {
       setIsStarting(true);
       setError(null);
@@ -157,7 +171,7 @@ const SpeedtestStream = () => {
       );
       setIsStarting(false);
     }
-  }, []);
+  }, [isCooldown]);
 
   const connectToSpeedtest = useCallback(() => {
     // Abort any existing connection
@@ -563,7 +577,9 @@ const SpeedtestStream = () => {
           </DrawerContent>
         </Drawer>
         <CardDescription>
-          Run a speed test to check your internet connection.
+          {isCooldown
+            ? " Please wait 5 seconds before starting another test."
+            : "Run a speed test to check your internet connection."}
         </CardDescription>
       </CardContent>
     </Card>

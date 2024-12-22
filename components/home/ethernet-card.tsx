@@ -20,16 +20,13 @@ const EthernetCard = () => {
   useEffect(() => {
     const fetchEthernetInfo = async () => {
       try {
-        const response = await fetch(
-          "/cgi-bin/home/ethtool.sh",
-          {
-            method: "GET",
-            cache: "no-store", // Disable caching to get fresh data
-            headers: {
-              "Content-Type": "application/json",
-            },
-          }
-        );
+        const response = await fetch("/cgi-bin/home/ethtool.sh", {
+          method: "GET",
+          cache: "no-store", // Disable caching to get fresh data
+          headers: {
+            "Content-Type": "application/json",
+          },
+        });
 
         if (!response.ok) {
           throw new Error("Network response was not ok");
@@ -85,8 +82,10 @@ const EthernetCard = () => {
             <span className="text-base font-bold">
               {isLoading ? (
                 <Skeleton className="h-8 w-full" />
+              ) : ethernetData.link_speed === "Unknown!" ? (
+                "-"
               ) : (
-                ethernetData.link_speed
+                `${ethernetData.link_speed}`
               )}
             </span>
           </div>

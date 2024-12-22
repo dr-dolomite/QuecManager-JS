@@ -26,108 +26,76 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 
 interface SMSMessage {
-  index: string;
+  index: number;
   status: string;
   sender: string;
-  date: string;
-  time: string;
+  timestamp: string;
   message: string;
 }
 
 const SMSPage = () => {
   const [messages, setMessages] = useState<SMSMessage[]>([]);
   const [loading, setLoading] = useState(false);
-  const [selectedMessages, setSelectedMessages] = useState<string[]>([]);
+  const [selectedMessages, setSelectedMessages] = useState<number[]>([]);
   const [newMessage, setNewMessage] = useState({
     phoneNumber: "",
     message: "",
   });
 
-  const sendCommand = async (command: string): Promise<any> => {
-    try {
-      const response = await fetch("/cgi-bin/atinout_handler.sh", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body: `command=${encodeURIComponent(command)}`,
-      });
-      return await response.json();
-    } catch (error) {
-      console.error("AT command failed:", error);
-      throw error;
-    }
-  };
-
-  const parseSMSData = (data: string): SMSMessage[] => {
-    const messages: SMSMessage[] = [];
-    const lines = data.split("\n");
+  const parseSMSMessages = (rawMessages: string[]): SMSMessage[] => {
+    const parsedMessages: SMSMessage[] = [];
     let currentMessage: Partial<SMSMessage> | null = null;
 
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i].trim();
-      if (!line || line === "OK" || line === 'AT+CMGL="ALL"') continue;
-
+    for (let i = 0; i < rawMessages.length; i++) {
+      const line = rawMessages[i];
+      
       if (line.startsWith("+CMGL:")) {
-        if (currentMessage && currentMessage.message) {
-          messages.push(currentMessage as SMSMessage);
+        // If we have a complete message, add it to our results
+        if (currentMessage?.message) {
+          parsedMessages.push(currentMessage as SMSMessage);
         }
 
-        const headerMatch = line.match(
-          /\+CMGL:\s*(\d+),"([^"]*?)","([^"]*?)",,"([^"]*?)"/
-        );
-        if (headerMatch) {
-          // Parse the date and time from format "YY/MM/DD,HH:MM:SS"
-          const [date, time] = headerMatch[4].replace("+32", "").split(",");
-
-          // Format date as YYYY-MM-DD
-          const [year, month, day] = date.split("/");
-          const formattedDate = `20${year}-${month}-${day}`;
-
+        // Parse the CMGL line
+        const match = line.match(/\+CMGL: (\d+),"([^"]+)","([^"]+)",,\"([^"]+)\"/);
+        if (match) {
           currentMessage = {
-            index: headerMatch[1],
-            status: headerMatch[2],
-            sender: headerMatch[3],
-            date: formattedDate,
-            time: time,
-            message: "",
+            index: parseInt(match[1]),
+            status: match[2],
+            sender: match[3],
+            timestamp: match[4],
+            message: "" // Will be set by next line(s)
           };
         }
-      } else if (currentMessage) {
-        currentMessage.message = `${currentMessage.message || ""}${
-          currentMessage.message ? "\n" : ""
-        }${line}`;
+      } else if (currentMessage && line !== "OK" && !line.startsWith("AT+")) {
+        // Append message content, handling multi-line messages
+        currentMessage.message = currentMessage.message 
+          ? `${currentMessage.message}\n${line}`
+          : line;
       }
     }
 
-    if (currentMessage && currentMessage.message) {
-      messages.push(currentMessage as SMSMessage);
+    // Don't forget the last message
+    if (currentMessage?.message) {
+      parsedMessages.push(currentMessage as SMSMessage);
     }
 
-    return messages;
+    return parsedMessages;
   };
 
   const refreshSMS = async () => {
     setLoading(true);
     try {
-      await sendCommand("AT+CMGF=1");
-      // wait for 2 seconds to ensure the mode is set
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-      const response = await sendCommand('AT+CMGL="ALL"');
+      const response = await fetch("/cgi-bin/settings/change_sms_code.sh");
+      const data = await response.json();
 
-      let rawData: string;
-      if (typeof response === "string") {
-        rawData = response;
-      } else if (response?.result) {
-        rawData = response.result;
-      } else if (response?.output) {
-        rawData = response.output;
-      } else {
-        throw new Error("No valid data received");
+      console.log(data);
+      
+      if (!data?.messages || !Array.isArray(data.messages)) {
+        throw new Error("Invalid response format");
       }
 
-      const parsedMessages = parseSMSData(rawData);
-      setMessages(parsedMessages);
+      const parsed = parseSMSMessages(data.messages);
+      setMessages(parsed);
     } catch (error) {
       console.error("Failed to refresh SMS:", error);
       setMessages([]);
@@ -136,7 +104,7 @@ const SMSPage = () => {
     }
   };
 
-  const handleSelectMessage = (index: string) => {
+  const handleSelectMessage = (index: number) => {
     setSelectedMessages((prev) =>
       prev.includes(index) ? prev.filter((i) => i !== index) : [...prev, index]
     );
@@ -146,34 +114,22 @@ const SMSPage = () => {
     setSelectedMessages(checked ? messages.map((m) => m.index) : []);
   };
 
-  const handleDeleteSelected = async () => {
-    if (!selectedMessages.length) return;
-
+  const formatDateTime = (timestamp: string) => {
     try {
-      for (const index of selectedMessages) {
-        await sendCommand(`AT+CMGD=${index}`);
-      }
-      await refreshSMS();
-      setSelectedMessages([]);
+      // Format: "YY/MM/DD,HH:MM:SS+32"
+      const [date, timeWithOffset] = timestamp.split(",");
+      const [year, month, day] = date.split("/");
+      const time = timeWithOffset.replace("+32", "");
+      return {
+        date: `20${year}-${month}-${day}`,
+        time
+      };
     } catch (error) {
-      console.error("Failed to delete messages:", error);
-    }
-  };
-
-  const handleSendSMS = async () => {
-    const { phoneNumber, message } = newMessage;
-    if (!phoneNumber || !message) {
-      alert("Please enter both phone number and message");
-      return;
-    }
-
-    try {
-      await sendCommand(`AT+CMGS="${phoneNumber}"`);
-      await sendCommand(`${message}\x1A`);
-      setNewMessage({ phoneNumber: "", message: "" });
-      await refreshSMS();
-    } catch (error) {
-      console.error("Failed to send SMS:", error);
+      console.error("Error formatting timestamp:", error);
+      return {
+        date: "Invalid date",
+        time: "Invalid time"
+      };
     }
   };
 
@@ -201,17 +157,19 @@ const SMSPage = () => {
         </CardHeader>
         <CardContent>
           <ScrollArea className="h-[400px] w-full xs:max-w-xs p-4 grid">
-              {loading ? (
-                <div className="flex flex-col items-center justify-center py-8">
-                  <Loader2 className="h-8 w-8 animate-spin" />
-                  <p className="mt-2">Loading messages...</p>
-                </div>
-              ) : messages.length === 0 ? (
-                <p className="text-center py-8 text-muted-foreground">
-                  No messages found
-                </p>
-              ) : (
-                messages.map((sms) => (
+            {loading ? (
+              <div className="flex flex-col items-center justify-center py-8">
+                <Loader2 className="h-8 w-8 animate-spin" />
+                <p className="mt-2">Loading messages...</p>
+              </div>
+            ) : messages.length === 0 ? (
+              <p className="text-center py-8 text-muted-foreground">
+                No messages found
+              </p>
+            ) : (
+              messages.map((sms) => {
+                const { date, time } = formatDateTime(sms.timestamp);
+                return (
                   <Dialog key={sms.index}>
                     <DialogTrigger className="w-full">
                       <Card className="my-2 dark:hover:bg-slate-900 hover:bg-slate-100">
@@ -234,7 +192,7 @@ const SMSPage = () => {
                             </div>
                           </div>
                           <CardDescription className="text-left">
-                            {sms.date} at {sms.time}
+                            {date} at {time}
                           </CardDescription>
                         </CardHeader>
                         <CardContent>
@@ -246,7 +204,7 @@ const SMSPage = () => {
                       <DialogHeader>
                         <DialogTitle>{sms.sender}</DialogTitle>
                         <DialogDescription>
-                          {sms.date} at {sms.time}
+                          {date} at {time}
                         </DialogDescription>
                       </DialogHeader>
                       <p>{sms.message}</p>
@@ -257,15 +215,16 @@ const SMSPage = () => {
                         readOnly
                       />
                       <div className="flex justify-end">
-                        <Button onClick={handleSendSMS} disabled>
+                        <Button disabled>
                           <Send className="h-4 w-4 mr-2" />
                           Send
                         </Button>
                       </div>
                     </DialogContent>
                   </Dialog>
-                ))
-              )}
+                );
+              })
+            )}
           </ScrollArea>
         </CardContent>
         <CardFooter className="border-t py-4">
@@ -276,7 +235,6 @@ const SMSPage = () => {
             </Button>
             <Button
               variant="destructive"
-              onClick={handleDeleteSelected}
               disabled={selectedMessages.length === 0}
             >
               <Trash2 className="h-4 w-4" />
@@ -314,7 +272,7 @@ const SMSPage = () => {
               readOnly
             />
             <div className="flex justify-end">
-              <Button onClick={handleSendSMS} disabled>
+              <Button disabled>
                 <Send className="h-4 w-4" />
                 Send
               </Button>

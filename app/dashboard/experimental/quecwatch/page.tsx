@@ -22,7 +22,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { ShieldClose, ShieldCheck, Loader2 } from "lucide-react";
+import { ShieldClose, ShieldCheck } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 // Updated types for QuecWatch configuration
@@ -32,7 +32,6 @@ interface QuecWatchConfig {
   pingFailures: number;
   maxRetries: number;
   connectionRefresh: boolean;
-  mobileDataReconnect: boolean;
   autoSimFailover: boolean;
   simFailoverSchedule: number;
   currentRetries?: number;
@@ -55,7 +54,6 @@ const QuecWatchPage = () => {
     pingFailures: 3,
     maxRetries: 5,
     connectionRefresh: false,
-    mobileDataReconnect: false,
     autoSimFailover: false,
     simFailoverSchedule: 30,
   });
@@ -95,7 +93,6 @@ const QuecWatchPage = () => {
               pingFailures: data.config.pingFailures,
               maxRetries: data.config.maxRetries,
               connectionRefresh: data.config.connectionRefresh === true,
-              mobileDataReconnect: data.config.mobileDataReconnect === true,
               autoSimFailover: data.config.autoSimFailover === true,
               simFailoverSchedule: data.config.simFailoverSchedule || 30,
               currentRetries: data.config.currentRetries,
@@ -179,10 +176,6 @@ const QuecWatchPage = () => {
         "connection_refresh",
         config.connectionRefresh.toString()
       );
-      formData.append(
-        "mobile_data_reconnect",
-        config.mobileDataReconnect.toString()
-      );
       formData.append("auto_sim_failover", config.autoSimFailover.toString());
       formData.append(
         "sim_failover_schedule",
@@ -264,7 +257,6 @@ const QuecWatchPage = () => {
           pingFailures: 3,
           maxRetries: 5,
           connectionRefresh: false,
-          mobileDataReconnect: false,
           autoSimFailover: false,
           simFailoverSchedule: 30,
         });
@@ -444,25 +436,6 @@ const QuecWatchPage = () => {
                 setConfig((prev) => ({
                   ...prev,
                   connectionRefresh: checked,
-                }))
-              }
-            />
-          </div>
-          <div className="flex flex-row items-center justify-between rounded-lg border p-4">
-            <div className="space-y-0.5 grid">
-              <Label className="text-base">Use Mobile Data Reconnect</Label>
-              <Label className="text-sm font-normal text-muted-foreground">
-                Use Mobile Data Reconnect will turn off and on the mobile data
-                connection rather than restarting the modem.
-              </Label>
-            </div>
-            <Switch
-              checked={config.mobileDataReconnect}
-              disabled={status === "active"}
-              onCheckedChange={(checked) =>
-                setConfig((prev) => ({
-                  ...prev,
-                  mobileDataReconnect: checked,
                 }))
               }
             />
