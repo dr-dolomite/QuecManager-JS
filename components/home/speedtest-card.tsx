@@ -75,10 +75,8 @@ interface SpeedtestData {
   result: SpeedtestResult;
 }
 
-// Utility functions with type annotations
 const formatBytes = (bytes?: number): string => {
   if (bytes == null) return "N/A";
-
   const units = ["B", "KB", "MB", "GB"];
   let value = bytes;
   let unitIndex = 0;
@@ -103,12 +101,9 @@ const formatSpeed = (bandwidth?: number): string => {
     unitIndex++;
   }
 
-  // Only use decimal for Gbps, round for other units
-  if (units[unitIndex] === "Gbps") {
-    return `${value.toFixed(2)} ${units[unitIndex]}`;
-  } else {
-    return `${Math.round(value)} ${units[unitIndex]}`;
-  }
+  return units[unitIndex] === "Gbps"
+    ? `${value.toFixed(2)} ${units[unitIndex]}`
+    : `${Math.round(value)} ${units[unitIndex]}`;
 };
 
 const SpeedtestStream = () => {
@@ -125,12 +120,57 @@ const SpeedtestStream = () => {
   const [isStarting, setIsStarting] = useState<boolean>(false);
   const [pingProgress, setPingProgress] = useState<number>(0);
   const [isCooldown, setIsCooldown] = useState<boolean>(false);
+  const [isKeepAliveActive, setIsKeepAliveActive] = useState<boolean>(false);
 
-  // Refs to track state without causing re-renders
   const speedtestDataRef = useRef<SpeedtestData | null>(null);
-  const abortControllerRef = useRef<AbortController>(new AbortController());
+  const abortControllerRef = useRef<AbortController | null>(null);
 
-  // Handle cooldown period
+  const resetState = useCallback(() => {
+    setSpeedtestData(null);
+    setCurrentType(null);
+    setError(null);
+    setShowResults(false);
+    setIsTestRunning(false);
+    setIsStarting(false);
+    setPingProgress(0);
+    speedtestDataRef.current = null;
+  }, []);
+
+  const checkKeepAliveSchedule = useCallback(async () => {
+    try {
+      const response = await fetch(
+        "/cgi-bin/experimental/keep_alive.sh?status=true"
+      );
+      const data = await response.json();
+
+      if (data.enabled) {
+        const now = new Date();
+        const currentTime = now.getHours() * 60 + now.getMinutes();
+
+        const [startHour, startMin] = data.start_time.split(":").map(Number);
+        const [endHour, endMin] = data.end_time.split(":").map(Number);
+
+        const startMinutes = startHour * 60 + startMin;
+        const endMinutes = endHour * 60 + endMin;
+
+        setIsKeepAliveActive(
+          currentTime >= startMinutes && currentTime <= endMinutes
+        );
+      } else {
+        setIsKeepAliveActive(false);
+      }
+    } catch (error) {
+      console.error("Failed to check keep-alive schedule:", error);
+      setIsKeepAliveActive(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    checkKeepAliveSchedule();
+    const interval = setInterval(checkKeepAliveSchedule, 60000);
+    return () => clearInterval(interval);
+  }, [checkKeepAliveSchedule]);
+
   useEffect(() => {
     if (showResults && !isTestRunning) {
       setIsCooldown(true);
@@ -141,14 +181,28 @@ const SpeedtestStream = () => {
     }
   }, [showResults, isTestRunning]);
 
+  useEffect(() => {
+    // Cleanup function
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, []);
+
   const startSpeedtest = useCallback(async () => {
-    if (isCooldown) return; // Prevent starting if in cooldown
+    if (isCooldown || isKeepAliveActive) return;
 
     try {
+      // Reset all state before starting new test
+      resetState();
       setIsStarting(true);
-      setError(null);
 
-      // Send start request
+      // Abort any existing connection
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+
       const startResponse = await fetch(
         "/cgi-bin/home/speedtest/start_speedtest.sh",
         {
@@ -160,7 +214,6 @@ const SpeedtestStream = () => {
         throw new Error("Failed to start speedtest");
       }
 
-      // If start request is successful, begin connection
       connectToSpeedtest();
     } catch (startError) {
       console.error("Speedtest start error:", startError);
@@ -171,20 +224,15 @@ const SpeedtestStream = () => {
       );
       setIsStarting(false);
     }
-  }, [isCooldown]);
+  }, [isCooldown, isKeepAliveActive, resetState]);
 
   const connectToSpeedtest = useCallback(() => {
-    // Abort any existing connection
-    abortControllerRef.current.abort();
+    // Create new abort controller
     abortControllerRef.current = new AbortController();
 
-    // Reset states
-    setError(null);
     setIsConnected(false);
-    setShowResults(false);
     setIsTestRunning(true);
     setIsStarting(false);
-    setPingProgress(0);
 
     try {
       fetch("/cgi-bin/home/speedtest/speedtest_stream.sh", {
@@ -207,55 +255,49 @@ const SpeedtestStream = () => {
           let buffer = "";
           while (true) {
             const { done, value } = await reader.read();
-
             if (done) break;
 
-            // Decode the chunk
             const chunk = decoder.decode(value, { stream: true });
             buffer += chunk;
 
-            // Process complete events
             const events = buffer.split("\n\n");
-            buffer = events.pop() || ""; // Keep incomplete event in buffer
+            buffer = events.pop() || "";
 
-            events.forEach((event) => {
+            for (const event of events) {
               if (event.startsWith("data: ")) {
                 try {
                   const parsedData = JSON.parse(
                     event.replace("data: ", "").trim()
                   ) as SpeedtestData;
 
-                  // Debug logging
-                  console.log(
-                    "Debug - Parsed Data:",
-                    JSON.stringify(parsedData, null, 2)
-                  );
+                  // Update state based on the type of data
+                  switch (parsedData.type) {
+                    case "ping":
+                      setCurrentType("ping");
+                      setPingProgress(parsedData.ping.progress);
+                      break;
+                    case "download":
+                    case "upload":
+                      // Only update type if we're not in ping phase
+                      if (currentType !== "ping") {
+                        setCurrentType(parsedData.type);
+                      }
+                      break;
+                    case "result":
+                      setShowResults(true);
+                      setIsTestRunning(false);
+                      reader.cancel();
+                      break;
+                  }
 
-                  // Update state and ref simultaneously
+                  // Update speedtest data
                   speedtestDataRef.current = parsedData;
                   setSpeedtestData(parsedData);
-
-                  // Handle different types of data
-                  if (parsedData.type === "ping") {
-                    setCurrentType("ping");
-                    setPingProgress(parsedData.ping.progress);
-                  } else if (
-                    parsedData.type === "download" ||
-                    parsedData.type === "upload"
-                  ) {
-                    setCurrentType(parsedData.type);
-                  }
-
-                  if (parsedData.type === "result") {
-                    setShowResults(true);
-                    setIsTestRunning(false);
-                    reader.cancel(); // Stop reading
-                  }
                 } catch (parseError) {
                   console.error("Parsing error:", parseError);
                 }
               }
-            });
+            }
           }
         })
         .catch((err) => {
@@ -274,11 +316,7 @@ const SpeedtestStream = () => {
       setError("Failed to connect to speedtest stream");
       setIsTestRunning(false);
     }
-
-    return () => {
-      abortControllerRef.current.abort();
-    };
-  }, []);
+  }, [currentType]);
 
   const renderSpeedtestContent = () => {
     if (error) {
@@ -565,7 +603,11 @@ const SpeedtestStream = () => {
                 }}
               />
               <CirclePlay
-                className="size-32 text-primary cursor-pointer z-10"
+                className={`size-32 ${
+                  isKeepAliveActive
+                    ? "text-gray-400 cursor-not-allowed"
+                    : "text-primary cursor-pointer"
+                } z-10`}
                 onClick={startSpeedtest}
               />
             </div>
@@ -577,8 +619,10 @@ const SpeedtestStream = () => {
           </DrawerContent>
         </Drawer>
         <CardDescription>
-          {isCooldown
-            ? " Please wait 10 seconds before starting another test."
+          {isKeepAliveActive
+            ? "Speedtest is disabled during keep-alive schedule."
+            : isCooldown
+            ? "Please wait 10 seconds before starting another test."
             : "Run a speed test to check your internet connection."}
         </CardDescription>
       </CardContent>

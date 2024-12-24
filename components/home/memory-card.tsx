@@ -25,65 +25,35 @@ const MemoryCard = () => {
   useEffect(() => {
     const fetchMemoryInfo = async () => {
       try {
-        const response = await fetch('/cgi-bin/home/memory.sh', {
+        const response = await fetch('/cgi-bin/home/fetch_hw_details.sh?type=memory', {
           method: 'GET',
           cache: 'no-store',
           headers: {
             'Content-Type': 'application/json',
           },
         });
-
         if (!response.ok) {
           throw new Error('Network response was not ok');
         }
-
         const data: MemoryData = await response.json();
         setMemoryData(data);
         
-        // Remove initial load state after first successful fetch
         if (isInitialLoad) {
           setIsInitialLoad(false);
         }
       } catch (err) {
         console.error('Failed to fetch memory information');
         
-        // Ensure initial load state is removed even on error
         if (isInitialLoad) {
           setIsInitialLoad(false);
         }
       }
     };
 
-    // Fetch immediately
     fetchMemoryInfo();
-
-    // Then set up interval to fetch every 2 seconds
     const intervalId = setInterval(fetchMemoryInfo, 2000);
-
-    // Cleanup interval on component unmount
     return () => clearInterval(intervalId);
   }, [isInitialLoad]);
-
-  // Loading skeleton for initial load
-  if (isInitialLoad) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Memory</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid lg:grid-cols-3 grid-cols-2 grid-flow-row gap-4 col-span-3">
-            {[1, 2, 3].map((item) => (
-              <div key={item} className="grid gap-1">
-                <Skeleton className="h-4 w-20 mb-2" />
-                <Skeleton className="h-6 w-24" />
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
 
   return (
     <Card>
@@ -94,23 +64,33 @@ const MemoryCard = () => {
         <div className="grid lg:grid-cols-3 grid-cols-2 grid-flow-row gap-4 col-span-3">
           <div className="grid gap-1">
             <span className="text-sm text-muted-foreground">Total</span>
-            <span className="text-base font-bold">
-              {formatMemory(memoryData.total)}
-            </span>
+            {isInitialLoad ? (
+              <Skeleton className="h-6 w-24" />
+            ) : (
+              <span className="text-base font-bold">
+                {formatMemory(memoryData.total)}
+              </span>
+            )}
           </div>
-
           <div className="grid gap-1">
             <span className="text-sm text-muted-foreground">Used</span>
-            <span className="text-base font-bold">
-              {formatMemory(memoryData.used)}
-            </span>
+            {isInitialLoad ? (
+              <Skeleton className="h-6 w-24" />
+            ) : (
+              <span className="text-base font-bold">
+                {formatMemory(memoryData.used)}
+              </span>
+            )}
           </div>
-
           <div className="grid gap-1">
             <span className="text-sm text-muted-foreground">Available</span>
-            <span className="text-base font-bold">
-              {formatMemory(memoryData.available)}
-            </span>
+            {isInitialLoad ? (
+              <Skeleton className="h-6 w-24" />
+            ) : (
+              <span className="text-base font-bold">
+                {formatMemory(memoryData.available)}
+              </span>
+            )}
           </div>
         </div>
       </CardContent>

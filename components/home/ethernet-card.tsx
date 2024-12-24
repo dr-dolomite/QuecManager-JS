@@ -8,6 +8,24 @@ interface EthernetData {
   auto_negotiation: string;
 }
 
+const formatSpeed = (speed: string): string => {
+  if (speed === "Unknown!") return "-";
+  
+  // Extract the numeric value using regex
+  const match = speed.match(/(\d+)/);
+  if (!match) return speed;
+  
+  const numericSpeed = parseInt(match[1], 10);
+  
+  // Convert to Gb/s if speed is 1000Mb/s or higher
+  if (numericSpeed >= 1000) {
+    const gbSpeed = numericSpeed / 1000;
+    return `${gbSpeed}${speed.includes('Gb') ? 'Gb/s' : 'Gb/s'}`;
+  }
+  
+  return `${numericSpeed}${speed.includes('Mb') ? 'Mb/s' : 'Mb/s'}`;
+};
+
 const EthernetCard = () => {
   const [ethernetData, setEthernetData] = useState<EthernetData>({
     link_status: "Loading...",
@@ -20,9 +38,9 @@ const EthernetCard = () => {
   useEffect(() => {
     const fetchEthernetInfo = async () => {
       try {
-        const response = await fetch("/cgi-bin/home/ethtool.sh", {
+        const response = await fetch("/cgi-bin/home/fetch_hw_details.sh?type=eth", {
           method: "GET",
-          cache: "no-store", // Disable caching to get fresh data
+          cache: "no-store",
           headers: {
             "Content-Type": "application/json",
           },
@@ -82,10 +100,8 @@ const EthernetCard = () => {
             <span className="text-base font-bold">
               {isLoading ? (
                 <Skeleton className="h-8 w-full" />
-              ) : ethernetData.link_speed === "Unknown!" ? (
-                "-"
               ) : (
-                `${ethernetData.link_speed}`
+                formatSpeed(ethernetData.link_speed)
               )}
             </span>
           </div>

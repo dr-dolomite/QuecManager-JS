@@ -24,8 +24,25 @@ const CellSettingsLayout = ({ children }: CellSettingsLayoutProps) => {
           {/* <Link href="/dashboard/experimental/speedtest" className={`${currentPathName === "/dashboard/experimental/speedtest/" ? "font-semibold text-primary" : 'text-sm'}`}>
             Speedtest
           </Link> */}
-          <Link href="/dashboard/experimental/quecwatch" className={`${currentPathName === "/dashboard/experimental/quecwatch/" ? "font-semibold text-primary" : 'text-sm'}`}>
+          <Link
+            href="/dashboard/experimental/quecwatch"
+            className={`${
+              currentPathName === "/dashboard/experimental/quecwatch/"
+                ? "font-semibold text-primary"
+                : "text-sm"
+            }`}
+          >
             QuecWatch
+          </Link>
+          <Link
+            href="/dashboard/experimental/keep-alive"
+            className={`${
+              currentPathName === "/dashboard/experimental/keep-alive/"
+                ? "font-semibold text-primary"
+                : "text-sm"
+            }`}
+          >
+            Keep Alive
           </Link>
         </nav>
         {children}

@@ -31,8 +31,16 @@ import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Toggle } from "@/components/ui/toggle";
-import { Clock1, Info, LockIcon, RefreshCcw, Save } from "lucide-react";
+import {
+  CheckCircle2,
+  Clock1,
+  Info,
+  LockIcon,
+  RefreshCcw,
+  Save,
+} from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import ScheduledLockingCard from "@/components/cell-settings/scheduled-cell-locking-card";
 
 const CellLockingPage = () => {
   const { toast } = useToast();
@@ -550,7 +558,7 @@ const CellLockingPage = () => {
           </form>
         </CardContent>
         <CardFooter className="border-t py-4 grid grid-flow-row md:grid-cols-3 grid-cols-1 gap-4">
-          <Button onClick={handleLTELock} disabled={loading}>
+          <Button onClick={handleLTELock} disabled={loading || scheduling}>
             <LockIcon className="h-4 w-4" />
             Lock LTE Cells
           </Button>
@@ -645,7 +653,7 @@ const CellLockingPage = () => {
           </form>
         </CardContent>
         <CardFooter className="border-t py-4 grid grid-flow-row md:grid-cols-3 grid-cols-1 gap-4">
-          <Button onClick={handleNR5GLock} disabled={loading}>
+          <Button onClick={handleNR5GLock} disabled={loading || scheduling}>
             <LockIcon className="h-4 w-4" />
             Lock NR5G-SA Cell
           </Button>
@@ -668,23 +676,30 @@ const CellLockingPage = () => {
         </CardFooter>
       </Card>
 
-      <Card>
+      {/* <Card>
         <CardHeader>
-          <CardTitle className="flex items-center">
-            <span>Scheduled Cell Locking</span>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger>
-                  <Info className="h-4 w-4 ml-2 text-orange-500" />
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>
-                    Make sure to properly set the timezone using Luci for this
-                    to properly work.
-                  </p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+          <CardTitle className="flex items-center justify-between">
+            <div className="flex items-center">
+              <span>Scheduled Cell Locking</span>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger>
+                    <Info className="h-4 w-4 ml-2 text-orange-500" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>
+                      Make sure to properly set the timezone using Luci for this
+                      to properly work.
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
+
+            <div className="flex items-center">
+              <CheckCircle2 className="h-4 w-4 mr-1 text-green-600" />
+              <div className="text-sm text-gray-500">Active</div>
+            </div>
           </CardTitle>
           <CardDescription>
             Schedule the device to lock to specific cells at certain times.
@@ -719,7 +734,7 @@ const CellLockingPage = () => {
         </CardContent>
         <CardFooter className="border-t py-4">
           <Toggle
-            disabled={loading || !startTime || !endTime || !locked} 
+            disabled={loading || !startTime || !endTime || !locked}
             pressed={scheduling}
             onPressedChange={handleScheduleToggle}
           >
@@ -727,7 +742,17 @@ const CellLockingPage = () => {
             Schedule Cell Locking {scheduling ? "Enabled" : "Disabled"}
           </Toggle>
         </CardFooter>
-      </Card>
+      </Card> */}
+      <ScheduledLockingCard
+        loading={loading}
+        scheduling={scheduling}
+        startTime={startTime}
+        endTime={endTime}
+        onStartTimeChange={setStartTime}
+        onEndTimeChange={setEndTime}
+        onSchedulingToggle={handleScheduleToggle}
+        locked={locked}
+      />
     </div>
   );
 };

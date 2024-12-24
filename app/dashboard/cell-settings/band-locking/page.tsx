@@ -23,9 +23,7 @@ interface BandState {
 }
 
 interface ATResponse {
-  command: string;
-  output: string;
-  error?: string;
+  response: string;
 }
 
 interface BandCardProps {
@@ -66,7 +64,6 @@ const BandLocking = () => {
         headers: {
           "Content-Type": "application/json",
         },
-        // body: JSON.stringify({ command }),
         body: `command=${encodedCommand}`,
         signal: AbortSignal.timeout(5000),
       });
@@ -86,81 +83,52 @@ const BandLocking = () => {
     }
   };
 
-  const parseATResponse = (
-    response: ATResponse,
-    bandType: string
-  ): number[] => {
-    const lines = response.output.split("\n");
+  const parseResponse = (response: string, bandType: string): number[] => {
+    const lines = response.split("\n");
     for (const line of lines) {
       if (line.includes(bandType)) {
-        const match = line.match(/"([^"]+)",(.+)/);
-        if (match && match[2]) {
-          return match[2].split(":").map(Number);
+        const match = line.match(/\"[^\"]+\",(.+)/);
+        if (match && match[1]) {
+          return match[1].split(":").map(Number);
         }
       }
     }
     return [];
   };
 
-  const fetchAllBands = async () => {
+  const fetchBandsData = async () => {
     try {
-      const response = await atCommandSender('AT+QNWPREFCFG="policy_band"');
-      const lines = response.output.split("\n");
+      const response = await fetch("/cgi-bin/fetch_data.sh?set=7");
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data: ATResponse[] = await response.json();
+      
+      // Parse supported bands from first response
+      const supportedBandsResponse = data[0].response;
       const newBands: BandState = {
-        lte: [],
-        nsa: [],
-        sa: [],
+        lte: parseResponse(supportedBandsResponse, "lte_band"),
+        nsa: parseResponse(supportedBandsResponse, "nsa_nr5g_band"),
+        sa: parseResponse(supportedBandsResponse, "nr5g_band"),
       };
-
-      lines.forEach((line) => {
-        if (line.includes('"lte_band"')) {
-          newBands.lte = line.split(",")[1]?.split(":").map(Number) || [];
-        } else if (line.includes('"nsa_nr5g_band"')) {
-          newBands.nsa = line.split(",")[1]?.split(":").map(Number) || [];
-        } else if (line.includes('"nrdc_nr5g_band"')) {
-          newBands.sa = line.split(",")[1]?.split(":").map(Number) || [];
-        }
-      });
-
       setBands(newBands);
 
-      // toast({
-      //   title: "Success",
-      //   description: "Fetched available bands successfully.",
-      // });
+      // Parse checked bands from second response
+      const checkedBandsResponse = data[1].response;
+      const newCheckedBands: BandState = {
+        lte: parseResponse(checkedBandsResponse, "lte_band"),
+        nsa: parseResponse(checkedBandsResponse, "nsa_nr5g_band"),
+        sa: parseResponse(checkedBandsResponse, "nr5g_band"),
+      };
+      setCheckedBands(newCheckedBands);
+      
+      setLoading(false);
     } catch (error) {
       console.error("Error fetching bands:", error);
       toast({
         title: "Error",
-        description: "Failed to fetch available bands.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const fetchCheckedBands = async () => {
-    // Add a timeout that if the response is not received within 5 seconds, it will throw an error
-    // This is to prevent the app from hanging indefinitely
-
-    try {
-      const response = await atCommandSender(
-        'AT+QNWPREFCFG="lte_band";+QNWPREFCFG="nsa_nr5g_band";+QNWPREFCFG="nr5g_band"'
-      );
-
-      const newCheckedBands: BandState = {
-        lte: parseATResponse(response, "lte_band"),
-        nsa: parseATResponse(response, '+QNWPREFCFG: "nsa_nr5g_band"'),
-        sa: parseATResponse(response, '+QNWPREFCFG: "nr5g_band"'),
-      };
-
-      console.log("New Checked Bands: ", newCheckedBands);
-      setCheckedBands(newCheckedBands);
-      setLoading(false);
-    } catch (error) {
-      console.error("Error fetching checked bands:", error);
-      toast({
-        title: "Error",
-        description: "Failed to fetch checked bands.",
+        description: "Failed to fetch bands data.",
         variant: "destructive",
       });
       setLoading(false);
@@ -168,12 +136,7 @@ const BandLocking = () => {
   };
 
   useEffect(() => {
-    const initializeBands = async () => {
-      await fetchAllBands();
-      await fetchCheckedBands();
-    };
-
-    initializeBands();
+    fetchBandsData();
   }, []);
 
   const handleCheckboxChange = (bandType: BandType, band: number) => {
@@ -195,7 +158,7 @@ const BandLocking = () => {
         title: "Band Locking",
         description: "Bands locked successfully.",
       });
-      await fetchCheckedBands();
+      await fetchBandsData();
     } catch (error) {
       console.error(`Error locking ${bandType} bands:`, error);
       toast({
@@ -223,7 +186,7 @@ const BandLocking = () => {
         title: "Reset Successful",
         description: `${bandType.toUpperCase()} bands reset to default.`,
       });
-      await fetchCheckedBands();
+      await fetchBandsData();
     } catch (error) {
       console.error(`Error resetting ${bandType} bands:`, error);
       toast({
