@@ -107,7 +107,7 @@ const ATTerminalPage = () => {
     };
 
     fetchCommands();
-  }, [toast]);
+  }, []);
 
   // Load previous commands and history from localStorage on component mount
   useEffect(() => {
