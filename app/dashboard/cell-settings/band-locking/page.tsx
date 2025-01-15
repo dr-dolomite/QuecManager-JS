@@ -33,10 +33,17 @@ interface BandCardProps {
   prefix: string;
 }
 
-const commandMap: Record<BandType, string> = {
+// Separate command maps for supported and active bands
+const supportedCommandMap: Record<BandType, string> = {
   lte: "lte_band",
   nsa: "nsa_nr5g_band",
-  sa: "nr5g_band",
+  sa: "nrdc_nr5g_band", // Use nrdc_nr5g_band for supported SA bands
+};
+
+const activeCommandMap: Record<BandType, string> = {
+  lte: "lte_band",
+  nsa: "nsa_nr5g_band",
+  sa: "nr5g_band", // Keep nr5g_band for active SA bands
 };
 
 const BandLocking = () => {
@@ -59,23 +66,23 @@ const BandLocking = () => {
   const atCommandSender = async (command: string): Promise<ATResponse> => {
     try {
       const encodedCommand = encodeURIComponent(command);
-      const response = await fetch("/cgi-bin/atinout_handler.sh", {
-        method: "POST",
+      const response = await fetch(`/api/cgi-bin/at_command?command=${encodedCommand}`, {
+        method: "GET", // CGI scripts typically expect GET requests with query parameters
         headers: {
-          "Content-Type": "application/json",
+          "Accept": "application/json",
         },
-        body: `command=${encodedCommand}`,
         signal: AbortSignal.timeout(5000),
       });
-
+  
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-
+  
       const data = await response.json();
       if (data.error) {
         throw new Error(data.error);
       }
+  
       return data;
     } catch (error) {
       console.error("AT Command error:", error);
@@ -83,13 +90,26 @@ const BandLocking = () => {
     }
   };
 
-  const parseResponse = (response: string, bandType: string): number[] => {
+  const parseResponse = (
+    response: string,
+    bandType: string,
+    isSupported: boolean
+  ): number[] => {
     const lines = response.split("\n");
+    const commandType = isSupported
+      ? supportedCommandMap[bandType as BandType]
+      : activeCommandMap[bandType as BandType];
+
     for (const line of lines) {
-      if (line.includes(bandType)) {
+      const searchString = `"${commandType}"`;
+      if (line.includes(searchString)) {
         const match = line.match(/\"[^\"]+\",(.+)/);
         if (match && match[1]) {
-          return match[1].split(":").map(Number);
+          return match[1]
+            .trim()
+            .split(":")
+            .map(Number)
+            .filter((n) => !isNaN(n));
         }
       }
     }
@@ -98,31 +118,31 @@ const BandLocking = () => {
 
   const fetchBandsData = async () => {
     try {
-      const response = await fetch("/cgi-bin/fetch_data.sh?set=7");
+      const response = await fetch("/api/cgi-bin/fetch_data?set=7");
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
       const data: ATResponse[] = await response.json();
-      
+
       // Parse supported bands from first response
       const supportedBandsResponse = data[0].response;
       const newBands: BandState = {
-        lte: parseResponse(supportedBandsResponse, "lte_band"),
-        nsa: parseResponse(supportedBandsResponse, "nsa_nr5g_band"),
-        sa: parseResponse(supportedBandsResponse, "nr5g_band"),
+        lte: parseResponse(supportedBandsResponse, "lte", true),
+        nsa: parseResponse(supportedBandsResponse, "nsa", true),
+        sa: parseResponse(supportedBandsResponse, "sa", true), // Will use nrdc_nr5g_band
       };
       setBands(newBands);
 
       // Parse checked bands from second response
       const checkedBandsResponse = data[1].response;
       const newCheckedBands: BandState = {
-        lte: parseResponse(checkedBandsResponse, "lte_band"),
-        nsa: parseResponse(checkedBandsResponse, "nsa_nr5g_band"),
-        sa: parseResponse(checkedBandsResponse, "nr5g_band"),
+        lte: parseResponse(checkedBandsResponse, "lte", false),
+        nsa: parseResponse(checkedBandsResponse, "nsa", false),
+        sa: parseResponse(checkedBandsResponse, "sa", false), // Will use nr5g_band
       };
       setCheckedBands(newCheckedBands);
-      
+
       setLoading(false);
     } catch (error) {
       console.error("Error fetching bands:", error);
@@ -151,9 +171,35 @@ const BandLocking = () => {
   const handleLockBands = async (bandType: BandType) => {
     try {
       const selectedBands = checkedBands[bandType].join(":");
-      await atCommandSender(
-        `AT+QNWPREFCFG="${commandMap[bandType]}",${selectedBands}`
-      );
+
+      if (bandType === "nsa") {
+        // Store the current SA bands configuration
+        const currentSABands = checkedBands.sa.join(":");
+        
+        // Lock NSA bands
+        await atCommandSender(
+          `AT+QNWPREFCFG="${activeCommandMap.nsa}",${selectedBands}`
+        );
+        
+        // Immediately restore SA bands configuration to preserve it
+        if (currentSABands) {
+          await atCommandSender(
+            `AT+QNWPREFCFG="${activeCommandMap.sa}",${currentSABands}`
+          );
+        } else {
+          // If no SA bands were selected, reset to default SA bands
+          const defaultSABands = bands.sa.join(":");
+          await atCommandSender(
+            `AT+QNWPREFCFG="${activeCommandMap.sa}",${defaultSABands}`
+          );
+        }
+      } else {
+        // For LTE and SA bands, proceed as normal
+        await atCommandSender(
+          `AT+QNWPREFCFG="${activeCommandMap[bandType]}",${selectedBands}`
+        );
+      }
+
       toast({
         title: "Band Locking",
         description: "Bands locked successfully.",
@@ -179,9 +225,26 @@ const BandLocking = () => {
   const handleResetToDefault = async (bandType: BandType) => {
     try {
       const defaultBands = bands[bandType].join(":");
-      await atCommandSender(
-        `AT+QNWPREFCFG="${commandMap[bandType]}",${defaultBands}`
-      );
+      
+      if (bandType === "nsa") {
+        // Reset NSA bands
+        await atCommandSender(
+          `AT+QNWPREFCFG="${activeCommandMap.nsa}",${defaultBands}`
+        );
+        
+        // Preserve current SA bands configuration
+        const currentSABands = checkedBands.sa.join(":");
+        if (currentSABands) {
+          await atCommandSender(
+            `AT+QNWPREFCFG="${activeCommandMap.sa}",${currentSABands}`
+          );
+        }
+      } else {
+        await atCommandSender(
+          `AT+QNWPREFCFG="${activeCommandMap[bandType]}",${defaultBands}`
+        );
+      }
+
       toast({
         title: "Reset Successful",
         description: `${bandType.toUpperCase()} bands reset to default.`,

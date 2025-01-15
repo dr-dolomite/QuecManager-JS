@@ -74,7 +74,7 @@ const ATTerminalPage = () => {
   useEffect(() => {
     const fetchCommands = async () => {
       try {
-        const response = await fetch("/cgi-bin/advance/fetch_commands.sh");
+        const response = await fetch("/api/cgi-bin/advance/fetch_commands.sh");
         // const response = await fetch("/api/fetch-commands");
         const data = await response.json();
 
@@ -155,71 +155,88 @@ const ATTerminalPage = () => {
     }
   }, [previousCommands]);
 
-  const constructATCommand = (command: string): string => {
-    return command.trim();
-  };
-
-  const parseResponse = (responseText: string): string => {
-    try {
-      const parsedResponse = JSON.parse(responseText) as CommandResponse;
-      return parsedResponse.output;
-    } catch (error) {
-      return responseText;
-    }
-  };
-
   const executeCommand = async () => {
     if (!input.trim()) return;
 
     setIsLoading(true);
     const currentCommand = input;
     setInput("");
-    setOutput("");
+    
+    // Clear previous output and show new command
+    setOutput(`> ${currentCommand}\nExecuting command, please wait...`);
 
     try {
-      const command = constructATCommand(currentCommand);
-      const encodedCommand = encodeURIComponent(command);
-      // const response = await fetch("/api/at-handler", {
-      const response = await fetch("/cgi-bin/atinout_handler.sh", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        // body: JSON.stringify({ command }),
-        body: `command=${encodedCommand}`,
-      });
+      // Queue the command
+      const encodedCommand = encodeURIComponent(currentCommand);
+      const queueResponse = await fetch(`/api/cgi-bin/at_command?command=${encodedCommand}`);
+      const queueData = await queueResponse.json();
 
-      const rawResult = await response.text();
-      const parsedResult = parseResponse(rawResult);
+      if (queueData.status !== "queued") {
+        throw new Error("Failed to queue command");
+      }
+
+      const commandId = queueData.id;
+      let attempts = 0;
+      const maxAttempts = 360; // 3 minutes with 0.5s intervals
+      let result = null;
+
+      // Poll for results
+      while (attempts < maxAttempts) {
+        attempts++;
+        
+        try {
+          const resultResponse = await fetch(`/api/cgi-bin/at_results?action=get_by_id&id=${commandId}`);
+          const resultData = await resultResponse.json();
+
+          // Check if we got a valid result (not null and has actual data)
+          if (resultData && !resultData.error && resultData.command) {
+            result = resultData;
+            break;
+          }
+
+          // If no result yet, wait and retry
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
+        } catch (error) {
+          console.error("Polling error:", error);
+          if (attempts >= maxAttempts) {
+            throw new Error("Command timed out after 3 minutes");
+          }
+          // If error occurs, wait and retry
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+      }
+
+      if (!result) {
+        throw new Error("Command execution timed out");
+      }
+
+      // Update output with result
+      setOutput(`> ${currentCommand}\n${result.response || "No output"}`);
 
       // Create new history item
       const newHistoryItem: CommandHistoryItem = {
         command: currentCommand,
-        response: parsedResult,
+        response: result.response || "No output",
         timestamp: new Date().toISOString(),
       };
 
       // Update command history
       setCommandHistory((prev) => [newHistoryItem, ...prev]);
 
-      // Update output
-      setOutput(
-        (prev) =>
-          `${prev}${prev ? "\n" : ""}> ${currentCommand}\n\n${parsedResult}`
-      );
-
       // Update previous commands for autocomplete
       if (!previousCommands.includes(currentCommand)) {
         setPreviousCommands((prev) => [...prev, currentCommand]);
       }
+
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : "An unknown error occurred";
-      setOutput((prev) => `${prev}${prev ? "\n" : ""}Error: ${errorMessage}`);
+      const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
+      setOutput(`> ${currentCommand}\nError: ${errorMessage}`);
     } finally {
       setIsLoading(false);
     }
   };
+
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;

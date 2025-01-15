@@ -21,9 +21,6 @@ const CellSettingsLayout = ({ children }: CellSettingsLayoutProps) => {
           className="grid gap-4 text-sm text-muted-foreground"
           x-chunk="dashboard-04-chunk-0"
         >
-          {/* <Link href="/dashboard/experimental/speedtest" className={`${currentPathName === "/dashboard/experimental/speedtest/" ? "font-semibold text-primary" : 'text-sm'}`}>
-            Speedtest
-          </Link> */}
           <Link
             href="/dashboard/experimental/quecwatch"
             className={`${
@@ -43,6 +40,16 @@ const CellSettingsLayout = ({ children }: CellSettingsLayoutProps) => {
             }`}
           >
             Keep Alive
+          </Link>
+          <Link
+            href="/dashboard/experimental/cell-scanner"
+            className={`${
+              currentPathName === "/dashboard/experimental/cell-scanner/"
+                ? "font-semibold text-primary"
+                : "text-sm"
+            }`}
+          >
+            Cell Scanner
           </Link>
         </nav>
         {children}

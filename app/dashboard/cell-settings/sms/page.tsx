@@ -50,13 +50,15 @@ const SMSPage = () => {
     // First pass: Parse individual messages
     for (let i = 0; i < rawMessages.length; i++) {
       const line = rawMessages[i];
-      
+
       if (line.startsWith("+CMGL:")) {
         if (currentMessage?.message) {
           tempMessages.push(currentMessage as SMSMessage);
         }
 
-        const match = line.match(/\+CMGL: (\d+),"([^"]+)","([^"]+)",,\"([^"]+)\"/);
+        const match = line.match(
+          /\+CMGL: (\d+),"([^"]+)","([^"]+)",,\"([^"]+)\"/
+        );
         if (match) {
           currentMessage = {
             index: parseInt(match[1]),
@@ -64,11 +66,11 @@ const SMSPage = () => {
             sender: match[3],
             timestamp: match[4],
             message: "",
-            originalIndices: [parseInt(match[1])]
+            originalIndices: [parseInt(match[1])],
           };
         }
       } else if (currentMessage && line !== "OK" && !line.startsWith("AT+")) {
-        currentMessage.message = currentMessage.message 
+        currentMessage.message = currentMessage.message
           ? `${currentMessage.message}\n${line}`
           : line;
       }
@@ -90,10 +92,10 @@ const SMSPage = () => {
         currentCombined.timestamp === msg.timestamp
       ) {
         // Combine messages
-        currentCombined.message += '\n' + msg.message;
+        currentCombined.message += "\n" + msg.message;
         currentCombined.originalIndices = [
           ...(currentCombined.originalIndices || []),
-          ...(msg.originalIndices || [])
+          ...(msg.originalIndices || []),
         ];
       } else {
         combinedMessages.push(currentCombined);
@@ -115,7 +117,7 @@ const SMSPage = () => {
       const data = await response.json();
 
       console.log("SMS data:", data);
-      
+
       if (!data?.messages || !Array.isArray(data.messages)) {
         throw new Error("Invalid response format");
       }
@@ -132,9 +134,9 @@ const SMSPage = () => {
 
   const handleSelectMessage = (indices: number[]) => {
     setSelectedMessages((prev) => {
-      const allIndicesIncluded = indices.every(index => prev.includes(index));
+      const allIndicesIncluded = indices.every((index) => prev.includes(index));
       if (allIndicesIncluded) {
-        return prev.filter(index => !indices.includes(index));
+        return prev.filter((index) => !indices.includes(index));
       } else {
         return [...new Set([...prev, ...indices])];
       }
@@ -143,7 +145,9 @@ const SMSPage = () => {
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      const allIndices = messages.flatMap(msg => msg.originalIndices || [msg.index]);
+      const allIndices = messages.flatMap(
+        (msg) => msg.originalIndices || [msg.index]
+      );
       setSelectedMessages(allIndices);
     } else {
       setSelectedMessages([]);
@@ -158,19 +162,36 @@ const SMSPage = () => {
       const time = timeWithOffset.replace("+32", "");
       return {
         date: `20${year}-${month}-${day}`,
-        time
+        time,
       };
     } catch (error) {
       console.error("Error formatting timestamp:", error);
       return {
         date: "Invalid date",
-        time: "Invalid time"
+        time: "Invalid time",
       };
     }
   };
 
+  const fetchMessages = async () => {
+    try {
+      const command = "recv";
+      const encodedCommand = encodeURIComponent(command);
+
+      const response = await fetch(
+        `/api/cgi-bin/sms/sms_handler?action=${encodedCommand}`
+      );
+      const data = await response.json();
+
+      console.log("SMS data:", data);
+    } catch (error) {
+      console.error("Failed to fetch SMS:", error);
+    }
+  };
+
   useEffect(() => {
-    refreshSMS();
+    // refreshSMS();
+    fetchMessages();
   }, []);
 
   return (
@@ -183,7 +204,11 @@ const SMSPage = () => {
               <span>View and manage SMS messages</span>
               <div className="flex items-center space-x-1.5">
                 <Checkbox
-                  checked={selectedMessages.length === messages.flatMap(m => m.originalIndices || [m.index]).length}
+                  checked={
+                    selectedMessages.length ===
+                    messages.flatMap((m) => m.originalIndices || [m.index])
+                      .length
+                  }
                   onCheckedChange={handleSelectAll}
                 />
                 <span className="text-sm">Select All</span>
@@ -206,9 +231,9 @@ const SMSPage = () => {
               messages.map((sms) => {
                 const { date, time } = formatDateTime(sms.timestamp);
                 const indices = sms.originalIndices || [sms.index];
-                
+
                 return (
-                  <Dialog key={indices.join('-')}>
+                  <Dialog key={indices.join("-")}>
                     <DialogTrigger className="w-full">
                       <Card className="my-2 dark:hover:bg-slate-900 hover:bg-slate-100">
                         <CardHeader>
@@ -219,11 +244,15 @@ const SMSPage = () => {
                               onClick={(e) => e.stopPropagation()}
                             >
                               <p className="text-muted-foreground font-medium text-xs">
-                                {indices.join(', ')}
+                                {indices.join(", ")}
                               </p>
                               <Checkbox
-                                checked={indices.every(index => selectedMessages.includes(index))}
-                                onCheckedChange={() => handleSelectMessage(indices)}
+                                checked={indices.every((index) =>
+                                  selectedMessages.includes(index)
+                                )}
+                                onCheckedChange={() =>
+                                  handleSelectMessage(indices)
+                                }
                               />
                             </div>
                           </div>

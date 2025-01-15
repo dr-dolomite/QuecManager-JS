@@ -73,18 +73,21 @@ const CellLockingPage = () => {
   const handleATCommand = async (command: string) => {
     const encodedCommand = encodeURIComponent(command);
     try {
-      const response = await fetch("/cgi-bin/atinout_handler.sh", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        // body: JSON.stringify({ command }),
-        body: `command=${encodedCommand}`,
-      });
+      const response = await fetch(
+        `/api/cgi-bin/at_command?command=${encodedCommand}`,
+        {
+          method: "GET", // CGI scripts typically expect GET requests with query parameters
+          headers: {
+            Accept: "application/json",
+          },
+          signal: AbortSignal.timeout(5000),
+        }
+      );
 
       const data = await response.json();
+      console.log("AT command response:", data);
 
-      if (!response.ok) {
+      if (!response.ok || data.status !== "queued") {
         throw new Error(data.error || "Failed to execute AT command");
       }
 
@@ -97,9 +100,9 @@ const CellLockingPage = () => {
     }
   };
 
-  const parseATResponse = (response: string) => {
+  const parseATResponse = (data: string) => {
     // Extract the content between +QNWLOCK: and OK
-    const match = response.match(/\+QNWLOCK:\s*(.+?)\n/);
+    const match = data.match(/\+QNWLOCK:\s*(.+?)\n/);
     if (!match) return null;
 
     // Remove quotes and split by comma
@@ -109,79 +112,62 @@ const CellLockingPage = () => {
       .map((item) => item.trim());
   };
 
-  const fetchPersistStatus = async () => {
-    try {
-      const response = await handleATCommand('AT+QNWLOCK="save_ctrl"');
-      if (response && response.output) {
-        const parsedData = parseATResponse(response.output);
-        console.log("Persist status:", parsedData);
-        if (parsedData && parsedData.length >= 2) {
-          setLtePersist(parsedData[1] === "1");
-          setNr5gPersist(parsedData[2] === "1");
-        }
-      }
-    } catch (error) {
-      console.error("Error fetching persist status:", error);
-    }
-  };
-
   const fetchCurrentStatus = async () => {
     try {
       setLoading(true);
+      const response = await fetch("/api/cgi-bin/fetch_data?set=8");
+      const data = await response.json();
 
-      // Fetch persist status
-      await fetchPersistStatus();
+      if (!response.ok) {
+        throw new Error("Failed to fetch current status");
+      }
 
-      // Wait for a second
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      // Command set 8 is used to fetch the current cell locking status
+      console.log("Current cell locking status:", data);
 
-      // Fetch LTE status
-      const lteResponse = await handleATCommand('AT+QNWLOCK="common/4g"');
+      // Get persist status
+      const parsedData = parseATResponse(data[2].response);
+      console.log("Persist status:", parsedData);
+      if (parsedData && parsedData.length >= 2) {
+        setLtePersist(parsedData[1] === "1");
+        setNr5gPersist(parsedData[2] === "1");
+      }
 
-      if (lteResponse && lteResponse.output) {
-        const parsedData = parseATResponse(lteResponse.output);
-        if (parsedData) {
-          const numCells = parseInt(parsedData[1]);
-
-          const newLteState = {
-            EARFCN1: numCells >= 1 ? parsedData[2] : "",
-            PCI1: numCells >= 1 ? parsedData[3] : "",
-            EARFCN2: numCells >= 2 ? parsedData[4] : "",
-            PCI2: numCells >= 2 ? parsedData[5] : "",
-            EARFCN3: numCells >= 3 ? parsedData[6] : "",
-            PCI3: numCells >= 3 ? parsedData[7] : "",
-          };
-          setLteState(newLteState);
-
-          if (numCells > 0) {
-            setLocked(true);
-          }
+      // Get current LTE Lock status
+      const lteLockData = parseATResponse(data[0].response);
+      console.log("Current LTE lock status:", lteLockData);
+      if (lteLockData) {
+        const newLteState = {
+          EARFCN1: lteLockData[2],
+          PCI1: lteLockData[3],
+          EARFCN2: lteLockData[4],
+          PCI2: lteLockData[5],
+          EARFCN3: lteLockData[6],
+          PCI3: lteLockData[7],
+        };
+        setLteState(newLteState);
+        console.log("New LTE state:", newLteState);
+        if (parseInt(lteLockData[1]) > 0) {
+          setLocked(true);
         }
       }
 
-      // Fetch NR5G status
-      const nr5gResponse = await handleATCommand('AT+QNWLOCK="common/5g"');
-      console.log("Current NR5G lock status:", nr5gResponse);
-
-      if (nr5gResponse && nr5gResponse.output) {
-        const parsedData = parseATResponse(nr5gResponse.output);
-        if (parsedData && parsedData.length >= 5) {
-          const newNr5gState = {
-            NRPCI: parsedData[1],
-            NRARFCN: parsedData[2],
-            SCS: parsedData[3],
-            NRBAND: parsedData[4],
-          };
-          setNr5gState(newNr5gState);
-          if (parseInt(parsedData[1]) > 0) {
-            setLocked(true);
-          }
+      // Get current NR5G Lock status
+      const nr5gLockData = parseATResponse(data[1].response);
+      console.log("Current NR5G lock status:", nr5gLockData);
+      if (nr5gLockData && nr5gLockData.length >= 5) {
+        const newNr5gState = {
+          NRPCI: nr5gLockData[1],
+          NRARFCN: nr5gLockData[2],
+          SCS: nr5gLockData[3],
+          NRBAND: nr5gLockData[4],
+        };
+        setNr5gState(newNr5gState);
+        console.log("New NR5G state:", newNr5gState);
+        if (parseInt(nr5gLockData[1]) > 0) {
+          setLocked(true);
         }
       }
-      // toast({
-      //   title: "Success",
-      //   description: "Fetched cell locking status successfully",
-      // });
     } catch (error) {
       console.error("Error fetching current status:", error);
       toast({
@@ -400,7 +386,7 @@ const CellLockingPage = () => {
           nr5gPersist ? "1" : "0"
         }`
       );
-      await fetchPersistStatus();
+      await fetchCurrentStatus();
       toast({
         title: "Success",
         description: `LTE persist on boot ${pressed ? "enabled" : "disabled"}`,
@@ -427,7 +413,7 @@ const CellLockingPage = () => {
           pressed ? "1" : "0"
         }`
       );
-      await fetchPersistStatus();
+      await fetchCurrentStatus();
       toast({
         title: "Success",
         description: `NR5G persist on boot ${pressed ? "enabled" : "disabled"}`,
@@ -451,7 +437,7 @@ const CellLockingPage = () => {
     const fetchScheduleStatus = async () => {
       try {
         const response = await fetch(
-          "/cgi-bin/cell-settings/scheduled_cell_locking.sh?status=true"
+          "/api/cgi-bin/cell-settings/scheduled_cell_locking.sh?status=true"
         );
         if (response.ok) {
           const data = await response.json();

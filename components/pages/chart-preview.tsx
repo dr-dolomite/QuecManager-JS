@@ -61,7 +61,7 @@ export default function ChartPreviewSignal() {
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const response = await fetch("/cgi-bin/fetch_data.sh?set=5");
+        const response = await fetch("/api/cgi-bin/fetch_data?set=5");
         const data: ModemResponse[] = await response.json();
         console.log(data);
 

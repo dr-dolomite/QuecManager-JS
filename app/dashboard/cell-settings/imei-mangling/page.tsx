@@ -62,19 +62,13 @@ const IMEIManglingPage = () => {
   const fetchIMEI = useCallback(async () => {
     try {
       setIsLoading(true);
-      const command = "AT+CGSN";
-      const encodedCommand = encodeURIComponent(command);
-      const response = await fetch("/cgi-bin/atinout_handler.sh", {
-        //   const response = await fetch("/api/at-handler", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: `command=${encodedCommand}`,
-        // body: JSON.stringify({ command }),
-      });
+      const response = await fetch("/api/cgi-bin/fetch_data?set=3");
+      const rawData = await response.json();
 
-      const rawResult = await response.text();
+      console.log(rawData);
+      // Use the 6th index to get the IMEI
+      const rawResult = rawData[6].response.split("\n")[1];
+      console.log(rawResult);
       // Regex to match IMEI in a response format
       const imeiMatch = rawResult.match(/\d{15}/);
       const imei = imeiMatch ? imeiMatch[0] : null;
@@ -85,11 +79,6 @@ const IMEIManglingPage = () => {
       } else {
         throw new Error("IMEI not found in response");
       }
-
-      // toast({
-      //   title: "Success",
-      //   description: "Fetched IMEI settings successfully",
-      // });
     } catch (err) {
       toast({
         title: "Failed to fetch IMEI",
@@ -146,13 +135,16 @@ const IMEIManglingPage = () => {
     try {
       const command = `AT+EGMR=1,7,"${newIMEI}";+QPOWD=1`;
       const encodedCommand = encodeURIComponent(command);
-      const response = await fetch("/cgi-bin/atinout_handler.sh", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: `command=${encodedCommand}`,
-      });
+      const response = await fetch(
+        `/api/cgi-bin/at_command?command=${encodedCommand}`,
+        {
+          method: "GET", // CGI scripts typically expect GET requests with query parameters
+          headers: {
+            Accept: "application/json",
+          },
+          signal: AbortSignal.timeout(5000),
+        }
+      );
 
       console.log(response);
 
@@ -164,7 +156,7 @@ const IMEIManglingPage = () => {
         title: "Success",
         description: "IMEI has been updated successfully. Rebooting...",
         duration: 90000,
-      })
+      });
 
       // The device will reboot after this command, so we don't need to handle the response
     } catch (err) {
@@ -181,10 +173,7 @@ const IMEIManglingPage = () => {
 
   const validateProfiles = (): boolean => {
     // Profile 1 is mandatory
-    if (
-      !formData.profile1.imei ||
-      !formData.profile1.iccid
-    ) {
+    if (!formData.profile1.imei || !formData.profile1.iccid) {
       toast({
         variant: "destructive",
         title: "Invalid Profile 1",
@@ -234,17 +223,17 @@ const IMEIManglingPage = () => {
 
   const handleSaveProfiles = async (e: React.FormEvent) => {
     e.preventDefault();
-  
+
     if (!validateProfiles()) {
       return;
     }
-  
+
     setIsSaving(true);
-  
+
     try {
       // Always update Profile 1
       await updateIMEIProfile("profile1", formData.profile1);
-  
+
       // Only update Profile 2 if it has data
       const hasProfile2Data = Object.values(formData.profile2).some(
         (value) => value !== ""
@@ -252,7 +241,7 @@ const IMEIManglingPage = () => {
       if (hasProfile2Data) {
         await updateIMEIProfile("profile2", formData.profile2);
       }
-  
+
       // Assume the updates were successful, since the device will restart
       toast({
         title: "Success",
@@ -337,10 +326,10 @@ const IMEIManglingPage = () => {
             <CardTitle>IMEI Mangling</CardTitle>
             <CardDescription className="flex items-center justify-between">
               Change the IMEI of the device.
-              <div className="flex items-center text-orange-500">
+              <span className="flex items-center text-orange-500">
                 <TriangleAlert className="size-4 mr-1" />
                 Do at your own risk!
-              </div>
+              </span>
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -401,10 +390,10 @@ const IMEIManglingPage = () => {
           <CardTitle>ICCID Based IMEI Mangling</CardTitle>
           <CardDescription className="flex items-center justify-between">
             Change the IMEI of the device based on the ICCID.
-            <div className="flex items-center text-orange-500">
+            <span className="flex items-center text-orange-500">
               <TriangleAlert className="size-4 mr-1" />
               Do at your own risk!
-            </div>
+            </span>
           </CardDescription>
         </CardHeader>
         <form onSubmit={handleSaveProfiles}>

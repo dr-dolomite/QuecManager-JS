@@ -164,12 +164,12 @@ const BasicSettings = () => {
 
       const command = constructATCommand(changes);
       const encodedCommand = encodeURIComponent(command);
-      const response = await fetch("/cgi-bin/atinout_handler.sh", {
-        method: "POST",
+      const response = await fetch(`/api/cgi-bin/at_command?command=${encodedCommand}`, {
+        method: "GET", // CGI scripts typically expect GET requests with query parameters
         headers: {
-          "Content-Type": "application/json",
+          "Accept": "application/json",
         },
-        body: `command=${encodedCommand}`,
+        signal: AbortSignal.timeout(5000),
       });
 
       if (!response.ok) {

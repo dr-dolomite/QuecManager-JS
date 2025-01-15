@@ -9,7 +9,7 @@ const useAboutData = () => {
   const fetchAboutData = useCallback(async () => {
     try {
       setIsLoading(true);
-      const response = await fetch("/cgi-bin/fetch_data.sh?set=3");
+      const response = await fetch("/api/cgi-bin/fetch_data?set=3");
     // const response = await fetch("/api/fetch-about");
       const rawData = await response.json();
       console.log("Fetched about data:", rawData);
