@@ -164,7 +164,7 @@ const BasicSettings = () => {
 
       const command = constructATCommand(changes);
       const encodedCommand = encodeURIComponent(command);
-      const response = await fetch(`/api/cgi-bin/at_command?command=${encodedCommand}`, {
+      const response = await fetch(`/cgi-bin/at_command?command=${encodedCommand}`, {
         method: "GET", // CGI scripts typically expect GET requests with query parameters
         headers: {
           "Accept": "application/json",

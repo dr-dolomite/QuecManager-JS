@@ -31,7 +31,6 @@ import {
   RefreshCcw,
 } from "lucide-react";
 
-
 import PropagateLoader from "react-spinners/PropagateLoader";
 import BandTable from "@/components/home/band-table";
 
@@ -387,14 +386,12 @@ const HomePage = () => {
           </div>
         </div>
         <div className="grid lg:grid-cols-2 grid-cols-1 grid-flow-row gap-4">
-          <div>
-            {/* <SignalChart /> */}
-          </div>
+          <div>{/* <SignalChart /> */}</div>
           <div className="grid gap-2 lg:grid-cols-2 grid-cols-1 grid-flow-row">
-            {/* <EthernetCard />
+            <EthernetCard />
             <MemoryCard />
             <SpeedtestStream />
-            <PingCard /> */}
+            <PingCard />
           </div>
         </div>
 

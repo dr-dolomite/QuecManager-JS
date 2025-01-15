@@ -220,7 +220,7 @@ const ConnectivitySettingsPage = () => {
 
   const handleReboot = async () => {
     try {
-      // await fetch("/api/at-handler", {
+      // await fetch("/at-handler", {
       const encodedCommand = encodeURIComponent("AT+QPOWD=1");
       await fetch("/cgi-bin/atinout_handler.sh", {
         method: "POST",
@@ -296,10 +296,10 @@ const ConnectivitySettingsPage = () => {
     const fetchSettings = async () => {
       try {
         const [macsResponse, advanceResponse] = await Promise.all([
-          // fetch("/api/fetch-macs"),
-          // fetch("/api/fetch-advance"),
-          fetch("/api/cgi-bin/advance/fetch_macs.sh"),
-          fetch("/api/cgi-bin/fetch_data?set=4"),
+          // fetch("/fetch-macs"),
+          // fetch("/fetch-advance"),
+          fetch("/cgi-bin/advance/fetch_macs.sh"),
+          fetch("/cgi-bin/fetch_data?set=4"),
         ]);
 
         const [macsData, advanceData] = await Promise.all([

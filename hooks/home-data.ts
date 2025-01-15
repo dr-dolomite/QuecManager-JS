@@ -5,26 +5,26 @@ import { BANDWIDTH_MAP, NR_BANDWIDTH_MAP } from "@/constants/home/index";
 
 const useHomeData = () => {
   const [data, setData] = useState<HomeData | null>(null);
-  const [refreshRate, setRefreshRate] = useState(60000);
+  // const [refreshRate, setRefreshRate] = useState(60000);
   const [isLoading, setIsLoading] = useState(true); // Start with true for initial load
   const [isInitialLoad, setIsInitialLoad] = useState(true);
 
-  const fetchRefreshRate = async () => {
-    try {
-      const refreshRateResponse = await fetch(
-        "/cgi-bin/settings/fetch-config.sh"
-      );
-      const refreshRateData = await refreshRateResponse.json();
-      // Convert to number and ensure it's at least 1000ms
-      const newRate = Math.max(
-        1000,
-        parseInt(refreshRateData.data_refresh_rate)
-      );
-      setRefreshRate(newRate);
-    } catch (error) {
-      console.error("Error fetching refresh rate:", error);
-    }
-  };
+  // const fetchRefreshRate = async () => {
+  //   try {
+  //     const refreshRateResponse = await fetch(
+  //       "/cgi-bin/settings/fetch-config.sh"
+  //     );
+  //     const refreshRateData = await refreshRateResponse.json();
+  //     // Convert to number and ensure it's at least 1000ms
+  //     const newRate = Math.max(
+  //       1000,
+  //       parseInt(refreshRateData.data_refresh_rate)
+  //     );
+  //     setRefreshRate(newRate);
+  //   } catch (error) {
+  //     console.error("Error fetching refresh rate:", error);
+  //   }
+  // };
 
   const fetchHomeData = useCallback(async () => {
     try {
@@ -32,12 +32,12 @@ const useHomeData = () => {
       if (isInitialLoad) {
         setIsLoading(true);
       }
-      // const response = await fetch("/api/home-stats");
-      const response = await fetch("/api/cgi-bin/fetch_data?set=1");
+      // const response = await fetch("/home-stats");
+      const response = await fetch("/cgi-bin/fetch_data?set=1");
       const rawData = await response.json();
       console.log(rawData);
 
-      await fetchRefreshRate();
+      // await fetchRefreshRate();
 
       // Process the raw data into the HomeData format
       const processedData: HomeData = {
@@ -83,21 +83,22 @@ const useHomeData = () => {
               .replace(/"/g, "")
               .trim() ||
             "Unknown",
-          operatorState: getOperatorState(
-            rawData[8].response,
-            rawData[16].response
-          ) || "Unknown",
+          operatorState:
+            getOperatorState(rawData[8].response, rawData[16].response) ||
+            "Unknown",
           functionalityState:
             rawData[9].response.split("\n")[1].split(":")[1].trim() === "1"
               ? "Enabled"
               : "Disabled",
           networkType: getNetworkType(rawData[13].response) || "No Signal",
-          modemTemperature: getModemTemperature(rawData[11].response) || "Unknown",
-          accessTechnology: rawData[2].response
-            .split("\n")[1]
-            .split(":")[1]
-            .split(",")[3]
-            .trim() || "Unknown",
+          modemTemperature:
+            getModemTemperature(rawData[11].response) || "Unknown",
+          accessTechnology:
+            rawData[2].response
+              .split("\n")[1]
+              .split(":")[1]
+              .split(",")[3]
+              .trim() || "Unknown",
         },
         dataTransmission: {
           carrierAggregation:
@@ -105,36 +106,41 @@ const useHomeData = () => {
               ?.length > 1
               ? "Multi"
               : "Inactive",
-          bandwidth: getBandwidth(
-            rawData[13].response,
-            getNetworkType(rawData[13].response)
-          ) || "Unknown",
+          bandwidth:
+            getBandwidth(
+              rawData[13].response,
+              getNetworkType(rawData[13].response)
+            ) || "Unknown",
           connectedBands: getConnectedBands(rawData[13].response) || "Unknown",
           signalStrength: getSignalStrength(rawData[14].response) || "Unknown",
           mimoLayers: getMimoLayers(rawData[14].response) || "Unknown",
         },
         cellularInfo: {
-          cellId: getCellID(
-            rawData[10].response,
-            getNetworkType(rawData[13].response)
-          ) || "Unknown",
-          trackingAreaCode: getTAC(
-            rawData[10].response,
-            getNetworkType(rawData[13].response)
-          ) || "Unknown",
+          cellId:
+            getCellID(
+              rawData[10].response,
+              getNetworkType(rawData[13].response)
+            ) || "Unknown",
+          trackingAreaCode:
+            getTAC(
+              rawData[10].response,
+              getNetworkType(rawData[13].response)
+            ) || "Unknown",
           physicalCellId: getPhysicalCellIDs(
             rawData[13].response,
             getNetworkType(rawData[13].response)
           ),
           earfcn: getEARFCN(rawData[13].response),
-          mcc: getMCC(
-            rawData[10].response,
-            getNetworkType(rawData[13].response)
-          ) || "Unknown",
-          mnc: getMNC(
-            rawData[10].response,
-            getNetworkType(rawData[13].response)
-          ) || "Unknown",
+          mcc:
+            getMCC(
+              rawData[10].response,
+              getNetworkType(rawData[13].response)
+            ) || "Unknown",
+          mnc:
+            getMNC(
+              rawData[10].response,
+              getNetworkType(rawData[13].response)
+            ) || "Unknown",
           signalQuality: getSignalQuality(rawData[19].response) || "Unknown",
         },
         currentBands: {
@@ -146,9 +152,13 @@ const useHomeData = () => {
             },
             (_, i) => i + 1
           ) || [1],
-          bandNumber: getCurrentBandsBandNumber(rawData[13].response) || ["Unknown"],
+          bandNumber: getCurrentBandsBandNumber(rawData[13].response) || [
+            "Unknown",
+          ],
           earfcn: getCurrentBandsEARFCN(rawData[13].response),
-          bandwidth: getCurrentBandsBandwidth(rawData[13].response) || ["Unknown"],
+          bandwidth: getCurrentBandsBandwidth(rawData[13].response) || [
+            "Unknown",
+          ],
           pci: getCurrentBandsPCI(
             rawData[13].response,
             getNetworkType(rawData[13].response)
@@ -195,8 +205,7 @@ const useHomeData = () => {
           accessTechnology: "Unknown",
         },
         dataTransmission: {
-          carrierAggregation:
-          "Inactive",
+          carrierAggregation: "Inactive",
           connectedBands: "Unknown",
           signalStrength: "Unknown",
           mimoLayers: "Unknown",
@@ -234,16 +243,26 @@ const useHomeData = () => {
     }
   }, [isInitialLoad]);
 
+  // useEffect(() => {
+  //   // Initial fetch
+  //   fetchHomeData();
+
+  //   // Set up interval with current refresh rate
+  //   const intervalId = setInterval(fetchHomeData, refreshRate);
+
+  //   // Clean up interval on unmount or when refresh rate changes
+  //   return () => clearInterval(intervalId);
+  // }, [fetchHomeData, refreshRate]); // Add refreshRate to dependencies
+
   useEffect(() => {
     // Initial fetch
     fetchHomeData();
 
-    // Set up interval with current refresh rate
-    const intervalId = setInterval(fetchHomeData, refreshRate);
+    // Static 15-second refresh interval
+    const intervalId = setInterval(fetchHomeData, 15000);
 
-    // Clean up interval on unmount or when refresh rate changes
-    return () => clearInterval(intervalId);
-  }, [fetchHomeData, refreshRate]); // Add refreshRate to dependencies
+    return () => clearInterval(intervalId); // Cleanup on unmount
+  }, [fetchHomeData]);
 
   return { data, isLoading, refresh: fetchHomeData };
 };
@@ -619,10 +638,13 @@ const getSignalQuality = (response: string) => {
     if (!values.length) return 0;
 
     const avg = values.reduce((acc, v) => acc + v, 0) / values.length;
-    
+
     // Adjust calculation: -10 to 30 range
-    const percentage = Math.max(0, Math.min(100, ((avg - (-10)) / (30 - (-10))) * 100));
-    
+    const percentage = Math.max(
+      0,
+      Math.min(100, ((avg - -10) / (30 - -10)) * 100)
+    );
+
     return percentage;
   };
 

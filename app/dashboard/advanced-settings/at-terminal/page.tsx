@@ -74,8 +74,8 @@ const ATTerminalPage = () => {
   useEffect(() => {
     const fetchCommands = async () => {
       try {
-        const response = await fetch("/api/cgi-bin/advance/fetch_commands.sh");
-        // const response = await fetch("/api/fetch-commands");
+        const response = await fetch("/cgi-bin/advance/fetch_commands.sh");
+        // const response = await fetch("/fetch-commands");
         const data = await response.json();
 
         // Transform the data into ATCommand array
@@ -168,7 +168,7 @@ const ATTerminalPage = () => {
     try {
       // Queue the command
       const encodedCommand = encodeURIComponent(currentCommand);
-      const queueResponse = await fetch(`/api/cgi-bin/at_command?command=${encodedCommand}`);
+      const queueResponse = await fetch(`/cgi-bin/at_command?command=${encodedCommand}`);
       const queueData = await queueResponse.json();
 
       if (queueData.status !== "queued") {
@@ -185,7 +185,7 @@ const ATTerminalPage = () => {
         attempts++;
         
         try {
-          const resultResponse = await fetch(`/api/cgi-bin/at_results?action=get_by_id&id=${commandId}`);
+          const resultResponse = await fetch(`/cgi-bin/at_results?action=get_by_id&id=${commandId}`);
           const resultData = await resultResponse.json();
 
           // Check if we got a valid result (not null and has actual data)

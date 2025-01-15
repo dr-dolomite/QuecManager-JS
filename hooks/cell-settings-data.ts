@@ -9,7 +9,7 @@ const useCellSettingsData = () => {
   const fetchCellSettingsData = useCallback(async () => {
     try {
       setIsLoading(true);
-      const response = await fetch("/api/cgi-bin/fetch_data?set=2");
+      const response = await fetch("/cgi-bin/fetch_data?set=2");
       const rawData = await response.json();
       console.log("Fetched cell settings data:", rawData);
 

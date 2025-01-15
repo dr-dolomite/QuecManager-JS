@@ -179,7 +179,7 @@ const SMSPage = () => {
       const encodedCommand = encodeURIComponent(command);
 
       const response = await fetch(
-        `/api/cgi-bin/sms/sms_handler?action=${encodedCommand}`
+        `/cgi-bin/sms/sms_handler?action=${encodedCommand}`
       );
       const data = await response.json();
 

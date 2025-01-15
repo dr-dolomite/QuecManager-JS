@@ -82,8 +82,8 @@ export function useAuth() {
   async function login(password: string) {
     const encodedPassword = encodeURIComponent(password);
     try {
-      // const response = await fetch("/api/auth", {
-      const response = await fetch("/api/cgi-bin/auth.sh", {
+      // const response = await fetch("/auth", {
+      const response = await fetch("/cgi-bin/auth.sh", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

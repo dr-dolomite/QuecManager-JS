@@ -63,7 +63,7 @@ process_commands() {
         first=0
         
         # Run the command using sms_tool
-        OUTPUT=$(sms_tool at "$cmd" 2>/dev/null) || OUTPUT="Error executing command"
+        OUTPUT=$(sms_tool at "$cmd" -t 4 2>/dev/null) || OUTPUT="Error executing command"
         
         # Properly escape both command and output for JSON
         ESCAPED_CMD=$(escape_json "$cmd")
