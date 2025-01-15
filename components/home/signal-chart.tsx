@@ -21,6 +21,12 @@ interface SignalMetrics {
   output: string;
 }
 
+interface SignalResponse {
+  rsrp: SignalMetrics[];
+  rsrq: SignalMetrics[];
+  sinr: SignalMetrics[];
+}
+
 interface ChartDataPoint {
   time: string;
   rsrp: number;
@@ -30,7 +36,7 @@ interface ChartDataPoint {
 
 const chartConfig = {
   signal: {
-    label: "LTE Signal Metrics",
+    label: "LTE/5G Signal Metrics",
   },
   rsrp: {
     label: "RSRP",
@@ -47,16 +53,18 @@ const chartConfig = {
 } satisfies ChartConfig;
 
 const parseSignalOutput = (output: string): number => {
-  // Extract numbers that are part of the signal readings (after +Q... and before LTE/NR5G)
-  const matches = output.matchAll(/\+Q(?:RSRP|RSRQ|SINR):\s*([-\d,]+)(?=,(?:LTE|NR5G))/g);
+  // Split the output into LTE and NR5G parts if they exist
+  const parts = output.split('\n').filter(part => part.trim());
+  
+  // Extract all numbers from both LTE and NR5G readings
   const allNumbers: number[] = [];
-
-  for (const match of matches) {
-    if (match[1]) {
-      const numbers = match[1].split(',').map(Number);
-      allNumbers.push(...numbers);
+  
+  parts.forEach(part => {
+    const numbers = part.match(/-?\d+/g);
+    if (numbers) {
+      allNumbers.push(...numbers.map(Number));
     }
-  }
+  });
 
   // Filter out invalid values (-140 and -32768)
   const validNumbers = allNumbers.filter(num => num !== -140 && num !== -32768);
@@ -66,13 +74,12 @@ const parseSignalOutput = (output: string): number => {
 
   // Calculate average of remaining numbers
   const sum = validNumbers.reduce((acc, curr) => acc + curr, 0);
-
   return Math.round(sum / validNumbers.length);
 };
 
 const SignalChart = () => {
   const [chartData, setChartData] = useState<ChartDataPoint[]>([]);
-  const [activeChart, setActiveChart] =
+  const [activeChart, setActiveChart] = 
     useState<keyof typeof chartConfig>("rsrp");
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -85,20 +92,26 @@ const SignalChart = () => {
         throw new Error("Failed to fetch signal metrics");
       }
 
-      const data = await response.json();
-
-      const transformedData: ChartDataPoint[] = data.rsrp.map(
-        (item: SignalMetrics, index: number) => ({
-          time: item.datetime,
-          rsrp: parseSignalOutput(item.output),
-          rsrq: parseSignalOutput(data.rsrq[index]?.output || ""),
-          sinr: parseSignalOutput(data.sinr[index]?.output || ""),
-        })
+      const data: SignalResponse = await response.json();
+      
+      // Ensure all arrays have the same length
+      const length = Math.min(
+        data.rsrp.length,
+        data.rsrq.length,
+        data.sinr.length
       );
+
+      const transformedData: ChartDataPoint[] = Array.from({ length }, (_, i) => ({
+        time: data.rsrp[i].datetime,
+        rsrp: parseSignalOutput(data.rsrp[i].output),
+        rsrq: parseSignalOutput(data.rsrq[i].output),
+        sinr: parseSignalOutput(data.sinr[i].output)
+      }));
 
       setChartData(transformedData);
       setError(null);
     } catch (err) {
+      console.error("Error fetching metrics:", err);
       setError(
         err instanceof Error ? err.message : "An unknown error occurred"
       );
@@ -136,7 +149,7 @@ const SignalChart = () => {
       <CardHeader className="flex flex-col items-stretch space-y-0 border-b p-0 sm:flex-row">
         <div className="flex flex-1 flex-col justify-center gap-1 px-6 py-5 sm:py-6">
           <CardTitle>Signal Metrics</CardTitle>
-          <CardDescription>Realtime Signal performance</CardDescription>
+          <CardDescription>Realtime LTE/5G Signal performance</CardDescription>
         </div>
         <div className="flex">
           {["rsrp", "rsrq", "sinr"].map((key) => {
@@ -220,7 +233,7 @@ const SignalChart = () => {
       </CardContent>
       <CardFooter className="flex-col items-start gap-2 text-sm">
         <div className="flex gap-2 font-medium leading-none">
-          The tabs show the average value for each metric.
+          The tabs show the combined average value for LTE and 5G metrics.
         </div>
         <div className="leading-none text-muted-foreground italic">
           The higher the value, the better the signal quality.

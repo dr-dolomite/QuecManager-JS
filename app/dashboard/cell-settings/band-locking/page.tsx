@@ -66,23 +66,26 @@ const BandLocking = () => {
   const atCommandSender = async (command: string): Promise<ATResponse> => {
     try {
       const encodedCommand = encodeURIComponent(command);
-      const response = await fetch(`/cgi-bin/at_command?command=${encodedCommand}`, {
-        method: "GET", // CGI scripts typically expect GET requests with query parameters
-        headers: {
-          "Accept": "application/json",
-        },
-        signal: AbortSignal.timeout(5000),
-      });
-  
+      const response = await fetch(
+        `/cgi-bin/at_command?command=${encodedCommand}`,
+        {
+          method: "GET", // CGI scripts typically expect GET requests with query parameters
+          headers: {
+            Accept: "application/json",
+          },
+          signal: AbortSignal.timeout(5000),
+        }
+      );
+
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-  
+
       const data = await response.json();
       if (data.error) {
         throw new Error(data.error);
       }
-  
+
       return data;
     } catch (error) {
       console.error("AT Command error:", error);
@@ -175,12 +178,12 @@ const BandLocking = () => {
       if (bandType === "nsa") {
         // Store the current SA bands configuration
         const currentSABands = checkedBands.sa.join(":");
-        
+
         // Lock NSA bands
         await atCommandSender(
           `AT+QNWPREFCFG="${activeCommandMap.nsa}",${selectedBands}`
         );
-        
+
         // Immediately restore SA bands configuration to preserve it
         if (currentSABands) {
           await atCommandSender(
@@ -193,18 +196,33 @@ const BandLocking = () => {
             `AT+QNWPREFCFG="${activeCommandMap.sa}",${defaultSABands}`
           );
         }
+
+        // Update local state to reflect the changes
+        setCheckedBands((prev) => ({
+          ...prev,
+          nsa: checkedBands.nsa,
+          sa: currentSABands ? checkedBands.sa : bands.sa,
+        }));
       } else {
         // For LTE and SA bands, proceed as normal
         await atCommandSender(
           `AT+QNWPREFCFG="${activeCommandMap[bandType]}",${selectedBands}`
         );
+
+        // Update local state to reflect the changes
+        setCheckedBands((prev) => ({
+          ...prev,
+          [bandType]: checkedBands[bandType],
+        }));
       }
 
       toast({
         title: "Band Locking",
         description: "Bands locked successfully.",
       });
-      await fetchBandsData();
+
+      // Fetch the latest data after a short delay to ensure the modem has processed the changes
+      setTimeout(fetchBandsData, 1000);
     } catch (error) {
       console.error(`Error locking ${bandType} bands:`, error);
       toast({
@@ -225,13 +243,13 @@ const BandLocking = () => {
   const handleResetToDefault = async (bandType: BandType) => {
     try {
       const defaultBands = bands[bandType].join(":");
-      
+
       if (bandType === "nsa") {
         // Reset NSA bands
         await atCommandSender(
           `AT+QNWPREFCFG="${activeCommandMap.nsa}",${defaultBands}`
         );
-        
+
         // Preserve current SA bands configuration
         const currentSABands = checkedBands.sa.join(":");
         if (currentSABands) {

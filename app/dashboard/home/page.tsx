@@ -386,7 +386,7 @@ const HomePage = () => {
           </div>
         </div>
         <div className="grid lg:grid-cols-2 grid-cols-1 grid-flow-row gap-4">
-          <div>{/* <SignalChart /> */}</div>
+          <div><SignalChart /></div>
           <div className="grid gap-2 lg:grid-cols-2 grid-cols-1 grid-flow-row">
             <EthernetCard />
             <MemoryCard />

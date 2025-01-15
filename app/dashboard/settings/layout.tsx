@@ -21,10 +21,16 @@ const SettingsPageLayout = ({ children }: SettingsPageLayoutProps) => {
           className="grid gap-4 text-sm text-muted-foreground"
           x-chunk="dashboard-04-chunk-0"
         >
-          <Link href="/dashboard/settings/general" className={`${currentPathName === "/dashboard/settings/general/" ? "font-semibold text-primary" : 'text-sm'}`}>
-            General
+          <Link
+            href="/dashboard/settings/security"
+            className={`${
+              currentPathName === "/dashboard/settings/security/"
+                ? "font-semibold text-primary"
+                : "text-sm"
+            }`}
+          >
+            Security
           </Link>
-          <Link href="/dashboard/settings/security" className={`${currentPathName === "/dashboard/settings/security/" ? "font-semibold text-primary" : 'text-sm'}`}>Security</Link>
         </nav>
         {children}
       </div>

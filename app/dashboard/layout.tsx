@@ -323,7 +323,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
 
               <SheetClose asChild>
                 <Link
-                  href="/dashboard/settings/general"
+                  href="/dashboard/settings/security"
                   className={`${
                     currentPathName.includes("/dashboard/settings")
                       ? "text-foreground"

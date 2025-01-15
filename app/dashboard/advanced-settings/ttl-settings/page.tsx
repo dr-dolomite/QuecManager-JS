@@ -89,15 +89,15 @@ const TTLSettingsPage = () => {
     }
   };
 
-  if (loading) {
-    return (
-      <Card className="w-full max-w-2xl mx-auto">
-        <CardContent className="p-6">
-          <div className="text-center">Loading TTL settings...</div>
-        </CardContent>
-      </Card>
-    );
-  }
+  // if (loading) {
+  //   return (
+  //     <Card className="w-full max-w-2xl mx-auto">
+  //       <CardContent className="p-6">
+  //         <div className="text-center">Loading TTL settings...</div>
+  //       </CardContent>
+  //     </Card>
+  //   );
+  // }
 
   return (
     <Card>
@@ -137,7 +137,7 @@ const TTLSettingsPage = () => {
             </div>
           </div>
 
-          <Button type="submit" className="w-full">
+          <Button type="submit" className="w-full" disabled={loading}>
             Save Configuration
           </Button>
         </form>
