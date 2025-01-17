@@ -5,39 +5,14 @@ import { BANDWIDTH_MAP, NR_BANDWIDTH_MAP } from "@/constants/home/index";
 
 const useHomeData = () => {
   const [data, setData] = useState<HomeData | null>(null);
-  // const [refreshRate, setRefreshRate] = useState(60000);
-  const [isLoading, setIsLoading] = useState(true); // Start with true for initial load
-  const [isInitialLoad, setIsInitialLoad] = useState(true);
-
-  // const fetchRefreshRate = async () => {
-  //   try {
-  //     const refreshRateResponse = await fetch(
-  //       "/cgi-bin/settings/fetch-config.sh"
-  //     );
-  //     const refreshRateData = await refreshRateResponse.json();
-  //     // Convert to number and ensure it's at least 1000ms
-  //     const newRate = Math.max(
-  //       1000,
-  //       parseInt(refreshRateData.data_refresh_rate)
-  //     );
-  //     setRefreshRate(newRate);
-  //   } catch (error) {
-  //     console.error("Error fetching refresh rate:", error);
-  //   }
-  // };
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
 
   const fetchHomeData = useCallback(async () => {
     try {
-      // Only set loading state during initial fetch
-      if (isInitialLoad) {
-        setIsLoading(true);
-      }
-      // const response = await fetch("/home-stats");
       const response = await fetch("/cgi-bin/fetch_data.sh?set=1");
       const rawData = await response.json();
       console.log(rawData);
-
-      // await fetchRefreshRate();
 
       // Process the raw data into the HomeData format
       const processedData: HomeData = {
@@ -232,39 +207,48 @@ const useHomeData = () => {
       };
 
       setData(errorData);
-    } finally {
-      if (isInitialLoad) {
-        // Add a delay to prevent flickering only on initial load
-        setTimeout(() => {
-          setIsLoading(false);
-          setIsInitialLoad(false); // Mark initial load as complete
-        }, 300);
-      }
+      setError(null);
     }
-  }, [isInitialLoad]);
-
-  // useEffect(() => {
-  //   // Initial fetch
-  //   fetchHomeData();
-
-  //   // Set up interval with current refresh rate
-  //   const intervalId = setInterval(fetchHomeData, refreshRate);
-
-  //   // Clean up interval on unmount or when refresh rate changes
-  //   return () => clearInterval(intervalId);
-  // }, [fetchHomeData, refreshRate]); // Add refreshRate to dependencies
+  }, []);
 
   useEffect(() => {
-    // Initial fetch
-    fetchHomeData();
+    let isMounted = true;
+    let intervalId: NodeJS.Timeout;
 
-    // Static 15-second refresh interval
-    const intervalId = setInterval(fetchHomeData, 15000);
+    const loadData = async () => {
+      if (!isMounted) return;
 
-    return () => clearInterval(intervalId); // Cleanup on unmount
+      try {
+        await fetchHomeData();
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    // Initial load
+    loadData();
+
+    // Set up polling interval
+    intervalId = setInterval(() => {
+      fetchHomeData();
+    }, 15000);
+
+    // Cleanup function
+    return () => {
+      isMounted = false;
+      clearInterval(intervalId);
+    };
   }, [fetchHomeData]);
 
-  return { data, isLoading, refresh: fetchHomeData };
+  const refresh = useCallback(async () => {
+    setIsLoading(true);
+    await fetchHomeData();
+    setIsLoading(false);
+  }, [fetchHomeData]);
+
+  return { data, isLoading, error, refresh };
 };
 
 // Helper functions for data processing

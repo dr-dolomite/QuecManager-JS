@@ -91,8 +91,13 @@ const IMEIManglingPage = () => {
     }
   }, []);
 
+  // First effect just for fetching IMEI
   useEffect(() => {
     fetchIMEI();
+  }, []); // No dependencies needed since fetchIMEI is stable
+
+  // Second effect for handling profile changes
+  useEffect(() => {
     if (profiles) {
       setFormData({
         profile1: {
@@ -115,7 +120,7 @@ const IMEIManglingPage = () => {
         },
       });
     }
-  }, [fetchIMEI, profiles]);
+  }, [profiles]); // Only depends on profiles
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
