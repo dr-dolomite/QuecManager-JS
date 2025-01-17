@@ -222,14 +222,10 @@ const ConnectivitySettingsPage = () => {
     try {
       // await fetch("/at-handler", {
       const encodedCommand = encodeURIComponent("AT+QPOWD=1");
-      await fetch("/cgi-bin/atinout_handler.sh", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        // body: JSON.stringify({ command: "AT+QPOWD=1" }),
-        body: `command=${encodedCommand}`,
-      });
+      const queueResponse = await fetch(
+        `/cgi-bin/at_command.sh?command=${encodedCommand}`
+      );
+      if (!queueResponse.ok) throw new Error("Failed to queue reboot command");
 
       toast({
         title: "Success",
@@ -268,15 +264,10 @@ const ConnectivitySettingsPage = () => {
   const handleConfirmSave = async () => {
     try {
       const encodedCommand = encodeURIComponent(pendingCommand);
-      const response = await fetch("/cgi-bin/atinout_handler.sh", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: `command=${encodedCommand}`,
-      });
-
-      if (!response.ok) throw new Error("Failed to save settings");
+      const queueResponse = await fetch(
+        `/cgi-bin/at_command.sh?command=${encodedCommand}`
+      );
+      if (!queueResponse.ok) throw new Error("Failed to queue reboot command");
 
       setInitialSettings({ ...currentSettings });
 
@@ -299,7 +290,7 @@ const ConnectivitySettingsPage = () => {
           // fetch("/fetch-macs"),
           // fetch("/fetch-advance"),
           fetch("/cgi-bin/advance/fetch_macs.sh"),
-          fetch("/cgi-bin/fetch_data?set=4"),
+          fetch("/cgi-bin/fetch_data.sh?set=4"),
         ]);
 
         const [macsData, advanceData] = await Promise.all([

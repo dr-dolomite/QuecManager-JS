@@ -67,7 +67,7 @@ const BandLocking = () => {
     try {
       const encodedCommand = encodeURIComponent(command);
       const response = await fetch(
-        `/cgi-bin/at_command?command=${encodedCommand}`,
+        `/cgi-bin/at_command.sh?command=${encodedCommand}`,
         {
           method: "GET", // CGI scripts typically expect GET requests with query parameters
           headers: {
@@ -121,7 +121,7 @@ const BandLocking = () => {
 
   const fetchBandsData = async () => {
     try {
-      const response = await fetch("/cgi-bin/fetch_data?set=7");
+      const response = await fetch("/cgi-bin/fetch_data.sh?set=7");
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }

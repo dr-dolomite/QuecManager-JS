@@ -210,11 +210,14 @@ const APNProfilesCard = () => {
           <Skeleton className="h-8" />
         ) : (
           <Select
+            defaultValue={formData[profileId].pdpType}
             value={formData[profileId].pdpType}
             onValueChange={(value) => handleFieldChange(profileId, "pdpType", value)}
           >
             <SelectTrigger id={`PDPType${profileNum}`}>
-              <SelectValue placeholder="Select PDP Type" />
+              <SelectValue placeholder="Select PDP Type">
+                {PDP_TYPES.find(type => type.value === formData[profileId].pdpType)?.label || "Select PDP Type"}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               <SelectGroup>

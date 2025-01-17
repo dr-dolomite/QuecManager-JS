@@ -164,7 +164,7 @@ const BasicSettings = () => {
 
       const command = constructATCommand(changes);
       const encodedCommand = encodeURIComponent(command);
-      const response = await fetch(`/cgi-bin/at_command?command=${encodedCommand}`, {
+      const response = await fetch(`/cgi-bin/at_command.sh?command=${encodedCommand}`, {
         method: "GET", // CGI scripts typically expect GET requests with query parameters
         headers: {
           "Accept": "application/json",
@@ -176,6 +176,8 @@ const BasicSettings = () => {
         throw new Error("Failed to save settings");
       }
 
+      // Add a delay to allow the settings to take effect
+      await new Promise((resolve) => setTimeout(resolve, 1500));
       await fetchCellSettingsData();
       setIsDataLoaded(false); // Reset to allow re-initialization
 

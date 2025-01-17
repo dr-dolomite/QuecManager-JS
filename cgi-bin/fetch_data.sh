@@ -7,8 +7,7 @@ echo ""
 # Define file paths and configuration
 QUEUE_FILE="/tmp/at_pipe.txt"
 LOCK_KEYWORD="FETCH_DATA_LOCK"
-MAX_LOCK_WAIT=30  # Maximum seconds to wait for lock
-LOCK_CHECK_INTERVAL=0.5  # Check interval in seconds
+MAX_WAIT=6  # Maximum seconds to wait for lock
 
 # Function to output error in JSON format
 output_error() {
@@ -16,62 +15,51 @@ output_error() {
     exit 1
 }
 
-# Function to check if a process is still running
-is_process_running() {
-    local PID=$1
-    [ -d "/proc/$PID" ] && return 0 || return 1
-}
-
-# Function to get lock owner PID
-get_lock_owner() {
-    grep -o "${LOCK_KEYWORD}.*" "$QUEUE_FILE" | cut -d'"' -f6 2>/dev/null
-}
-
-# Function to check and remove stale locks
-check_stale_lock() {
-    local LOCK_PID=$(get_lock_owner)
-    if [ -n "$LOCK_PID" ] && ! is_process_running "$LOCK_PID"; then
-        logger -t at_commands "Removing stale lock from PID $LOCK_PID"
-        remove_lock
-        return 0
-    fi
-    return 1
-}
-
-# Enhanced lock function with timeout and PID tracking
-add_lock() {
-    local RETRIES=0
-    local MAX_RETRIES=60  # 30 seconds with 0.5s interval
+# Function to clean and add lock with simplified timeout logic
+add_clean_lock() {
+    local TIMESTAMP=$(date +%s)
+    local WAIT_START=$(date +%s)
     
-    while [ $RETRIES -lt $MAX_RETRIES ]; do
-        if ! grep -q "$LOCK_KEYWORD" "$QUEUE_FILE"; then
-            printf '{"id":"%s","timestamp":"%s","command":"%s","status":"lock","pid":"%s"}\n' \
-                "${LOCK_KEYWORD}" \
-                "$(date '+%H:%M:%S')" \
-                "${LOCK_KEYWORD}" \
-                "$$" >> "$QUEUE_FILE"
-            
-            # Verify our lock was written
-            if grep -q "\"pid\":\"$$\"" "$QUEUE_FILE"; then
-                return 0
-            fi
-        else
-            # Check for stale lock
-            check_stale_lock && continue
+    while true; do
+        local CURRENT_TIME=$(date +%s)
+        
+        # After MAX_WAIT seconds, forcibly remove any existing lock
+        if [ $((CURRENT_TIME - WAIT_START)) -ge $MAX_WAIT ]; then
+            # Remove any existing lock entries regardless of owner
+            sed -i "/${LOCK_KEYWORD}/d" "$QUEUE_FILE"
+            logger -t at_commands "Removed existing lock after $MAX_WAIT seconds timeout"
         fi
         
-        RETRIES=$((RETRIES + 1))
-        sleep $LOCK_CHECK_INTERVAL
+        # Add our lock entry
+        printf '{"id":"%s","timestamp":"%s","command":"%s","status":"lock","pid":"%s","start_time":"%s"}\n' \
+            "${LOCK_KEYWORD}" \
+            "$(date '+%H:%M:%S')" \
+            "${LOCK_KEYWORD}" \
+            "$$" \
+            "$TIMESTAMP" >> "$QUEUE_FILE"
+        
+        # Verify our lock was written
+        if grep -q "\"pid\":\"$$\".*\"start_time\":\"$TIMESTAMP\"" "$QUEUE_FILE"; then
+            logger -t at_commands "Lock created by PID $$ at $TIMESTAMP"
+            # Register cleanup handler
+            trap 'remove_lock; exit' INT TERM EXIT
+            return 0
+        fi
+        
+        # If we haven't exceeded MAX_WAIT, sleep and try again
+        if [ $((CURRENT_TIME - WAIT_START)) -lt $MAX_WAIT ]; then
+            sleep 1
+        else
+            logger -t at_commands "Failed to acquire lock after $MAX_WAIT seconds"
+            return 1
+        fi
     done
-    
-    logger -t at_commands "Failed to acquire lock after $MAX_LOCK_WAIT seconds"
-    return 1
 }
 
-# Enhanced remove lock function
+# Simple remove lock function that only removes our entry
 remove_lock() {
-    # Only remove our own lock
-    sed -i "/${LOCK_KEYWORD}.*\"pid\":\"$$\"/d" "$QUEUE_FILE"
+    sed -i "/\"pid\":\"$$\"/d" "$QUEUE_FILE"
+    logger -t at_commands "Lock removed by PID $$"
 }
 
 # Improved JSON string escaping function
@@ -119,14 +107,6 @@ process_commands() {
     # Start JSON array
     printf '['
     
-    # Add lock entry to pause queue processor
-    if ! add_lock; then
-        output_error "Failed to acquire lock for command processing"
-    fi
-    
-    # Ensure lock is removed on exit
-    trap remove_lock EXIT
-    
     # Process each command
     for cmd in $commands; do
         # Add comma separator if not first item
@@ -156,6 +136,26 @@ process_commands() {
     
     # Close JSON array
     printf ']\n'
+}
+
+# Main process wrapper with automatic lock handling
+main_with_clean_lock() {
+    # Set timeout for the entire script
+    ( sleep 60; kill -TERM $$ 2>/dev/null ) & 
+    TIMEOUT_PID=$!
+    
+    if ! add_clean_lock; then
+        output_error "Failed to acquire lock for command processing"
+        kill $TIMEOUT_PID 2>/dev/null
+        exit 1
+    fi
+    
+    # Process commands
+    process_commands "$COMMANDS"
+    
+    # Clean up
+    remove_lock
+    kill $TIMEOUT_PID 2>/dev/null
 }
 
 # Define command sets
@@ -191,5 +191,5 @@ case "$COMMAND_SET" in
     8) COMMANDS="$COMMAND_SET_8";;
 esac
 
-# Process the selected commands
-process_commands "$COMMANDS"
+# Execute main process with clean lock handling
+main_with_clean_lock

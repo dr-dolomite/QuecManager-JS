@@ -1,8 +1,10 @@
 "use client";
+
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
 const SESSION_DURATION = 30 * 60 * 1000; // 30 minutes in milliseconds
+const HEARTBEAT_INTERVAL = 5 * 1000; // Check server every 5 seconds
 
 interface SessionData {
   token: string;
@@ -12,12 +14,52 @@ interface SessionData {
 
 export function useAuth() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [isServerAlive, setIsServerAlive] = useState<boolean>(true);
   const router = useRouter();
 
   useEffect(() => {
     checkAuth();
+    
+    // Start heartbeat check
+    const heartbeatInterval = setInterval(checkServerStatus, HEARTBEAT_INTERVAL);
+    
+    return () => {
+      clearInterval(heartbeatInterval);
+    };
   }, []);
 
+  // New function to check server status
+  async function checkServerStatus() {
+    try {
+      const response = await fetch('/cgi-bin/heartbeat.sh', {
+        method: 'GET',
+        headers: {
+          'Cache-Control': 'no-cache',
+        },
+      });
+      
+      if (!response.ok) {
+        handleServerDown();
+        return;
+      }
+
+      const result = await response.json();
+      if (!result.alive) {
+        handleServerDown();
+      } else {
+        setIsServerAlive(true);
+      }
+    } catch (error) {
+      handleServerDown();
+    }
+  }
+
+  function handleServerDown() {
+    setIsServerAlive(false);
+    logout();
+  }
+
+  // Your existing functions
   function generateAuthToken(length = 32) {
     const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
     return Array.from(crypto.getRandomValues(new Uint8Array(length)))
@@ -82,19 +124,15 @@ export function useAuth() {
   async function login(password: string) {
     const encodedPassword = encodeURIComponent(password);
     try {
-      // const response = await fetch("/auth", {
       const response = await fetch("/cgi-bin/auth.sh", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        // body: JSON.stringify({ password }),
         body: `password=${encodedPassword}`,
       });
-
       const result = await response.json();
       console.log(result);
-
       if (result.state === "success") {
         const newToken = generateAuthToken();
         setSessionData(newToken);
@@ -104,20 +142,11 @@ export function useAuth() {
       } else {
         return false;
       }
-      // if (result.success) {
-      //   const newToken = generateAuthToken();
-      //   setSessionData(newToken);
-      //   setIsAuthenticated(true);
-      //   router.push('/dashboard/home');
-      //   return true;
-      // } else {
-      //   return false;
-      // }
     } catch (error) {
       console.error("Login error:", error);
       return false;
     }
   }
 
-  return { isAuthenticated, login, logout, checkAuth };
+  return { isAuthenticated, isServerAlive, login, logout, checkAuth };
 }

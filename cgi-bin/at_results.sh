@@ -1,7 +1,8 @@
 #!/bin/sh
-
-# CGI header
 echo "Content-type: application/json"
+echo "Access-Control-Allow-Origin: *"
+echo "Access-Control-Allow-Methods: GET, POST, OPTIONS"
+echo "Access-Control-Allow-Headers: Content-Type"
 echo ""
 
 # Configuration

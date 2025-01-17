@@ -3,7 +3,11 @@
 QUEUE_FILE="/tmp/at_pipe.txt"
 RESULT_FILE="/tmp/at_results.json"
 LOG_FILE="/var/log/at_commands.log"
-LOCK_KEYWORD="FETCH_DATA_LOCK"
+# Define all lock keywords
+FETCH_LOCK_KEYWORD="FETCH_DATA_LOCK"
+SIGNAL_LOCK_KEYWORD="SIGNAL_METRICS_LOCK"
+# Combine keywords for pattern matching
+ALL_LOCK_KEYWORDS="${FETCH_LOCK_KEYWORD}\\|${SIGNAL_LOCK_KEYWORD}"
 
 # Create or clear necessary files
 touch "${QUEUE_FILE}"
@@ -19,9 +23,9 @@ escape_json() {
     echo "$1" | sed 's/\\/\\\\/g' | sed 's/"/\\"/g'
 }
 
-# Function to check if fetch_data is running
-is_fetch_data_locked() {
-    grep -q "\"id\":\"${LOCK_KEYWORD}\"" "${QUEUE_FILE}"
+# Function to check if any lock is present
+is_system_locked() {
+    grep -q "\"command\":\"\\(${ALL_LOCK_KEYWORDS}\\)\"" "${QUEUE_FILE}"
     return $?
 }
 
@@ -79,12 +83,20 @@ process_command() {
     return ${exit_code}
 }
 
+# Check if an entry is a lock entry
+is_lock_entry() {
+    local line="$1"
+    echo "${line}" | grep -q "\"command\":\"\\(${ALL_LOCK_KEYWORDS}\\)\""
+    return $?
+}
+
 # Process pending commands in the queue
 process_pending_commands() {
     while true; do
-        # Check if fetch_data is running
-        if is_fetch_data_locked; then
-            log_message "Fetch data is running, waiting..."
+        # Check if any lock is present
+        if is_system_locked; then
+            local lock_type=$(grep -o "\"command\":\"[^\"]*\"" "${QUEUE_FILE}" | grep "${ALL_LOCK_KEYWORDS}")
+            log_message "System is locked: ${lock_type}, waiting..."
             sleep 0.5
             continue
         fi
@@ -96,7 +108,7 @@ process_pending_commands() {
             log_message "Processing queue entry: ${line}"
 
             # Skip processing if it's a lock entry
-            if echo "${line}" | grep -q "\"command\":\"${LOCK_KEYWORD}\""; then
+            if is_lock_entry "${line}"; then
                 log_message "Found lock entry, skipping"
                 sed -i '1d' "${QUEUE_FILE}"
                 continue
@@ -138,7 +150,7 @@ process_pending_commands() {
 
 # Main queue monitoring loop
 process_queue() {
-    log_message "Starting queue processor"
+    log_message "Starting queue processor with multiple lock support"
     
     while true; do
         # Process any pending commands
@@ -153,5 +165,5 @@ process_queue() {
 }
 
 # Start processing the queue
-log_message "Queue processor started with file monitoring"
+log_message "Queue processor started with file monitoring and multiple lock support"
 process_queue

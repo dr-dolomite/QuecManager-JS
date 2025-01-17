@@ -74,7 +74,7 @@ const CellLockingPage = () => {
     const encodedCommand = encodeURIComponent(command);
     try {
       const response = await fetch(
-        `/cgi-bin/at_command?command=${encodedCommand}`,
+        `/cgi-bin/at_command.sh?command=${encodedCommand}`,
         {
           method: "GET", // CGI scripts typically expect GET requests with query parameters
           headers: {
@@ -115,7 +115,7 @@ const CellLockingPage = () => {
   const fetchCurrentStatus = async () => {
     try {
       setLoading(true);
-      const response = await fetch("/cgi-bin/fetch_data?set=8");
+      const response = await fetch("/cgi-bin/fetch_data.sh?set=8");
       const data = await response.json();
 
       if (!response.ok) {

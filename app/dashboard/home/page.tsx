@@ -108,14 +108,7 @@ const HomePage = () => {
         currentSimSlot === "Slot 1" ? "AT+QUIMSLOT=1" : "AT+QUIMSLOT=2";
 
       const encodedCommand = encodeURIComponent(command);
-      const response = await fetch("/cgi-bin/atinout_handler.sh", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: `command=${encodedCommand}`,
-        signal: AbortSignal.timeout(5000),
-      });
+      const response = await fetch(`/cgi-bin/at_command.sh?command=${encodedCommand}`);
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -134,21 +127,14 @@ const HomePage = () => {
       // Wait for 2 seconds then send COPS command
       setTimeout(async () => {
         const copsCommand = "AT+COPS=0;+COPS=2";
-        const encodedCopsCommand = encodeURIComponent(copsCommand);
-        const copsResponse = await fetch("/cgi-bin/atinout_handler.sh", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: `command=${encodedCopsCommand}`,
-          signal: AbortSignal.timeout(5000),
-        });
+        const encodedCommand = encodeURIComponent(copsCommand);
+        const response = await fetch(`/cgi-bin/at_command.sh?command=${encodedCommand}`);
 
-        if (!copsResponse.ok) {
-          throw new Error(`HTTP error! status: ${copsResponse.status}`);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
         }
 
-        const copsData = await copsResponse.json();
+        const copsData = await response.json();
         if (copsData.error) {
           throw new Error(copsData.error);
         }

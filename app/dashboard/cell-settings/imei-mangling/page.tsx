@@ -62,7 +62,7 @@ const IMEIManglingPage = () => {
   const fetchIMEI = useCallback(async () => {
     try {
       setIsLoading(true);
-      const response = await fetch("/cgi-bin/fetch_data?set=3");
+      const response = await fetch("/cgi-bin/fetch_data.sh?set=3");
       const rawData = await response.json();
 
       console.log(rawData);
@@ -136,7 +136,7 @@ const IMEIManglingPage = () => {
       const command = `AT+EGMR=1,7,"${newIMEI}";+QPOWD=1`;
       const encodedCommand = encodeURIComponent(command);
       const response = await fetch(
-        `/cgi-bin/at_command?command=${encodedCommand}`,
+        `/cgi-bin/at_command.sh?command=${encodedCommand}`,
         {
           method: "GET", // CGI scripts typically expect GET requests with query parameters
           headers: {

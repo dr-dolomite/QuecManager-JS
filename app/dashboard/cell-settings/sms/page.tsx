@@ -24,6 +24,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
+import { toast } from "@/hooks/use-toast";
 
 interface SMSMessage {
   index: number;
@@ -38,92 +39,149 @@ const SMSPage = () => {
   const [messages, setMessages] = useState<SMSMessage[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedMessages, setSelectedMessages] = useState<number[]>([]);
-  const [newMessage, setNewMessage] = useState({
-    phoneNumber: "",
-    message: "",
-  });
+  const [showSendDialog, setShowSendDialog] = useState(false);
+  const [sendTo, setSendTo] = useState("");
+  const [newMessage, setNewMessage] = useState("");
+  const [sending, setSending] = useState(false);
 
-  const parseSMSMessages = (rawMessages: string[]): SMSMessage[] => {
-    const tempMessages: SMSMessage[] = [];
-    let currentMessage: Partial<SMSMessage> | null = null;
+  const validateInputs = (phone: string, message: string) => {
+    if (!phone.trim() || !message.trim()) {
+      toast({
+        title: "Validation Error",
+        description: "Phone number and message are required",
+        variant: "destructive",
+      });
+      return false;
+    }
 
-    // First pass: Parse individual messages
-    for (let i = 0; i < rawMessages.length; i++) {
-      const line = rawMessages[i];
+    // Phone number validation (only numbers allowed)
+    if (!/^\d+$/.test(phone.trim())) {
+      toast({
+        title: "Validation Error",
+        description: "Phone number should contain only numbers",
+        variant: "destructive",
+      });
+      return false;
+    }
 
-      if (line.startsWith("+CMGL:")) {
-        if (currentMessage?.message) {
-          tempMessages.push(currentMessage as SMSMessage);
+    return true;
+  };
+
+  const sendMessage = async () => {
+    if (!validateInputs(sendTo, newMessage)) {
+      return;
+    }
+
+    setSending(true);
+    try {
+      const payload = {
+        phone: sendTo.trim(),
+        message: newMessage.trim(),
+      };
+
+      const response = await fetch(
+        `/api/cgi-bin/cell-settings/sms/sms_send.sh`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+            Accept: "application/json",
+            "Cache-Control": "no-cache",
+          },
+          body: new URLSearchParams(payload).toString(),
         }
+      );
 
-        const match = line.match(
-          /\+CMGL: (\d+),"([^"]+)","([^"]+)",,\"([^"]+)\"/
-        );
-        if (match) {
-          currentMessage = {
-            index: parseInt(match[1]),
-            status: match[2],
-            sender: match[3],
-            timestamp: match[4],
+      const data = await response.json();
+      console.log("Response data:", data);
+
+      if (data.success) {
+        toast({
+          title: "Success",
+          description: "Message sent successfully",
+        });
+        setSendTo("");
+        setNewMessage("");
+        refreshSMS();
+      } else {
+        throw new Error(data.error || "Failed to send message");
+      }
+    } catch (error) {
+      console.error("Send operation failed:", error);
+      toast({
+        title: "Error",
+        description:
+          error instanceof Error ? error.message : "Something went wrong",
+        variant: "destructive",
+      });
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const parseSMSMessages = (rawMessages: { msg: any[] }): SMSMessage[] => {
+    const tempMessages: Record<string, SMSMessage> = {};
+    const combinedMessages: SMSMessage[] = [];
+
+    rawMessages.msg.forEach((message) => {
+      if (message.reference !== undefined && message.part !== undefined) {
+        const key = `${message.sender}-${message.reference}`;
+        if (!tempMessages[key]) {
+          tempMessages[key] = {
+            index: message.index,
+            status: "received",
+            sender: message.sender,
+            timestamp: message.timestamp,
             message: "",
-            originalIndices: [parseInt(match[1])],
+            originalIndices: [],
           };
         }
-      } else if (currentMessage && line !== "OK" && !line.startsWith("AT+")) {
-        currentMessage.message = currentMessage.message
-          ? `${currentMessage.message}\n${line}`
-          : line;
-      }
-    }
 
-    if (currentMessage?.message) {
-      tempMessages.push(currentMessage as SMSMessage);
-    }
+        tempMessages[key].message += message.content;
+        tempMessages[key].originalIndices?.push(message.index);
 
-    // Second pass: Combine messages with same sender and timestamp
-    const combinedMessages: SMSMessage[] = [];
-    let currentCombined: SMSMessage | null = null;
-
-    tempMessages.forEach((msg) => {
-      if (!currentCombined) {
-        currentCombined = { ...msg };
-      } else if (
-        currentCombined.sender === msg.sender &&
-        currentCombined.timestamp === msg.timestamp
-      ) {
-        // Combine messages
-        currentCombined.message += "\n" + msg.message;
-        currentCombined.originalIndices = [
-          ...(currentCombined.originalIndices || []),
-          ...(msg.originalIndices || []),
-        ];
+        if (message.part === message.total) {
+          combinedMessages.push(tempMessages[key]);
+          delete tempMessages[key];
+        }
       } else {
-        combinedMessages.push(currentCombined);
-        currentCombined = { ...msg };
+        combinedMessages.push({
+          index: message.index,
+          status: "received",
+          sender: message.sender,
+          timestamp: message.timestamp,
+          message: message.content,
+          originalIndices: [message.index],
+        });
       }
     });
 
-    if (currentCombined) {
-      combinedMessages.push(currentCombined);
-    }
+    Object.values(tempMessages).forEach((incompleteMessage) => {
+      combinedMessages.push(incompleteMessage);
+    });
 
-    return combinedMessages;
+    // Sort messages by timestamp in descending order (newest first)
+    return combinedMessages.sort(
+      (a, b) =>
+        new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+    );
   };
 
   const refreshSMS = async () => {
     setLoading(true);
     try {
-      const response = await fetch("/cgi-bin/cell-settings/fetch_sms.sh");
+      const response = await fetch(
+        "/api/cgi-bin/cell-settings/sms/sms_inbox.sh"
+      );
       const data = await response.json();
 
-      console.log("SMS data:", data);
-
-      if (!data?.messages || !Array.isArray(data.messages)) {
+      if (!data?.msg || !Array.isArray(data.msg)) {
         throw new Error("Invalid response format");
       }
 
-      const parsed = parseSMSMessages(data.messages);
+      const parsed = parseSMSMessages(data);
       setMessages(parsed);
+      setSelectedMessages([]); // Clear selections after refresh
     } catch (error) {
       console.error("Failed to refresh SMS:", error);
       setMessages([]);
@@ -132,14 +190,88 @@ const SMSPage = () => {
     }
   };
 
+  const deleteMessages = async (indices: number[]) => {
+    setLoading(true);
+    try {
+      // Validate indices
+      if (!indices.length) {
+        throw new Error("No messages selected");
+      }
+
+      // Sort and deduplicate indices
+      const uniqueIndices = [...new Set(indices)].sort((a, b) => a - b);
+
+      // Create the payload
+      const payload = uniqueIndices.join(",");
+      console.log("Deleting messages with indices:", payload);
+
+      const response = await fetch(
+        `/api/cgi-bin/cell-settings/sms/sms_delete.sh?indexes=${payload}`,
+        {
+          method: "GET",
+          headers: {
+            Accept: "application/json",
+            "Cache-Control": "no-cache",
+          },
+        }
+      );
+
+      // Get raw response for debugging
+      const responseText = await response.text();
+      console.log("Raw response:", responseText);
+
+      // Check if successful based on successful deletions in the logs
+      const successPattern = /Deleted message \d+/;
+      const isSuccessful = successPattern.test(responseText);
+
+      if (isSuccessful) {
+        toast({
+          title: "Success!",
+          description: "Selected messages deleted.",
+        });
+
+        // Refresh messages list
+        await refreshSMS();
+      } else {
+        throw new Error("Something went wrong");
+      }
+    } catch (error) {
+      console.error("Delete operation failed:", error);
+      toast({
+        title: "Error!",
+        description: "Something went wrong",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const deleteSelectedMessages = () => {
+    if (selectedMessages.length === 0) {
+      toast({
+        title: "Delete Messages",
+        description: "No messages selected",
+      });
+      return;
+    }
+    deleteMessages(selectedMessages);
+  };
+
   const handleSelectMessage = (indices: number[]) => {
     setSelectedMessages((prev) => {
-      const allIndicesIncluded = indices.every((index) => prev.includes(index));
-      if (allIndicesIncluded) {
-        return prev.filter((index) => !indices.includes(index));
+      const currentSelectedSet = new Set(prev);
+      const allSelected = indices.every((index) =>
+        currentSelectedSet.has(index)
+      );
+
+      if (allSelected) {
+        indices.forEach((index) => currentSelectedSet.delete(index));
       } else {
-        return [...new Set([...prev, ...indices])];
+        indices.forEach((index) => currentSelectedSet.add(index));
       }
+
+      return Array.from(currentSelectedSet);
     });
   };
 
@@ -156,16 +288,16 @@ const SMSPage = () => {
 
   const formatDateTime = (timestamp: string) => {
     try {
-      // Format: "YY/MM/DD,HH:MM:SS+32"
-      const [date, timeWithOffset] = timestamp.split(",");
-      const [year, month, day] = date.split("/");
-      const time = timeWithOffset.replace("+32", "");
+      const [datePart, timePart] = timestamp.split(" ");
+      const [month, day, year] = datePart.split("/");
+      const formattedDate = `20${year}-${month}-${day}`;
+
       return {
-        date: `20${year}-${month}-${day}`,
-        time,
+        date: formattedDate,
+        time: timePart,
       };
     } catch (error) {
-      console.error("Error formatting timestamp:", error);
+      console.error("Error parsing timestamp:", error);
       return {
         date: "Invalid date",
         time: "Invalid time",
@@ -173,25 +305,8 @@ const SMSPage = () => {
     }
   };
 
-  const fetchMessages = async () => {
-    try {
-      const command = "recv";
-      const encodedCommand = encodeURIComponent(command);
-
-      const response = await fetch(
-        `/cgi-bin/sms/sms_handler?action=${encodedCommand}`
-      );
-      const data = await response.json();
-
-      console.log("SMS data:", data);
-    } catch (error) {
-      console.error("Failed to fetch SMS:", error);
-    }
-  };
-
   useEffect(() => {
-    // refreshSMS();
-    fetchMessages();
+    refreshSMS();
   }, []);
 
   return (
@@ -205,9 +320,10 @@ const SMSPage = () => {
               <div className="flex items-center space-x-1.5">
                 <Checkbox
                   checked={
+                    messages.length > 0 &&
                     selectedMessages.length ===
-                    messages.flatMap((m) => m.originalIndices || [m.index])
-                      .length
+                      messages.flatMap((m) => m.originalIndices || [m.index])
+                        .length
                   }
                   onCheckedChange={handleSelectAll}
                 />
@@ -295,14 +411,15 @@ const SMSPage = () => {
         <CardFooter className="border-t py-4">
           <div className="flex w-full justify-between items-center">
             <Button variant="outline" onClick={refreshSMS} disabled={loading}>
-              <RotateCw className="h-4 w-4" />
+              <RotateCw className="h-4 w-4 mr-2" />
               Refresh
             </Button>
             <Button
               variant="destructive"
-              disabled={selectedMessages.length === 0}
+              disabled={selectedMessages.length === 0 || loading}
+              onClick={deleteSelectedMessages}
             >
-              <Trash2 className="h-4 w-4" />
+              <Trash2 className="h-4 w-4 mr-2" />
               Delete Selected
             </Button>
           </div>
@@ -317,29 +434,29 @@ const SMSPage = () => {
         <CardContent>
           <div className="grid gap-6">
             <Input
-              placeholder="Recipient Number"
-              value={newMessage.phoneNumber}
-              onChange={(e) =>
-                setNewMessage((prev) => ({
-                  ...prev,
-                  phoneNumber: e.target.value,
-                }))
-              }
-              readOnly
+              placeholder='Recipient number with country code not including "+" symbol.'
+              value={sendTo}
+              onChange={(e) => setSendTo(e.target.value)}
+              required
             />
             <Textarea
-              placeholder="Sending message is still in development..."
+              placeholder="Type your message here..."
               className="h-32"
-              value={newMessage.message}
-              onChange={(e) =>
-                setNewMessage((prev) => ({ ...prev, message: e.target.value }))
-              }
-              readOnly
+              value={newMessage}
+              onChange={(e) => setNewMessage(e.target.value)}
+              required
             />
             <div className="flex justify-end">
-              <Button disabled>
-                <Send className="h-4 w-4" />
-                Send
+              <Button
+                onClick={sendMessage}
+                disabled={sending || !sendTo.trim() || !newMessage.trim()}
+              >
+                {sending ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Send className="h-4 w-4 mr-2" />
+                )}
+                {sending ? "Sending..." : "Send"}
               </Button>
             </div>
           </div>
