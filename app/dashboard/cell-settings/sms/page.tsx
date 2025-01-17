@@ -43,6 +43,7 @@ const SMSPage = () => {
   const [sendTo, setSendTo] = useState("");
   const [newMessage, setNewMessage] = useState("");
   const [sending, setSending] = useState(false);
+  const [replyMessage, setReplyMessage] = useState("");
 
   const validateInputs = (phone: string, message: string) => {
     if (!phone.trim() || !message.trim()) {
@@ -79,18 +80,15 @@ const SMSPage = () => {
         message: newMessage.trim(),
       };
 
-      const response = await fetch(
-        `/cgi-bin/cell-settings/sms/sms_send.sh`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/x-www-form-urlencoded",
-            Accept: "application/json",
-            "Cache-Control": "no-cache",
-          },
-          body: new URLSearchParams(payload).toString(),
-        }
-      );
+      const response = await fetch(`/cgi-bin/cell-settings/sms/sms_send.sh`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Accept: "application/json",
+          "Cache-Control": "no-cache",
+        },
+        body: new URLSearchParams(payload).toString(),
+      });
 
       const data = await response.json();
       console.log("Response data:", data);
@@ -108,6 +106,55 @@ const SMSPage = () => {
       }
     } catch (error) {
       console.error("Send operation failed:", error);
+      toast({
+        title: "Error",
+        description:
+          error instanceof Error ? error.message : "Something went wrong",
+        variant: "destructive",
+      });
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const handleReply = async (recipient: string, message: string) => {
+    if (!validateInputs(recipient, message)) {
+      return;
+    }
+
+    setSending(true);
+    try {
+      const payload = {
+        phone: recipient.trim(),
+        message: message.trim(),
+      };
+
+      // Changed the API endpoint to match the working sendMessage function
+      const response = await fetch(`/cgi-bin/cell-settings/sms/sms_send.sh`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Accept: "application/json",
+          "Cache-Control": "no-cache",
+        },
+        body: new URLSearchParams(payload).toString(),
+      });
+
+      const data = await response.json();
+      console.log("Response data:", data);
+
+      if (data.success) {
+        toast({
+          title: "Success",
+          description: "Reply sent successfully",
+        });
+        setReplyMessage(""); // Clear reply message
+        refreshSMS();
+      } else {
+        throw new Error(data.error || "Failed to send reply");
+      }
+    } catch (error) {
+      console.error("Reply operation failed:", error);
       toast({
         title: "Error",
         description:
@@ -170,9 +217,7 @@ const SMSPage = () => {
   const refreshSMS = async () => {
     setLoading(true);
     try {
-      const response = await fetch(
-        "/cgi-bin/cell-settings/sms/sms_inbox.sh"
-      );
+      const response = await fetch("/cgi-bin/cell-settings/sms/sms_inbox.sh");
       const data = await response.json();
 
       if (!data?.msg || !Array.isArray(data.msg)) {
@@ -390,16 +435,28 @@ const SMSPage = () => {
                       </DialogHeader>
                       <p className="whitespace-pre-line">{sms.message}</p>
                       <Separator className="my-2" />
-                      <Textarea
-                        placeholder={`Reply to ${sms.sender}...`}
-                        className="h-24"
-                        readOnly
-                      />
-                      <div className="flex justify-end">
-                        <Button disabled>
-                          <Send className="h-4 w-4 mr-2" />
-                          Send
-                        </Button>
+                      <div className="space-y-4">
+                        <Textarea
+                          placeholder={`Reply to ${sms.sender}...`}
+                          className="h-24"
+                          value={replyMessage}
+                          onChange={(e) => setReplyMessage(e.target.value)}
+                        />
+                        <div className="flex justify-end">
+                          <Button
+                            onClick={() =>
+                              handleReply(sms.sender, replyMessage)
+                            }
+                            disabled={sending || !replyMessage.trim()}
+                          >
+                            {sending ? (
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            ) : (
+                              <Send className="h-4 w-4 mr-2" />
+                            )}
+                            {sending ? "Sending..." : "Reply"}
+                          </Button>
+                        </div>
                       </div>
                     </DialogContent>
                   </Dialog>
