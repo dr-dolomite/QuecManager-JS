@@ -80,7 +80,7 @@ const SMSPage = () => {
       };
 
       const response = await fetch(
-        `/api/cgi-bin/cell-settings/sms/sms_send.sh`,
+        `/cgi-bin/cell-settings/sms/sms_send.sh`,
         {
           method: "POST",
           headers: {
@@ -171,7 +171,7 @@ const SMSPage = () => {
     setLoading(true);
     try {
       const response = await fetch(
-        "/api/cgi-bin/cell-settings/sms/sms_inbox.sh"
+        "/cgi-bin/cell-settings/sms/sms_inbox.sh"
       );
       const data = await response.json();
 
@@ -206,7 +206,7 @@ const SMSPage = () => {
       console.log("Deleting messages with indices:", payload);
 
       const response = await fetch(
-        `/api/cgi-bin/cell-settings/sms/sms_delete.sh?indexes=${payload}`,
+        `/cgi-bin/cell-settings/sms/sms_delete.sh?indexes=${payload}`,
         {
           method: "GET",
           headers: {
