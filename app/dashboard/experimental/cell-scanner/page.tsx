@@ -9,78 +9,87 @@ import {
   CardContent,
   CardDescription,
 } from "@/components/ui/card";
+
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
-
-interface ScanResponse {
-  response: string;
-}
-
-type APIResponse = ScanResponse[] | ScanResponse;
+import { Badge } from "@/components/ui/badge";
 
 const CellScannerPage = () => {
-  const [loading, setLoading] = useState<boolean>(false);
-  const [ATresponse, setATResponse] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [cellScanResult, setCellScanResult] = useState(null);
+  const [cellScanLoading, setCellScanLoading] = useState(false);
 
-  const testCellScanner = async (): Promise<void> => {
+  const startCellScan = async () => {
+    setCellScanLoading(true);
     try {
-      setLoading(true);
-      setError(null);
-      setATResponse(null);
-
-      const response = await fetch("/cgi-bin/fetch_data.sh?set=8");
+      const response = await fetch("/api/cgi-bin/experimental/cell_scan.sh", {
+        method: "GET",
+        headers: {
+          "Cache-Control": "no-cache",
+        },
+      });
 
       if (!response.ok) {
-        throw new Error("Failed to fetch data");
+        throw new Error("Failed to scan cells");
       }
 
-      const data: APIResponse = await response.json();
-      setATResponse(Array.isArray(data) ? data[0]?.response : data.response);
-    } catch (error: unknown) {
+      const result = await response.json();
+      console.log(result);
+      setCellScanResult(result);
+    } catch (error) {
       console.error(error);
-      setError("Failed to perform scan. Please try again.");
     } finally {
-      setLoading(false);
+      setCellScanLoading(false);
     }
   };
 
   return (
-    <div className="grid lg:grid-cols-2 grid-cols-1 gap-6">
+    <div className="grid gap-5">
       <Card>
         <CardHeader>
-          <CardTitle>Full Cell Scanner</CardTitle>
+          <CardTitle>Full Network Cell Scan</CardTitle>
           <CardDescription>
-            Scan for all nearby cells in the area including their signal strength
-            and other details. Please wait for the scan to complete.
+            Scan all the of the available cells in the network including other
+            network providers.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {loading ? (
-            <div className="flex items-center gap-2">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              <p>Scanning cells... Please wait for the scan to complete.</p>
-            </div>
-          ) : error ? (
-            <p className="text-red-500">{error}</p>
-          ) : (
-            <p className="whitespace-pre-wrap font-mono text-sm">{ATresponse}</p>
-          )}
+          <div className="grid gap-4">
+            <Card className="p-4 grid gap-2">
+              <div>
+                <Badge>51506</Badge>
+              </div>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Network Type</TableHead>
+                    <TableHead>Band</TableHead>
+                    <TableHead>E/ARFCN</TableHead>
+                    <TableHead>TAC</TableHead>
+                    <TableHead className="text-right">Signal</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  <TableRow>
+                    <TableCell>LTE</TableCell>
+                    <TableCell>41</TableCell>
+                    <TableCell>39965</TableCell>
+                    <TableCell>12345</TableCell>
+                    <TableCell className="text-right">-45 dBm</TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
+            </Card>
+          </div>
         </CardContent>
-        <CardFooter>
-          <Button
-            // disabled={loading}
-            disabled
-            onClick={testCellScanner}
-            className="min-w-[100px]"
-          >
-            {loading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              "Under Development"
-            )}
-          </Button>
-        </CardFooter>
       </Card>
     </div>
   );

@@ -1,5 +1,4 @@
 "use client";
-
 import React, { useState, useEffect } from "react";
 import {
   Card,
@@ -16,9 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Send, X, Trash2, Copy } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
-
 import { useToast } from "@/hooks/use-toast";
-
 import {
   AlertDialog,
   AlertDialogAction,
@@ -30,7 +27,6 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-
 import {
   Table,
   TableBody,
@@ -45,16 +41,21 @@ interface CommandHistoryItem {
   command: string;
   response: string;
   timestamp: string;
-}
-
-interface CommandResponse {
-  command: string;
-  output: string;
+  status?: string;
+  message?: string;
 }
 
 interface ATCommand {
   description: string;
   command: string;
+}
+
+interface CommandResponse {
+  status: string;
+  command: string;
+  response: string;
+  timestamp: string;
+  message?: string;
 }
 
 const ATTerminalPage = () => {
@@ -109,15 +110,14 @@ const ATTerminalPage = () => {
     fetchCommands();
   }, []);
 
-  // Load previous commands and history from localStorage on component mount
+  // Load previous commands and history from localStorage
   useEffect(() => {
     const storedHistory = window.localStorage.getItem("atCommandHistory");
     const storedCommands = window.localStorage.getItem("atCommands");
 
     if (storedHistory) {
       try {
-        const parsedHistory = JSON.parse(storedHistory);
-        setCommandHistory(parsedHistory);
+        setCommandHistory(JSON.parse(storedHistory));
       } catch (e) {
         console.error("Failed to parse command history:", e);
         setCommandHistory([]);
@@ -126,8 +126,7 @@ const ATTerminalPage = () => {
 
     if (storedCommands) {
       try {
-        const parsedCommands = JSON.parse(storedCommands);
-        setPreviousCommands(parsedCommands);
+        setPreviousCommands(JSON.parse(storedCommands));
       } catch (e) {
         console.error("Failed to parse previous commands:", e);
         setPreviousCommands([]);
@@ -135,7 +134,7 @@ const ATTerminalPage = () => {
     }
   }, []);
 
-  // Save command history to localStorage whenever it changes
+  // Save command history to localStorage
   useEffect(() => {
     if (commandHistory.length > 0) {
       window.localStorage.setItem(
@@ -145,7 +144,7 @@ const ATTerminalPage = () => {
     }
   }, [commandHistory]);
 
-  // Save previous commands to localStorage whenever they change
+  // Save previous commands to localStorage
   useEffect(() => {
     if (previousCommands.length > 0) {
       window.localStorage.setItem(
@@ -161,82 +160,70 @@ const ATTerminalPage = () => {
     setIsLoading(true);
     const currentCommand = input;
     setInput("");
-    
-    // Clear previous output and show new command
+
+    // Show command being executed
     setOutput(`> ${currentCommand}\nExecuting command, please wait...`);
 
     try {
-      // Queue the command
+      // Send command directly to the CGI script
       const encodedCommand = encodeURIComponent(currentCommand);
-      const queueResponse = await fetch(`/cgi-bin/at_command.sh?command=${encodedCommand}`);
-      const queueData = await queueResponse.json();
+      const response = await fetch(
+        `/cgi-bin/at_command.sh?command=${encodedCommand}`
+      );
+      const data: CommandResponse = await response.json();
 
-      if (queueData.status !== "queued") {
-        throw new Error("Failed to queue command");
+      // Update output with result, including any error messages
+      let outputText = `> ${currentCommand}\n`;
+      if (data.response) {
+        outputText += data.response;
       }
-
-      const commandId = queueData.id;
-      let attempts = 0;
-      const maxAttempts = 360; // 3 minutes with 0.5s intervals
-      let result = null;
-
-      // Poll for results
-      while (attempts < maxAttempts) {
-        attempts++;
-        
-        try {
-          const resultResponse = await fetch(`/cgi-bin/at_results.sh?action=get_by_id&id=${commandId}`);
-          const resultData = await resultResponse.json();
-
-          // Check if we got a valid result (not null and has actual data)
-          if (resultData && !resultData.error && resultData.command) {
-            result = resultData;
-            break;
-          }
-
-          // If no result yet, wait and retry
-          await new Promise(resolve => setTimeout(resolve, 500));
-          
-        } catch (error) {
-          console.error("Polling error:", error);
-          if (attempts >= maxAttempts) {
-            throw new Error("Command timed out after 3 minutes");
-          }
-          // If error occurs, wait and retry
-          await new Promise(resolve => setTimeout(resolve, 500));
-        }
+      if (data.status === "error" && data.message) {
+        outputText += `\nError: ${data.message}`;
       }
-
-      if (!result) {
-        throw new Error("Command execution timed out");
-      }
-
-      // Update output with result
-      setOutput(`> ${currentCommand}\n${result.response || "No output"}`);
+      setOutput(outputText);
 
       // Create new history item
       const newHistoryItem: CommandHistoryItem = {
         command: currentCommand,
-        response: result.response || "No output",
-        timestamp: new Date().toISOString(),
+        response: data.response || "No output",
+        timestamp: data.timestamp,
+        status: data.status,
+        message: data.message,
       };
 
       // Update command history
       setCommandHistory((prev) => [newHistoryItem, ...prev]);
 
-      // Update previous commands for autocomplete
-      if (!previousCommands.includes(currentCommand)) {
+      // Only update previous commands for successful executions
+      if (
+        data.status === "success" &&
+        !previousCommands.includes(currentCommand)
+      ) {
         setPreviousCommands((prev) => [...prev, currentCommand]);
       }
 
+      // Show toast for errors
+      if (data.status === "error") {
+        toast.toast({
+          title: "Command Error",
+          description: data.message || "Command execution failed",
+          variant: "destructive",
+        });
+      }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
+      const errorMessage =
+        error instanceof Error ? error.message : "An unknown error occurred";
       setOutput(`> ${currentCommand}\nError: ${errorMessage}`);
+
+      toast.toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
     } finally {
       setIsLoading(false);
     }
   };
-
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
@@ -411,12 +398,20 @@ const ATTerminalPage = () => {
                                 <X className="h-4 w-4" />
                               </Button>
                               <div className="grid gap-2">
-                                <p className="text-sm font-medium">
+                                <p className="text-sm font-medium flex items-center gap-2">
                                   {item.command}
+                                  {item.status === "error" && (
+                                    <span className="text-xs text-red-500">
+                                      {item.message}
+                                    </span>
+                                  )}
                                 </p>
-                                <p className="whitespace-pre-wrap font-mono">
-                                  {item.response}
-                                </p>
+                                {item.response &&
+                                  item.response !== "No output" && (
+                                    <p className="whitespace-pre-wrap font-mono">
+                                      {item.response}
+                                    </p>
+                                  )}
                               </div>
                               <ScrollBar orientation="horizontal" />
                             </ScrollArea>

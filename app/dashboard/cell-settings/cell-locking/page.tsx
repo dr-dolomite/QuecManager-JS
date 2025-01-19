@@ -87,7 +87,7 @@ const CellLockingPage = () => {
       const data = await response.json();
       console.log("AT command response:", data);
 
-      if (!response.ok || data.status !== "queued") {
+      if (!response.ok || data.status === "error") {
         throw new Error(data.error || "Failed to execute AT command");
       }
 
@@ -559,7 +559,7 @@ const CellLockingPage = () => {
           <Button
             variant="secondary"
             onClick={handleLTEReset}
-            disabled={loading || !locked}
+            disabled={loading || !locked || scheduling}
           >
             <RefreshCcw className="h-4 w-4" />
             Reset to Default
@@ -654,7 +654,7 @@ const CellLockingPage = () => {
           <Button
             variant="secondary"
             onClick={handleNR5GReset}
-            disabled={loading || !locked}
+            disabled={loading || !locked || scheduling}
           >
             <RefreshCcw className="h-4 w-4" />
             Reset to Default

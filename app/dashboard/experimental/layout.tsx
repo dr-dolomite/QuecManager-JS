@@ -41,7 +41,7 @@ const CellSettingsLayout = ({ children }: CellSettingsLayoutProps) => {
           >
             Keep Alive
           </Link>
-          <Link
+          {/* <Link
             href="/dashboard/experimental/cell-scanner"
             className={`${
               currentPathName === "/dashboard/experimental/cell-scanner/"
@@ -50,7 +50,7 @@ const CellSettingsLayout = ({ children }: CellSettingsLayoutProps) => {
             }`}
           >
             Cell Scanner
-          </Link>
+          </Link> */}
         </nav>
         {children}
       </div>

@@ -62,17 +62,19 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     try {
       const encodedCommand = encodeURIComponent(command);
       // Add error handling
-      const response = await fetch("/cgi-bin/atinout_handler.sh", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        // body: JSON.stringify({ command }),
-        body: `command=${encodedCommand}`,
-      });
+      const response = await fetch(
+        `/cgi-bin/at_command.sh?command=${encodedCommand}`,
+        {
+          method: "GET", // CGI scripts typically expect GET requests with query parameters
+          headers: {
+            Accept: "application/json",
+          },
+          signal: AbortSignal.timeout(5000),
+        }
+      );
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        throw new Error("Failed to save settings");
       }
 
       return response;
@@ -88,14 +90,15 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       setIsRebooting(true);
       await atCommandSender("AT+QPOWD=1"); // Handle response properly
 
-      toast.toast({
-        title: "Rebooting device",
-        description: "Please wait for the device to restart.",
-      });
-
       // Use constants for timeout values
       const REBOOT_TIMEOUT = 90000;
       const RELOAD_DELAY = 2000;
+
+      toast.toast({
+        title: "Rebooting device",
+        description: `Please wait for the device to restart. This may take up to ${REBOOT_TIMEOUT / 1000} seconds.`,
+        duration: REBOOT_TIMEOUT,
+      });
 
       setTimeout(() => {
         toast.toast({
@@ -373,11 +376,13 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                 <Link href="/dashboard/settings/general">Settings</Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
-                <a 
-                href="/cgi-bin/luci" 
-                target="_blank"
-                rel="noreferrer noopener"
-                >Luci</a>
+                <a
+                  href="/cgi-bin/luci"
+                  target="_blank"
+                  rel="noreferrer noopener"
+                >
+                  Luci
+                </a>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
                 {/* a tag that redirects to a new tab */}
