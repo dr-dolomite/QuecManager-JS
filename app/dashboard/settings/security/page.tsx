@@ -19,6 +19,11 @@ interface FormData {
   confirmPassword: string;
 }
 
+interface ApiResponse {
+  state: string;
+  message: string;
+}
+
 const SecurityPage = () => {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -38,7 +43,19 @@ const SecurityPage = () => {
         body: `password=${encodeURIComponent(password)}`,
       });
 
-      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const text = await response.text();
+      let data: ApiResponse;
+      try {
+        data = JSON.parse(text);
+      } catch (e) {
+        console.error("Failed to parse JSON:", text);
+        throw new Error("Invalid response format");
+      }
+      
       return data.state === "success";
     } catch (error) {
       console.error("Password verification failed:", error);
@@ -87,16 +104,27 @@ const SecurityPage = () => {
         )}&newPassword=${encodeURIComponent(formData.newPassword)}`,
       });
 
-      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const text = await response.text();
+      let data: ApiResponse;
+      try {
+        data = JSON.parse(text);
+      } catch (e) {
+        console.error("Failed to parse JSON:", text);
+        throw new Error("Invalid response format");
+      }
 
       if (data.state === "success") {
         toast({
           title: "Success",
-          description: "Password changed successfully!",
+          description: data.message || "Password changed successfully!",
         });
         setFormData({ oldPassword: "", newPassword: "", confirmPassword: "" });
       } else {
-        throw new Error("Failed to change password");
+        throw new Error(data.message || "Failed to change password");
       }
     } catch (error) {
       toast({
