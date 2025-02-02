@@ -58,7 +58,7 @@ const useHomeData = () => {
           phoneNumber:
             rawData[1].response
               .split("\n")[1]
-              .split(":")[1]
+              ?.split(":")[1]
               .split(",")[1]
               .replace(/"/g, "")
               .trim() || "Unknown",
