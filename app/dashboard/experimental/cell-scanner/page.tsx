@@ -42,6 +42,8 @@ import {
 } from "react-icons/bi";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
+import NeighborCellsDisplay from "@/components/cell-scan/neighborcell-card";
+import { MagnifyingGlassIcon } from "@radix-ui/react-icons";
 
 // Types for Cell Information
 interface BaseCellInfo {
@@ -114,6 +116,16 @@ interface QuecwatchStatus {
   message?: string;
 }
 
+interface NeighborCells {
+  status: "success" | "error" | "running" | "idle";
+  timestamp: string;
+  mode: "LTE" | "NR5G" | "NRLTE";
+  data: {
+    neighborCells?: string;
+    meas?: string;
+  };
+}
+
 const CellScannerPage = () => {
   const { toast } = useToast();
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
@@ -123,6 +135,9 @@ const CellScannerPage = () => {
   const [quecwatchStatus, setQuecwatchStatus] =
     useState<QuecwatchStatus | null>(null);
   const [mccMncList, setMccMncList] = useState<MccMncInfo[]>([]);
+  const [neighborCells, setNeighborCells] = useState<NeighborCells | null>(
+    null
+  );
   const [scanState, setScanState] = useState<ScanState>({
     status: "idle",
     progress: 0,
@@ -427,6 +442,22 @@ const CellScannerPage = () => {
       ? groupCellsByOperator(parseQScanOutput(scanResult.output))
       : {};
 
+  // Neighbor cell functions
+  const startNeighborScan = useCallback(async () => {
+    setIsInitiatingScan(true);
+    const response = await fetch(
+      "/cgi-bin/experimental/cell_scanner/network_info.sh"
+    );
+    const data = await response.json();
+    setNeighborCells(data);
+    setIsInitiatingScan(false);
+  }, []);
+
+  // Clear neighbor cells results
+  const clearNeighborCells = useCallback(() => {
+    setNeighborCells(null);
+  }, []);
+
   return (
     <div className="grid gap-5">
       <Card>
@@ -434,7 +465,7 @@ const CellScannerPage = () => {
           <CardTitle>Full Network Cell Scan</CardTitle>
           <CardDescription>
             Scan all available network cells, including those from other network
-            providers.
+            providers. Current network mode will affect the results.
             {lastScanTime && (
               <div className="mt-1 text-sm text-muted-foreground">
                 Last scan: {lastScanTime}
@@ -624,6 +655,37 @@ const CellScannerPage = () => {
                   Clear Results
                 </Button>
               </>
+            )}
+          </div>
+        </CardFooter>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Neighbor Cell Scan</CardTitle>
+          <CardDescription>
+            Scan neighbor cells of the current network provider.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <NeighborCellsDisplay neighborCells={neighborCells} />
+        </CardContent>
+        <CardFooter className="border-t py-4">
+          <div className="flex items-center space-x-4">
+            <Button onClick={startNeighborScan} disabled={isInitiatingScan}>
+              <MagnifyingGlassIcon className="w-4 h-4" />
+              Start Neighbor Scan
+            </Button>
+
+            {neighborCells?.status === "success" && (
+              <Button
+                variant="destructive"
+                onClick={clearNeighborCells}
+                disabled={isInitiatingScan}
+              >
+                <Trash2Icon className="w-4 h-4" />
+                Clear Results
+              </Button>
             )}
           </div>
         </CardFooter>

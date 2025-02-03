@@ -12,13 +12,13 @@ const useRunDiagnostics = () => {
   ) => {
     const regLTEStatus = registrationStatus
       .split("\n")[1]
-      .split(":")[1]
-      .split(",")[1]
+      ?.split(":")[1]
+      ?.split(",")[1]
       .trim();
     const reg5GStatus = registration5GStatus
       .split("\n")[1]
-      .split(":")[1]
-      .split(",")[1]
+      ?.split(":")[1]
+      ?.split(",")[1]
       .trim();
     if (regLTEStatus === "1" || reg5GStatus === "1") {
       return "Registered";
@@ -33,14 +33,14 @@ const useRunDiagnostics = () => {
   ) => {
     const customAPN = customAPNProfile
       .split("\n")[1]
-      .split(":")[1]
-      .split(",")[2]
+      ?.split(":")[1]
+      ?.split(",")[2]
       .replace(/"/g, "")
       .trim();
     const activeAPN = currentActiveAPN
       .split("\n")[1]
-      .split(":")[1]
-      .split(",")[2]
+      ?.split(":")[1]
+      ?.split(",")[2]
       .replace(/"/g, "")
       .trim();
 
@@ -54,13 +54,13 @@ const useRunDiagnostics = () => {
   const getWANIPState = (wanIP: string) => {
     const currentWANIPv4 = wanIP
       .split("\n")[1]
-      .split(":")[1]
-      .split(",")[1]
+      ?.split(":")[1]
+      ?.split(",")[1]
       .trim();
     const currentWANIPv6 = wanIP
       .split("\n")[2]
-      .split(":")[1]
-      .split(",")[1]
+      ?.split(":")[1]
+      ?.split(",")[1]
       .trim();
 
     if (currentWANIPv4 && currentWANIPv4 === "1" || currentWANIPv6 && currentWANIPv6 === "1") {
@@ -83,9 +83,9 @@ const useRunDiagnostics = () => {
       let lteRsrpValues: number[] = [];
       if (lteRsrpLine) {
         lteRsrpValues = lteRsrpLine
-          .split(":")[1]
-          .split(",")
-          .slice(0, 4)
+          ?.split(":")[1]
+          ?.split(",")
+          ?.slice(0, 4)
           .map(value => value.trim())
           .filter(value => !isNaN(parseInt(value)))
           .map(value => parseInt(value));
@@ -95,9 +95,9 @@ const useRunDiagnostics = () => {
       let nr5gRsrpValues: number[] = [];
       if (nr5gRsrpLine) {
         nr5gRsrpValues = nr5gRsrpLine
-          .split(":")[1]
-          .split(",")
-          .slice(0, 4)
+          ?.split(":")[1]
+          ?.split(",")
+          ?.slice(0, 4)
           .map(value => value.trim())
           .filter(value => !isNaN(parseInt(value)))
           .map(value => parseInt(value));
@@ -168,20 +168,20 @@ const useRunDiagnostics = () => {
   const getNetRejectCause = (netReject: string) => {
     const emmCause = netReject
       .split("\n")[1]
-      .split(":")[1]
-      .split(",")[1]
+      ?.split(":")[1]
+      ?.split(",")[1]
       .trim();
 
     const esmCause = netReject
       .split("\n")[2]
-      .split(":")[1]
-      .split(",")[1]
+      ?.split(":")[1]
+      ?.split(",")[1]
       .trim();
 
     const mm5GCause = netReject
       .split("\n")[3]
-      .split(":")[1]
-      .split(",")[1]
+      ?.split(":")[1]
+      ?.split(",")[1]
       .trim();
 
       const causes = [

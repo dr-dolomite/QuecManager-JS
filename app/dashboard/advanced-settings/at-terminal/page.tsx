@@ -155,7 +155,14 @@ const ATTerminalPage = () => {
   }, [previousCommands]);
 
   const executeCommand = async () => {
-    if (!input.trim()) return;
+    const command = input.trim().toLowerCase();
+
+    // Easter egg check
+    if (command === "tetris") {
+      window.open("/settings/games/tetris", "_blank");
+      setInput("");
+      return;
+    }
 
     setIsLoading(true);
     const currentCommand = input;

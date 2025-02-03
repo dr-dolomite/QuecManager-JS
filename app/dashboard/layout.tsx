@@ -69,7 +69,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
           headers: {
             Accept: "application/json",
           },
-          signal: AbortSignal.timeout(5000),
+          // signal: AbortSignal.timeout(5000),
         }
       );
 

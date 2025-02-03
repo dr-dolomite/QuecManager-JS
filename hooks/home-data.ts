@@ -10,7 +10,7 @@ const useHomeData = () => {
 
   const fetchHomeData = useCallback(async () => {
     try {
-      const response = await fetch("/cgi-bin/fetch_data.sh?set=1");
+      const response = await fetch(" /cgi-bin/fetch_data.sh?set=1");
       const rawData = await response.json();
       console.log(rawData);
 
@@ -18,7 +18,7 @@ const useHomeData = () => {
       const processedData: HomeData = {
         simCard: {
           slot:
-            rawData[0].response.split("\n")[1].split(":")[1].trim() ||
+            rawData[0].response.split("\n")[1]?.split(":")[1].trim() ||
             "Unknown",
           state: rawData[6].response.match("READY")
             ? "Inserted"
@@ -26,20 +26,20 @@ const useHomeData = () => {
           provider:
             rawData[2].response
               .split("\n")[1]
-              .split(":")[1]
-              .split(",")[2]
+              ?.split(":")[1]
+              ?.split(",")[2]
               .replace(/"/g, "")
               .trim() || "Unknown",
           phoneNumber:
             rawData[1].response
               .split("\n")[1]
-              .split(":")[1]
-              .split(",")[1]
+              ?.split(":")[1]
+              ?.split(",")[1]
               .replace(/"/g, "")
               .trim() || "Unknown",
           imsi: rawData[3].response.split("\n")[1].trim() || "Unknown",
           iccid:
-            rawData[4].response.split("\n")[1].split(":")[1].trim() ||
+            rawData[4].response.split("\n")[1]?.split(":")[1].trim() ||
             "Unknown",
           imei: rawData[5].response.split("\n")[1].trim() || "Unknown",
         },
@@ -47,14 +47,14 @@ const useHomeData = () => {
           apn:
             rawData[7].response
               .split("\n")[1]
-              .split(":")[1]
-              .split(",")[2]
+              ?.split(":")[1]
+              ?.split(",")[2]
               .replace(/"/g, "")
               .trim() ||
             rawData[12].response
               .split("\n")[1]
-              .split(":")[1]
-              .split(",")[2]
+              ?.split(":")[1]
+              ?.split(",")[2]
               .replace(/"/g, "")
               .trim() ||
             "Unknown",
@@ -62,7 +62,7 @@ const useHomeData = () => {
             getOperatorState(rawData[8].response, rawData[16].response) ||
             "Unknown",
           functionalityState:
-            rawData[9].response.split("\n")[1].split(":")[1].trim() === "1"
+            rawData[9].response.split("\n")[1]?.split(":")[1].trim() === "1"
               ? "Enabled"
               : "Disabled",
           networkType: getNetworkType(rawData[13].response) || "No Signal",
@@ -71,8 +71,8 @@ const useHomeData = () => {
           accessTechnology:
             rawData[2].response
               .split("\n")[1]
-              .split(":")[1]
-              .split(",")[3]
+              ?.split(":")[1]
+              ?.split(",")[3]
               .trim() || "Unknown",
         },
         dataTransmission: {
@@ -254,8 +254,8 @@ const useHomeData = () => {
 // Helper functions for data processing
 const getOperatorState = (lteResponse: string, nr5gResponse: string) => {
   const state =
-    lteResponse.split("\n")[1].split(":")[1].split(",")[1].trim() ||
-    nr5gResponse.split("\n")[1].split(":")[1].split(",")[1].trim();
+    lteResponse.split("\n")[1]?.split(":")[1]?.split(",")[1].trim() ||
+    nr5gResponse.split("\n")[1]?.split(":")[1]?.split(",")[1].trim();
   switch (state) {
     case "1":
       return "Registered";
@@ -285,7 +285,7 @@ const getNetworkType = (response: string) => {
 const getModemTemperature = (response: string) => {
   const temps = ["cpuss-0", "cpuss-1", "cpuss-2", "cpuss-3"].map((cpu) => {
     const line = response.split("\n").find((l) => l.includes(cpu));
-    return parseInt(line!.split(":")[1].split(",")[1].replace(/"/g, "").trim());
+    return parseInt(line!?.split(":")[1]?.split(",")[1].replace(/"/g, "").trim());
   });
   const avgTemp = temps.reduce((acc, t) => acc + t, 0) / temps.length;
   return `${Math.round(avgTemp)}°C`;
@@ -294,14 +294,14 @@ const getModemTemperature = (response: string) => {
 const getBandwidth = (response: string, networkType: string) => {
   // Get PCC bandwidth line
   let pccBandwidth = response.split("\n").find((l) => l.includes("PCC"));
-  pccBandwidth = pccBandwidth?.split(":")[1].split(",")[2].trim();
+  pccBandwidth = pccBandwidth?.split(":")[1]?.split(",")[2].trim();
 
   // Get LTE SCC bandwidth lines and append it to an array
   let sccBandwidthLTE = response
     .split("\n")
     .filter((l) => l.includes("SCC") && l.includes("LTE"));
   sccBandwidthLTE = sccBandwidthLTE.map((l) =>
-    l.split(":")[1].split(",")[2].trim()
+    l?.split(":")[1]?.split(",")[2].trim()
   );
 
   // Get NR5G SCC bandwidth lines and append it to an array
@@ -309,7 +309,7 @@ const getBandwidth = (response: string, networkType: string) => {
     .split("\n")
     .filter((l) => l.includes("SCC") && l.includes("NR5G"));
   sccBandwidthNR5G = sccBandwidthNR5G.map((l) =>
-    l.split(":")[1].split(",")[2].trim()
+    l?.split(":")[1]?.split(",")[2].trim()
   );
 
   // Return as a string in the format "PCC, SCC1, SCC2, ..."
@@ -376,7 +376,7 @@ const getConnectedBands = (response: string) => {
       ?.map((band) => {
         if (band.includes("LTE")) return `B${band.match(/\d+/)}`;
         if (band.includes("NR5G"))
-          return `N${band.split(" ")[2].replace(/"/g, "").trim()}`;
+          return `N${band?.split(" ")[2].replace(/"/g, "").trim()}`;
       })
       .join(", ") || "Unknown"
   );
@@ -392,8 +392,8 @@ const getSignalStrength = (response: string) => {
   // if RSRP LTE exists
   if (rsrpLTE) {
     rsrpLteArr = rsrpLTE
-      .split(":")[1]
-      .split(",")
+      ?.split(":")[1]
+      ?.split(",")
       .slice(0, 4)
       .map((v) => parseInt(v.trim()));
   }
@@ -401,8 +401,8 @@ const getSignalStrength = (response: string) => {
   // If RSRP NR5G exists
   if (rsrpNR5G) {
     rsrpNrArr = rsrpNR5G
-      .split(":")[1]
-      .split(",")
+      ?.split(":")[1]
+      ?.split(",")
       .slice(0, 4)
       .map((v) => parseInt(v.trim()));
   }
@@ -449,11 +449,11 @@ const getSignalStrength = (response: string) => {
 
 const getCellID = (response: string, networkType: string) => {
   if (networkType === "NR5G-SA" || networkType === "LTE") {
-    return response.split("\n")[1].split(":")[1].split(",")[6].trim();
+    return response.split("\n")[1]?.split(":")[1]?.split(",")[6].trim();
   }
 
   if (networkType === "NR5G-NSA") {
-    return response.split("\n")[2].split(":")[1].split(",")[4].trim();
+    return response.split("\n")[2]?.split(":")[1]?.split(",")[4].trim();
   }
 
   return "Unknown";
@@ -461,15 +461,15 @@ const getCellID = (response: string, networkType: string) => {
 
 const getTAC = (response: string, networkType: string) => {
   if (networkType === "NR5G-SA") {
-    return response.split("\n")[1].split(":")[1].split(",")[8].trim();
+    return response.split("\n")[1]?.split(":")[1]?.split(",")[8].trim();
   }
 
   if (networkType === "NR5G-NSA") {
-    return response.split("\n")[2].split(":")[1].split(",")[9].trim();
+    return response.split("\n")[2]?.split(":")[1]?.split(",")[9].trim();
   }
 
   if (networkType === "LTE") {
-    return response.split("\n")[1].split(":")[1].split(",")[12].trim();
+    return response.split("\n")[1]?.split(":")[1]?.split(",")[12].trim();
   }
 
   return "Unknown";
@@ -480,19 +480,19 @@ const getPhysicalCellIDs = (response: string, networkType: string) => {
   if (networkType === "LTE" || networkType === "NR5G-NSA") {
     // Get the PCC PCI first
     let pccPCI = response.split("\n").find((l) => l.includes("PCC"));
-    pccPCI = pccPCI?.split(":")[1].split(",")[5].trim();
+    pccPCI = pccPCI?.split(":")[1]?.split(",")[5].trim();
 
     // Map the SCC PCIs lines
     let sccPCIsLTE = response
       .split("\n")
       .filter((l) => l.includes("SCC") && l.includes("LTE"));
-    sccPCIsLTE = sccPCIsLTE.map((l) => l.split(":")[1].split(",")[5].trim());
+    sccPCIsLTE = sccPCIsLTE.map((l) => l?.split(":")[1]?.split(",")[5].trim());
 
     // Map the SCC PCIs lines for NR5G
     let sccPCIsNR5G = response
       .split("\n")
       .filter((l) => l.includes("SCC") && l.includes("NR5G"));
-    sccPCIsNR5G = sccPCIsNR5G.map((l) => l.split(":")[1].split(",")[4].trim());
+    sccPCIsNR5G = sccPCIsNR5G.map((l) => l?.split(":")[1]?.split(",")[4].trim());
 
     // Combine the PCIs into a single string separated by commas
     // If only PCC PCI is present
@@ -513,13 +513,13 @@ const getPhysicalCellIDs = (response: string, networkType: string) => {
   if (networkType === "NR5G-SA") {
     // Get the PCC PCI first
     let pccPCI = response.split("\n").find((l) => l.includes("PCC"));
-    pccPCI = pccPCI?.split(":")[1].split(",")[4].trim();
+    pccPCI = pccPCI?.split(":")[1]?.split(",")[4].trim();
 
     // Map the SCC PCIs lines
     let sccPCIs = response
       .split("\n")
       .filter((l) => l.includes("SCC") && l.includes("NR5G"));
-    sccPCIs = sccPCIs.map((l) => l.split(":")[1].split(",")[5].trim());
+    sccPCIs = sccPCIs.map((l) => l?.split(":")[1]?.split(",")[5].trim());
 
     // If only PCC PCI is present
     if (!sccPCIs.length) {
@@ -534,21 +534,21 @@ const getPhysicalCellIDs = (response: string, networkType: string) => {
 const getEARFCN = (response: string) => {
   // Get the PCC EARFCN first
   let pccEARFCN = response.split("\n").find((l) => l.includes("PCC"));
-  pccEARFCN = pccEARFCN?.split(":")[1].split(",")[1].trim();
+  pccEARFCN = pccEARFCN?.split(":")[1]?.split(",")[1].trim();
 
   // Map the SCC EARFCN lines
   let sccEARFCNsLTE = response
     .split("\n")
     .filter((l) => l.includes("SCC") && l.includes("LTE"));
   sccEARFCNsLTE = sccEARFCNsLTE.map((l) =>
-    l.split(":")[1].split(",")[1].trim()
+    l?.split(":")[1]?.split(",")[1].trim()
   );
 
   let sccEARFCNsNR5G = response
     .split("\n")
     .filter((l) => l.includes("SCC") && l.includes("NR5G"));
   sccEARFCNsNR5G = sccEARFCNsNR5G.map((l) =>
-    l.split(":")[1].split(",")[1].trim()
+    l?.split(":")[1]?.split(",")[1].trim()
   );
 
   // Combine the EARFCNs into a single string separated by commas
@@ -577,11 +577,11 @@ const getEARFCN = (response: string) => {
 
 const getMCC = (response: string, networkType: string) => {
   if (networkType === "LTE" || networkType === "NR5G-SA") {
-    return response.split("\n")[1].split(":")[1].split(",")[4].trim();
+    return response.split("\n")[1]?.split(":")[1]?.split(",")[4].trim();
   }
 
   if (networkType === "NR5G-NSA") {
-    return response.split("\n")[2].split(":")[1].split(",")[2].trim();
+    return response.split("\n")[2]?.split(":")[1]?.split(",")[2].trim();
   }
 
   return "Unknown";
@@ -589,11 +589,11 @@ const getMCC = (response: string, networkType: string) => {
 
 const getMNC = (response: string, networkType: string) => {
   if (networkType === "LTE" || networkType === "NR5G-SA") {
-    return response.split("\n")[1].split(":")[1].split(",")[5].trim();
+    return response.split("\n")[1]?.split(":")[1]?.split(",")[5].trim();
   }
 
   if (networkType === "NR5G-NSA") {
-    return response.split("\n")[2].split(":")[1].split(",")[3].trim();
+    return response.split("\n")[2]?.split(":")[1]?.split(",")[3].trim();
   }
 };
 
@@ -610,8 +610,8 @@ const getSignalQuality = (response: string) => {
     if (!line) return [];
 
     return line
-      .split(":")[1]
-      .split(",")
+      ?.split(":")[1]
+      ?.split(",")
       .slice(0, 4)
       .map((v) => parseInt(v.trim()))
       .filter((v) => v !== -140 && v !== -37625);
@@ -664,13 +664,13 @@ const getCurrentBandsBandNumber = (response: string) => {
 
   if (bandsLte.length && bandsNr5g.length) {
     return [...bandsLte, ...bandsNr5g].map((l) =>
-      l.split(":")[1].split(",")[3].replace(/"/g, "")
+      l?.split(":")[1]?.split(",")[3].replace(/"/g, "")
     );
   } else if (bandsLte.length) {
-    return bandsLte.map((l) => l.split(":")[1].split(",")[3].replace(/"/g, ""));
+    return bandsLte.map((l) => l?.split(":")[1]?.split(",")[3].replace(/"/g, ""));
   } else if (bandsNr5g.length) {
     return bandsNr5g.map((l) =>
-      l.split(":")[1].split(",")[3].replace(/"/g, "")
+      l?.split(":")[1]?.split(",")[3].replace(/"/g, "")
     );
   } else {
     return ["Unknown"];
@@ -686,12 +686,12 @@ const getCurrentBandsEARFCN = (response: string) => {
 
   if (earfcnsLte.length && earfcnsNr5g.length) {
     return [...earfcnsLte, ...earfcnsNr5g].map(
-      (l) => l.split(":")[1].split(",")[1]
+      (l) => l?.split(":")[1]?.split(",")[1]
     );
   } else if (earfcnsLte.length) {
-    return earfcnsLte.map((l) => l.split(":")[1].split(",")[1]);
+    return earfcnsLte.map((l) => l?.split(":")[1]?.split(",")[1]);
   } else if (earfcnsNr5g.length) {
-    return earfcnsNr5g.map((l) => l.split(":")[1].split(",")[1]);
+    return earfcnsNr5g.map((l) => l?.split(":")[1]?.split(",")[1]);
   } else {
     return ["Unknown"];
   }
@@ -708,10 +708,10 @@ const getCurrentBandsBandwidth = (response: string) => {
 
   // Convert the bandwidths to their respective values
   const parsedBandwidthsLte = bandwidthsLte.map(
-    (l) => BANDWIDTH_MAP[l.split(":")[1].split(",")[2]]
+    (l) => BANDWIDTH_MAP[l?.split(":")[1]?.split(",")[2]]
   );
   const parsedBandwidthsNr5g = bandwidthsNr5g.map(
-    (l) => NR_BANDWIDTH_MAP[l.split(":")[1].split(",")[2]]
+    (l) => NR_BANDWIDTH_MAP[l?.split(":")[1]?.split(",")[2]]
   );
 
   if (parsedBandwidthsLte.length && parsedBandwidthsNr5g.length) {
@@ -729,14 +729,14 @@ const getCurrentBandsPCI = (response: string, networkType: string) => {
   // Loop through the response and extract the PCI
   if (networkType === "LTE" || networkType === "NR5G-SA") {
     let PCCpci = response.split("\n").find((l) => l.includes("PCC"));
-    PCCpci = PCCpci ? PCCpci.split(":")[1].split(",")[4].trim() : "Unknown";
+    PCCpci = PCCpci ? PCCpci?.split(":")[1]?.split(",")[4].trim() : "Unknown";
     const SCCpcis = response.split("\n").filter((l) => l.includes("BAND"));
     // If only PCC PCI is present
     if (!SCCpcis.length) {
       return [PCCpci];
     } else {
       const pcis = SCCpcis.map(
-        (l) => l.split(":")[1].split(",")[5] || "Unknown"
+        (l) => l?.split(":")[1]?.split(",")[5] || "Unknown"
       );
       return [PCCpci, ...pcis];
     }
@@ -746,10 +746,10 @@ const getCurrentBandsPCI = (response: string, networkType: string) => {
       .split("\n")
       .filter((l) => l.includes("NR5G BAND"));
     const pcisLteValues = pcisLte.map(
-      (l) => l.split(":")[1].split(",")[5] || "Unknown"
+      (l) => l?.split(":")[1]?.split(",")[5] || "Unknown"
     );
     const pcisNr5gValues = pcisNr5g.map(
-      (l) => l.split(":")[1].split(",")[4] || "Unknown"
+      (l) => l?.split(":")[1]?.split(",")[4] || "Unknown"
     );
     return [...pcisLteValues, ...pcisNr5gValues];
   }
@@ -764,7 +764,7 @@ const getCurrentBandsRSRP = (
   // Loop through the response and extract the RSRP
   if (networkType === "LTE") {
     const rsrps = response.split("\n").filter((l) => l.includes("LTE BAND"));
-    return rsrps.map((l) => l.split(":")[1].split(",")[6]);
+    return rsrps.map((l) => l?.split(":")[1]?.split(",")[6]);
   }
 
   if (networkType === "NR5G-NSA") {
@@ -772,12 +772,12 @@ const getCurrentBandsRSRP = (
     let lteRSRP = response
       .split("\n")
       .filter((l) => l.includes("LTE BAND"))
-      .map((l) => l.split(":")[1].split(",")[6]);
+      .map((l) => l?.split(":")[1]?.split(",")[6]);
 
     const nr5gRSRP = servingCell
       .split("\n")
       .filter((l) => l.includes("NR5G-NSA"))
-      .map((l) => l.split(":")[1].split(",")[4]);
+      .map((l) => l?.split(":")[1]?.split(",")[4]);
 
     if (lteRSRP.length && nr5gRSRP.length) {
       return [...lteRSRP, ...nr5gRSRP];
@@ -794,7 +794,7 @@ const getCurrentBandsRSRP = (
     const pccRSRP = servingCell.split("\n").find((l) => l.includes("NR5G-SA"));
 
     if (pccRSRP) {
-      return [pccRSRP.split(":")[1].split(",")[12]];
+      return [pccRSRP?.split(":")[1]?.split(",")[12]];
     } else {
       return ["Unknown"];
     }
@@ -811,14 +811,14 @@ const getCurrentBandsRSRQ = (
   // Loop through the response and extract the RSRQ
   if (networkType === "LTE") {
     const rsrqs = response.split("\n").filter((l) => l.includes("BAND"));
-    return rsrqs.map((l) => l.split(":")[1].split(",")[7]);
+    return rsrqs.map((l) => l?.split(":")[1]?.split(",")[7]);
   }
 
   if (networkType === "NR5G-SA") {
     const pccRSRQ = servingCell.split("\n").find((l) => l.includes("NR5G-SA"));
 
     if (pccRSRQ) {
-      return [pccRSRQ.split(":")[1].split(",")[13]];
+      return [pccRSRQ?.split(":")[1]?.split(",")[13]];
     } else {
       return ["Unknown"];
     }
@@ -828,12 +828,12 @@ const getCurrentBandsRSRQ = (
     const lteRSRQ = response
       .split("\n")
       .filter((l) => l.includes("LTE BAND"))
-      .map((l) => l.split(":")[1].split(",")[7]);
+      .map((l) => l?.split(":")[1]?.split(",")[7]);
 
     const nr5gRSRQ = servingCell
       .split("\n")
       .filter((l) => l.includes("NR5G-NSA"))
-      .map((l) => l.split(":")[1].split(",")[6]);
+      .map((l) => l?.split(":")[1]?.split(",")[6]);
 
     if (lteRSRQ.length && nr5gRSRQ.length) {
       return [...lteRSRQ, ...nr5gRSRQ];
@@ -857,14 +857,14 @@ const getCurrentBandsSINR = (
   // Loop through the response and extract the SINR
   if (networkType === "LTE") {
     const sinrs = response.split("\n").filter((l) => l.includes("BAND"));
-    return sinrs.map((l) => l.split(":")[1].split(",")[9]);
+    return sinrs.map((l) => l?.split(":")[1]?.split(",")[9]);
   }
 
   if (networkType === "NR5G-SA") {
     const pccSINR = servingCell.split("\n").find((l) => l.includes("NR5G-SA"));
 
     if (pccSINR) {
-      return [pccSINR.split(":")[1].split(",")[14]];
+      return [pccSINR?.split(":")[1]?.split(",")[14]];
     } else {
       return ["Unknown"];
     }
@@ -874,12 +874,12 @@ const getCurrentBandsSINR = (
     const lteSINR = response
       .split("\n")
       .filter((l) => l.includes("LTE BAND"))
-      .map((l) => l.split(":")[1].split(",")[9]);
+      .map((l) => l?.split(":")[1]?.split(",")[9]);
 
     const nr5gSINR = servingCell
       .split("\n")
       .filter((l) => l.includes("NR5G-NSA"))
-      .map((l) => l.split(":")[1].split(",")[5]);
+      .map((l) => l?.split(":")[1]?.split(",")[5]);
 
     if (lteSINR.length && nr5gSINR.length) {
       return [...lteSINR, ...nr5gSINR];
@@ -908,8 +908,8 @@ const getMimoLayers = (response: string) => {
   // If RSRP LTE exists
   if (lteRSRPExists) {
     lteRSRPArr = lteRSRPExists
-      .split(":")[1]
-      .split(",")
+      ?.split(":")[1]
+      ?.split(",")
       .slice(0, 4)
       .map((v) => parseInt(v.trim()));
   }
@@ -917,8 +917,8 @@ const getMimoLayers = (response: string) => {
   // If RSRP NR5G exists
   if (nr5gRSRPExists) {
     nr5gRSRPArr = nr5gRSRPExists
-      .split(":")[1]
-      .split(",")
+      ?.split(":")[1]
+      ?.split(",")
       .slice(0, 4)
       .map((v) => parseInt(v.trim()));
   }
