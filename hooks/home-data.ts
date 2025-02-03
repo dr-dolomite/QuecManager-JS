@@ -10,7 +10,7 @@ const useHomeData = () => {
 
   const fetchHomeData = useCallback(async () => {
     try {
-      const response = await fetch(" /cgi-bin/fetch_data.sh?set=1");
+      const response = await fetch("/cgi-bin/fetch_data.sh?set=1");
       const rawData = await response.json();
       console.log(rawData);
 
@@ -465,7 +465,7 @@ const getTAC = (response: string, networkType: string) => {
   }
 
   if (networkType === "NR5G-NSA") {
-    return response.split("\n")[2]?.split(":")[1]?.split(",")[9].trim();
+    return response.split("\n")[2]?.split(":")[1]?.split(",")[10].trim();
   }
 
   if (networkType === "LTE") {
