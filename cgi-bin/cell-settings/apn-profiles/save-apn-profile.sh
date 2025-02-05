@@ -66,6 +66,7 @@ QUEUE_FILE="/tmp/at_pipe.txt"
 LOG_DIR="/tmp/log/apnprofile"
 LOG_FILE="${LOG_DIR}/apnprofile.log"
 PID_FILE="/var/run/apnprofile.pid"
+STATE_FILE="/tmp/apnprofile_state.json"
 
 mkdir -p "${LOG_DIR}"
 [ ! -f "${QUEUE_FILE}" ] && touch "${QUEUE_FILE}"
@@ -145,10 +146,10 @@ set_apn() {
     return 1
 }
 
-# Main service loop
-while true; do
-    # Load current configuration
+# Function to get current configuration hash
+get_config_hash() {
     config_load quecmanager
+    local hash_input=""
     
     # Get Profile 1
     config_get ICCID_PROFILE1 apn_profile iccid_profile1
@@ -160,30 +161,90 @@ while true; do
     config_get APN_PROFILE2 apn_profile apn_profile2
     config_get PDP_TYPE2 apn_profile pdp_type2
     
-    # Get current ICCID
-    current_iccid=$(get_current_iccid)
+    hash_input="${ICCID_PROFILE1}${APN_PROFILE1}${PDP_TYPE1}${ICCID_PROFILE2}${APN_PROFILE2}${PDP_TYPE2}"
+    echo "$hash_input" | md5sum | cut -d' ' -f1
+}
+
+# Function to read state file
+read_state() {
+    if [ -f "$STATE_FILE" ]; then
+        cat "$STATE_FILE"
+    else
+        echo "{}"
+    fi
+}
+
+# Function to write state file
+write_state() {
+    local current_iccid="$1"
+    local config_hash="$2"
+    local status="$3"
     
-    if [ $? -eq 0 ] && [ -n "$current_iccid" ]; then
+    printf '{"iccid":"%s","config_hash":"%s","status":"%s","timestamp":"%s"}' \
+        "$current_iccid" "$config_hash" "$status" "$(date '+%Y-%m-%d %H:%M:%S')" > "$STATE_FILE"
+}
+
+# Main service loop
+while true; do
+    # Get current state
+    current_state=$(read_state)
+    current_iccid=$(get_current_iccid)
+    config_hash=$(get_config_hash)
+    
+    # Extract values from current state
+    state_iccid=$(echo "$current_state" | sed -n 's/.*"iccid":"\([^"]*\)".*/\1/p')
+    state_hash=$(echo "$current_state" | sed -n 's/.*"config_hash":"\([^"]*\)".*/\1/p')
+    
+    needs_update=0
+    
+    # Check if update is needed
+    if [ ! -f "$STATE_FILE" ]; then
+        log_message "INFO" "No state file found, will apply profile"
+        needs_update=1
+    elif [ "$current_iccid" != "$state_iccid" ]; then
+        log_message "INFO" "ICCID changed from $state_iccid to $current_iccid"
+        needs_update=1
+    elif [ "$config_hash" != "$state_hash" ]; then
+        log_message "INFO" "Configuration changed"
+        needs_update=1
+    fi
+    
+    if [ $needs_update -eq 1 ] && [ -n "$current_iccid" ]; then
+        config_load quecmanager
+        
+        # Get Profile 1
+        config_get ICCID_PROFILE1 apn_profile iccid_profile1
+        config_get APN_PROFILE1 apn_profile apn_profile1
+        config_get PDP_TYPE1 apn_profile pdp_type1
+        
+        # Get Profile 2
+        config_get ICCID_PROFILE2 apn_profile iccid_profile2
+        config_get APN_PROFILE2 apn_profile apn_profile2
+        config_get PDP_TYPE2 apn_profile pdp_type2
+        
         if [ "${current_iccid}" = "${ICCID_PROFILE1}" ]; then
             if set_apn "$PDP_TYPE1" "$APN_PROFILE1"; then
                 log_message "INFO" "Successfully applied Profile 1"
+                write_state "$current_iccid" "$config_hash" "success"
             else
                 log_message "ERROR" "Failed to apply Profile 1"
+                write_state "$current_iccid" "$config_hash" "error"
             fi
         elif [ -n "$ICCID_PROFILE2" ] && [ "${current_iccid}" = "${ICCID_PROFILE2}" ]; then
             if set_apn "$PDP_TYPE2" "$APN_PROFILE2"; then
                 log_message "INFO" "Successfully applied Profile 2"
+                write_state "$current_iccid" "$config_hash" "success"
             else
                 log_message "ERROR" "Failed to apply Profile 2"
+                write_state "$current_iccid" "$config_hash" "error"
             fi
         else
             log_message "INFO" "No matching ICCID profile found"
+            write_state "$current_iccid" "$config_hash" "no_match"
         fi
-    else
-        log_message "ERROR" "Failed to get current ICCID"
     fi
     
-    sleep 30
+    sleep 10
 done
 EOL
 

@@ -51,7 +51,7 @@ extract_post_data() {
     # Optional parameters with defaults and validation
     ping_interval=$(echo "$QUERY_STRING" | grep -o 'ping_interval=[^&]*' | cut -d= -f2)
     ping_interval=$(urldecode "${ping_interval:-30}")
-    validate_numeric "$ping_interval" 10 3600 "Ping interval"
+    validate_numeric "$ping_interval" 3 3600 "Ping interval"
     
     ping_failures=$(echo "$QUERY_STRING" | grep -o 'ping_failures=[^&]*' | cut -d= -f2)
     ping_failures=$(urldecode "${ping_failures:-3}")
@@ -161,6 +161,169 @@ check_internet() {
         log_message "WARN" "Ping failed to ${PING_TARGET}"
         return 1
     fi
+}
+
+# Function to handle AT command queue locking
+handle_lock() {
+    local max_wait=30
+    local wait_count=0
+    
+    while [ -f "$QUEUE_FILE" ] && grep -q "AT_COMMAND" "$QUEUE_FILE" && [ $wait_count -lt $max_wait ]; do
+        sleep 1
+        wait_count=$((wait_count + 1))
+    done
+    
+    printf '{"command":"AT_COMMAND","pid":"%s","timestamp":"%s"}\n' "$$" "$(date '+%H:%M:%S')" >> "$QUEUE_FILE"
+}
+
+# Function to execute AT commands with retries and logging
+execute_at_command() {
+    local command="$1"
+    local result=""
+    local retry_count=0
+    local max_retries=3
+    
+    log_message "DEBUG" "Executing AT command: ${command}"
+    
+    while [ $retry_count -lt $max_retries ]; do
+        handle_lock
+        result=$(sms_tool at "$command" -t 4 2>&1)
+        local status=$?
+        sed -i "/\"pid\":\"$$\"/d" "$QUEUE_FILE"
+        
+        if [ $status -eq 0 ] && [ -n "$result" ]; then
+            log_message "DEBUG" "AT command successful: ${command}"
+            echo "$result"
+            return 0
+        fi
+        
+        retry_count=$((retry_count + 1))
+        log_message "WARN" "AT command failed: ${command} (attempt ${retry_count}/${max_retries})"
+        [ $retry_count -lt $max_retries ] && sleep 2
+    done
+    
+    log_message "ERROR" "AT command failed after ${max_retries} attempts: ${command}"
+    return 1
+}
+
+# Function to get current active SIM slot
+get_current_sim() {
+    local result
+    local current_sim
+    
+    log_message "DEBUG" "Checking current SIM slot"
+    
+    result=$(execute_at_command "AT+QUIMSLOT?")
+    if [ $? -eq 0 ]; then
+        # Extract SIM slot number from response (e.g., +QUIMSLOT: 1)
+        current_sim=$(echo "$result" | grep -o '[0-9]' | head -n 1)
+        if [ -n "$current_sim" ]; then
+            log_message "DEBUG" "Current SIM slot: ${current_sim}"
+            echo "$current_sim"
+            return 0
+        fi
+    fi
+    
+    log_message "ERROR" "Failed to get current SIM slot"
+    return 1
+}
+
+# Function to check SIM card status
+check_sim_status() {
+    local sim_slot="$1"
+    local result
+    
+    log_message "DEBUG" "Checking SIM ${sim_slot} status"
+    
+    # Switch to the specified SIM slot
+    if ! execute_at_command "AT+QUIMSLOT=${sim_slot}"; then
+        log_message "ERROR" "Failed to switch to SIM ${sim_slot}"
+        return 1
+    fi
+    
+    sleep 2
+    
+    # Check SIM card status
+    result=$(execute_at_command "AT+CPIN?")
+    if [ $? -eq 0 ] && echo "$result" | grep -q "READY"; then
+        log_message "INFO" "SIM ${sim_slot} is ready"
+        return 0
+    fi
+    
+    log_message "ERROR" "SIM ${sim_slot} is not ready"
+    return 1
+}
+
+# Function to switch SIM cards
+switch_sim_card() {
+    local current_sim
+    local target_sim
+    local retry_count=0
+    local max_retries=3
+    
+    log_message "INFO" "Initiating SIM card switch"
+    
+    current_sim=$(get_current_sim)
+    if [ $? -ne 0 ]; then
+        log_message "ERROR" "Failed to get current SIM slot"
+        return 1
+    fi
+    
+    # Determine target SIM (toggle between 1 and 2)
+    if [ "$current_sim" = "1" ]; then
+        target_sim=2
+    else
+        target_sim=1
+    fi
+    
+    log_message "INFO" "Attempting to switch from SIM ${current_sim} to SIM ${target_sim}"
+    
+    # Check if target SIM is viable
+    if ! check_sim_status "$target_sim"; then
+        log_message "ERROR" "Target SIM ${target_sim} is not viable"
+        return 1
+    fi
+    
+    while [ $retry_count -lt $max_retries ]; do
+        # Detach from network before switching
+        if ! execute_at_command "AT+COPS=2"; then
+            log_message "ERROR" "Failed to detach from network"
+            retry_count=$((retry_count + 1))
+            continue
+        fi
+        
+        sleep 2
+        
+        # Switch SIM slot
+        if ! execute_at_command "AT+QUIMSLOT=${target_sim}"; then
+            log_message "ERROR" "Failed to switch to SIM ${target_sim}"
+            retry_count=$((retry_count + 1))
+            continue
+        fi
+        
+        sleep 5
+        
+        # Reattach to network
+        if ! execute_at_command "AT+COPS=0"; then
+            log_message "ERROR" "Failed to reattach to network"
+            retry_count=$((retry_count + 1))
+            continue
+        fi
+        
+        sleep 10
+        
+        # Verify SIM switch
+        if [ "$(get_current_sim)" = "$target_sim" ]; then
+            log_message "INFO" "Successfully switched to SIM ${target_sim}"
+            return 0
+        fi
+        
+        retry_count=$((retry_count + 1))
+        [ $retry_count -lt $max_retries ] && sleep 2
+    done
+    
+    log_message "ERROR" "Failed to switch SIM card after ${max_retries} attempts"
+    return 1
 }
 
 # Function to perform connection recovery with detailed logging

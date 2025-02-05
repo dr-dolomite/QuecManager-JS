@@ -44,17 +44,29 @@ if ! uci -q get quecmanager.quecwatch >/dev/null; then
     exit 0
 fi
 
-# Get enabled status
+# Get enabled status and current retries
 enabled=$(get_uci_value "enabled" "0")
-
-if [ "$enabled" != "1" ]; then
-    echo '{"status": "inactive", "message": "QuecWatch is disabled"}'
-    exit 0
-fi
+current_retries=$(get_uci_value "current_retries" "0")
+max_retries=$(get_uci_value "max_retries" "5")
 
 # Check if monitoring script exists
 if [ ! -f "/www/cgi-bin/services/quecwatch.sh" ]; then
-    echo '{"status": "error", "message": "Monitoring script is missing"}'
+    echo "{
+        \"status\": \"inactive\",
+        \"message\": \"QuecWatch is not running\",
+        \"config\": {
+            \"pingTarget\": \"${ping_target:-''}\",
+            \"pingInterval\": ${ping_interval:-30},
+            \"pingFailures\": ${ping_failures:-3},
+            \"maxRetries\": ${max_retries:-5},
+            \"currentRetries\": ${current_retries:-0},
+            \"connectionRefresh\": ${connection_refresh:-false},
+            \"refreshCount\": ${refresh_count:-0},
+            \"autoSimFailover\": ${auto_sim_failover:-false},
+            \"simFailoverSchedule\": ${sim_failover_schedule:-0}
+        },
+        \"lastActivity\": \"${last_log:-''}\"
+    }"
     exit 0
 fi
 
@@ -75,10 +87,26 @@ refresh_count=$(get_uci_value "refresh_count" "0")
 auto_sim_failover=$(get_uci_value "auto_sim_failover" "false")
 sim_failover_schedule=$(get_uci_value "sim_failover_schedule" "0")
 
+# Determine the appropriate status
+response_status="active"
+if [ "$enabled" != "1" ]; then
+    # If there's no previous configuration, return inactive
+    if [ -z "$ping_target" ]; then
+        response_status="inactive"
+    else
+        # If it reached max retries, return active but with current retry info
+        if [ "$current_retries" -ge "$max_retries" ]; then
+            response_status="active"
+        else
+            response_status="inactive"
+        fi
+    fi
+fi
+
 # Prepare JSON response
 cat <<EOF
 {
-    "status": "active",
+    "status": "${response_status}",
     "serviceStatus": "${service_status}",
     "config": {
         "pingTarget": "${ping_target}",

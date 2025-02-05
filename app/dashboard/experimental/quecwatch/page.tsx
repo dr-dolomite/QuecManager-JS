@@ -22,10 +22,22 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { ShieldClose, ShieldCheck } from "lucide-react";
+import {
+  ShieldClose,
+  ShieldCheck,
+  AlertTriangle,
+  RotateCcw,
+} from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
-// Updated types for QuecWatch configuration
+// Status type updated to include maxRetries state
+type QuecWatchStatus =
+  | "inactive"
+  | "active"
+  | "error"
+  | "maxRetries"
+  | "loading";
+
 interface QuecWatchConfig {
   pingTarget: string;
   pingInterval: number;
@@ -38,7 +50,6 @@ interface QuecWatchConfig {
   refreshCount?: number;
 }
 
-// Types for API response
 interface QuecWatchResponse {
   status: "success" | "error" | "inactive" | "active";
   message?: string;
@@ -58,9 +69,7 @@ const QuecWatchPage = () => {
     simFailoverSchedule: 30,
   });
 
-  const [status, setStatus] = useState<
-    "inactive" | "active" | "error" | "loading"
-  >("loading");
+  const [status, setStatus] = useState<QuecWatchStatus>("loading");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastActivity, setLastActivity] = useState<string | null>(null);
@@ -69,18 +78,9 @@ const QuecWatchPage = () => {
   const fetchQuecWatchConfig = async () => {
     try {
       const response = await fetch(
-        "/cgi-bin/experimental/quecwatch/quecwatch-fetch.sh",
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        }
+        "/cgi-bin/experimental/quecwatch/fetch-quecwatch.sh"
       );
-
-      if (!response.ok) {
-        throw new Error("Network response was not ok");
-      }
+      if (!response.ok) throw new Error("Network response was not ok");
 
       const data: QuecWatchResponse = await response.json();
 
@@ -100,15 +100,15 @@ const QuecWatchPage = () => {
             };
             setConfig(newConfig);
 
-            // Check if max retries have been exhausted
+            // Update status based on retries
             if (
               newConfig.currentRetries !== undefined &&
               newConfig.currentRetries >= newConfig.maxRetries
             ) {
-              setStatus("inactive");
+              setStatus("maxRetries");
               toast({
-                title: "QuecWatch Stopped",
-                description: "Maximum retries exhausted",
+                title: "Maximum Retries Reached",
+                description: "QuecWatch has reached maximum retry attempts",
                 variant: "destructive",
               });
             } else {
@@ -124,11 +124,6 @@ const QuecWatchPage = () => {
         default:
           setStatus("error");
           setError(data.message || "Unknown error occurred");
-          toast({
-            title: "Error",
-            description: "Failed to fetch quecwatch configuration",
-            variant: "destructive",
-          });
       }
     } catch (err) {
       setStatus("error");
@@ -137,7 +132,7 @@ const QuecWatchPage = () => {
       );
       toast({
         title: "Error",
-        description: "Failed to fetch quecwatch configuration",
+        description: "Failed to fetch QuecWatch configuration",
         variant: "destructive",
       });
     }
@@ -157,6 +152,55 @@ const QuecWatchPage = () => {
       return () => clearInterval(intervalId);
     }
   }, [status]);
+
+  // Reset retry counter
+  const resetRetryCounter = async () => {
+    setIsLoading(true);
+    try {
+      const formData = new URLSearchParams();
+      formData.append("action", "reset");
+
+      const response = await fetch(
+        "/cgi-bin/experimental/quecwatch/reset-quecwatch.sh",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
+          body: formData,
+        }
+      );
+
+      if (!response.ok) throw new Error("Network response was not ok");
+
+      const result = await response.json();
+      if (result.status === "success") {
+        toast({
+          title: "QuecWatch Reset",
+          description: "Counter reset and service restarted successfully",
+        });
+        // Set status back to active immediately
+        setStatus("active");
+        // Update the current retries in the config
+        setConfig((prev) => ({
+          ...prev,
+          currentRetries: 0,
+        }));
+        // Fetch the latest config after a brief delay to ensure service has restarted
+        setTimeout(fetchQuecWatchConfig, 1000);
+      } else {
+        throw new Error(result.message);
+      }
+    } catch (err) {
+      toast({
+        title: "Error",
+        description: "Failed to reset retry counter",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // Enable QuecWatch function
   const enableQuecWatch = async () => {
@@ -301,17 +345,19 @@ const QuecWatchPage = () => {
                 {status === "inactive" ? (
                   <>
                     <ShieldClose className="text-rose-500 size-4" />
-                    <p className="text-muted-foreground text-sm">
-                      {config.currentRetries !== undefined &&
-                      config.currentRetries >= config.maxRetries
-                        ? "Max Retries Exhausted"
-                        : "Inactive"}
-                    </p>
+                    <p className="text-muted-foreground text-sm">Inactive</p>
                   </>
                 ) : status === "active" ? (
                   <>
                     <ShieldCheck className="text-green-500 size-4" />
                     <p className="text-muted-foreground text-sm">Active</p>
+                  </>
+                ) : status === "maxRetries" ? (
+                  <>
+                    <AlertTriangle className="text-yellow-500 size-4" />
+                    <p className="text-muted-foreground text-sm">
+                      Maximum Retries Exhausted
+                    </p>
                   </>
                 ) : (
                   <>
@@ -323,9 +369,22 @@ const QuecWatchPage = () => {
             </div>
             <div className="flex justify-between items-center gap-x-4 rounded-lg border p-4">
               <Label>Remaining Retries</Label>
-              <p className="text-muted-foreground text-sm">
-                {config.currentRetries} / {config.maxRetries}
-              </p>
+              <div className="flex items-center gap-2">
+                {(status === "active" || status === "maxRetries") && (
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-6 w-6"
+                    onClick={resetRetryCounter}
+                    disabled={isLoading}
+                  >
+                    <RotateCcw className="h-4 w-4" />
+                  </Button>
+                )}
+                <p className="text-muted-foreground text-sm">
+                  {config.currentRetries} / {config.maxRetries}
+                </p>
+              </div>
             </div>
           </div>
           <div className="grid grid-flow-row lg:grid-cols-2 grid-cols-1 gap-4">
@@ -362,11 +421,21 @@ const QuecWatchPage = () => {
                   <SelectValue placeholder="Select Ping Interval" />
                 </SelectTrigger>
                 <SelectContent>
-                  {[1, 3, 5, 10, 15, 30, 60].map((interval) => (
-                    <SelectItem key={interval} value={interval.toString()}>
-                      {interval} second{interval !== 1 ? "s" : ""}
-                    </SelectItem>
-                  ))}
+                  {[3, 5, 10, 15, 30, 60, 120, 600, 1800, 3600].map(
+                    (interval) => (
+                      <SelectItem key={interval} value={interval.toString()}>
+                        {interval >= 3600
+                          ? `${interval / 3600} hour${
+                              interval > 3600 ? "s" : ""
+                            }`
+                          : interval >= 60
+                          ? `${interval / 60} minute${
+                              interval >= 120 ? "s" : ""
+                            }`
+                          : `${interval} second${interval !== 1 ? "s" : ""}`}
+                      </SelectItem>
+                    )
+                  )}
                 </SelectContent>
               </Select>
             </div>
@@ -412,7 +481,7 @@ const QuecWatchPage = () => {
                   <SelectValue placeholder="Select Max Retries" />
                 </SelectTrigger>
                 <SelectContent>
-                  {[1, 3, 5, 10].map((retries) => (
+                  {[1, 3, 5, 10, 15, 20].map((retries) => (
                     <SelectItem key={retries} value={retries.toString()}>
                       {retries}
                     </SelectItem>
@@ -497,14 +566,19 @@ const QuecWatchPage = () => {
           {error && <div className="text-red-500 text-sm">{error}</div>}
         </div>
       </CardContent>
-      <CardFooter className="flex gap-4">
+      <CardFooter className="flex gap-4 border-t py-4">
         <Button
           onClick={enableQuecWatch}
-          disabled={isLoading || !config.pingTarget || status === "active"}
+          disabled={
+            isLoading ||
+            !config.pingTarget ||
+            status === "active" ||
+            status === "maxRetries"
+          }
         >
           {isLoading ? "Enabling..." : "Enable QuecWatch"}
         </Button>
-        {status === "active" && (
+        {(status === "active" || status === "maxRetries") && (
           <Button
             variant="destructive"
             onClick={disableQuecWatch}
