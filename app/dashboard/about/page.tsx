@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/card";
 import useAboutData from "@/hooks/about-data";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
-import PropagateLoader from "react-spinners/PropagateLoader";
+// import PropagateLoader from "react-spinners/PropagateLoader";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const AboutPage = () => {
@@ -183,7 +183,7 @@ const AboutPage = () => {
               <h1 className="text-xl font-bold antialiased">Thanks to</h1>
               <ul className="list-disc list-inside text-md font-medium antialiased">
                 <li>
-                  RGMII Toolkit and Documentation, and Backend
+                  RGMII Toolkit, Documentation, and Backend
                   <a
                     href="https://github.com/iamromulan"
                     target="_blank"
@@ -200,16 +200,6 @@ const AboutPage = () => {
                     className="text-primary font-semibold ml-2"
                   >
                     dr-dolomite
-                  </a>
-                </li>
-                <li>
-                  SMS Feature
-                  <a
-                    href="https://github.com/snjzb"
-                    target="_blank"
-                    className="text-primary font-semibold ml-2"
-                  >
-                    snjzb
                   </a>
                 </li>
                 <li>

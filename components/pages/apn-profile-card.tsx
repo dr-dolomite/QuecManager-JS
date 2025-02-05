@@ -20,12 +20,13 @@ import {
   SelectGroup,
   SelectLabel,
 } from "@/components/ui/select";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Trash2, Save } from "lucide-react";
+import { Trash2, Save, AlertTriangle, CheckCircle2 } from "lucide-react";
 
 interface ProfileData {
   apn: string;
@@ -58,10 +59,21 @@ const PDP_TYPES = [
 
 const APNProfilesCard = () => {
   const { toast } = useToast();
-  const { profiles, isLoading, updateAPNProfile, deleteAPNProfiles } = useAPNConfig();
+  const {
+    profiles,
+    serviceStatus,
+    lastActivity,
+    isActive,
+    isLoading,
+    updateAPNProfile,
+    deleteAPNProfiles,
+    refreshProfiles,
+  } = useAPNConfig();
+
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [formData, setFormData] = useState<APNProfileFormData>(INITIAL_FORM_STATE);
+  const [formData, setFormData] =
+    useState<APNProfileFormData>(INITIAL_FORM_STATE);
 
   useEffect(() => {
     if (profiles) {
@@ -96,7 +108,11 @@ const APNProfilesCard = () => {
 
   const validateProfiles = (): boolean => {
     // Profile 1 is mandatory
-    if (!formData.profile1.apn || !formData.profile1.pdpType || !formData.profile1.iccid) {
+    if (
+      !formData.profile1.apn ||
+      !formData.profile1.pdpType ||
+      !formData.profile1.iccid
+    ) {
       toast({
         variant: "destructive",
         title: "Invalid Profile 1",
@@ -106,13 +122,20 @@ const APNProfilesCard = () => {
     }
 
     // If any Profile 2 field is filled, all Profile 2 fields are required
-    const hasAnyProfile2Data = Object.values(formData.profile2).some(value => value !== "");
+    const hasAnyProfile2Data = Object.values(formData.profile2).some(
+      (value) => value !== ""
+    );
     if (hasAnyProfile2Data) {
-      if (!formData.profile2.apn || !formData.profile2.pdpType || !formData.profile2.iccid) {
+      if (
+        !formData.profile2.apn ||
+        !formData.profile2.pdpType ||
+        !formData.profile2.iccid
+      ) {
         toast({
           variant: "destructive",
           title: "Invalid Profile 2",
-          description: "All fields for Profile 2 are required if any field is filled",
+          description:
+            "All fields for Profile 2 are required if any field is filled",
         });
         return false;
       }
@@ -123,36 +146,40 @@ const APNProfilesCard = () => {
 
   const handleSave = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    
+
     if (!validateProfiles()) {
       return;
     }
 
-    setIsSaving(true);
-
     try {
-      // Always update Profile 1
-      const profile1Success = await updateAPNProfile("profile1", formData.profile1);
+      setIsSaving(true);
 
-      // Only update Profile 2 if it has data
-      const hasProfile2Data = Object.values(formData.profile2).some(value => value !== "");
-      const profile2Success = hasProfile2Data 
-        ? await updateAPNProfile("profile2", formData.profile2)
-        : true;
+      const profile1Success = await updateAPNProfile(
+        "profile1",
+        formData.profile1
+      );
 
-      if (profile1Success && profile2Success) {
-        toast({
-          title: "Success",
-          description: "APN profiles have been saved successfully",
-        });
-      } else {
-        throw new Error("Failed to save one or more profiles");
+      if (!profile1Success) {
+        throw new Error("Failed to update profile");
       }
+
+      // Refresh the profiles data
+      refreshProfiles();
+
+      // Show success toast
+      toast({
+        title: "Success",
+        description: "APN profiles have been saved successfully",
+      });
     } catch (error) {
+      console.error("Save error:", error);
       toast({
         variant: "destructive",
         title: "Error",
-        description: "Failed to save APN profiles. Please try again.",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Failed to save APN profiles. Please try again.",
       });
     } finally {
       setIsSaving(false);
@@ -169,6 +196,8 @@ const APNProfilesCard = () => {
       const success = await deleteAPNProfiles();
       if (success) {
         setFormData(INITIAL_FORM_STATE);
+        // Refresh the profiles data after successful deletion
+        refreshProfiles();
         toast({
           title: "Success",
           description: "APN profiles have been deleted successfully",
@@ -187,10 +216,15 @@ const APNProfilesCard = () => {
     }
   };
 
-  const renderProfileFields = (profileId: keyof APNProfileFormData, profileNum: number) => (
+  const renderProfileFields = (
+    profileId: keyof APNProfileFormData,
+    profileNum: number
+  ) => (
     <>
       <div className="grid w-full max-w-sm items-center gap-2">
-        <Label htmlFor={`APNProfile${profileNum}`}>APN Profile {profileNum}</Label>
+        <Label htmlFor={`APNProfile${profileNum}`}>
+          APN Profile {profileNum}
+        </Label>
         {isLoading ? (
           <Skeleton className="h-8" />
         ) : (
@@ -199,7 +233,9 @@ const APNProfilesCard = () => {
             id={`APNProfile${profileNum}`}
             placeholder={`APN for Profile ${profileNum}`}
             value={formData[profileId].apn}
-            onChange={(e) => handleFieldChange(profileId, "apn", e.target.value)}
+            onChange={(e) =>
+              handleFieldChange(profileId, "apn", e.target.value)
+            }
           />
         )}
       </div>
@@ -210,23 +246,24 @@ const APNProfilesCard = () => {
           <Skeleton className="h-8" />
         ) : (
           <Select
-            defaultValue={formData[profileId].pdpType}
-            value={formData[profileId].pdpType}
-            onValueChange={(value) => handleFieldChange(profileId, "pdpType", value)}
+            key={`pdp-type-${formData[profileId].pdpType}`}
+            value={formData[profileId].pdpType || ""}
+            onValueChange={(value) =>
+              handleFieldChange(profileId, "pdpType", value)
+            }
           >
             <SelectTrigger id={`PDPType${profileNum}`}>
               <SelectValue placeholder="Select PDP Type">
-                {PDP_TYPES.find(type => type.value === formData[profileId].pdpType)?.label || "Select PDP Type"}
+                {getPDPTypeLabel(formData[profileId].pdpType)}
               </SelectValue>
             </SelectTrigger>
             <SelectContent>
               <SelectGroup>
                 <SelectLabel>PDP Type</SelectLabel>
-                {PDP_TYPES.map(({ value, label }) => (
-                  <SelectItem key={value} value={value}>
-                    {label}
-                  </SelectItem>
-                ))}
+                <SelectItem value="IPV4">IPv4 Only</SelectItem>
+                <SelectItem value="IPV6">IPv6 Only</SelectItem>
+                <SelectItem value="IPV4V6">IPv4 and IPv6</SelectItem>
+                <SelectItem value="P2P">P2P Protocol</SelectItem>
               </SelectGroup>
             </SelectContent>
           </Select>
@@ -234,7 +271,9 @@ const APNProfilesCard = () => {
       </div>
 
       <div className="grid w-full max-w-sm items-center gap-2 col-span-2">
-        <Label htmlFor={`ICCIDProfile${profileNum}`}>ICCID Profile {profileNum}</Label>
+        <Label htmlFor={`ICCIDProfile${profileNum}`}>
+          ICCID Profile {profileNum}
+        </Label>
         {isLoading ? (
           <Skeleton className="h-8" />
         ) : (
@@ -243,17 +282,41 @@ const APNProfilesCard = () => {
             id={`ICCIDProfile${profileNum}`}
             placeholder={`ICCID for Profile ${profileNum}`}
             value={formData[profileId].iccid}
-            onChange={(e) => handleFieldChange(profileId, "iccid", e.target.value)}
+            onChange={(e) =>
+              handleFieldChange(profileId, "iccid", e.target.value)
+            }
           />
         )}
       </div>
     </>
   );
 
+  const getPDPTypeLabel = (pdpType: string | undefined | null): string => {
+    const pdpTypeMap: Record<string, string> = {
+      IPV4: "IPv4 Only",
+      IPV6: "IPv6 Only",
+      IPV4V6: "IPv4 and IPv6",
+      P2P: "P2P Protocol",
+    };
+    return pdpType && pdpTypeMap[pdpType]
+      ? pdpTypeMap[pdpType]
+      : "Select PDP Type";
+  };
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle>APN and ICCID Profiles</CardTitle>
+        <CardTitle>
+          <div className="flex items-center">
+            {serviceStatus &&
+              (serviceStatus.status === "running" ? (
+                <CheckCircle2 className="h-4 w-4 mr-2 text-green-500" />
+              ) : (
+                <AlertTriangle className="h-4 w-4 mr-2 text-yellow-500" />
+              ))}
+            APN and ICCID Profiles
+          </div>
+        </CardTitle>
         <CardDescription>
           Configure APN profiles based on SIM card ICCID. Profile 1 is required.
         </CardDescription>
@@ -262,26 +325,43 @@ const APNProfilesCard = () => {
         <form
           className="grid grid-cols-1 lg:grid-cols-2 grid-flow-row gap-6"
           onSubmit={handleSave}
+          onClick={(e) => console.log("Form clicked")} // Add this temporarily
         >
           {renderProfileFields("profile1", 1)}
-          
+
           <Separator className="col-span-2 w-full my-2" />
-          
+
           {renderProfileFields("profile2", 2)}
+
+          <Separator className="col-span-2 w-full my-2" />
+
+          {/* {lastActivity && (
+          <Alert className="mb-6">
+            <AlertDescription>
+              {lastActivity}
+            </AlertDescription>
+          </Alert>
+        )} */}
 
           <div className="col-span-2">
             <CardFooter className="border-t py-4 grid md:grid-cols-2 grid-cols-1 gap-4 px-0">
-              <Button type="submit" disabled={isSaving || isDeleting}>
-                <Save className="h-4 w-4" />
-                {isSaving ? "Saving..." : "Save Profiles"}
+              <Button
+                type="submit"
+                disabled={isSaving || isDeleting || isActive}
+                onClick={(e) => {
+                  console.log("Button clicked directly"); // Add this
+                }}
+              >
+                <Save className="h-4 w-4 mr-2" />
+                {isSaving ? "Saving..." : "Save"}
               </Button>
               <Button
                 type="button"
-                variant="secondary"
+                variant="destructive"
                 onClick={handleDelete}
-                disabled={isSaving || isDeleting}
+                disabled={isSaving || isDeleting || !isActive}
               >
-                <Trash2 className="h-4 w-4" />
+                <Trash2 className="h-4 w-4 mr-2" />
                 {isDeleting ? "Deleting..." : "Delete All Profiles"}
               </Button>
             </CardFooter>

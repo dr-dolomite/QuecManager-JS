@@ -161,4 +161,27 @@ const ACCESS_TECH_MAP: AccessTechMap = {
 // const NR_BANDWIDTH_MAP: BandwidthMap = { ... };
 // const ACCESS_TECH_MAP: AccessTechMap = { ... };
 
+export interface APNProfile {
+  iccid: string;
+  apn: string;
+  pdpType: string;
+}
+
+export interface ServiceStatus {
+  status: "running" | "stopped";
+  enabled: boolean;
+  script: "present" | "missing";
+  initScript: "present" | "missing";
+}
+
+export interface APNProfileResponse {
+  status: "active" | "inactive" | "error";
+  message?: string;
+  service?: ServiceStatus;
+  profiles: {
+    profile1?: APNProfile;
+    profile2?: APNProfile;
+  };
+  lastActivity?: string;
+}
 
