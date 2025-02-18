@@ -114,7 +114,7 @@ const BasicSettings = () => {
 
   const forceRerunScripts = async () => {
     try {
-      const response = await fetch("/cgi-bin/settings/force-rerun.sh");
+      const response = await fetch("/api/cgi-bin/quecmanager/settings/force-rerun.sh");
       const data = await response.json();
       
       if (data.status === "success") {

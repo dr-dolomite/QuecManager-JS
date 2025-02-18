@@ -94,6 +94,7 @@ export interface AboutData {
   lanGateway?: string;
   wwanIPv4?: string;
   wwanIPv6?: string;
+  deviceUptime?: string;
 }
 
 export interface DiagnosticsData {

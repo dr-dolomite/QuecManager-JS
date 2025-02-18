@@ -55,7 +55,7 @@ const useTrafficStats = () => {
 
   const fetchTrafficStats = useCallback(async () => {
     try {
-      const response = await fetch("/cgi-bin/home/fetch_data_usage.sh");
+      const response = await fetch("/api/cgi-bin/quecmanager/home/fetch_data_usage.sh");
       const data = await response.json();
       parseTrafficData(data);
     } catch (error) {

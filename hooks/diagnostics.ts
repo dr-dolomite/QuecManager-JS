@@ -197,7 +197,7 @@ const useRunDiagnostics = () => {
   const startDiagnostics = async () => {
     setIsRunningDiagnostics(true);
     try {
-      const response = await fetch("/cgi-bin/fetch_data.sh?set=6");
+      const response = await fetch("/api/cgi-bin/quecmanager/at_cmd/fetch_data.sh?set=6");
       const data = await response.json();
       console.log("Diagnostics data:", data);
 

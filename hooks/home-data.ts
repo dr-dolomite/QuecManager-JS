@@ -10,7 +10,7 @@ const useHomeData = () => {
 
   const fetchHomeData = useCallback(async () => {
     try {
-      const response = await fetch("/cgi-bin/fetch_data.sh?set=1");
+      const response = await fetch("/api/cgi-bin/quecmanager/at_cmd/fetch_data.sh?set=1");
       const rawData = await response.json();
       console.log(rawData);
 

@@ -36,13 +36,15 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
 
 interface CommandHistoryItem {
   command: string;
   response: string;
   timestamp: string;
-  status?: string;
-  message?: string;
+  status: string;
+  duration?: number;
+  commandId?: string;
 }
 
 interface ATCommand {
@@ -50,16 +52,22 @@ interface ATCommand {
   command: string;
 }
 
-interface CommandResponse {
-  status: string;
-  command: string;
-  response: string;
-  timestamp: string;
-  message?: string;
+interface QueueResponse {
+  command: {
+    id: string;
+    text: string;
+    timestamp: string;
+  };
+  response: {
+    status: string;
+    raw_output: string;
+    completion_time: string;
+    duration_ms: number;
+  };
 }
 
 const ATTerminalPage = () => {
-  const toast = useToast();
+  const { toast } = useToast();
   const [output, setOutput] = useState<string>("");
   const [input, setInput] = useState<string>("");
   const [commandHistory, setCommandHistory] = useState<CommandHistoryItem[]>(
@@ -75,13 +83,13 @@ const ATTerminalPage = () => {
   useEffect(() => {
     const fetchCommands = async () => {
       try {
-        const response = await fetch("/cgi-bin/advance/fetch_commands.sh");
-        // const response = await fetch("/fetch-commands");
+        const response = await fetch(
+          "/api/cgi-bin/quecmanager/advance/fetch_commands.sh"
+        );
         const data = await response.json();
 
-        // Transform the data into ATCommand array
         const commands: ATCommand[] = Object.entries(data)
-          .filter(([key]) => key !== "error") // Filter out error entry if present
+          .filter(([key]) => key !== "error")
           .map(([description, command]) => ({
             description,
             command: command as string,
@@ -94,7 +102,7 @@ const ATTerminalPage = () => {
         setCommonCommands(commands);
       } catch (error) {
         console.error("Failed to fetch AT commands:", error);
-        toast.toast({
+        toast({
           title: "Error",
           description:
             error instanceof Error
@@ -108,7 +116,7 @@ const ATTerminalPage = () => {
     };
 
     fetchCommands();
-  }, []);
+  }, [toast]);
 
   // Load previous commands and history from localStorage
   useEffect(() => {
@@ -155,74 +163,85 @@ const ATTerminalPage = () => {
   }, [previousCommands]);
 
   const executeCommand = async () => {
-    const command = input.trim().toLowerCase();
+    const command = input.trim();
 
     // Easter egg check
-    if (command === "tetris") {
+    if (command.toLowerCase() === "tetris") {
       window.open("/settings/games/tetris", "_blank");
       setInput("");
       return;
     }
 
-    setIsLoading(true);
-    const currentCommand = input;
-    setInput("");
+    if (!command.toUpperCase().startsWith("AT")) {
+      toast({
+        title: "Invalid Command",
+        description: "Command must start with 'AT'",
+        variant: "destructive",
+      });
+      return;
+    }
 
-    // Show command being executed
-    setOutput(`> ${currentCommand}\nExecuting command, please wait...`);
+    setIsLoading(true);
+    setInput("");
+    setOutput(`> ${command}\nExecuting command, please wait...`);
 
     try {
-      // Send command directly to the CGI script
-      const encodedCommand = encodeURIComponent(currentCommand);
+      // Send command to queue client with wait flag
+      const encodedCommand = encodeURIComponent(command);
       const response = await fetch(
-        `/cgi-bin/at_command.sh?command=${encodedCommand}`
+        `/api/cgi-bin/services/at_queue_client?command=${encodedCommand}&wait=1`
       );
-      const data: CommandResponse = await response.json();
+      const data: QueueResponse = await response.json();
 
-      // Update output with result, including any error messages
-      let outputText = `> ${currentCommand}\n`;
-      if (data.response) {
-        outputText += data.response;
-      }
-      if (data.status === "error" && data.message) {
-        outputText += `\nError: ${data.message}`;
+      // Format output
+      let outputText = `> ${command}\n`;
+      if (data.response.raw_output) {
+        outputText += data.response.raw_output;
       }
       setOutput(outputText);
 
       // Create new history item
       const newHistoryItem: CommandHistoryItem = {
-        command: currentCommand,
-        response: data.response || "No output",
-        timestamp: data.timestamp,
-        status: data.status,
-        message: data.message,
+        command: command,
+        response: data.response.raw_output || "No output",
+        timestamp: data.command.timestamp,
+        status: data.response.status,
+        duration: data.response.duration_ms,
+        commandId: data.command.id,
       };
 
       // Update command history
       setCommandHistory((prev) => [newHistoryItem, ...prev]);
 
-      // Only update previous commands for successful executions
+      // Update previous commands for successful executions
       if (
-        data.status === "success" &&
-        !previousCommands.includes(currentCommand)
+        data.response.status === "success" &&
+        !previousCommands.includes(command)
       ) {
-        setPreviousCommands((prev) => [...prev, currentCommand]);
+        setPreviousCommands((prev) => [...prev, command]);
       }
 
       // Show toast for errors
-      if (data.status === "error") {
-        toast.toast({
-          title: "Command Error",
-          description: data.message || "Command execution failed",
+      if (
+        data.response.status === "error" ||
+        data.response.status === "timeout"
+      ) {
+        toast({
+          title: `Command ${
+            data.response.status === "timeout" ? "Timeout" : "Error"
+          }`,
+          description:
+            data.response.raw_output ||
+            `Command execution ${data.response.status}`,
           variant: "destructive",
         });
       }
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : "An unknown error occurred";
-      setOutput(`> ${currentCommand}\nError: ${errorMessage}`);
+      setOutput(`> ${command}\nError: ${errorMessage}`);
 
-      toast.toast({
+      toast({
         title: "Error",
         description: errorMessage,
         variant: "destructive",
@@ -264,7 +283,6 @@ const ATTerminalPage = () => {
       const newHistory = [...prev];
       newHistory.splice(index, 1);
 
-      // Update localStorage after removing item
       if (newHistory.length === 0) {
         window.localStorage.removeItem("atCommandHistory");
       }
@@ -281,30 +299,23 @@ const ATTerminalPage = () => {
   const removeSuggestion = (commandToRemove: string) => {
     setPreviousCommands((prev) => {
       const newCommands = prev.filter((cmd) => cmd !== commandToRemove);
-      // Update localStorage with filtered commands
       window.localStorage.setItem("atCommands", JSON.stringify(newCommands));
       return newCommands;
     });
-    // Update suggestions to remove the deleted command
     setSuggestions((prev) => prev.filter((cmd) => cmd !== commandToRemove));
   };
 
   const handleCopyCommand = async (command: string) => {
     try {
-      // Try using the Clipboard API first
       if (navigator.clipboard && window.isSecureContext) {
         await navigator.clipboard.writeText(command);
       } else {
-        // Fallback for browsers without clipboard API or non-secure contexts
         const textArea = document.createElement("textarea");
         textArea.value = command;
-
-        // Make the textarea out of viewport
         textArea.style.position = "fixed";
         textArea.style.left = "-999999px";
         textArea.style.top = "-999999px";
         document.body.appendChild(textArea);
-
         textArea.focus();
         textArea.select();
 
@@ -318,14 +329,14 @@ const ATTerminalPage = () => {
         }
       }
 
-      toast.toast({
+      toast({
         title: "Copied!",
         description: `Command "${command}" copied to clipboard`,
         duration: 2000,
       });
     } catch (error) {
       console.error("Failed to copy command:", error);
-      toast.toast({
+      toast({
         title: "Error",
         description: "Failed to copy command to clipboard",
         variant: "destructive",
@@ -339,7 +350,9 @@ const ATTerminalPage = () => {
       <Card>
         <CardHeader>
           <CardTitle>AT Terminal</CardTitle>
-          <CardDescription>Send AT commands to your device</CardDescription>
+          <CardDescription>
+            Send AT commands to your device using the queue system
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid gap-8 w-full max-w-screen p-4">
@@ -349,7 +362,7 @@ const ATTerminalPage = () => {
                 value={output}
                 placeholder="AT command output will appear here..."
                 readOnly
-                className="h-[240px] font-mono"
+                className="h-64 font-mono"
                 id="ATOutput"
               />
             </div>
@@ -390,7 +403,7 @@ const ATTerminalPage = () => {
                       </AlertDialogContent>
                     </AlertDialog>
                   </div>
-                  <ScrollArea className="h-[180px] p-4">
+                  <ScrollArea className="h-44 p-4">
                     <div className="grid gap-y-2">
                       {commandHistory.map((item, index) => (
                         <Card key={`${item.timestamp}-${index}`}>
@@ -405,17 +418,34 @@ const ATTerminalPage = () => {
                                 <X className="h-4 w-4" />
                               </Button>
                               <div className="grid gap-2">
-                                <p className="text-sm font-medium flex items-center gap-2">
-                                  {item.command}
-                                  {item.status === "error" && (
-                                    <span className="text-xs text-red-500">
-                                      {item.message}
+                                <div className="flex items-center gap-x-2">
+                                  <p className="text-sm font-medium">
+                                    {item.command}
+                                  </p>
+                                  <Badge
+                                    className={`${
+                                      item.status === "success"
+                                        ? "bg-primary text-foreground"
+                                        : item.status === "timeout"
+                                        ? "bg-yellow-500 text-foreground"
+                                        : "bg-red-500 text-red-foreground"
+                                    }`}
+                                  >
+                                    {item.status} -{" "}
+                                    {item.duration !== undefined &&
+                                      `${item.duration}ms`}
+                                  </Badge>
+                                </div>
+                                {/* <div className="flex items-center gap-2">
+                                  {item.commandId && (
+                                    <span className="text-xs text-muted-foreground">
+                                      ID: {item.commandId}
                                     </span>
                                   )}
-                                </p>
+                                </div> */}
                                 {item.response &&
                                   item.response !== "No output" && (
-                                    <p className="whitespace-pre-wrap font-mono">
+                                    <p className="whitespace-pre-wrap font-mono text-sm">
                                       {item.response}
                                     </p>
                                   )}

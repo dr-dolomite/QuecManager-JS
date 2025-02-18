@@ -155,6 +155,17 @@ const AboutPage = () => {
                     )}
                   </span>
                 </div>
+
+                <div className="flex items-center justify-between">
+                  <span>Device Uptime</span>
+                  <span className="font-semibold max-w-32 md:max-w-full truncate">
+                    {isLoading ? (
+                      <Skeleton className="h-4 w-32" />
+                    ) : (
+                      <>{data?.deviceUptime || "N/A"}</>
+                    )}
+                  </span>
+                </div>
               </div>
               <ScrollBar orientation="horizontal" />
             </ScrollArea>

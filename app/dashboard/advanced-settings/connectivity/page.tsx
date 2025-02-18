@@ -289,8 +289,8 @@ const ConnectivitySettingsPage = () => {
         const [macsResponse, advanceResponse] = await Promise.all([
           // fetch("/fetch-macs"),
           // fetch("/fetch-advance"),
-          fetch("/cgi-bin/advance/fetch_macs.sh"),
-          fetch("/cgi-bin/fetch_data.sh?set=4"),
+          fetch("/api/cgi-bin/quecmanager/advance/fetch_macs.sh"),
+          fetch("/api/cgi-bin/quecmanager/at_cmd/fetch_data.sh?set=4"),
         ]);
 
         const [macsData, advanceData] = await Promise.all([

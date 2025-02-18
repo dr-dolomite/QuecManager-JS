@@ -25,7 +25,7 @@ const MemoryCard = () => {
   useEffect(() => {
     const fetchMemoryInfo = async () => {
       try {
-        const response = await fetch('/cgi-bin/home/fetch_hw_details.sh?type=memory', {
+        const response = await fetch('/api/cgi-bin/quecmanager/home/fetch_hw_details.sh?type=memory', {
           method: 'GET',
           cache: 'no-store',
           headers: {

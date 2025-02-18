@@ -1,4 +1,3 @@
-// hooks/cellSettingsData.ts
 import { useState, useEffect, useCallback } from "react";
 import { AboutData } from "@/types/types";
 
@@ -6,13 +5,40 @@ const useAboutData = () => {
   const [data, setData] = useState<AboutData | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
+  const fetchUptime = useCallback(async () => {
+    try {
+      const uptimeResponse = await fetch("/api/cgi-bin/quecmanager/settings/device-uptime.sh");
+      const uptimeData = await uptimeResponse.json();
+      
+      setData(prevData => {
+        if (!prevData) return prevData;
+        return {
+          ...prevData,
+          deviceUptime: uptimeData.uptime.formatted || "N/A"
+        };
+      });
+    } catch (error) {
+      console.error("Error fetching uptime:", error);
+    }
+  }, []);
+
   const fetchAboutData = useCallback(async () => {
     try {
       setIsLoading(true);
-      const response = await fetch("/cgi-bin/fetch_data.sh?set=3");
-    // const response = await fetch("/fetch-about");
-      const rawData = await response.json();
+      
+      // Fetch both device info and initial uptime in parallel
+      const [deviceResponse, uptimeResponse] = await Promise.all([
+        fetch("/api/cgi-bin/quecmanager/at_cmd/fetch_data.sh?set=3"),
+        fetch("/api/cgi-bin/quecmanager/settings/device-uptime.sh")
+      ]);
+
+      const [rawData, uptimeData] = await Promise.all([
+        deviceResponse.json(),
+        uptimeResponse.json()
+      ]);
+
       console.log("Fetched about data:", rawData);
+      console.log("Fetched uptime data:", uptimeData);
 
       const processedData: AboutData = {
         manufacturer: rawData[0].response.split("\n")[1].trim(),
@@ -27,24 +53,30 @@ const useAboutData = () => {
         wwanIPv4: rawData[8].response.split("\n")[1].split(":")[1].split(",")[4].replace(/"/g, "").trim(),
         wwanIPv6: rawData[8].response.split("\n")[2].split(",")[4].replace(/"/g, "").trim(),
         lteCategory: rawData[9].response.split("\n")[5].split(":")[2].trim(),
-        
+        deviceUptime: uptimeData.uptime.formatted || "N/A"
       };
 
       setData(processedData);
-      console.log("Processed cell settings data:", processedData);
+      console.log("Processed data:", processedData);
     } catch (error) {
-      console.error("Error fetching cell settings data:", error);
+      console.error("Error fetching data:", error);
     }
     setIsLoading(false);
   }, []);
 
   useEffect(() => {
     fetchAboutData();
-  }, [fetchAboutData]);
+
+    // Set up interval for uptime updates
+    const uptimeInterval = setInterval(fetchUptime, 1000);
+
+    // Cleanup on unmount
+    return () => {
+      clearInterval(uptimeInterval);
+    };
+  }, [fetchAboutData, fetchUptime]);
 
   return { data, isLoading, fetchAboutData };
 };
 
 export default useAboutData;
-
-// Helper functions
