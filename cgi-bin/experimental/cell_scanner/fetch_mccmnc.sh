@@ -5,7 +5,7 @@ echo "Content-type: application/json"
 echo ""
 
 # Configuration
-JSON_FILE="/www/cgi-bin/mcc-mnc-list.json"
+JSON_FILE="/www/cgi-bin/quecmanager/mcc-mnc-list.json"
 
 # Function to log messages
 log_message() {

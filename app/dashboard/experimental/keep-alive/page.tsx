@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Clock1, TriangleAlert } from "lucide-react";
+import { Clock1, DiscIcon, TriangleAlert } from "lucide-react";
 import { Toggle } from "@/components/ui/toggle";
 import { useToast } from "@/hooks/use-toast";
 
@@ -41,7 +41,9 @@ const KeepAliveCard = () => {
 
   const fetchStatus = async (): Promise<void> => {
     try {
-      const response = await fetch("/cgi-bin/experimental/keep_alive.sh?status=true");
+      const response = await fetch(
+        "/api/cgi-bin/quecmanager/experimental/keep_alive.sh?status=true"
+      );
       const data: KeepAliveStatus = await response.json();
 
       setStartTime(data.start_time);
@@ -79,17 +81,20 @@ const KeepAliveCard = () => {
           return;
         }
 
-        const response = await fetch("/cgi-bin/experimental/keep_alive.sh", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/x-www-form-urlencoded",
-          },
-          body: `start_time=${encodeURIComponent(
-            startTime
-          )}&end_time=${encodeURIComponent(
-            endTime
-          )}&interval=${encodeURIComponent(interval)}`,
-        });
+        const response = await fetch(
+          "/api/cgi-bin/quecmanager/experimental/keep_alive.sh",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/x-www-form-urlencoded",
+            },
+            body: `start_time=${encodeURIComponent(
+              startTime
+            )}&end_time=${encodeURIComponent(
+              endTime
+            )}&interval=${encodeURIComponent(interval)}`,
+          }
+        );
 
         const data: KeepAliveResponse = await response.json();
 
@@ -107,13 +112,16 @@ const KeepAliveCard = () => {
           description: "Keep-alive scheduling enabled",
         });
       } else {
-        const response = await fetch("/cgi-bin/experimental/keep_alive.sh", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/x-www-form-urlencoded",
-          },
-          body: "disable=true",
-        });
+        const response = await fetch(
+          "/api/cgi-bin/quecmanager/experimental/keep_alive.sh",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/x-www-form-urlencoded",
+            },
+            body: "disable=true",
+          }
+        );
 
         const data: KeepAliveResponse = await response.json();
 
@@ -203,7 +211,7 @@ const KeepAliveCard = () => {
           onPressedChange={handleToggle}
           disabled={!startTime || !endTime || !interval}
         >
-          <Clock1 className="h-4 w-4 mr-2" />
+          <DiscIcon className="h-4 w-4 mr-2" />
           Enable Keep Alive
         </Toggle>
       </CardFooter>

@@ -5,15 +5,20 @@ echo "Content-type: application/json"
 echo ""
 
 # Configuration
-QUEUE_FILE="/tmp/at_pipe.txt"
+QUEUE_DIR="/tmp/at_queue"
+RESULTS_DIR="$QUEUE_DIR/results"
+TOKEN_FILE="$QUEUE_DIR/token"
 RESULT_FILE="/tmp/qscan_result.json"
-WORKER_SCRIPT="/www/cgi-bin/experimental/cell_scanner/cell_scan_worker.sh"
+WORKER_SCRIPT="/www/cgi-bin/quecmanager/experimental/cell_scanner/cell_scan_worker.sh"
 PID_FILE="/tmp/cell_scan.pid"
-CELL_SCAN_KEYWORD="CELL_SCAN"
+SCAN_COMMAND="AT+QSCAN=3,1"
+SCAN_TIMEOUT=200
+LOCK_ID="CELL_SCAN_$(date +%s)_$$"
 
 # Function to log messages
 log_message() {
-    logger -t cell_scan "$1"
+    local level="${2:-info}"
+    logger -t at_queue -p "daemon.$level" "cell_scan: $1"
 }
 
 # Function to output JSON response
@@ -39,50 +44,71 @@ check_worker_running() {
     return 1
 }
 
-# Function to wait for queue to be ready
-wait_for_queue() {
-    local retries=0
-    while [ ! -f "$QUEUE_FILE" ] && [ $retries -lt 10 ]; do
-        touch "$QUEUE_FILE" 2>/dev/null || {
-            log_message "Waiting for queue file to be available (attempt $retries)"
-            sleep 1
-            retries=$((retries + 1))
-            continue
-        }
-        chmod 666 "$QUEUE_FILE" 2>/dev/null
-        log_message "Queue file created and permissions set"
-        break
+# Enhanced JSON string escaping function
+escape_json() {
+    printf '%s' "$1" | awk '
+    BEGIN { RS="\n"; ORS="\\n" }
+    {
+        gsub(/\\/, "\\\\")
+        gsub(/"/, "\\\"")
+        gsub(/\r/, "")
+        gsub(/\t/, "\\t")
+        gsub(/\f/, "\\f")
+        gsub(/\b/, "\\b")
+        print
+    }
+    ' | sed 's/\\n$//'
+}
+
+# Acquire token directly with high priority
+acquire_token() {
+    local priority=1  # Highest priority for cell scan
+    local max_attempts=10
+    local attempt=0
+    
+    while [ $attempt -lt $max_attempts ]; do
+        # Check if token file exists
+        if [ -f "$TOKEN_FILE" ]; then
+            local current_holder=$(cat "$TOKEN_FILE" | jsonfilter -e '@.id' 2>/dev/null)
+            local current_priority=$(cat "$TOKEN_FILE" | jsonfilter -e '@.priority' 2>/dev/null)
+            local timestamp=$(cat "$TOKEN_FILE" | jsonfilter -e '@.timestamp' 2>/dev/null)
+            local current_time=$(date +%s)
+            
+            # Check for expired token (> 30 seconds old)
+            if [ $((current_time - timestamp)) -gt 30 ] || [ -z "$current_holder" ]; then
+                # Remove expired token
+                rm -f "$TOKEN_FILE" 2>/dev/null
+            elif [ $priority -lt $current_priority ]; then
+                # Preempt lower priority token
+                log_message "Preempting token from $current_holder (priority: $current_priority)" "info"
+                rm -f "$TOKEN_FILE" 2>/dev/null
+            else
+                # Try again - higher priority token exists
+                log_message "Token held by $current_holder with priority $current_priority, retrying..." "debug"
+                sleep 0.5
+                attempt=$((attempt + 1))
+                continue
+            fi
+        fi
+        
+        # Try to create token file
+        echo "{\"id\":\"$LOCK_ID\",\"priority\":$priority,\"timestamp\":$(date +%s)}" > "$TOKEN_FILE" 2>/dev/null
+        chmod 644 "$TOKEN_FILE" 2>/dev/null
+        
+        # Verify we got the token
+        local holder=$(cat "$TOKEN_FILE" 2>/dev/null | jsonfilter -e '@.id' 2>/dev/null)
+        if [ "$holder" = "$LOCK_ID" ]; then
+            log_message "Successfully acquired token with priority $priority" "info"
+            return 0
+        fi
+        
+        sleep 0.5
+        attempt=$((attempt + 1))
     done
+    
+    log_message "Failed to acquire token after $max_attempts attempts" "error"
+    return 1
 }
-
-# Function to add scan entry to queue
-add_scan_entry() {
-    # Wait for queue file to exist
-    wait_for_queue
-    
-    local entry
-    entry=$(printf '{"command":"%s","id":"%s","pid":"%s","timestamp":"%s","priority":"high","status":"queued"}\n' \
-        "$CELL_SCAN_KEYWORD" \
-        "cell_scan_$$" \
-        "$$" \
-        "$(date '+%H:%M:%S')")
-    
-    echo "$entry" >> "$QUEUE_FILE"
-    log_message "Added scan entry to queue: $entry"
-    
-    # Verify entry was added
-    if ! grep -q "\"pid\":\"$$\"" "$QUEUE_FILE"; then
-        log_message "Failed to verify scan entry in queue"
-        return 1
-    fi
-    
-    sync
-    return 0
-}
-
-# Ensure worker script is executable
-chmod +x "$WORKER_SCRIPT" 2>/dev/null
-log_message "Ensured worker script is executable"
 
 # Main execution
 {
@@ -93,19 +119,50 @@ log_message "Ensured worker script is executable"
 
     # Start new scan
     rm -f "$RESULT_FILE"
-    log_message "Starting new worker script: $WORKER_SCRIPT"
+    log_message "Starting new cell scan" "info"
     
-    # Add scan entry to queue before starting worker
-    if ! add_scan_entry; then
-        log_message "Failed to add scan entry to queue"
-        output_json "error" "Failed to acquire queue lock"
+    # Ensure worker script is executable
+    chmod +x "$WORKER_SCRIPT" 2>/dev/null
+    
+    # Start worker script with proper parameters
+    log_message "Attempting to start worker script: $WORKER_SCRIPT" "info"
+    
+    # Check if worker script exists
+    if [ ! -f "$WORKER_SCRIPT" ]; then
+        log_message "Worker script not found: $WORKER_SCRIPT" "error"
+        output_json "error" "Worker script not found"
     fi
     
-    sh "$WORKER_SCRIPT" >/tmp/cell_scan_worker.log 2>&1 &
-    log_message "Worker script started with PID $!"
+    # Ensure QUEUE_DIR exists
+    mkdir -p "$QUEUE_DIR" "$RESULTS_DIR"
+    chmod 755 "$QUEUE_DIR"
+    chmod 755 "$RESULTS_DIR"
+    
+    # Start worker with debug logging
+    WORKER_PID=$ 
+    (sh "$WORKER_SCRIPT" >/tmp/cell_scan_worker.log 2>&1) &
+    WORKER_PID=$!
+    log_message "Worker script started with PID $WORKER_PID" "info"
+    
+    # The worker process runs in the background and completes quickly
+    # We don't need to check if it's still running as it might finish before we check
+    log_message "Worker process $WORKER_PID started in background" "info"
+    
+    # Instead of checking if the process is running, check if it created the result file
+    sleep 2
+    if [ -f "$RESULT_FILE" ]; then
+        log_message "Worker successfully created result file" "info"
+    else
+        log_message "Waiting for worker to create result file..." "info"
+        # If no result file yet, check for errors
+        if [ -f "/tmp/cell_scan_worker.log" ]; then
+            WORKER_LOG=$(cat "/tmp/cell_scan_worker.log" | head -20)
+            log_message "Worker log: $WORKER_LOG" "info"
+        fi
+    fi
     output_json "running" "Started new cell scan"
 } || {
     # Error handler
-    log_message "Script failed with error"
+    log_message "Script failed with error" "error"
     output_json "error" "Internal error occurred"
 }

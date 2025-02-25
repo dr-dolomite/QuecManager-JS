@@ -37,7 +37,7 @@ export function useAPNConfig(): UseAPNConfigReturn {
   const fetchProfiles = async () => {
     try {
       setIsLoading(true);
-      const response = await fetch("/cgi-bin/cell-settings/apn-profiles/fetch-apn-profile.sh", {
+      const response = await fetch("/api/cgi-bin/quecmanager/cell-settings/apn-profiles/fetch-apn-profile.sh", {
         method: 'GET',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
@@ -86,7 +86,7 @@ export function useAPNConfig(): UseAPNConfigReturn {
       }
 
       const response = await fetch(
-        "/cgi-bin/cell-settings/apn-profiles/save-apn-profile.sh",
+        "/api/cgi-bin/quecmanager/cell-settings/apn-profiles/save-apn-profile.sh",
         {
           method: "POST",
           headers: {
@@ -125,7 +125,7 @@ export function useAPNConfig(): UseAPNConfigReturn {
   const deleteAPNProfiles = async (): Promise<boolean> => {
     try {
       const response = await fetch(
-        "/cgi-bin/cell-settings/apn-profiles/delete-apn-profile.sh",
+        "/api/cgi-bin/quecmanager/cell-settings/apn-profiles/delete-apn-profile.sh",
         {
           method: "POST",
           headers: {

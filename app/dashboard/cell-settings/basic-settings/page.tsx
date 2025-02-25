@@ -35,6 +35,20 @@ interface FormData {
   simSlot: string;
 }
 
+interface QueueResponse {
+  command: {
+    id: string;
+    text: string;
+    timestamp: string;
+  };
+  response: {
+    status: string;
+    raw_output: string;
+    completion_time: string;
+    duration_ms: number;
+  };
+}
+
 const BasicSettings = () => {
   const { toast } = useToast();
   const {
@@ -141,10 +155,27 @@ const BasicSettings = () => {
     }
   };
 
+  const executeATCommand = async (command: string): Promise<boolean> => {
+    const encodedCommand = encodeURIComponent(command);
+    const response = await fetch(`/api/cgi-bin/quecmanager/at_cmd/at_queue_client?command=${encodedCommand}&wait=1`);
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    const data: QueueResponse = await response.json();
+    
+    if (data.response.status === "error" || data.response.status === "timeout") {
+      throw new Error(data.response.raw_output || `Command execution ${data.response.status}`);
+    }
+    
+    return data.response.status === "success";
+  };
+
   const handleSavedSettings = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setIsSaving(true);
-
+  
     try {
       const changes: Partial<FormData> = {};
       Object.keys(formData).forEach((key) => {
@@ -153,7 +184,7 @@ const BasicSettings = () => {
           changes[k] = formData[k];
         }
       });
-
+  
       if (Object.keys(changes).length === 0) {
         toast({
           title: "No changes detected",
@@ -161,35 +192,23 @@ const BasicSettings = () => {
         });
         return;
       }
-
+  
       const command = constructATCommand(changes);
-      const encodedCommand = encodeURIComponent(command);
-      const response = await fetch(`/cgi-bin/at_command.sh?command=${encodedCommand}`, {
-        method: "GET", // CGI scripts typically expect GET requests with query parameters
-        headers: {
-          "Accept": "application/json",
-        },
-        signal: AbortSignal.timeout(5000),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to save settings");
-      }
-
+      await executeATCommand(command);
+  
       // Add a delay to allow the settings to take effect
       await new Promise((resolve) => setTimeout(resolve, 1500));
       await fetchCellSettingsData();
-      setIsDataLoaded(false); // Reset to allow re-initialization
-
+      setIsDataLoaded(false);
+  
       toast({
         title: "Settings saved!",
         description: "The settings have been saved successfully",
         duration: 3000,
       });
-
+  
       // If SIM slot was changed, trigger the force-rerun script
       if (changes.simSlot) {
-        // wait for 3.1 seconds before restarting scripts
         setTimeout(() => {
           forceRerunScripts();
         }, 3100);
@@ -199,7 +218,7 @@ const BasicSettings = () => {
       toast({
         variant: "destructive",
         title: "Failed to save settings!",
-        description: "An error occurred while saving the settings",
+        description: error instanceof Error ? error.message : "An error occurred while saving the settings",
       });
     } finally {
       setIsSaving(false);

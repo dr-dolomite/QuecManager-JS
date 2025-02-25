@@ -4,18 +4,20 @@
 echo "Content-type: application/json"
 echo ""
 
-# Define file paths and configuration
-QUEUE_FILE="/tmp/at_pipe.txt"
+# Define paths and constants to match queue system
+QUEUE_DIR="/tmp/at_queue"
+RESULTS_DIR="$QUEUE_DIR/results"
+TOKEN_FILE="$QUEUE_DIR/token"
 TEMP_FILE="/tmp/network_info_output.txt"
-LOG_FILE="/var/log/network_info.log"
-LOCK_KEYWORD="AT_COMMAND_LOCK"
-MAX_WAIT=6
+LOCK_ID="NETWORK_INFO_$(date +%s)_$$"
 COMMAND_TIMEOUT=4
+MAX_TOKEN_WAIT=10
+PRIORITY=5  # Medium-high priority (between cell scan and normal commands)
 
 # Function to log messages
 log_message() {
-    echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" >> "${LOG_FILE}"
-    logger -t network_info "$1"
+    local level="${2:-info}"
+    logger -t at_queue -p "daemon.$level" "network_info: $1"
 }
 
 # Function to output JSON error
@@ -24,45 +26,84 @@ output_error() {
     exit 1
 }
 
-# Function to clean and add lock
-add_clean_lock() {
-    local TIMESTAMP=$(date +%s)
-    local WAIT_START=$(date +%s)
+# Enhanced JSON string escaping function
+escape_json() {
+    printf '%s' "$1" | awk '
+    BEGIN { RS="\n"; ORS="\\n" }
+    {
+        gsub(/\\/, "\\\\")
+        gsub(/"/, "\\\"")
+        gsub(/\r/, "")
+        gsub(/\t/, "\\t")
+        gsub(/\f/, "\\f")
+        gsub(/\b/, "\\b")
+        print
+    }
+    ' | sed 's/\\n$//'
+}
+
+# Acquire token directly with medium-high priority
+acquire_token() {
+    local priority="$PRIORITY"  # Medium-high priority for network info
+    local max_attempts=$MAX_TOKEN_WAIT
+    local attempt=0
     
-    while true; do
-        local CURRENT_TIME=$(date +%s)
-        
-        if [ $((CURRENT_TIME - WAIT_START)) -ge $MAX_WAIT ]; then
-            sed -i "/${LOCK_KEYWORD}/d" "$QUEUE_FILE"
-            log_message "Removed existing lock after $MAX_WAIT seconds timeout"
+    while [ $attempt -lt $max_attempts ]; do
+        # Check if token file exists
+        if [ -f "$TOKEN_FILE" ]; then
+            local current_holder=$(cat "$TOKEN_FILE" | jsonfilter -e '@.id' 2>/dev/null)
+            local current_priority=$(cat "$TOKEN_FILE" | jsonfilter -e '@.priority' 2>/dev/null)
+            local timestamp=$(cat "$TOKEN_FILE" | jsonfilter -e '@.timestamp' 2>/dev/null)
+            local current_time=$(date +%s)
+            
+            # Check for expired token (> 30 seconds old)
+            if [ $((current_time - timestamp)) -gt 30 ] || [ -z "$current_holder" ]; then
+                # Remove expired token
+                rm -f "$TOKEN_FILE" 2>/dev/null
+            elif [ $priority -lt $current_priority ]; then
+                # Preempt lower priority token
+                log_message "Preempting token from $current_holder (priority: $current_priority)" "info"
+                rm -f "$TOKEN_FILE" 2>/dev/null
+            else
+                # Try again - higher priority token exists
+                log_message "Token held by $current_holder with priority $current_priority, retrying..." "debug"
+                sleep 0.5
+                attempt=$((attempt + 1))
+                continue
+            fi
         fi
         
-        printf '{"id":"%s","timestamp":"%s","command":"%s","status":"lock","pid":"%s","start_time":"%s","priority":"high"}\n' \
-            "${LOCK_KEYWORD}" \
-            "$(date '+%H:%M:%S')" \
-            "${LOCK_KEYWORD}" \
-            "$$" \
-            "$TIMESTAMP" >> "$QUEUE_FILE"
+        # Try to create token file
+        echo "{\"id\":\"$LOCK_ID\",\"priority\":$priority,\"timestamp\":$(date +%s)}" > "$TOKEN_FILE" 2>/dev/null
+        chmod 644 "$TOKEN_FILE" 2>/dev/null
         
-        if grep -q "\"pid\":\"$$\".*\"start_time\":\"$TIMESTAMP\"" "$QUEUE_FILE"; then
-            log_message "Lock created by PID $$ at $TIMESTAMP"
-            trap 'remove_lock; exit' INT TERM EXIT
+        # Verify we got the token
+        local holder=$(cat "$TOKEN_FILE" 2>/dev/null | jsonfilter -e '@.id' 2>/dev/null)
+        if [ "$holder" = "$LOCK_ID" ]; then
+            log_message "Successfully acquired token with priority $priority" "info"
             return 0
         fi
         
-        if [ $((CURRENT_TIME - WAIT_START)) -lt $MAX_WAIT ]; then
-            sleep 1
-        else
-            log_message "Failed to acquire lock after $MAX_WAIT seconds"
-            return 1
-        fi
+        sleep 0.5
+        attempt=$((attempt + 1))
     done
+    
+    log_message "Failed to acquire token after $max_attempts attempts" "error"
+    return 1
 }
 
-# Function to remove lock
-remove_lock() {
-    sed -i "/\"pid\":\"$$\"/d" "$QUEUE_FILE"
-    log_message "Lock removed by PID $$"
+# Release token directly
+release_token() {
+    if [ -f "$TOKEN_FILE" ]; then
+        local current_holder=$(cat "$TOKEN_FILE" | jsonfilter -e '@.id' 2>/dev/null)
+        if [ "$current_holder" = "$LOCK_ID" ]; then
+            rm -f "$TOKEN_FILE" 2>/dev/null
+            log_message "Released token" "info"
+            return 0
+        fi
+        log_message "Token held by $current_holder, not by us ($LOCK_ID)" "warn"
+    fi
+    return 1
 }
 
 # Function to execute AT command with retries
@@ -72,25 +113,31 @@ execute_at_command() {
     local MAX_RETRIES=3
     local OUTPUT=""
     
+    log_message "Executing command: $CMD" "debug"
+    
     while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-        OUTPUT=$(timeout $COMMAND_TIMEOUT sms_tool at "$CMD" -D 2>&1)
+        OUTPUT=$(sms_tool at "$CMD" -t $COMMAND_TIMEOUT 2>&1)
         local EXIT_CODE=$?
         
         if [ $EXIT_CODE -eq 0 ]; then
             if echo "$OUTPUT" | grep -q "CME ERROR"; then
+                log_message "Command returned CME ERROR, retrying: $CMD" "warn"
                 RETRY_COUNT=$((RETRY_COUNT + 1))
                 [ $RETRY_COUNT -lt $MAX_RETRIES ] && sleep 1
                 continue
             fi
+            
+            log_message "Command executed successfully" "debug"
             echo "$OUTPUT"
             return 0
         fi
         
+        log_message "Command failed (code $EXIT_CODE), retrying: $CMD" "warn"
         RETRY_COUNT=$((RETRY_COUNT + 1))
         [ $RETRY_COUNT -lt $MAX_RETRIES ] && sleep 1
     done
     
-    log_message "Command failed after $MAX_RETRIES attempts: $CMD"
+    log_message "Command failed after $MAX_RETRIES attempts: $CMD" "error"
     return 1
 }
 
@@ -101,14 +148,18 @@ check_network_mode() {
     
     # Check for both LTE and NR5G-NSA (NSA mode)
     if echo "$OUTPUT" | grep -q "\"LTE\"" && echo "$OUTPUT" | grep -q "\"NR5G-NSA\""; then
+        log_message "Detected network mode: NRLTE (NSA)" "info"
         echo "NRLTE"
     # Check for LTE only
     elif echo "$OUTPUT" | grep -q "\"LTE\""; then
+        log_message "Detected network mode: LTE" "info"
         echo "LTE"
     # Check for NR5G-SA
     elif echo "$OUTPUT" | grep -q "\"NR5G-SA\""; then
+        log_message "Detected network mode: NR5G (SA)" "info"
         echo "NR5G"
     else
+        log_message "Detected network mode: UNKNOWN" "warn"
         echo "UNKNOWN"
     fi
 }
@@ -117,8 +168,10 @@ check_network_mode() {
 check_nr5g_meas_info() {
     local OUTPUT=$(execute_at_command "AT+QNWCFG=\"nr5g_meas_info\"")
     if echo "$OUTPUT" | grep -q "\"nr5g_meas_info\",1"; then
+        log_message "NR5G measurement info is enabled" "debug"
         return 0
     else
+        log_message "NR5G measurement info is disabled" "debug"
         return 1
     fi
 }
@@ -151,50 +204,78 @@ format_output_json() {
     printf '}}\n'
 }
 
+# Set up trap for cleanup
+trap 'log_message "Script interrupted, cleaning up" "warn"; release_token; rm -f "$TEMP_FILE"; exit 1' INT TERM
+
 # Main execution
 {
-    if ! add_clean_lock; then
-        output_error "Failed to acquire lock for command processing"
+    # Ensure directories exist
+    mkdir -p "$QUEUE_DIR" "$RESULTS_DIR"
+    
+    log_message "Starting network info collection" "info"
+    
+    # Acquire token for AT command execution
+    if ! acquire_token; then
+        output_error "Failed to acquire token for command processing"
     fi
     
     # Check network mode
     NETWORK_MODE=$(check_network_mode)
-    log_message "Detected network mode: $NETWORK_MODE"
     
     SERVING_OUTPUT=""
     MEAS_OUTPUT=""
     
     case "$NETWORK_MODE" in
         "NRLTE")
+            log_message "Processing NRLTE mode commands" "info"
             SERVING_OUTPUT=$(execute_at_command "AT+QENG=\"neighbourcell\"")
             if ! check_nr5g_meas_info; then
+                log_message "Enabling and fetching NR5G measurement info" "info"
                 MEAS_OUTPUT=$(execute_at_command "AT+QNWCFG=\"nr5g_meas_info\",1;+QNWCFG=\"nr5g_meas_info\"")
             else
+                log_message "Fetching NR5G measurement info" "info"
                 MEAS_OUTPUT=$(execute_at_command "AT+QNWCFG=\"nr5g_meas_info\"")
             fi
             ;;
         "LTE")
+            log_message "Processing LTE mode commands" "info"
             SERVING_OUTPUT=$(execute_at_command "AT+QENG=\"neighbourcell\"")
             ;;
         "NR5G")
+            log_message "Processing NR5G mode commands" "info"
             if ! check_nr5g_meas_info; then
+                log_message "Enabling and fetching NR5G measurement info" "info"
                 MEAS_OUTPUT=$(execute_at_command "AT+QNWCFG=\"nr5g_meas_info\",1;+QNWCFG=\"nr5g_meas_info\"")
             else
+                log_message "Fetching NR5G measurement info" "info"
                 MEAS_OUTPUT=$(execute_at_command "AT+QNWCFG=\"nr5g_meas_info\"")
             fi
             ;;
         *)
+            release_token
             output_error "Unknown or unsupported network mode"
             ;;
     esac
     
+    # Generate command ID for AT queue results format
+    local cmd_id="network_info_$(date +%s)_$$"
+    local end_time=$(date +%s)
+    local start_time=$end_time  # For simplicity, use same timestamp
+    
+    # Format and output JSON response
+    log_message "Formatting output response" "debug"
     format_output_json "$NETWORK_MODE" "$SERVING_OUTPUT" "$MEAS_OUTPUT"
-    remove_lock
+    
+    # Release token and clean up
+    release_token
     rm -f "$TEMP_FILE"
+    
+    log_message "Network info collection completed" "info"
     
 } || {
     # Error handler
-    remove_lock
+    log_message "Script failed with error" "error"
+    release_token
     rm -f "$TEMP_FILE"
     output_error "Internal error occurred"
 }

@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Card,
   CardHeader,
@@ -78,6 +78,29 @@ const ATTerminalPage = () => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [commonCommands, setCommonCommands] = useState<ATCommand[]>([]);
   const [isLoadingCommands, setIsLoadingCommands] = useState<boolean>(true);
+
+  // New suggestion functions
+  const [highlightedIndex, setHighlightedIndex] = useState<number>(-1);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const suggestionsRef = useRef<HTMLDivElement>(null);
+
+  // Add click outside handler
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        suggestionsRef.current &&
+        !suggestionsRef.current.contains(event.target as Node)
+      ) {
+        setSuggestions([]);
+        setHighlightedIndex(-1);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // ----------------------
 
   // Fetch common AT commands
   useEffect(() => {
@@ -189,7 +212,7 @@ const ATTerminalPage = () => {
       // Send command to queue client with wait flag
       const encodedCommand = encodeURIComponent(command);
       const response = await fetch(
-        `/api/cgi-bin/services/at_queue_client?command=${encodedCommand}&wait=1`
+        `/api/cgi-bin/quecmanager/at_cmd/at_queue_client?command=${encodedCommand}&wait=1`
       );
       const data: QueueResponse = await response.json();
 
@@ -254,16 +277,22 @@ const ATTerminalPage = () => {
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setInput(value);
+    setHighlightedIndex(-1);
 
-    // Update suggestions
-    if (value.trim()) {
-      const filtered = previousCommands.filter((cmd) =>
-        cmd.toLowerCase().includes(value.toLowerCase())
-      );
-      setSuggestions(filtered);
-    } else {
-      setSuggestions([]);
-    }
+    // Debounced suggestion filtering
+    const filterSuggestions = () => {
+      if (value.trim()) {
+        const filtered = previousCommands
+          .filter((cmd) => cmd.toLowerCase().includes(value.toLowerCase()))
+          .slice(0, 5); // Limit to 5 suggestions
+        setSuggestions(filtered);
+      } else {
+        setSuggestions([]);
+      }
+    };
+
+    // Use requestAnimationFrame for smooth updates
+    requestAnimationFrame(filterSuggestions);
   };
 
   const handleSuggestionClick = (suggestion: string) => {
@@ -436,13 +465,6 @@ const ATTerminalPage = () => {
                                       `${item.duration}ms`}
                                   </Badge>
                                 </div>
-                                {/* <div className="flex items-center gap-2">
-                                  {item.commandId && (
-                                    <span className="text-xs text-muted-foreground">
-                                      ID: {item.commandId}
-                                    </span>
-                                  )}
-                                </div> */}
                                 {item.response &&
                                   item.response !== "No output" && (
                                     <p className="whitespace-pre-wrap font-mono text-sm">
@@ -465,6 +487,7 @@ const ATTerminalPage = () => {
             <div className="grid gap-1.5 relative">
               <Label htmlFor="ATInput">AT Command Input</Label>
               <Input
+                ref={inputRef}
                 value={input}
                 onChange={handleInputChange}
                 onKeyDown={handleKeyDown}
@@ -474,17 +497,27 @@ const ATTerminalPage = () => {
                 autoComplete="off"
               />
               {suggestions.length > 0 && (
-                <div className="absolute top-full mt-1 bg-background border rounded-md shadow-lg z-10">
-                  <ScrollArea className="h-24">
+                <div
+                  ref={suggestionsRef}
+                  className="absolute top-full mt-1 bg-background border rounded-md shadow-lg z-10 w-full"
+                >
+                  <ScrollArea className="max-h-[200px]">
                     {suggestions.map((suggestion, index) => (
                       <div
                         key={index}
-                        className="p-2 hover:bg-accent cursor-pointer flex items-center justify-between group"
+                        className={`p-2 cursor-pointer flex items-center justify-between group transition-colors ${
+                          index === highlightedIndex
+                            ? "bg-accent"
+                            : "hover:bg-accent/50"
+                        }`}
+                        onClick={() => {
+                          setInput(suggestion);
+                          setSuggestions([]);
+                          setHighlightedIndex(-1);
+                          inputRef.current?.focus();
+                        }}
                       >
-                        <p
-                          className="text-sm font-medium text-muted-foreground flex-grow"
-                          onClick={() => handleSuggestionClick(suggestion)}
-                        >
+                        <p className="text-sm font-medium text-muted-foreground flex-grow">
                           {suggestion}
                         </p>
                         <Button

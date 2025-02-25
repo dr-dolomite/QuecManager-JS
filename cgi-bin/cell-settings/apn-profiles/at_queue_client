@@ -38,35 +38,14 @@ urldecode() {
     echo "$decoded"
 }
 
-# Extract command ID from response with improved error handling
+# Extract command ID from response
 get_command_id() {
     local response="$1"
-    echo "DEBUG: Raw response: '$response'" >&2
-    
     # Strip any headers from response
     local json_response=$(echo "$response" | sed -n '/^{/,$p')
-    echo "DEBUG: JSON portion: '$json_response'" >&2
-    
-    # Try to extract command_id using grep and sed instead of jsonfilter
-    local cmd_id=$(echo "$json_response" | grep -o '"command_id":"[^"]*"' | sed 's/"command_id":"//;s/"$//')
-    
-    if [ -n "$cmd_id" ]; then
-        echo "$cmd_id"
-        return 0
-    fi
-    
-    # Fallback to jsonfilter if available
-    echo "DEBUG: Trying jsonfilter as fallback" >&2
-    local cmd_id_jsonfilter=$(echo "$json_response" | jsonfilter -e '@.command_id' 2>/dev/null)
-    
-    if [ -n "$cmd_id_jsonfilter" ]; then
-        echo "$cmd_id_jsonfilter"
-        return 0
-    fi
-    
-    echo "ERROR: Failed to extract command ID from response" >&2
-    return 1
+    echo "$json_response" | jsonfilter -e '@.command_id'
 }
+
 
 # Normalize AT command
 normalize_at_command() {
@@ -109,20 +88,13 @@ submit_command() {
     fi
 }
 
-# Check if result exists with proper error handling
+# Check if result exists
 check_result() {
     local cmd_id="$1"
     local show_headers="${2:-1}"  # Add parameter for header control
     
     if [ -f "$RESULTS_DIR/$cmd_id.json" ]; then
-        local result_content=$(cat "$RESULTS_DIR/$cmd_id.json")
-        if [ -z "$result_content" ]; then
-            logger -t at_queue -p daemon.error "Empty result file for command ID: $cmd_id"
-            local error_json="{\"error\":\"Empty result file\",\"command_id\":\"$cmd_id\"}"
-            output_json "$error_json" "$show_headers"
-            return 1
-        fi
-        output_json "$result_content" "$show_headers"
+        output_json "$(cat "$RESULTS_DIR/$cmd_id.json")" "$show_headers"
         return 0
     fi
     local error_json="{\"error\":\"Result not found\",\"command_id\":\"$cmd_id\"}"
@@ -130,18 +102,12 @@ check_result() {
     return 1
 }
 
-# Wait for command completion with optimized polling and better error handling
+# Wait for command completion with optimized polling
 wait_for_completion() {
     local cmd_id="$1"
     local timeout="$2"
     local show_headers="${3:-1}"
     local result_file="$RESULTS_DIR/$cmd_id.json"
-    
-    if [ -z "$cmd_id" ]; then
-        local error_json="{\"error\":\"Invalid command ID\"}"
-        output_json "$error_json" "$show_headers"
-        return 1
-    fi
     
     # First quick check
     if [ -f "$result_file" ]; then
@@ -252,12 +218,6 @@ fi
 # Submit command and get response
 response=$(submit_command "$command")
 cmd_id=$(get_command_id "$response")
-
-if [ -z "$cmd_id" ]; then
-    echo "Error: Failed to get command ID"
-    echo "Response: $response"
-    exit 1
-fi
 
 if [ $wait_mode -eq 1 ]; then
     wait_for_completion "$cmd_id" "$timeout"

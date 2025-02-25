@@ -29,12 +29,11 @@ const TTLSettingsPage = () => {
     const fetchTTLState = async () => {
       try {
         // const response = await fetch("/api/fetch-ttl");
-        const response = await fetch("/cgi-bin/advance/ttl.sh");
+        const response = await fetch("/api/cgi-bin/quecmanager/advance/ttl.sh");
         const data = await response.json();
         setTtlState(data.isEnabled);
         setTtlValue(data.currentValue.toString());
         setLoading(false);
-
       } catch (err) {
         setError("Failed to fetch TTL settings");
         setLoading(false);
@@ -60,7 +59,7 @@ const TTLSettingsPage = () => {
 
     try {
       // const response = await fetch("/api/save-ttl", {
-      const response = await fetch("/cgi-bin/advance/ttl.sh", {
+      const response = await fetch("/api/cgi-bin/quecmanager/advance/ttl.sh", {
         method: "POST",
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",

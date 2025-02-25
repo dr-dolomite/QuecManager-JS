@@ -33,6 +33,20 @@ interface BandCardProps {
   prefix: string;
 }
 
+interface QueueResponse {
+  command: {
+    id: string;
+    text: string;
+    timestamp: string;
+  };
+  response: {
+    status: string;
+    raw_output: string;
+    completion_time: string;
+    duration_ms: number;
+  };
+}
+
 // Separate command maps for supported and active bands
 const supportedCommandMap: Record<BandType, string> = {
   lte: "lte_band",
@@ -67,26 +81,29 @@ const BandLocking = () => {
     try {
       const encodedCommand = encodeURIComponent(command);
       const response = await fetch(
-        `/cgi-bin/at_command.sh?command=${encodedCommand}`,
-        {
-          method: "GET", // CGI scripts typically expect GET requests with query parameters
-          headers: {
-            Accept: "application/json",
-          },
-          signal: AbortSignal.timeout(5000),
-        }
+        `/api/cgi-bin/quecmanager/at_cmd/at_queue_client?command=${encodedCommand}&wait=1`
       );
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const data = await response.json();
-      if (data.error) {
-        throw new Error(data.error);
+      const data: QueueResponse = await response.json();
+
+      if (
+        data.response.status === "error" ||
+        data.response.status === "timeout"
+      ) {
+        throw new Error(
+          data.response.raw_output ||
+            `Command execution ${data.response.status}`
+        );
       }
 
-      return data;
+      // Convert queue response format to match existing ATResponse interface
+      return {
+        response: data.response.raw_output,
+      };
     } catch (error) {
       console.error("AT Command error:", error);
       throw error;
@@ -121,7 +138,9 @@ const BandLocking = () => {
 
   const fetchBandsData = async () => {
     try {
-      const response = await fetch("/cgi-bin/fetch_data.sh?set=7");
+      const response = await fetch(
+        "/api/cgi-bin/quecmanager/at_cmd/fetch_data.sh?set=7"
+      );
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }

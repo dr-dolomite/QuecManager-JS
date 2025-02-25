@@ -62,7 +62,9 @@ const IMEIManglingPage = () => {
   const fetchIMEI = useCallback(async () => {
     try {
       setIsLoading(true);
-      const response = await fetch("/cgi-bin/fetch_data.sh?set=3");
+      const response = await fetch(
+        "/api/cgi-bin/quecmanager/at_cmd/fetch_data.sh?set=3"
+      );
       const rawData = await response.json();
 
       console.log(rawData);
@@ -141,14 +143,7 @@ const IMEIManglingPage = () => {
       const command = `AT+EGMR=1,7,"${newIMEI}";+QPOWD=1`;
       const encodedCommand = encodeURIComponent(command);
       const response = await fetch(
-        `/cgi-bin/at_command.sh?command=${encodedCommand}`,
-        {
-          method: "GET", // CGI scripts typically expect GET requests with query parameters
-          headers: {
-            Accept: "application/json",
-          },
-          signal: AbortSignal.timeout(5000),
-        }
+        `/api/cgi-bin/quecmanager/at_cmd/at_queue_client?command=${encodedCommand}&wait=1`
       );
 
       console.log(response);

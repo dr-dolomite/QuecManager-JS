@@ -99,10 +99,21 @@ interface GroupedCells {
 }
 
 interface ScanResult {
-  status: "success" | "error" | "running" | "idle";
-  output?: string;
+  command?: {
+    id: string;
+    text: string;
+    timestamp: string;
+  };
+  response?: {
+    status: "success" | "error" | "timeout" | "partial" | "preempted";
+    raw_output: string;
+    completion_time: string;
+    duration_ms: number;
+  };
+  status?: "success" | "error" | "running" | "idle" | "partial";
   message?: string;
   timestamp?: string;
+  output?: string;
 }
 
 interface ScanState {
@@ -119,7 +130,7 @@ interface QuecwatchStatus {
 interface NeighborCells {
   status: "success" | "error" | "running" | "idle";
   timestamp: string;
-  mode: "LTE" | "NR5G" | "NRLTE";
+  mode: "LTE" | "NR5G" | "NRLTE" | "UNKNOWN";
   data: {
     neighborCells?: string;
     meas?: string;
@@ -143,6 +154,7 @@ const CellScannerPage = () => {
     progress: 0,
     message: "",
   });
+  const [pollingCount, setPollingCount] = useState(0); // Track number of polls to prevent infinite loops
 
   // Cooldown check effect
   useEffect(() => {
@@ -154,7 +166,7 @@ const CellScannerPage = () => {
     const checkCooldown = () => {
       const lastScan = new Date(lastScanTime).getTime();
       const now = new Date().getTime();
-      const cooldownDuration = 60000; // 30 seconds in milliseconds
+      const cooldownDuration = 60000; // 60 seconds in milliseconds
       const timeElapsed = now - lastScan;
       const remaining = Math.max(0, cooldownDuration - timeElapsed);
 
@@ -172,7 +184,7 @@ const CellScannerPage = () => {
   const fetchMccMncList = useCallback(async () => {
     try {
       const response = await fetch(
-        "/cgi-bin/experimental/cell_scanner/fetch_mccmnc.sh"
+        "/api/cgi-bin/quecmanager/experimental/cell_scanner/fetch_mccmnc.sh"
       );
       const data = await response.json();
       setMccMncList(data);
@@ -184,7 +196,7 @@ const CellScannerPage = () => {
         variant: "destructive",
       });
     }
-  }, []);
+  }, [toast]);
 
   useEffect(() => {
     fetchMccMncList();
@@ -194,7 +206,7 @@ const CellScannerPage = () => {
   const fetchQuecwatchStatus = useCallback(async () => {
     try {
       const response = await fetch(
-        "/cgi-bin/experimental/quecwatch/quecwatch-fetch.sh"
+        "/api/cgi-bin/quecmanager/experimental/quecwatch/fetch-quecwatch.sh"
       );
       const data = await response.json();
       setQuecwatchStatus(data);
@@ -206,7 +218,7 @@ const CellScannerPage = () => {
         variant: "destructive",
       });
     }
-  }, []);
+  }, [toast]);
 
   // Find operator info
   const findOperatorInfo = useCallback(
@@ -219,8 +231,10 @@ const CellScannerPage = () => {
   );
 
   // Parse QSCAN output function
-  const parseQScanOutput = useCallback((output: string): CellInfo[] => {
-    const lines = output
+  const parseQScanOutput = useCallback((rawOutput: string): CellInfo[] => {
+    if (!rawOutput) return [];
+
+    const lines = rawOutput
       .split("\n")
       .filter((line) => line.trim().startsWith("+QSCAN:"));
 
@@ -281,25 +295,58 @@ const CellScannerPage = () => {
     });
   }, []);
 
-  // Check scan status
+  // Check scan status with enhanced error handling
   const checkScanStatus = useCallback(async () => {
+    if (pollingCount > 30) { // Prevent excessive polling (30 * 2s = 60s max)
+      setScanState({ 
+        status: "idle", 
+        progress: 0, 
+        message: "Scan timed out. Please try again." 
+      });
+      setPollingCount(0);
+      toast({
+        title: "Warning",
+        description: "Scan is taking too long. Please try again later.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       const response = await fetch(
-        "/cgi-bin/experimental/cell_scanner/check_scan.sh"
+        "/api/cgi-bin/quecmanager/experimental/cell_scanner/check_scan.sh"
       );
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
       const result: ScanResult = await response.json();
 
+      // Check for actual scan results in the response
       if (result.status === "success" && result.output) {
         setScanResult(result);
         setLastScanTime(result.timestamp || null);
         setScanState({ status: "idle", progress: 100, message: "" });
+        setPollingCount(0);
       } else if (result.status === "running") {
         setScanState({
           status: "scanning",
-          progress: 50,
+          progress: Math.min(80, 20 + pollingCount * 2), // Gradually increase progress
           message: "Scan in progress...",
         });
+        setPollingCount(prev => prev + 1);
         setTimeout(checkScanStatus, 2000);
+      } else if (result.status === "idle" && result.message?.includes("outdated")) {
+        // Handle case where previous results are outdated
+        setScanState({ 
+          status: "idle", 
+          progress: 0, 
+          message: "" 
+        });
+        setPollingCount(0);
+      } else if (result.status === "error") {
+        throw new Error(result.message || "Unknown error during scan");
       }
     } catch (error) {
       console.error("Failed to check scan status", error);
@@ -308,10 +355,16 @@ const CellScannerPage = () => {
         description: "Failed to check scan status",
         variant: "destructive",
       });
+      setScanState({ 
+        status: "idle", 
+        progress: 0, 
+        message: "" 
+      });
+      setPollingCount(0);
     }
-  }, []);
+  }, [pollingCount]);
 
-  // Start new scan
+  // Start new scan with enhanced handling
   const startNewScan = useCallback(async () => {
     if (scanState.status === "scanning" || isInitiatingScan) return;
 
@@ -323,11 +376,17 @@ const CellScannerPage = () => {
     });
     setScanResult(null); // Clear previous results
     setLastScanTime(null);
+    setPollingCount(0);
 
     try {
       const response = await fetch(
-        "/cgi-bin/experimental/cell_scanner/cell_scan.sh"
+        "/api/cgi-bin/quecmanager/experimental/cell_scanner/cell_scan.sh"
       );
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
       const result = await response.json();
 
       if (result.status === "running") {
@@ -341,16 +400,17 @@ const CellScannerPage = () => {
         throw new Error(result.message || "Failed to start scan");
       }
     } catch (error) {
+      console.error("Scan error:", error);
       toast({
         title: "Error",
-        description: "Failed to start cell scan",
+        description: error instanceof Error ? error.message : "Failed to start cell scan",
         variant: "destructive",
       });
       setScanState({ status: "idle", progress: 0, message: "" });
     } finally {
       setIsInitiatingScan(false);
     }
-  }, [scanState.status, isInitiatingScan, checkScanStatus]);
+  }, [scanState.status, isInitiatingScan, checkScanStatus, toast]);
 
   // Group cells by operator
   const groupCellsByOperator = useCallback(
@@ -383,11 +443,11 @@ const CellScannerPage = () => {
 
   // Get signal icon based on RSRP
   const getSignalIcon = useCallback((rsrp: number) => {
-    if (rsrp >= -65) return <BiSignal5 className="text-xl" />;
-    if (rsrp >= -75) return <BiSignal4 className="text-xl" />;
-    if (rsrp >= -85) return <BiSignal3 className="text-xl" />;
-    if (rsrp >= -95) return <BiSignal2 className="text-xl" />;
-    return <BiSignal1 className="text-xl" />;
+    if (rsrp >= -65) return <BiSignal5 className="text-xl text-green-500" />;
+    if (rsrp >= -75) return <BiSignal4 className="text-xl text-green-400" />;
+    if (rsrp >= -85) return <BiSignal3 className="text-xl text-yellow-500" />;
+    if (rsrp >= -95) return <BiSignal2 className="text-xl text-yellow-600" />;
+    return <BiSignal1 className="text-xl text-red-500" />;
   }, []);
 
   // Initial check for results
@@ -437,27 +497,46 @@ const CellScannerPage = () => {
   );
 
   // Process and group cells for display
-  const groupedCells =
-    scanResult?.status === "success" && scanResult.output
-      ? groupCellsByOperator(parseQScanOutput(scanResult.output))
-      : {};
+  const groupedCells = scanResult?.status === "success" && scanResult.output
+    ? groupCellsByOperator(parseQScanOutput(scanResult.output))
+    : {};
 
   // Neighbor cell functions
   const startNeighborScan = useCallback(async () => {
+    if (isInitiatingScan) return;
+    
     setIsInitiatingScan(true);
-    const response = await fetch(
-      "/cgi-bin/experimental/cell_scanner/network_info.sh"
-    );
-    const data = await response.json();
-    setNeighborCells(data);
-    setIsInitiatingScan(false);
-  }, []);
+    setNeighborCells(null);
+    
+    try {
+      const response = await fetch(
+        "/api/cgi-bin/quecmanager/experimental/cell_scanner/network_info.sh"
+      );
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      setNeighborCells(data);
+    } catch (error) {
+      console.error("Failed to fetch neighbor cells", error);
+      toast({
+        title: "Error",
+        description: "Failed to scan neighbor cells. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsInitiatingScan(false);
+    }
+  }, [isInitiatingScan, toast]);
 
   // Clear neighbor cells results
   const clearNeighborCells = useCallback(() => {
     setNeighborCells(null);
   }, []);
 
+  // Main UI component
   return (
     <div className="grid gap-5">
       <Card>
@@ -664,7 +743,12 @@ const CellScannerPage = () => {
         <CardHeader>
           <CardTitle>Neighbor Cell Scan</CardTitle>
           <CardDescription>
-            Scan neighbor cells of the current network provider.
+            Scan neighbor cells of the current network provider. This provides detailed information about cells in your immediate vicinity that your device can connect to.
+            {neighborCells?.timestamp && (
+              <div className="mt-1 text-sm text-muted-foreground">
+                Last scan: {neighborCells.timestamp}
+              </div>
+            )}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -672,9 +756,21 @@ const CellScannerPage = () => {
         </CardContent>
         <CardFooter className="border-t py-4">
           <div className="flex items-center space-x-4">
-            <Button onClick={startNeighborScan} disabled={isInitiatingScan}>
-              <MagnifyingGlassIcon className="w-4 h-4" />
-              Start Neighbor Scan
+            <Button 
+              onClick={startNeighborScan} 
+              disabled={isInitiatingScan || quecwatchStatus?.status === "active"}
+            >
+              {isInitiatingScan ? (
+                <div className="flex items-center gap-x-2">
+                  <Loader2 className="animate-spin w-4 h-4" />
+                  <span>Scanning...</span>
+                </div>
+              ) : (
+                <div className="flex items-center space-x-2">
+                  <MagnifyingGlassIcon className="w-4 h-4" />
+                  <span>Start Neighbor Scan</span>
+                </div>
+              )}
             </Button>
 
             {neighborCells?.status === "success" && (
@@ -683,7 +779,7 @@ const CellScannerPage = () => {
                 onClick={clearNeighborCells}
                 disabled={isInitiatingScan}
               >
-                <Trash2Icon className="w-4 h-4" />
+                <Trash2Icon className="w-4 h-4 mr-2" />
                 Clear Results
               </Button>
             )}

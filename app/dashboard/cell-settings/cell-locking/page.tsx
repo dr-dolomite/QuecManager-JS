@@ -19,28 +19,28 @@ import {
   SelectLabel,
 } from "@/components/ui/select";
 
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Toggle } from "@/components/ui/toggle";
-import {
-  CheckCircle2,
-  Clock1,
-  Info,
-  LockIcon,
-  RefreshCcw,
-  Save,
-} from "lucide-react";
+import { LockIcon, RefreshCcw, Save } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import ScheduledLockingCard from "@/components/cell-settings/scheduled-cell-locking-card";
+
+interface QueueResponse {
+  command: {
+    id: string;
+    text: string;
+    timestamp: string;
+  };
+  response: {
+    status: string;
+    raw_output: string;
+    completion_time: string;
+    duration_ms: number;
+  };
+}
 
 const CellLockingPage = () => {
   const { toast } = useToast();
@@ -71,32 +71,35 @@ const CellLockingPage = () => {
   });
 
   const handleATCommand = async (command: string) => {
-    const encodedCommand = encodeURIComponent(command);
     try {
+      const encodedCommand = encodeURIComponent(command);
       const response = await fetch(
-        `/cgi-bin/at_command.sh?command=${encodedCommand}`,
-        {
-          method: "GET", // CGI scripts typically expect GET requests with query parameters
-          headers: {
-            Accept: "application/json",
-          },
-          signal: AbortSignal.timeout(5000),
-        }
+        `/api/cgi-bin/quecmanager/at_cmd/at_queue_client?command=${encodedCommand}&wait=1`
       );
 
-      const data = await response.json();
-      console.log("AT command response:", data);
-
-      if (!response.ok || data.status === "error") {
-        throw new Error(data.error || "Failed to execute AT command");
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      return data;
+      const data: QueueResponse = await response.json();
+
+      if (
+        data.response.status === "error" ||
+        data.response.status === "timeout"
+      ) {
+        throw new Error(
+          data.response.raw_output ||
+            `Command execution ${data.response.status}`
+        );
+      }
+
+      // Convert queue response format to match existing ATResponse interface
+      return {
+        response: data.response.raw_output,
+      };
     } catch (error) {
-      if (error instanceof Error) {
-        throw new Error(`AT command failed: ${error.message}`);
-      }
-      throw new Error("AT command failed with unknown error");
+      console.error("AT Command error:", error);
+      throw error;
     }
   };
 
@@ -115,7 +118,9 @@ const CellLockingPage = () => {
   const fetchCurrentStatus = async () => {
     try {
       setLoading(true);
-      const response = await fetch("/cgi-bin/fetch_data.sh?set=8");
+      const response = await fetch(
+        "/api/cgi-bin/quecmanager/at_cmd/fetch_data.sh?set=8"
+      );
       const data = await response.json();
 
       if (!response.ok) {
@@ -189,7 +194,7 @@ const CellLockingPage = () => {
       }
 
       const response = await fetch(
-        "/cgi-bin/cell-settings/scheduled_cell_locking.sh",
+        "/api/cgi-bin/quecmanager/cell-settings/scheduled_cell_locking.sh",
         {
           method: "POST",
           headers: {
@@ -437,7 +442,7 @@ const CellLockingPage = () => {
     const fetchScheduleStatus = async () => {
       try {
         const response = await fetch(
-          "/cgi-bin/cell-settings/scheduled_cell_locking.sh?status=true"
+          "/api/cgi-bin/quecmanager/cell-settings/scheduled_cell_locking.sh?status=true"
         );
         if (response.ok) {
           const data = await response.json();
@@ -661,74 +666,6 @@ const CellLockingPage = () => {
           </Button>
         </CardFooter>
       </Card>
-
-      {/* <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center justify-between">
-            <div className="flex items-center">
-              <span>Scheduled Cell Locking</span>
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger>
-                    <Info className="h-4 w-4 ml-2 text-orange-500" />
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>
-                      Make sure to properly set the timezone using Luci for this
-                      to properly work.
-                    </p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </div>
-
-            <div className="flex items-center">
-              <CheckCircle2 className="h-4 w-4 mr-1 text-green-600" />
-              <div className="text-sm text-gray-500">Active</div>
-            </div>
-          </CardTitle>
-          <CardDescription>
-            Schedule the device to lock to specific cells at certain times.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid lg:grid-cols-2 grid-cols-1 grid-flow-row gap-4">
-            <div className="grid w-full max-w-sm items-center gap-2">
-              <Label htmlFor="start-time">Start Time</Label>
-              <Input
-                type="time"
-                id="start-time"
-                value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
-                disabled={loading || scheduling}
-                placeholder="START TIME"
-              />
-            </div>
-
-            <div className="grid w-full max-w-sm items-center gap-2">
-              <Label htmlFor="end-time">End Time</Label>
-              <Input
-                type="time"
-                id="end-time"
-                value={endTime}
-                onChange={(e) => setEndTime(e.target.value)}
-                disabled={loading || scheduling}
-                placeholder="END TIME"
-              />
-            </div>
-          </div>
-        </CardContent>
-        <CardFooter className="border-t py-4">
-          <Toggle
-            disabled={loading || !startTime || !endTime || !locked}
-            pressed={scheduling}
-            onPressedChange={handleScheduleToggle}
-          >
-            <Clock1 className="h-4 w-4 mr-2" />
-            Schedule Cell Locking {scheduling ? "Enabled" : "Disabled"}
-          </Toggle>
-        </CardFooter>
-      </Card> */}
       <ScheduledLockingCard
         loading={loading}
         scheduling={scheduling}

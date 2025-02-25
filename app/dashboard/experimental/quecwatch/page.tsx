@@ -27,6 +27,8 @@ import {
   ShieldCheck,
   AlertTriangle,
   RotateCcw,
+  ScanEyeIcon,
+  BanIcon,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -78,7 +80,7 @@ const QuecWatchPage = () => {
   const fetchQuecWatchConfig = async () => {
     try {
       const response = await fetch(
-        "/cgi-bin/experimental/quecwatch/fetch-quecwatch.sh"
+        "/api/cgi-bin/quecmanager/experimental/quecwatch/fetch-quecwatch.sh"
       );
       if (!response.ok) throw new Error("Network response was not ok");
 
@@ -161,7 +163,7 @@ const QuecWatchPage = () => {
       formData.append("action", "reset");
 
       const response = await fetch(
-        "/cgi-bin/experimental/quecwatch/reset-quecwatch.sh",
+        "/api/cgi-bin/quecmanager/experimental/quecwatch/reset-quecwatch.sh",
         {
           method: "POST",
           headers: {
@@ -227,7 +229,7 @@ const QuecWatchPage = () => {
       );
 
       const response = await fetch(
-        "/cgi-bin/experimental/quecwatch/enable-quecwatch.sh",
+        "/api/cgi-bin/quecmanager/experimental/quecwatch/enable-quecwatch.sh",
         {
           method: "POST",
           headers: {
@@ -276,7 +278,7 @@ const QuecWatchPage = () => {
       formData.append("action", "disable");
 
       const response = await fetch(
-        "/cgi-bin/experimental/quecwatch/disable-quecwatch.sh",
+        "/api/cgi-bin/quecmanager/experimental/quecwatch/disable-quecwatch.sh",
         {
           method: "POST",
           headers: {
@@ -333,7 +335,7 @@ const QuecWatchPage = () => {
       <CardHeader>
         <CardTitle>QuecWatch</CardTitle>
         <CardDescription>
-          A watchdog feature catered for Quectel-AP modems
+        An intelligent watchdog service for Quectel-AP modems that ensures network reliability through automated monitoring, connection management, and SIM failover capabilities.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -576,6 +578,7 @@ const QuecWatchPage = () => {
             status === "maxRetries"
           }
         >
+          <ScanEyeIcon className="w-4 h-4" />
           {isLoading ? "Enabling..." : "Enable QuecWatch"}
         </Button>
         {(status === "active" || status === "maxRetries") && (
@@ -584,6 +587,7 @@ const QuecWatchPage = () => {
             onClick={disableQuecWatch}
             disabled={isLoading}
           >
+            <BanIcon className="w-4 h-4" />
             {isLoading ? "Disabling..." : "Disable QuecWatch"}
           </Button>
         )}
