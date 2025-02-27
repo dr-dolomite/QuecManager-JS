@@ -51,7 +51,7 @@ const INITIAL_FORM_STATE: APNProfileFormData = {
 };
 
 const PDP_TYPES = [
-  { value: "IPV4", label: "IPv4 Only" },
+  { value: "IP", label: "IPv4 Only" },
   { value: "IPV6", label: "IPv6 Only" },
   { value: "IPV4V6", label: "IPv4 and IPv6" },
   { value: "P2P", label: "P2P Protocol" },
@@ -260,7 +260,7 @@ const APNProfilesCard = () => {
             <SelectContent>
               <SelectGroup>
                 <SelectLabel>PDP Type</SelectLabel>
-                <SelectItem value="IPV4">IPv4 Only</SelectItem>
+                <SelectItem value="IP">IPv4 Only</SelectItem>
                 <SelectItem value="IPV6">IPv6 Only</SelectItem>
                 <SelectItem value="IPV4V6">IPv4 and IPv6</SelectItem>
                 <SelectItem value="P2P">P2P Protocol</SelectItem>
@@ -293,7 +293,7 @@ const APNProfilesCard = () => {
 
   const getPDPTypeLabel = (pdpType: string | undefined | null): string => {
     const pdpTypeMap: Record<string, string> = {
-      IPV4: "IPv4 Only",
+      IP: "IPv4 Only",
       IPV6: "IPv6 Only",
       IPV4V6: "IPv4 and IPv6",
       P2P: "P2P Protocol",

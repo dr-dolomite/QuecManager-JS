@@ -228,7 +228,7 @@ const BasicSettings = () => {
   // Map PDP type values to display labels
   const getPDPTypeLabel = (value: string) => {
     const pdpTypes: Record<string, string> = {
-      "IPV4": "IPv4 Only",
+      "IP": "IPv4 Only",
       "IPV6": "IPv6 Only",
       "IPV4V6": "IPv4 and IPv6",
       "P2P": "P2P Protocol"
@@ -306,7 +306,7 @@ const BasicSettings = () => {
                     <SelectContent>
                       <SelectGroup>
                         <SelectLabel>PDP Type</SelectLabel>
-                        <SelectItem value="IPV4">IPv4 Only</SelectItem>
+                        <SelectItem value="IP">IPv4 Only</SelectItem>
                         <SelectItem value="IPV6">IPv6 Only</SelectItem>
                         <SelectItem value="IPV4V6">IPv4 and IPv6</SelectItem>
                         <SelectItem value="P2P">P2P Protocol</SelectItem>
