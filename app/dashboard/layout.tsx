@@ -3,10 +3,14 @@ import Link from "next/link";
 import { useAuth } from "@/hooks/auth";
 import { ProtectedRoute } from "@/components/hoc/protected-route";
 import * as React from "react";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { RadioTower, User2Icon, Menu, Power } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+
+import {
+  atCommandSender,
+} from "@/utils/at-command";
 
 import {
   DropdownMenu,
@@ -54,41 +58,15 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const { logout } = useAuth();
   const { setTheme } = useTheme();
   const [isRebooting, setIsRebooting] = useState(false);
-  const [luciIp, setLuciIp] = useState("192.168.224.1");
+  const [isReconnecting, setIsReconnecting] = useState(false);
   const toast = useToast();
 
-  // API calls should be moved to a separate service/utility file
-  const atCommandSender = async (command: string) => {
-    try {
-      const encodedCommand = encodeURIComponent(command);
-      // Add error handling
-      const response = await fetch(
-        `/cgi-bin/at_command.sh?command=${encodedCommand}`,
-        {
-          method: "GET", // CGI scripts typically expect GET requests with query parameters
-          headers: {
-            Accept: "application/json",
-          },
-          // signal: AbortSignal.timeout(5000),
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error("Failed to save settings");
-      }
-
-      return response;
-    } catch (error) {
-      console.error("AT Command error:", error);
-      throw error; // Re-throw to handle in calling function
-    }
-  };
-
-  // Consider extracting these handlers to custom hooks
+  // Handler for rebooting the device
   const handleReboot = async () => {
     try {
       setIsRebooting(true);
-      await atCommandSender("AT+QPOWD=1"); // Handle response properly
+      // Use the updated AT command sender with wait=true to ensure command completes
+      await atCommandSender("AT+QPOWD=1", true, 60);
 
       // Use constants for timeout values
       const REBOOT_TIMEOUT = 90000;
@@ -96,7 +74,9 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
 
       toast.toast({
         title: "Rebooting device",
-        description: `Please wait for the device to restart. This may take up to ${REBOOT_TIMEOUT / 1000} seconds.`,
+        description: `Please wait for the device to restart. This may take up to ${
+          REBOOT_TIMEOUT / 1000
+        } seconds.`,
         duration: REBOOT_TIMEOUT,
       });
 
@@ -122,55 +102,44 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     }
   };
 
+  // Handler for network reconnection
   const handleReconnect = async () => {
     try {
-      await atCommandSender("AT+COPS=2");
+      setIsReconnecting(true);
+
+      // Disconnect from network - wait for completion
+      await atCommandSender("AT+COPS=2", true, 30);
 
       toast.toast({
-        title: "Reconnecting to network",
-        description: "Please wait for the device to reconnect.",
+        title: "Disconnected from network",
+        description: "Reconnecting in 2 seconds...",
       });
 
-      // Use Promise instead of setTimeout for better error handling
+      // Wait before reconnecting
       await new Promise((resolve) => setTimeout(resolve, 2000));
-      await atCommandSender("AT+COPS=0");
+
+      // Reconnect to network - wait for completion with longer timeout
+      // This command may take longer depending on network conditions
+      await atCommandSender("AT+COPS=0", true, 60);
 
       toast.toast({
         title: "Reconnected to network",
         description: "The device has been reconnected successfully.",
       });
 
+      // Wait for network stabilization before refreshing
       await new Promise((resolve) => setTimeout(resolve, 3000));
       window.location.reload();
     } catch (error) {
+      console.error("Reconnect error:", error);
       toast.toast({
         title: "Failed to reconnect to network",
         description: "Please try again.",
         variant: "destructive",
       });
+    } finally {
+      setIsReconnecting(false);
     }
-
-    useEffect(() => {
-      const fetchIpAddress = async () => {
-        try {
-          const response = await fetch("/cgi-bin/settings/get-ip.sh");
-          if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-          }
-          const data: IpResponse = await response.json();
-          setLuciIp(data.br_lan_ip);
-        } catch (error) {
-          console.error("Failed to fetch IP address:", error);
-          toast.toast({
-            title: "Failed to fetch IP address",
-            description: "Using default IP address",
-            variant: "destructive",
-          });
-        }
-      };
-
-      fetchIpAddress();
-    }, []); // Empty dependency array means this runs once on mount
   };
 
   return (
@@ -373,7 +342,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
               <DropdownMenuLabel>Options</DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem asChild>
-                <Link href="/dashboard/settings/general">Settings</Link>
+                <Link href="/dashboard/settings/security">Settings</Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
                 <a
@@ -395,7 +364,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleReconnect}>
-                Reconnect
+                {isReconnecting ? "Reconnecting..." : "Reconnect"}
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
                 <AlertDialog>

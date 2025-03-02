@@ -13,6 +13,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { LockIcon, RefreshCw } from "lucide-react";
+import { atCommandSender } from "@/utils/at-command"; // Import from utils
 
 type BandType = "lte" | "nsa" | "sa";
 
@@ -31,20 +32,6 @@ interface BandCardProps {
   description: string;
   bandType: BandType;
   prefix: string;
-}
-
-interface QueueResponse {
-  command: {
-    id: string;
-    text: string;
-    timestamp: string;
-  };
-  response: {
-    status: string;
-    raw_output: string;
-    completion_time: string;
-    duration_ms: number;
-  };
 }
 
 // Separate command maps for supported and active bands
@@ -77,39 +64,6 @@ const BandLocking = () => {
 
   const [loading, setLoading] = useState(true);
 
-  const atCommandSender = async (command: string): Promise<ATResponse> => {
-    try {
-      const encodedCommand = encodeURIComponent(command);
-      const response = await fetch(
-        `/api/cgi-bin/quecmanager/at_cmd/at_queue_client?command=${encodedCommand}&wait=1`
-      );
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data: QueueResponse = await response.json();
-
-      if (
-        data.response.status === "error" ||
-        data.response.status === "timeout"
-      ) {
-        throw new Error(
-          data.response.raw_output ||
-            `Command execution ${data.response.status}`
-        );
-      }
-
-      // Convert queue response format to match existing ATResponse interface
-      return {
-        response: data.response.raw_output,
-      };
-    } catch (error) {
-      console.error("AT Command error:", error);
-      throw error;
-    }
-  };
-
   const parseResponse = (
     response: string,
     bandType: string,
@@ -139,7 +93,7 @@ const BandLocking = () => {
   const fetchBandsData = async () => {
     try {
       const response = await fetch(
-        "/api/cgi-bin/quecmanager/at_cmd/fetch_data.sh?set=7"
+        "/cgi-bin/quecmanager/at_cmd/fetch_data.sh?set=7"
       );
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -198,22 +152,37 @@ const BandLocking = () => {
         // Store the current SA bands configuration
         const currentSABands = checkedBands.sa.join(":");
 
-        // Lock NSA bands
-        await atCommandSender(
-          `AT+QNWPREFCFG="${activeCommandMap.nsa}",${selectedBands}`
+        // Lock NSA bands using the imported atCommandSender
+        const nsaResult = await atCommandSender(
+          `AT+QNWPREFCFG="${activeCommandMap.nsa}",${selectedBands}`,
+          true
         );
+        
+        if (nsaResult.response?.status !== "success") {
+          throw new Error(nsaResult.response?.raw_output || "Failed to lock NSA bands");
+        }
 
         // Immediately restore SA bands configuration to preserve it
         if (currentSABands) {
-          await atCommandSender(
-            `AT+QNWPREFCFG="${activeCommandMap.sa}",${currentSABands}`
+          const saResult = await atCommandSender(
+            `AT+QNWPREFCFG="${activeCommandMap.sa}",${currentSABands}`,
+            true
           );
+          
+          if (saResult.response?.status !== "success") {
+            throw new Error(saResult.response?.raw_output || "Failed to restore SA bands");
+          }
         } else {
           // If no SA bands were selected, reset to default SA bands
           const defaultSABands = bands.sa.join(":");
-          await atCommandSender(
-            `AT+QNWPREFCFG="${activeCommandMap.sa}",${defaultSABands}`
+          const saResult = await atCommandSender(
+            `AT+QNWPREFCFG="${activeCommandMap.sa}",${defaultSABands}`,
+            true
           );
+          
+          if (saResult.response?.status !== "success") {
+            throw new Error(saResult.response?.raw_output || "Failed to set default SA bands");
+          }
         }
 
         // Update local state to reflect the changes
@@ -224,9 +193,14 @@ const BandLocking = () => {
         }));
       } else {
         // For LTE and SA bands, proceed as normal
-        await atCommandSender(
-          `AT+QNWPREFCFG="${activeCommandMap[bandType]}",${selectedBands}`
+        const result = await atCommandSender(
+          `AT+QNWPREFCFG="${activeCommandMap[bandType]}",${selectedBands}`,
+          true
         );
+        
+        if (result.response?.status !== "success") {
+          throw new Error(result.response?.raw_output || `Failed to lock ${bandType.toUpperCase()} bands`);
+        }
 
         // Update local state to reflect the changes
         setCheckedBands((prev) => ({
@@ -243,10 +217,11 @@ const BandLocking = () => {
       // Fetch the latest data after a short delay to ensure the modem has processed the changes
       setTimeout(fetchBandsData, 1000);
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
       console.error(`Error locking ${bandType} bands:`, error);
       toast({
         title: "Error",
-        description: `Failed to lock ${bandType.toUpperCase()} bands.`,
+        description: `Failed to lock ${bandType.toUpperCase()} bands: ${errorMessage}`,
         variant: "destructive",
       });
     }
@@ -265,21 +240,36 @@ const BandLocking = () => {
 
       if (bandType === "nsa") {
         // Reset NSA bands
-        await atCommandSender(
-          `AT+QNWPREFCFG="${activeCommandMap.nsa}",${defaultBands}`
+        const nsaResult = await atCommandSender(
+          `AT+QNWPREFCFG="${activeCommandMap.nsa}",${defaultBands}`,
+          true
         );
+        
+        if (nsaResult.response?.status !== "success") {
+          throw new Error(nsaResult.response?.raw_output || "Failed to reset NSA bands");
+        }
 
         // Preserve current SA bands configuration
         const currentSABands = checkedBands.sa.join(":");
         if (currentSABands) {
-          await atCommandSender(
-            `AT+QNWPREFCFG="${activeCommandMap.sa}",${currentSABands}`
+          const saResult = await atCommandSender(
+            `AT+QNWPREFCFG="${activeCommandMap.sa}",${currentSABands}`,
+            true
           );
+          
+          if (saResult.response?.status !== "success") {
+            throw new Error(saResult.response?.raw_output || "Failed to preserve SA bands");
+          }
         }
       } else {
-        await atCommandSender(
-          `AT+QNWPREFCFG="${activeCommandMap[bandType]}",${defaultBands}`
+        const result = await atCommandSender(
+          `AT+QNWPREFCFG="${activeCommandMap[bandType]}",${defaultBands}`,
+          true
         );
+        
+        if (result.response?.status !== "success") {
+          throw new Error(result.response?.raw_output || `Failed to reset ${bandType.toUpperCase()} bands`);
+        }
       }
 
       toast({
@@ -288,10 +278,11 @@ const BandLocking = () => {
       });
       await fetchBandsData();
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
       console.error(`Error resetting ${bandType} bands:`, error);
       toast({
         title: "Error",
-        description: `Failed to reset ${bandType.toUpperCase()} bands.`,
+        description: `Failed to reset ${bandType.toUpperCase()} bands: ${errorMessage}`,
         variant: "destructive",
       });
     }

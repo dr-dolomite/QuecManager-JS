@@ -1,3 +1,38 @@
+/**
+ * Custom hook to manage IMEI profiles for cellular devices
+ * 
+ * @returns {UseIMEIConfigReturn} An object containing:
+ *   - profiles: Current IMEI profiles data
+ *   - hasActiveProfile: Boolean flag indicating if any profile is active
+ *   - updateIMEIProfile: Function to update a specific profile
+ *   - deleteIMEIProfiles: Function to delete all profiles
+ * 
+ * @example
+ * ```tsx
+ * const { profiles, hasActiveProfile, updateIMEIProfile, deleteIMEIProfiles } = useIMEIConfig();
+ * 
+ * // Update a profile
+ * await updateIMEIProfile("profile1", { imei: "123456789012345", iccid: "12345678901234567890" });
+ * 
+ * // Delete all profiles
+ * await deleteIMEIProfiles();
+ * ```
+ * 
+ * @interface IMEIProfile
+ * @property {string} imei - The IMEI (International Mobile Equipment Identity) number
+ * @property {string} iccid - The ICCID (Integrated Circuit Card Identifier) number
+ * 
+ * @interface IMEIProfiles
+ * @property {IMEIProfile} [profile1] - First IMEI profile configuration
+ * @property {IMEIProfile} [profile2] - Second IMEI profile configuration
+ * 
+ * @interface UseIMEIConfigReturn
+ * @property {IMEIProfiles} profiles - Current IMEI profiles data
+ * @property {boolean} hasActiveProfile - Indicates if at least one profile is configured
+ * @property {Function} updateIMEIProfile - Updates a specific profile with new IMEI and ICCID data
+ * @property {Function} deleteIMEIProfiles - Deletes all IMEI profiles
+ */
+
 import { useState, useEffect } from "react";
 
 interface IMEIProfile {
@@ -29,7 +64,7 @@ export function useIMEIConfig(): UseIMEIConfigReturn {
     try {
       setprofileLoading(true);
       const response = await fetch(
-        "/api/cgi-bin/quecmanager/cell-settings/imei-profiles/fetch-imei-profile.sh",
+        "/cgi-bin/quecmanager/cell-settings/imei-profiles/fetch-imei-profile.sh",
         {
           method: "GET",
           headers: {
@@ -89,7 +124,7 @@ export function useIMEIConfig(): UseIMEIConfigReturn {
       }
 
       const response = await fetch(
-        "/api/cgi-bin/quecmanager/cell-settings/imei-profiles/save-imei-profile.sh",
+        "/cgi-bin/quecmanager/cell-settings/imei-profiles/save-imei-profile.sh",
         {
           method: "POST",
           headers: {
@@ -124,7 +159,7 @@ export function useIMEIConfig(): UseIMEIConfigReturn {
   const deleteIMEIProfiles = async (): Promise<boolean> => {
     try {
       const response = await fetch(
-        "/api/cgi-bin/quecmanager/cell-settings/imei-profiles/delete-imei-profile.sh",
+        "/cgi-bin/quecmanager/cell-settings/imei-profiles/delete-imei-profile.sh",
         {
           method: "POST",
           headers: {

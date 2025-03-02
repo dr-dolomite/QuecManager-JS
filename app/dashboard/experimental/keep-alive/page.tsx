@@ -42,7 +42,7 @@ const KeepAliveCard = () => {
   const fetchStatus = async (): Promise<void> => {
     try {
       const response = await fetch(
-        "/api/cgi-bin/quecmanager/experimental/keep_alive.sh?status=true"
+        "/cgi-bin/quecmanager/experimental/keep_alive.sh?status=true"
       );
       const data: KeepAliveStatus = await response.json();
 
@@ -82,7 +82,7 @@ const KeepAliveCard = () => {
         }
 
         const response = await fetch(
-          "/api/cgi-bin/quecmanager/experimental/keep_alive.sh",
+          "/cgi-bin/quecmanager/experimental/keep_alive.sh",
           {
             method: "POST",
             headers: {
@@ -113,7 +113,7 @@ const KeepAliveCard = () => {
         });
       } else {
         const response = await fetch(
-          "/api/cgi-bin/quecmanager/experimental/keep_alive.sh",
+          "/cgi-bin/quecmanager/experimental/keep_alive.sh",
           {
             method: "POST",
             headers: {

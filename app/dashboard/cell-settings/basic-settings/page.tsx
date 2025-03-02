@@ -25,7 +25,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 
 import useCellSettingsData from "@/hooks/cell-settings-data";
-import APNProfilesCard from "@/components/pages/apn-profile-card";
 
 interface FormData {
   currentAPN: string;
@@ -33,6 +32,7 @@ interface FormData {
   preferredNetworkType: string;
   nr5gMode: string;
   simSlot: string;
+  cfunState: string;
 }
 
 interface QueueResponse {
@@ -64,6 +64,7 @@ const BasicSettings = () => {
     preferredNetworkType: "",
     nr5gMode: "",
     simSlot: "",
+    cfunState: "",
   });
 
   // Initialize form data when initial data loads
@@ -75,13 +76,10 @@ const BasicSettings = () => {
         preferredNetworkType: String(initialData.preferredNetworkType || ""),
         nr5gMode: String(initialData.nr5gMode || ""),
         simSlot: String(initialData.simSlot || ""),
+        cfunState: String(initialData.cfunState || ""),
       };
       setFormData(sanitizedData);
       setIsDataLoaded(true);
-      // toast({
-      //   title: "Success",
-      //   description: "The settings have been loaded successfully",
-      // });
     }
   }, [initialData, isDataLoaded]);
 
@@ -116,6 +114,11 @@ const BasicSettings = () => {
       commands.push(commands.length === 0 ? `AT${command}` : command);
     }
 
+    if (changes.cfunState) {
+      const command = `+CFUN=${changes.cfunState}`;
+      commands.push(commands.length === 0 ? `AT${command}` : command);
+    }
+
     return commands.join(";");
   };
 
@@ -128,7 +131,7 @@ const BasicSettings = () => {
 
   const forceRerunScripts = async () => {
     try {
-      const response = await fetch("/api/cgi-bin/quecmanager/settings/force-rerun.sh");
+      const response = await fetch("/cgi-bin/quecmanager/settings/force-rerun.sh");
       const data = await response.json();
       
       if (data.status === "success") {
@@ -157,7 +160,7 @@ const BasicSettings = () => {
 
   const executeATCommand = async (command: string): Promise<boolean> => {
     const encodedCommand = encodeURIComponent(command);
-    const response = await fetch(`/api/cgi-bin/quecmanager/at_cmd/at_queue_client?command=${encodedCommand}&wait=1`);
+    const response = await fetch(`/cgi-bin/quecmanager/at_cmd/at_queue_client?command=${encodedCommand}&wait=1`);
     
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
@@ -228,7 +231,7 @@ const BasicSettings = () => {
   // Map PDP type values to display labels
   const getPDPTypeLabel = (value: string) => {
     const pdpTypes: Record<string, string> = {
-      "IPV4": "IPv4 Only",
+      "IP": "IPv4 Only",
       "IPV6": "IPv6 Only",
       "IPV4V6": "IPv4 and IPv6",
       "P2P": "P2P Protocol"
@@ -255,6 +258,15 @@ const BasicSettings = () => {
       "2": "NR5G-SA Only"
     };
     return nr5gModes[value] || value;
+  };
+
+  const getCFUNStateLabel = (value: string) => {
+    const cfunStates: Record<string, string> = {
+      "0": "Minimum Functionality",
+      "1": "Full Functionality",
+      "4": "Disabled RX/TX"
+    };
+    return cfunStates[value] || value;
   };
 
   return (
@@ -306,7 +318,7 @@ const BasicSettings = () => {
                     <SelectContent>
                       <SelectGroup>
                         <SelectLabel>PDP Type</SelectLabel>
-                        <SelectItem value="IPV4">IPv4 Only</SelectItem>
+                        <SelectItem value="IP">IPv4 Only</SelectItem>
                         <SelectItem value="IPV6">IPv6 Only</SelectItem>
                         <SelectItem value="IPV4V6">IPv4 and IPv6</SelectItem>
                         <SelectItem value="P2P">P2P Protocol</SelectItem>
@@ -404,6 +416,35 @@ const BasicSettings = () => {
                   </Select>
                 )}
               </div>
+
+              <div className="grid w-full max-w-sm items-center gap-2">
+                <Label>Cellular Functionality</Label>
+                {isLoading ? (
+                  <Skeleton className="h-8" />
+                ) : (
+                  <Select
+                    key={`sim-slot-${formData.cfunState}`}
+                    value={formData.cfunState}
+                    onValueChange={(value) =>
+                      handleFieldChange("cfunState", value)
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue>
+                        {formData.cfunState ? getCFUNStateLabel(formData.cfunState) : "Select CFUN State"}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        <SelectLabel>U-SIM Slot</SelectLabel>
+                        <SelectItem value="0">Minimum Functionality</SelectItem>
+                        <SelectItem value="1">Full Functionality</SelectItem>
+                        <SelectItem value="4">Disabled RX/TX</SelectItem>
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
             </div>
           </CardContent>
           <CardFooter className="grid border-t py-4">
@@ -413,8 +454,6 @@ const BasicSettings = () => {
           </CardFooter>
         </form>
       </Card>
-
-      <APNProfilesCard />
     </div>
   );
 };

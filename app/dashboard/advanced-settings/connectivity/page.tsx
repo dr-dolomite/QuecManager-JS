@@ -28,7 +28,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
 import { useToast } from "@/hooks/use-toast";
@@ -37,6 +36,9 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import GithubButtonToast from "@/components/github-button";
+
+import { atCommandSender } from "@/utils/at-command";
+import { PowerIcon } from "lucide-react";
 
 interface MacAddress {
   mac: string;
@@ -220,22 +222,23 @@ const ConnectivitySettingsPage = () => {
 
   const handleReboot = async () => {
     try {
-      // await fetch("/at-handler", {
-      const encodedCommand = encodeURIComponent("AT+QPOWD=1");
-      const queueResponse = await fetch(
-        `/cgi-bin/at_command.sh?command=${encodedCommand}`
-      );
-      if (!queueResponse.ok) throw new Error("Failed to queue reboot command");
+      const rebootResult = await atCommandSender("AT+QPOWD=1", true);
 
-      toast({
-        title: "Success",
-        description: "Settings saved and device is rebooting...",
-      });
+      if (rebootResult.response?.status === "success") {
+        toast({
+          title: "Success",
+          description: "Settings saved and device is rebooting...",
+        });
 
-      // Set a timeout for 90 seconds and then reload the page
-      setTimeout(() => {
-        window.location.reload();
-      }, 90000);
+        // Set a timeout for 90 seconds and then reload the page
+        setTimeout(() => {
+          window.location.reload();
+        }, 90000);
+      } else {
+        throw new Error(
+          rebootResult.response?.raw_output || "Failed to reboot device"
+        );
+      }
     } catch (err) {
       toast({
         variant: "destructive",
@@ -263,11 +266,15 @@ const ConnectivitySettingsPage = () => {
 
   const handleConfirmSave = async () => {
     try {
-      const encodedCommand = encodeURIComponent(pendingCommand);
-      const queueResponse = await fetch(
-        `/cgi-bin/at_command.sh?command=${encodedCommand}`
-      );
-      if (!queueResponse.ok) throw new Error("Failed to queue reboot command");
+      // Use atCommandSender instead of direct fetch
+      const result = await atCommandSender(pendingCommand, true);
+
+      // Fix the property access to match the actual ATQueueResponse type
+      if (result.response?.status !== "success") {
+        throw new Error(
+          result.response?.raw_output || "Command execution failed"
+        );
+      }
 
       setInitialSettings({ ...currentSettings });
 
@@ -287,10 +294,8 @@ const ConnectivitySettingsPage = () => {
     const fetchSettings = async () => {
       try {
         const [macsResponse, advanceResponse] = await Promise.all([
-          // fetch("/fetch-macs"),
-          // fetch("/fetch-advance"),
-          fetch("/api/cgi-bin/quecmanager/advance/fetch_macs.sh"),
-          fetch("/api/cgi-bin/quecmanager/at_cmd/fetch_data.sh?set=4"),
+          fetch("/cgi-bin/quecmanager/advance/fetch_macs.sh"),
+          fetch("/cgi-bin/quecmanager/at_cmd/fetch_data.sh?set=4"),
         ]);
 
         const [macsData, advanceData] = await Promise.all([
@@ -477,6 +482,7 @@ const ConnectivitySettingsPage = () => {
           <AlertDialogFooter>
             <AlertDialogCancel>Later</AlertDialogCancel>
             <AlertDialogAction onClick={handleConfirmSave}>
+              <PowerIcon className="w-4 h-4" />
               Save & Reboot Now
             </AlertDialogAction>
           </AlertDialogFooter>

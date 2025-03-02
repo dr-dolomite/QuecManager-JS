@@ -80,7 +80,7 @@ const SMSPage = () => {
         message: newMessage.trim(),
       };
 
-      const response = await fetch(`/api/cgi-bin/quecmanager/cell-settings/sms/sms_send.sh`, {
+      const response = await fetch(`/cgi-bin/quecmanager/cell-settings/sms/sms_send.sh`, {
         method: "POST",
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",
@@ -130,7 +130,7 @@ const SMSPage = () => {
       };
 
       // Changed the API endpoint to match the working sendMessage function
-      const response = await fetch(`/api/cgi-bin/quecmanager/cell-settings/sms/sms_send.sh`, {
+      const response = await fetch(`/cgi-bin/quecmanager/cell-settings/sms/sms_send.sh`, {
         method: "POST",
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",
@@ -217,7 +217,7 @@ const SMSPage = () => {
   const refreshSMS = async () => {
     setLoading(true);
     try {
-      const response = await fetch("/api/cgi-bin/quecmanager/cell-settings/sms/sms_inbox.sh");
+      const response = await fetch("/cgi-bin/quecmanager/cell-settings/sms/sms_inbox.sh");
       const data = await response.json();
 
       if (!data?.msg || !Array.isArray(data.msg)) {
@@ -251,7 +251,7 @@ const SMSPage = () => {
       console.log("Deleting messages with indices:", payload);
 
       const response = await fetch(
-        `/api/cgi-bin/quecmanager/cell-settings/cell-settings/sms/sms_delete.sh?indexes=${payload}`,
+        `/cgi-bin/quecmanager/cell-settings/cell-settings/sms/sms_delete.sh?indexes=${payload}`,
         {
           method: "GET",
           headers: {

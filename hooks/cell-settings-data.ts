@@ -1,3 +1,44 @@
+/**
+ * @module useCellSettingsData
+ * @description Custom React hook for fetching and processing cellular network settings data.
+ * This hook communicates with the device's CGI endpoints to retrieve information about 
+ * APN settings, network type preferences, 5G mode, and SIM slot configuration.
+ * 
+ * @returns {Object} An object containing:
+ *   - data: The processed cell settings data or null if not loaded
+ *   - isLoading: Boolean indicating if data is currently being fetched
+ *   - fetchCellSettingsData: Function to manually trigger a data refresh
+ * 
+ * @example
+ * ```tsx
+ * import useCellSettingsData from '@/hooks/cell-settings-data';
+ * 
+ * function CellSettingsComponent() {
+ *   const { data, isLoading, fetchCellSettingsData } = useCellSettingsData();
+ *   
+ *   if (isLoading) return <p>Loading...</p>;
+ *   if (!data) return <p>No data available</p>;
+ *   
+ *   return (
+ *     <div>
+ *       <p>Current APN: {data.currentAPN}</p>
+ *       <p>PDP Type: {data.apnPDPType}</p>
+ *       <button onClick={fetchCellSettingsData}>Refresh</button>
+ *     </div>
+ *   );
+ * }
+ * ```
+ * 
+ * @internal
+ * The hook fetches data from the endpoint '/cgi-bin/quecmanager/at_cmd/fetch_data.sh?set=2'
+ * and processes the response using several helper functions to extract the relevant information:
+ * - processAPN: Extracts the APN from either manual or auto configuration
+ * - processAPNPDPType: Extracts the PDP type (e.g., IP, IPV6)
+ * - processPreferredNetworkType: Extracts the preferred network mode
+ * - processNR5GMode: Extracts the 5G mode configuration
+ * - processSimSlot: Extracts the active SIM slot
+ */
+
 // hooks/cellSettingsData.ts
 import { useState, useEffect, useCallback } from "react";
 import { CellSettingsData } from "@/types/types";
@@ -12,7 +53,7 @@ const useCellSettingsData = () => {
       // Clean up data from previous fetch
       setData(null);
 
-      const response = await fetch("/api/cgi-bin/quecmanager/at_cmd/fetch_data.sh?set=2");
+      const response = await fetch("/cgi-bin/quecmanager/at_cmd/fetch_data.sh?set=2");
       const rawData = await response.json();
       console.log("Fetched cell settings data:", rawData);
 
@@ -22,6 +63,7 @@ const useCellSettingsData = () => {
         preferredNetworkType: processPreferredNetworkType(rawData[2].response),
         nr5gMode: processNR5GMode(rawData[3].response),
         simSlot: processSimSlot(rawData[4].response),
+        cfunState: rawData[5].response.split(",")[1].replace(/"/g, ""),
       };
 
       setData(processedData);

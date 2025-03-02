@@ -139,7 +139,7 @@ const SpeedtestStream = () => {
   const checkKeepAliveSchedule = useCallback(async () => {
     try {
       const response = await fetch(
-        "/api/cgi-bin/quecmanager/experimental/keep_alive.sh?status=true"
+        "/cgi-bin/quecmanager/experimental/keep_alive.sh?status=true"
       );
       const data = await response.json();
 

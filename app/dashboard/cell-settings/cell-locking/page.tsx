@@ -27,6 +27,7 @@ import { Toggle } from "@/components/ui/toggle";
 import { LockIcon, RefreshCcw, Save } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import ScheduledLockingCard from "@/components/cell-settings/scheduled-cell-locking-card";
+import { atCommandSender } from "@/utils/at-command"; // Import the utility
 
 interface QueueResponse {
   command: {
@@ -70,39 +71,6 @@ const CellLockingPage = () => {
     NRBAND: "",
   });
 
-  const handleATCommand = async (command: string) => {
-    try {
-      const encodedCommand = encodeURIComponent(command);
-      const response = await fetch(
-        `/api/cgi-bin/quecmanager/at_cmd/at_queue_client?command=${encodedCommand}&wait=1`
-      );
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data: QueueResponse = await response.json();
-
-      if (
-        data.response.status === "error" ||
-        data.response.status === "timeout"
-      ) {
-        throw new Error(
-          data.response.raw_output ||
-            `Command execution ${data.response.status}`
-        );
-      }
-
-      // Convert queue response format to match existing ATResponse interface
-      return {
-        response: data.response.raw_output,
-      };
-    } catch (error) {
-      console.error("AT Command error:", error);
-      throw error;
-    }
-  };
-
   const parseATResponse = (data: string) => {
     // Extract the content between +QNWLOCK: and OK
     const match = data.match(/\+QNWLOCK:\s*(.+?)\n/);
@@ -119,7 +87,7 @@ const CellLockingPage = () => {
     try {
       setLoading(true);
       const response = await fetch(
-        "/api/cgi-bin/quecmanager/at_cmd/fetch_data.sh?set=8"
+        "/cgi-bin/quecmanager/at_cmd/fetch_data.sh?set=8"
       );
       const data = await response.json();
 
@@ -194,7 +162,7 @@ const CellLockingPage = () => {
       }
 
       const response = await fetch(
-        "/api/cgi-bin/quecmanager/cell-settings/scheduled_cell_locking.sh",
+        "/cgi-bin/quecmanager/cell-settings/scheduled_cell_locking.sh",
         {
           method: "POST",
           headers: {
@@ -258,14 +226,30 @@ const CellLockingPage = () => {
         lockCommand += `,${earfcn},${pci}`;
       });
 
-      // Execute the lock command
-      await handleATCommand(lockCommand);
+      // Execute the lock command using atCommandSender
+      const lockResult = await atCommandSender(lockCommand, true);
+
+      if (lockResult.response?.status !== "success") {
+        throw new Error(
+          lockResult.response?.raw_output || "Failed to lock LTE cells"
+        );
+      }
 
       // Wait for a second
       await new Promise((resolve) => setTimeout(resolve, 1000));
 
       // Save the configuration
-      await handleATCommand('AT+QNWLOCK="save_ctrl",1,0');
+      const saveResult = await atCommandSender(
+        'AT+QNWLOCK="save_ctrl",1,0',
+        true
+      );
+
+      if (saveResult.response?.status !== "success") {
+        throw new Error(
+          saveResult.response?.raw_output ||
+            "Failed to save LTE lock configuration"
+        );
+      }
 
       // Refetch status
       await fetchCurrentStatus();
@@ -299,15 +283,32 @@ const CellLockingPage = () => {
         throw new Error("Please fill all NR5G fields");
       }
 
-      // Execute lock command
+      // Execute lock command using atCommandSender
       const lockCommand = `AT+QNWLOCK="common/5g",${nr5gState.NRPCI},${nr5gState.NRARFCN},${nr5gState.SCS},${nr5gState.NRBAND}`;
-      await handleATCommand(lockCommand);
+
+      const lockResult = await atCommandSender(lockCommand, true);
+
+      if (lockResult.response?.status !== "success") {
+        throw new Error(
+          lockResult.response?.raw_output || "Failed to lock NR5G cell"
+        );
+      }
 
       // Wait for a second
       await new Promise((resolve) => setTimeout(resolve, 1000));
 
       // Save the configuration
-      await handleATCommand('AT+QNWLOCK="save_ctrl",0,1');
+      const saveResult = await atCommandSender(
+        'AT+QNWLOCK="save_ctrl",0,1',
+        true
+      );
+
+      if (saveResult.response?.status !== "success") {
+        throw new Error(
+          saveResult.response?.raw_output ||
+            "Failed to save NR5G lock configuration"
+        );
+      }
 
       // Refetch status
       await fetchCurrentStatus();
@@ -330,14 +331,56 @@ const CellLockingPage = () => {
   const handleLTEReset = async () => {
     try {
       setLoading(true);
-      await handleATCommand('AT+QNWLOCK="common/4g",0');
+
+      // Reset LTE lock
+      const resetResult = await atCommandSender(
+        'AT+QNWLOCK="common/4g",0',
+        true
+      );
+
+      if (resetResult.response?.status !== "success") {
+        throw new Error(
+          resetResult.response?.raw_output || "Failed to reset LTE lock"
+        );
+      }
+
       // Wait for a second
       await new Promise((resolve) => setTimeout(resolve, 1000));
-      await handleATCommand('AT+QNWLOCK="save_ctrl",1,0');
-      await handleATCommand("AT+COPS=2");
+
+      // Reset LTE persist and do not save
+      const saveResult = await atCommandSender(
+        'AT+QNWLOCK="save_ctrl",0,0',
+        true
+      );
+
+      if (saveResult.response?.status !== "success") {
+        throw new Error(
+          saveResult.response?.raw_output ||
+            "Failed to save LTE reset configuration"
+        );
+      }
+
+      // Reset COPS
+      const copsOffResult = await atCommandSender("AT+COPS=2", true);
+
+      if (copsOffResult.response?.status !== "success") {
+        throw new Error(
+          copsOffResult.response?.raw_output ||
+            "Failed to disconnect from network"
+        );
+      }
+
       // Wait for 2 seconds
       await new Promise((resolve) => setTimeout(resolve, 2000));
-      await handleATCommand("AT+COPS=0");
+
+      // Reconnect to network
+      const copsOnResult = await atCommandSender("AT+COPS=0", true);
+
+      if (copsOnResult.response?.status !== "success") {
+        throw new Error(
+          copsOnResult.response?.raw_output || "Failed to reconnect to network"
+        );
+      }
 
       // Refetch status
       await fetchCurrentStatus();
@@ -359,12 +402,53 @@ const CellLockingPage = () => {
   const handleNR5GReset = async () => {
     try {
       setLoading(true);
-      await handleATCommand('AT+QNWLOCK="common/5g",0');
-      await handleATCommand('AT+QNWLOCK="save_ctrl",0,1');
-      await handleATCommand("AT+COPS=2");
+
+      // Reset NR5G lock
+      const resetResult = await atCommandSender(
+        'AT+QNWLOCK="common/5g",0',
+        true
+      );
+
+      if (resetResult.response?.status !== "success") {
+        throw new Error(
+          resetResult.response?.raw_output || "Failed to reset NR5G lock"
+        );
+      }
+
+      // Reset NR5G persist and do not save
+      const saveResult = await atCommandSender(
+        'AT+QNWLOCK="save_ctrl",0,0',
+        true
+      );
+
+      if (saveResult.response?.status !== "success") {
+        throw new Error(
+          saveResult.response?.raw_output ||
+            "Failed to save NR5G reset configuration"
+        );
+      }
+
+      // Reset COPS
+      const copsOffResult = await atCommandSender("AT+COPS=2", true);
+
+      if (copsOffResult.response?.status !== "success") {
+        throw new Error(
+          copsOffResult.response?.raw_output ||
+            "Failed to disconnect from network"
+        );
+      }
+
       // Wait for 2 seconds
       await new Promise((resolve) => setTimeout(resolve, 2000));
-      await handleATCommand("AT+COPS=0");
+
+      // Reconnect to network
+      const copsOnResult = await atCommandSender("AT+COPS=0", true);
+
+      if (copsOnResult.response?.status !== "success") {
+        throw new Error(
+          copsOnResult.response?.raw_output || "Failed to reconnect to network"
+        );
+      }
 
       // Refetch status
       await fetchCurrentStatus();
@@ -386,16 +470,28 @@ const CellLockingPage = () => {
   const handleLTEPersistToggle = async (pressed: boolean) => {
     try {
       setLoading(true);
-      await handleATCommand(
+
+      const toggleResult = await atCommandSender(
         `AT+QNWLOCK="save_ctrl",${pressed ? "1" : "0"},${
           nr5gPersist ? "1" : "0"
-        }`
+        }`,
+        true
       );
+
+      if (toggleResult.response?.status !== "success") {
+        throw new Error(
+          toggleResult.response?.raw_output ||
+            "Failed to update LTE persist setting"
+        );
+      }
+
       await fetchCurrentStatus();
+
       toast({
         title: "Success",
         description: `LTE persist on boot ${pressed ? "enabled" : "disabled"}`,
       });
+
       // Wait for a 2 seconds
       await new Promise((resolve) => setTimeout(resolve, 2000));
       window.location.reload();
@@ -413,16 +509,28 @@ const CellLockingPage = () => {
   const handleNR5GPersistToggle = async (pressed: boolean) => {
     try {
       setLoading(true);
-      await handleATCommand(
+
+      const toggleResult = await atCommandSender(
         `AT+QNWLOCK="save_ctrl",${ltePersist ? "1" : "0"},${
           pressed ? "1" : "0"
-        }`
+        }`,
+        true
       );
+
+      if (toggleResult.response?.status !== "success") {
+        throw new Error(
+          toggleResult.response?.raw_output ||
+            "Failed to update NR5G persist setting"
+        );
+      }
+
       await fetchCurrentStatus();
+
       toast({
         title: "Success",
         description: `NR5G persist on boot ${pressed ? "enabled" : "disabled"}`,
       });
+
       // Wait for a 2 seconds
       await new Promise((resolve) => setTimeout(resolve, 2000));
       window.location.reload();
@@ -442,7 +550,7 @@ const CellLockingPage = () => {
     const fetchScheduleStatus = async () => {
       try {
         const response = await fetch(
-          "/api/cgi-bin/quecmanager/cell-settings/scheduled_cell_locking.sh?status=true"
+          "/cgi-bin/quecmanager/cell-settings/scheduled_cell_locking.sh?status=true"
         );
         if (response.ok) {
           const data = await response.json();

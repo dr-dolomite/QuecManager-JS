@@ -1,3 +1,19 @@
+/**
+ * A custom React hook that fetches, parses, and monitors network traffic statistics.
+ * 
+ * This hook communicates with an API endpoint to retrieve data usage information,
+ * processes both LTE and NR (5G) traffic data, and formats byte values into human-readable sizes.
+ * 
+ * @returns An object containing the following properties:
+ * - `bytesSent` - A string representing the total bytes sent, formatted with appropriate units (e.g., "10.5 MB")
+ * - `bytesReceived` - A string representing the total bytes received, formatted with appropriate units
+ * - `lastUpdateTime` - A string representing the timestamp of the last data update
+ * - `refresh` - A function that manually triggers a refresh of the traffic statistics
+ * 
+ * @remarks
+ * The hook automatically fetches data on mount and sets up a polling interval of 12 seconds
+ * to keep the statistics updated. The interval is cleaned up when the component unmounts.
+ */
 import { useState, useEffect, useCallback } from "react";
 
 interface DataUsageEntry {
@@ -55,7 +71,7 @@ const useTrafficStats = () => {
 
   const fetchTrafficStats = useCallback(async () => {
     try {
-      const response = await fetch("/api/cgi-bin/quecmanager/home/fetch_data_usage.sh");
+      const response = await fetch("/cgi-bin/quecmanager/home/fetch_data_usage.sh");
       const data = await response.json();
       parseTrafficData(data);
     } catch (error) {

@@ -79,6 +79,7 @@ export interface CellSettingsData {
   preferredNetworkType?: string;
   nr5gMode?: string;
   simSlot?: string;
+  cfunState?: string;
 }
 
 export interface AboutData {

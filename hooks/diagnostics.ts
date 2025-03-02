@@ -1,3 +1,29 @@
+/**
+ * A custom React hook for running network diagnostics on cellular modem devices.
+ * 
+ * This hook provides functionality to fetch and analyze various cellular network metrics
+ * including registration status, SIM state, APN configuration, WAN IP connectivity,
+ * signal strength, modem temperature, and network rejection causes.
+ * 
+ * @returns An object containing:
+ *   - `isRunningDiagnostics` - Boolean indicating if diagnostics are currently running
+ *   - `runDiagnosticsData` - Processed diagnostics data or null if not yet run
+ *   - `startDiagnostics` - Async function that initiates the diagnostics process
+ * 
+ * @example
+ * ```tsx
+ * const { isRunningDiagnostics, runDiagnosticsData, startDiagnostics } = useRunDiagnostics();
+ * 
+ * const handleRunDiagnostics = async () => {
+ *   try {
+ *     const data = await startDiagnostics();
+ *     console.log('Diagnostics completed:', data);
+ *   } catch (error) {
+ *     console.error('Failed to run diagnostics:', error);
+ *   }
+ * };
+ * ```
+ */
 import { useState } from "react";
 import { DiagnosticsData } from "@/types/types";
 
@@ -197,7 +223,7 @@ const useRunDiagnostics = () => {
   const startDiagnostics = async () => {
     setIsRunningDiagnostics(true);
     try {
-      const response = await fetch("/api/cgi-bin/quecmanager/at_cmd/fetch_data.sh?set=6");
+      const response = await fetch("/cgi-bin/quecmanager/at_cmd/fetch_data.sh?set=6");
       const data = await response.json();
       console.log("Diagnostics data:", data);
 

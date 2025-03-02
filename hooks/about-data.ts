@@ -1,3 +1,39 @@
+
+/**
+ * A custom hook that fetches and manages device information data.
+ * 
+ * This hook retrieves various device details including manufacturer, model,
+ * firmware version, network information, and real-time uptime status.
+ * 
+ * @returns {Object} An object containing:
+ *   - data: The fetched device information data (AboutData | null)
+ *   - isLoading: Boolean indicating if data is currently being fetched
+ *   - fetchAboutData: Function to manually trigger a refresh of all device data
+ * 
+ * @remarks
+ * - Automatically fetches data on component mount
+ * - Updates device uptime every second
+ * - Cleans up intervals when the component unmounts
+ * - Requires the AboutData type to be defined elsewhere in your application
+ * - Makes API calls to backend CGI scripts to fetch device information
+ * 
+ * @example
+ * ```tsx
+ * const { data, isLoading, fetchAboutData } = useAboutData();
+ * 
+ * if (isLoading) return <LoadingSpinner />;
+ * 
+ * return (
+ *   <div>
+ *     <h1>Device Information</h1>
+ *     <p>Model: {data?.model}</p>
+ *     <p>Uptime: {data?.deviceUptime}</p>
+ *     <button onClick={fetchAboutData}>Refresh</button>
+ *   </div>
+ * );
+ * ```
+ */
+
 import { useState, useEffect, useCallback } from "react";
 import { AboutData } from "@/types/types";
 
@@ -7,7 +43,7 @@ const useAboutData = () => {
 
   const fetchUptime = useCallback(async () => {
     try {
-      const uptimeResponse = await fetch("/api/cgi-bin/quecmanager/settings/device-uptime.sh");
+      const uptimeResponse = await fetch("/cgi-bin/quecmanager/settings/device-uptime.sh");
       const uptimeData = await uptimeResponse.json();
       
       setData(prevData => {
@@ -19,7 +55,7 @@ const useAboutData = () => {
       });
     } catch (error) {
       console.error("Error fetching uptime:", error);
-    }
+    }``
   }, []);
 
   const fetchAboutData = useCallback(async () => {
@@ -28,8 +64,8 @@ const useAboutData = () => {
       
       // Fetch both device info and initial uptime in parallel
       const [deviceResponse, uptimeResponse] = await Promise.all([
-        fetch("/api/cgi-bin/quecmanager/at_cmd/fetch_data.sh?set=3"),
-        fetch("/api/cgi-bin/quecmanager/settings/device-uptime.sh")
+        fetch("/cgi-bin/quecmanager/at_cmd/fetch_data.sh?set=3"),
+        fetch("/cgi-bin/quecmanager/settings/device-uptime.sh")
       ]);
 
       const [rawData, uptimeData] = await Promise.all([

@@ -1,3 +1,31 @@
+/**
+ * Custom hook that fetches and processes cellular modem data for the home dashboard.
+ * This hook handles data fetching, processing, error handling, and automatic refresh at regular intervals.
+ * 
+ * The hook fetches data from the API endpoint `/cgi-bin/quecmanager/at_cmd/fetch_data.sh?set=1` 
+ * and transforms the raw response into a structured {@link HomeData} format with information about:
+ * - SIM card details (slot, state, provider, etc.)
+ * - Connection information (APN, network type, temperature, etc.)
+ * - Data transmission metrics (carrier aggregation, bandwidth, signal strength)
+ * - Cellular information (cell ID, tracking area code, signal quality)
+ * - Current bands information (band numbers, EARFCN, PCI, signal metrics)
+ * 
+ * @returns An object containing:
+ * - `data` - The processed cellular modem information, or null if not yet loaded
+ * - `isLoading` - Boolean indicating if data is currently being fetched
+ * - `error` - Any error that occurred during data fetching, or null if no error
+ * - `refresh` - Function to manually trigger a data refresh
+ * 
+ * @example
+ * ```tsx
+ * const { data, isLoading, error, refresh } = useHomeData();
+ * 
+ * if (isLoading) return <LoadingSpinner />;
+ * if (error) return <ErrorMessage error={error} />;
+ * return <HomeDisplay data={data} onRefresh={refresh} />;
+ * ```
+ */
+
 // hooks/useHomeData.ts
 import { useState, useEffect, useCallback } from "react";
 import { HomeData } from "@/types/types";
@@ -10,7 +38,7 @@ const useHomeData = () => {
 
   const fetchHomeData = useCallback(async () => {
     try {
-      const response = await fetch("/api/cgi-bin/quecmanager/at_cmd/fetch_data.sh?set=1");
+      const response = await fetch("/cgi-bin/quecmanager/at_cmd/fetch_data.sh?set=1");
       const rawData = await response.json();
       console.log(rawData);
 

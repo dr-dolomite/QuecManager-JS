@@ -43,7 +43,7 @@ const PingCard = () => {
   useEffect(() => {
     const fetchPingLatency = async () => {
       try {
-        const response = await fetch('/api/cgi-bin/quecmanager/home/ping_latency.sh', {
+        const response = await fetch('/cgi-bin/quecmanager/home/ping_latency.sh', {
           method: 'GET',
           cache: 'no-store',
           headers: {

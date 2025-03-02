@@ -1,3 +1,41 @@
+/**
+ * A custom React hook that manages authentication state and session handling.
+ * 
+ * This hook handles:
+ * - User authentication state management
+ * - Server heartbeat monitoring
+ * - Session token generation and validation
+ * - Session expiration and renewal
+ * - Login and logout operations
+ * 
+ * Sessions are maintained in localStorage and expire after 30 minutes of inactivity.
+ * The hook also periodically checks server status and logs out the user if the server becomes unreachable.
+ * 
+ * @returns An object containing authentication state and methods
+ * @property {boolean} isAuthenticated - Whether the user is currently authenticated
+ * @property {boolean} isServerAlive - Whether the server is currently reachable
+ * @property {function} login - Authenticates a user with their password
+ * @property {function} logout - Logs out the current user and redirects to login page
+ * @property {function} checkAuth - Checks if the current session is valid
+ * 
+ * @example
+ * // Basic usage in a component
+ * function MyProtectedComponent() {
+ *   const { isAuthenticated, logout } = useAuth();
+ *   
+ *   if (!isAuthenticated) {
+ *     return <p>Please log in</p>;
+ *   }
+ *   
+ *   return (
+ *     <div>
+ *       <h1>Protected Content</h1>
+ *       <button onClick={logout}>Log out</button>
+ *     </div>
+ *   );
+ * }
+ */
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -31,7 +69,7 @@ export function useAuth() {
   // New function to check server status
   async function checkServerStatus() {
     try {
-      const response = await fetch('/api/cgi-bin/quecmanager/heartbeat.sh', {
+      const response = await fetch('/cgi-bin/quecmanager/heartbeat.sh', {
         method: 'GET',
         headers: {
           'Cache-Control': 'no-cache',
@@ -124,7 +162,7 @@ export function useAuth() {
   async function login(password: string) {
     const encodedPassword = encodeURIComponent(password);
     try {
-      const response = await fetch("/api/cgi-bin/quecmanager/auth.sh", {
+      const response = await fetch("/cgi-bin/quecmanager/auth.sh", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

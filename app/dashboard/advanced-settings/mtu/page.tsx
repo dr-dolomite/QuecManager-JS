@@ -27,7 +27,7 @@ const MTUSettingsPage = () => {
   useEffect(() => {
     const fetchMtuState = async () => {
       try {
-        const response = await fetch("/api/cgi-bin/quecmanager/advance/mtu.sh");
+        const response = await fetch("/cgi-bin/quecmanager/advance/mtu.sh");
         const data = await response.json();
         
         // Update state based on response
@@ -58,7 +58,7 @@ const MTUSettingsPage = () => {
     const valueToSend = mtuState ? mtuValue : "disable";
 
     try {
-      const response = await fetch("/api/cgi-bin/quecmanager/advance/mtu.sh", {
+      const response = await fetch("/cgi-bin/quecmanager/advance/mtu.sh", {
         method: "POST",
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",

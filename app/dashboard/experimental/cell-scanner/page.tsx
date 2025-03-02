@@ -120,6 +120,7 @@ interface ScanState {
   status: "idle" | "scanning";
   progress: number;
   message: string;
+  startTime?: number;
 }
 
 interface QuecwatchStatus {
@@ -184,7 +185,7 @@ const CellScannerPage = () => {
   const fetchMccMncList = useCallback(async () => {
     try {
       const response = await fetch(
-        "/api/cgi-bin/quecmanager/experimental/cell_scanner/fetch_mccmnc.sh"
+        "/cgi-bin/quecmanager/experimental/cell_scanner/fetch_mccmnc.sh"
       );
       const data = await response.json();
       setMccMncList(data);
@@ -206,7 +207,7 @@ const CellScannerPage = () => {
   const fetchQuecwatchStatus = useCallback(async () => {
     try {
       const response = await fetch(
-        "/api/cgi-bin/quecmanager/experimental/quecwatch/fetch-quecwatch.sh"
+        "/cgi-bin/quecmanager/experimental/quecwatch/fetch-quecwatch.sh"
       );
       const data = await response.json();
       setQuecwatchStatus(data);
@@ -239,30 +240,46 @@ const CellScannerPage = () => {
       .filter((line) => line.trim().startsWith("+QSCAN:"));
 
     return lines.map((line) => {
-      const parts = line
-        .substring(line.indexOf(":") + 1)
-        .split(",")
-        .map((part) => part.trim().replace(/["\r]/g, ""));
+      // Extract data after +QSCAN:
+      const dataContent = line.substring(line.indexOf(":") + 1).trim();
 
-      const [type, mcc, mnc, freq, pci, rsrp, rsrq, srxlev, ...rest] = parts;
+      // Handle the escaped quotes in the JSON format
+      const parts = dataContent.split(",").map((part) => {
+        // Clean up the part, handling escaped quotes
+        return part
+          .trim()
+          .replace(/\\"/g, "") // Remove escaped quotes
+          .replace(/"/g, "") // Remove regular quotes
+          .replace(/\r/g, ""); // Remove carriage returns
+      });
+
+      // First element is the type, which might have quotes
+      let [type, mcc, mnc, freq, pci, rsrp, rsrq, srxlev, ...rest] = parts;
+
+      // Clean up the type string
+      type = type
+        .replace(/\\\\/g, "")
+        .replace(/\\/g, "")
+        .replace(/"/g, "")
+        .trim();
 
       const baseCellInfo = {
-        type: type.trim() as "LTE" | "NR5G",
+        type: type as "LTE" | "NR5G",
         mcc,
         mnc,
         freq: parseInt(freq),
         pci: parseInt(pci),
         rsrp: parseInt(rsrp),
         rsrq: parseInt(rsrq),
-        srxlev: parseInt(srxlev),
+        srxlev: srxlev === "-" ? 0 : parseInt(srxlev), // Handle dash character
       };
 
-      if (type.trim() === "LTE") {
+      if (type === "LTE") {
         const [squal, cellId, tac, bandwidth, band] = rest;
         return {
           ...baseCellInfo,
           type: "LTE" as const,
-          squal: parseInt(squal),
+          squal: squal === "-" ? 0 : parseInt(squal), // Handle dash character
           cellId,
           tac,
           bandwidth: parseInt(bandwidth),
@@ -295,106 +312,167 @@ const CellScannerPage = () => {
     });
   }, []);
 
-  // Check scan status with enhanced error handling
   const checkScanStatus = useCallback(async () => {
-    if (pollingCount > 30) { // Prevent excessive polling (30 * 2s = 60s max)
-      setScanState({ 
-        status: "idle", 
-        progress: 0, 
-        message: "Scan timed out. Please try again." 
-      });
-      setPollingCount(0);
-      toast({
-        title: "Warning",
-        description: "Scan is taking too long. Please try again later.",
-        variant: "destructive",
-      });
-      return;
-    }
-
     try {
+      // Keep checking for result even if progress bar is advancing independently
       const response = await fetch(
-        "/api/cgi-bin/quecmanager/experimental/cell_scanner/check_scan.sh"
+        "/cgi-bin/quecmanager/experimental/cell_scanner/check_scan.sh",
+        { headers: { "Cache-Control": "no-cache, no-store" } }
       );
-      
+
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      
+
       const result: ScanResult = await response.json();
 
-      // Check for actual scan results in the response
+      // If we have successful results, update immediately
       if (result.status === "success" && result.output) {
         setScanResult(result);
         setLastScanTime(result.timestamp || null);
-        setScanState({ status: "idle", progress: 100, message: "" });
-        setPollingCount(0);
-      } else if (result.status === "running") {
         setScanState({
-          status: "scanning",
-          progress: Math.min(80, 20 + pollingCount * 2), // Gradually increase progress
-          message: "Scan in progress...",
-        });
-        setPollingCount(prev => prev + 1);
-        setTimeout(checkScanStatus, 2000);
-      } else if (result.status === "idle" && result.message?.includes("outdated")) {
-        // Handle case where previous results are outdated
-        setScanState({ 
-          status: "idle", 
-          progress: 0, 
-          message: "" 
+          status: "idle",
+          progress: 100,
+          message: "",
         });
         setPollingCount(0);
-      } else if (result.status === "error") {
-        throw new Error(result.message || "Unknown error during scan");
+        return true; // Successfully found result
+      }
+
+      // If still running or in between status, continue polling
+      if (result.status === "running" || pollingCount < 60) {
+        setPollingCount((prev) => prev + 1);
+        setTimeout(checkScanStatus, 2000);
+        return false; // Still need to poll
+      }
+
+      // After 2 minutes of polling with no results, give up
+      if (pollingCount >= 60) {
+        toast({
+          title: "Warning",
+          description:
+            "Scan is taking longer than expected. Results may appear when complete.",
+          variant: "default",
+        });
+        return false;
       }
     } catch (error) {
       console.error("Failed to check scan status", error);
-      toast({
-        title: "Error",
-        description: "Failed to check scan status",
-        variant: "destructive",
-      });
-      setScanState({ 
-        status: "idle", 
-        progress: 0, 
-        message: "" 
-      });
-      setPollingCount(0);
+
+      // Continue polling anyway - the progress bar will continue independently
+      if (pollingCount < 60) {
+        setPollingCount((prev) => prev + 1);
+        setTimeout(checkScanStatus, 2000);
+      }
+      return false;
     }
   }, [pollingCount]);
 
-  // Start new scan with enhanced handling
+  // Progress animation function - independent of actual scan status
+  const startProgressAnimation = useCallback(() => {
+    // Total expected scan time: approximately 2 minutes
+    const totalDuration = 120000; // 2 minutes in milliseconds
+    const updateInterval = 1000; // Update every second
+    const startProgress = 10; // Start at 10%
+    const maxProgress = 98; // Don't reach 100% until actual completion
+
+    let intervalId: NodeJS.Timeout;
+
+    const updateProgress = () => {
+      setScanState((prevState) => {
+        // If scan is complete or cancelled, stop animation
+        if (prevState.status !== "scanning") {
+          clearInterval(intervalId);
+          return prevState;
+        }
+
+        // Calculate how much time has passed since scan started
+        const elapsed = Date.now() - (prevState.startTime || Date.now());
+
+        // Calculate progress percentage (10% to 98% over 2 minutes)
+        const progressRange = maxProgress - startProgress;
+        const progress =
+          startProgress + progressRange * Math.min(elapsed / totalDuration, 1);
+
+        // Determine message based on progress
+        let message = "Scan in progress...";
+        if (progress > 85) {
+          message = "Almost done...";
+        } else if (progress > 50) {
+          message = "Still scanning...";
+        }
+
+        return {
+          ...prevState,
+          progress: Math.min(progress, maxProgress),
+          message,
+        };
+      });
+    };
+
+    // Start interval to update progress
+    intervalId = setInterval(updateProgress, updateInterval);
+
+    // Clear interval after total duration + buffer (2.5 minutes)
+    setTimeout(() => {
+      clearInterval(intervalId);
+
+      // If we're still scanning after the timer completes, hold at 98%
+      setScanState((prevState) => {
+        if (prevState.status === "scanning") {
+          return {
+            ...prevState,
+            progress: maxProgress,
+            message: "Waiting for results...",
+          };
+        }
+        return prevState;
+      });
+    }, totalDuration + 30000);
+  }, []);
+
   const startNewScan = useCallback(async () => {
     if (scanState.status === "scanning" || isInitiatingScan) return;
 
     setIsInitiatingScan(true);
-    setScanState({
-      status: "scanning",
-      progress: 0,
-      message: "Initiating scan...",
-    });
     setScanResult(null); // Clear previous results
     setLastScanTime(null);
     setPollingCount(0);
 
+    // Start with 0% progress
+    setScanState({
+      status: "scanning",
+      progress: 0,
+      message: "Initiating scan...",
+      startTime: Date.now(),
+    });
+
     try {
+      // Begin scan
       const response = await fetch(
-        "/api/cgi-bin/quecmanager/experimental/cell_scanner/cell_scan.sh"
+        "/cgi-bin/quecmanager/experimental/cell_scanner/cell_scan.sh",
+        { headers: { "Cache-Control": "no-cache, no-store" } }
       );
-      
+
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      
+
       const result = await response.json();
 
-      if (result.status === "running") {
-        setScanState({
-          status: "scanning",
+      // Start the progress animation and result polling
+      if (result.status === "running" || result.status === "success") {
+        // Update to show scan has started (10%)
+        setScanState((prevState) => ({
+          ...prevState,
           progress: 10,
-          message: "Scan started...",
-        });
+          message: "Scan in progress...",
+        }));
+
+        // Start countdown animation for progress bar
+        startProgressAnimation();
+
+        // Start checking for results
         setTimeout(checkScanStatus, 2000);
       } else {
         throw new Error(result.message || "Failed to start scan");
@@ -403,14 +481,15 @@ const CellScannerPage = () => {
       console.error("Scan error:", error);
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to start cell scan",
+        description:
+          error instanceof Error ? error.message : "Failed to start cell scan",
         variant: "destructive",
       });
       setScanState({ status: "idle", progress: 0, message: "" });
     } finally {
       setIsInitiatingScan(false);
     }
-  }, [scanState.status, isInitiatingScan, checkScanStatus, toast]);
+  }, [scanState.status, isInitiatingScan, checkScanStatus]);
 
   // Group cells by operator
   const groupCellsByOperator = useCallback(
@@ -497,28 +576,53 @@ const CellScannerPage = () => {
   );
 
   // Process and group cells for display
-  const groupedCells = scanResult?.status === "success" && scanResult.output
-    ? groupCellsByOperator(parseQScanOutput(scanResult.output))
-    : {};
+  const groupedCells =
+    scanResult?.status === "success" && scanResult.output
+      ? groupCellsByOperator(parseQScanOutput(scanResult.output))
+      : {};
 
+  // Neighbor cell functions
   // Neighbor cell functions
   const startNeighborScan = useCallback(async () => {
     if (isInitiatingScan) return;
-    
+
     setIsInitiatingScan(true);
     setNeighborCells(null);
-    
+
     try {
       const response = await fetch(
-        "/api/cgi-bin/quecmanager/experimental/cell_scanner/network_info.sh"
+        "/cgi-bin/quecmanager/experimental/cell_scanner/network_info.sh"
       );
-      
+
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      
+
       const data = await response.json();
-      setNeighborCells(data);
+      console.log("Neighbor cell data:", data);
+
+      // Transform the data to match the expected structure if needed
+      if (data.status === "success" && data.mode) {
+        // Check if we need to restructure the data
+        if (data.data?.neighborCells || data.data?.meas) {
+          // Data already has the expected structure
+          setNeighborCells(data);
+        } else if (data.raw_data) {
+          // Data has a different structure - convert it
+          setNeighborCells({
+            status: data.status,
+            timestamp: data.timestamp,
+            mode: data.mode,
+            data: {
+              neighborCells: data.raw_data.neighborCells,
+              meas: data.raw_data.meas,
+            },
+          });
+        }
+      } else {
+        // Just use the data as is
+        setNeighborCells(data);
+      }
     } catch (error) {
       console.error("Failed to fetch neighbor cells", error);
       toast({
@@ -529,7 +633,7 @@ const CellScannerPage = () => {
     } finally {
       setIsInitiatingScan(false);
     }
-  }, [isInitiatingScan, toast]);
+  }, [isInitiatingScan]);
 
   // Clear neighbor cells results
   const clearNeighborCells = useCallback(() => {
@@ -743,7 +847,9 @@ const CellScannerPage = () => {
         <CardHeader>
           <CardTitle>Neighbor Cell Scan</CardTitle>
           <CardDescription>
-            Scan neighbor cells of the current network provider. This provides detailed information about cells in your immediate vicinity that your device can connect to.
+            Scan neighbor cells of the current network provider. This provides
+            detailed information about cells in your immediate vicinity that
+            your device can connect to.
             {neighborCells?.timestamp && (
               <div className="mt-1 text-sm text-muted-foreground">
                 Last scan: {neighborCells.timestamp}
@@ -756,9 +862,11 @@ const CellScannerPage = () => {
         </CardContent>
         <CardFooter className="border-t py-4">
           <div className="flex items-center space-x-4">
-            <Button 
-              onClick={startNeighborScan} 
-              disabled={isInitiatingScan || quecwatchStatus?.status === "active"}
+            <Button
+              onClick={startNeighborScan}
+              disabled={
+                isInitiatingScan || quecwatchStatus?.status === "active"
+              }
             >
               {isInitiatingScan ? (
                 <div className="flex items-center gap-x-2">

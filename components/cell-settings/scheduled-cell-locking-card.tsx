@@ -7,12 +7,7 @@ import {
   CardContent,
   CardFooter,
 } from "@/components/ui/card";
-import {
-  TooltipProvider,
-  Tooltip,
-  TooltipTrigger,
-  TooltipContent,
-} from "@/components/ui/tooltip";
+
 import { Toggle } from "@/components/ui/toggle";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -167,6 +162,7 @@ const ScheduledLockingCard = ({
           disabled={loading || !startTime || !endTime || !locked}
           pressed={scheduling}
           onPressedChange={onSchedulingToggle}
+          variant="outline"
         >
           <Clock1 className="h-4 w-4 mr-2" />
           {scheduling ? "Disable" : "Enable"} Scheduled Locking

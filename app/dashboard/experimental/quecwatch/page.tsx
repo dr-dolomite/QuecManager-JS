@@ -80,7 +80,7 @@ const QuecWatchPage = () => {
   const fetchQuecWatchConfig = async () => {
     try {
       const response = await fetch(
-        "/api/cgi-bin/quecmanager/experimental/quecwatch/fetch-quecwatch.sh"
+        "/cgi-bin/quecmanager/experimental/quecwatch/fetch-quecwatch.sh"
       );
       if (!response.ok) throw new Error("Network response was not ok");
 
@@ -163,7 +163,7 @@ const QuecWatchPage = () => {
       formData.append("action", "reset");
 
       const response = await fetch(
-        "/api/cgi-bin/quecmanager/experimental/quecwatch/reset-quecwatch.sh",
+        "/cgi-bin/quecmanager/experimental/quecwatch/reset-quecwatch.sh",
         {
           method: "POST",
           headers: {
@@ -229,7 +229,7 @@ const QuecWatchPage = () => {
       );
 
       const response = await fetch(
-        "/api/cgi-bin/quecmanager/experimental/quecwatch/enable-quecwatch.sh",
+        "/cgi-bin/quecmanager/experimental/quecwatch/enable-quecwatch.sh",
         {
           method: "POST",
           headers: {
@@ -278,7 +278,7 @@ const QuecWatchPage = () => {
       formData.append("action", "disable");
 
       const response = await fetch(
-        "/api/cgi-bin/quecmanager/experimental/quecwatch/disable-quecwatch.sh",
+        "/cgi-bin/quecmanager/experimental/quecwatch/disable-quecwatch.sh",
         {
           method: "POST",
           headers: {
