@@ -44,6 +44,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import NeighborCellsDisplay from "@/components/cell-scan/neighborcell-card";
 import { MagnifyingGlassIcon } from "@radix-ui/react-icons";
+import { LTE_RB_BANDWIDTH_MAP } from "@/types/types";
 
 // Types for Cell Information
 interface BaseCellInfo {
@@ -63,6 +64,7 @@ interface LTECellInfo extends BaseCellInfo {
   type: "LTE";
   squal: number;
   bandwidth: number;
+  bandwidthMHz?: string;
   band: number;
 }
 
@@ -232,6 +234,7 @@ const CellScannerPage = () => {
   );
 
   // Parse QSCAN output function
+  // Parse QSCAN output function
   const parseQScanOutput = useCallback((rawOutput: string): CellInfo[] => {
     if (!rawOutput) return [];
 
@@ -239,82 +242,145 @@ const CellScannerPage = () => {
       .split("\n")
       .filter((line) => line.trim().startsWith("+QSCAN:"));
 
-    return lines.map((line) => {
-      // Extract data after +QSCAN:
-      const dataContent = line.substring(line.indexOf(":") + 1).trim();
+    return lines
+      .map((line) => {
+        // Extract data after +QSCAN:
+        const dataContent = line.substring(line.indexOf(":") + 1).trim();
 
-      // Handle the escaped quotes in the JSON format
-      const parts = dataContent.split(",").map((part) => {
-        // Clean up the part, handling escaped quotes
-        return part
-          .trim()
-          .replace(/\\"/g, "") // Remove escaped quotes
-          .replace(/"/g, "") // Remove regular quotes
-          .replace(/\r/g, ""); // Remove carriage returns
-      });
+        // Handle the escaped quotes in the JSON format
+        const parts = dataContent.split(",").map((part) => {
+          // Clean up the part, handling escaped quotes
+          return part
+            .trim()
+            .replace(/\\"/g, "") // Remove escaped quotes
+            .replace(/"/g, "") // Remove regular quotes
+            .replace(/\r/g, ""); // Remove carriage returns
+        });
 
-      // First element is the type, which might have quotes
-      let [type, mcc, mnc, freq, pci, rsrp, rsrq, srxlev, ...rest] = parts;
+        // First element is the type, which might have quotes
+        let [type, mcc, mnc, freq, pci, rsrp, rsrq, srxlev, ...rest] = parts;
 
-      // Clean up the type string
-      type = type
-        .replace(/\\\\/g, "")
-        .replace(/\\/g, "")
-        .replace(/"/g, "")
-        .trim();
+        // Clean up the type string
+        type = type
+          .replace(/\\\\/g, "")
+          .replace(/\\/g, "")
+          .replace(/"/g, "")
+          .trim();
 
-      const baseCellInfo = {
-        type: type as "LTE" | "NR5G",
-        mcc,
-        mnc,
-        freq: parseInt(freq),
-        pci: parseInt(pci),
-        rsrp: parseInt(rsrp),
-        rsrq: parseInt(rsrq),
-        srxlev: srxlev === "-" ? 0 : parseInt(srxlev), // Handle dash character
-      };
+        const baseCellInfo = {
+          type: type as "LTE" | "NR5G",
+          mcc,
+          mnc,
+          freq: parseInt(freq),
+          pci: parseInt(pci),
+          rsrp: parseInt(rsrp),
+          rsrq: parseInt(rsrq),
+          srxlev: srxlev === "-" ? 0 : parseInt(srxlev), // Handle dash character
+          cellId: "", // Default value will be overridden
+          tac: "", // Default value will be overridden
+        };
 
-      if (type === "LTE") {
-        const [squal, cellId, tac, bandwidth, band] = rest;
-        return {
-          ...baseCellInfo,
-          type: "LTE" as const,
-          squal: squal === "-" ? 0 : parseInt(squal), // Handle dash character
-          cellId,
-          tac,
-          bandwidth: parseInt(bandwidth),
-          band: parseInt(band),
-        } as LTECellInfo;
-      } else {
-        const [
-          scs,
-          cellId,
-          tac,
-          carrierBandwidth,
-          band,
-          offsetToPointA,
-          ssbSubcarrierOffset,
-          ssbScs,
-        ] = rest;
-        return {
-          ...baseCellInfo,
-          type: "NR5G" as const,
-          scs: parseInt(scs),
-          cellId,
-          tac,
-          carrierBandwidth: parseInt(carrierBandwidth),
-          band: parseInt(band),
-          offsetToPointA: parseInt(offsetToPointA),
-          ssbSubcarrierOffset: parseInt(ssbSubcarrierOffset),
-          ssbScs: parseInt(ssbScs),
-        } as NR5GCellInfo;
-      }
-    });
+        if (type === "LTE") {
+          const [squal, cellId, tac, bandwidth, band] = rest;
+          const bandwidthValue = parseInt(bandwidth);
+
+          // Convert bandwidth resource blocks to MHz using the mapping
+          const bandwidthMHz =
+            LTE_RB_BANDWIDTH_MAP[bandwidthValue.toString()] ||
+            `${bandwidthValue} RB`;
+
+          return {
+            ...baseCellInfo,
+            type: "LTE" as const,
+            squal: squal === "-" ? 0 : parseInt(squal),
+            cellId,
+            tac,
+            bandwidth: bandwidthValue,
+            bandwidthMHz: bandwidthMHz,
+            band: parseInt(band),
+          } as LTECellInfo;
+        } else if (type === "NR5G") {
+          const [
+            cellId,
+            tac,
+            scs,
+            carrierBandwidth,
+            band,
+            offsetToPointA,
+            ssbSubcarrierOffset,
+            ssbScs,
+          ] = rest;
+
+          return {
+            ...baseCellInfo,
+            type: "NR5G" as const,
+            cellId,
+            tac,
+            scs: parseInt(scs),
+            carrierBandwidth: parseInt(carrierBandwidth),
+            band: parseInt(band),
+            offsetToPointA: parseInt(offsetToPointA),
+            ssbSubcarrierOffset: parseInt(ssbSubcarrierOffset),
+            ssbScs: parseInt(ssbScs),
+          } as NR5GCellInfo;
+        }
+
+        // If we can't determine the type, return null - this will be filtered out
+        return null;
+      })
+      .filter((cell): cell is CellInfo => cell !== null); // Type guard to filter out null values
   }, []);
 
-  const checkScanStatus = useCallback(async () => {
+  // Initial check for results - single check, no polling
+  const checkInitialResults = useCallback(async () => {
     try {
-      // Keep checking for result even if progress bar is advancing independently
+      const response = await fetch(
+        "/cgi-bin/quecmanager/experimental/cell_scanner/check_scan.sh",
+        { headers: { "Cache-Control": "no-cache, no-store" } }
+      );
+
+      if (!response.ok) {
+        return;
+      }
+
+      const result: ScanResult = await response.json();
+
+      // If we have successful results, display them
+      if (result.status === "success" && result.output) {
+        setScanResult(result);
+        setLastScanTime(result.timestamp || null);
+        // No need to show toast, just display the results
+      } else if (result.status === "running") {
+        // A scan is already running, initialize the UI to show that
+        setScanState({
+          status: "scanning",
+          progress: 50, // Arbitrary midpoint since we don't know how long it's been running
+          message: "Scan in progress...",
+          startTime: Date.now() - 60000, // Assume it's been running for a minute
+        });
+        startProgressAnimation();
+        // Start polling since there's an active scan
+        setTimeout(checkScanStatus, 2000);
+      }
+      // Otherwise, just leave the UI in idle state
+    } catch (error) {
+      console.error("Failed to check initial scan results", error);
+      // No toast for initial check failure
+    }
+  }, []);
+
+  // Check scan status - only used after explicitly starting a scan
+  const checkScanStatus = useCallback(async () => {
+    // Check if we've been polling too long (2 minutes)
+    if (pollingCount > 60) {
+      // Don't reset to idle - just stop polling and let the progress bar continue
+      console.log(
+        "Reached maximum polling attempts, waiting for results to appear"
+      );
+      return;
+    }
+
+    try {
       const response = await fetch(
         "/cgi-bin/quecmanager/experimental/cell_scanner/check_scan.sh",
         { headers: { "Cache-Control": "no-cache, no-store" } }
@@ -336,35 +402,30 @@ const CellScannerPage = () => {
           message: "",
         });
         setPollingCount(0);
-        return true; // Successfully found result
+        return;
       }
 
-      // If still running or in between status, continue polling
-      if (result.status === "running" || pollingCount < 60) {
+      // If still running, continue polling
+      if (result.status === "running") {
         setPollingCount((prev) => prev + 1);
         setTimeout(checkScanStatus, 2000);
-        return false; // Still need to poll
+        return;
       }
 
-      // After 2 minutes of polling with no results, give up
-      if (pollingCount >= 60) {
-        toast({
-          title: "Warning",
-          description:
-            "Scan is taking longer than expected. Results may appear when complete.",
-          variant: "default",
-        });
-        return false;
+      // Even if the status is "idle", continue polling for a while
+      // This helps in case results appear slightly after the scan completes
+      if (pollingCount < 30) {
+        setPollingCount((prev) => prev + 1);
+        setTimeout(checkScanStatus, 2000);
       }
     } catch (error) {
       console.error("Failed to check scan status", error);
 
-      // Continue polling anyway - the progress bar will continue independently
+      // Continue polling even on error, up to the limit
       if (pollingCount < 60) {
         setPollingCount((prev) => prev + 1);
-        setTimeout(checkScanStatus, 2000);
+        setTimeout(checkScanStatus, 3000); // Slightly longer delay on error
       }
-      return false;
     }
   }, [pollingCount]);
 
@@ -395,11 +456,11 @@ const CellScannerPage = () => {
           startProgress + progressRange * Math.min(elapsed / totalDuration, 1);
 
         // Determine message based on progress
-        let message = "Scan in progress...";
+        let message = "Scanning available networks... This may take a minute";
         if (progress > 85) {
-          message = "Almost done...";
+          message = "Finalizing scan results...";
         } else if (progress > 50) {
-          message = "Still scanning...";
+          message = "Collecting operator data...";
         }
 
         return {
@@ -431,6 +492,7 @@ const CellScannerPage = () => {
     }, totalDuration + 30000);
   }, []);
 
+  // Start new scan with countdown-based progress bar
   const startNewScan = useCallback(async () => {
     if (scanState.status === "scanning" || isInitiatingScan) return;
 
@@ -489,7 +551,12 @@ const CellScannerPage = () => {
     } finally {
       setIsInitiatingScan(false);
     }
-  }, [scanState.status, isInitiatingScan, checkScanStatus]);
+  }, [
+    scanState.status,
+    isInitiatingScan,
+    checkScanStatus,
+    startProgressAnimation,
+  ]);
 
   // Group cells by operator
   const groupCellsByOperator = useCallback(
@@ -529,11 +596,11 @@ const CellScannerPage = () => {
     return <BiSignal1 className="text-xl text-red-500" />;
   }, []);
 
-  // Initial check for results
+  // Initial check on component mount
   useEffect(() => {
-    checkScanStatus();
+    checkInitialResults();
     fetchQuecwatchStatus();
-  }, [checkScanStatus, fetchQuecwatchStatus]);
+  }, [checkInitialResults, fetchQuecwatchStatus]);
 
   // Clear results
   const clearResults = useCallback(() => {
@@ -648,7 +715,7 @@ const CellScannerPage = () => {
           <CardTitle>Full Network Cell Scan</CardTitle>
           <CardDescription>
             Scan all available network cells, including those from other network
-            providers. Current network mode will affect the results.
+            providers. Current network mode will affect the results and you may be disconnected during the scan.
             {lastScanTime && (
               <div className="mt-1 text-sm text-muted-foreground">
                 Last scan: {lastScanTime}
@@ -697,6 +764,7 @@ const CellScannerPage = () => {
                           <TableHead>E/ARFCN</TableHead>
                           <TableHead>PCI</TableHead>
                           <TableHead>Band</TableHead>
+                          <TableHead>Bandwidth</TableHead>
                           <TableHead>Cell ID</TableHead>
                           <TableHead>TAC</TableHead>
                           <TableHead>Signal</TableHead>
@@ -709,6 +777,11 @@ const CellScannerPage = () => {
                             <TableCell>{cell.freq}</TableCell>
                             <TableCell>{cell.pci}</TableCell>
                             <TableCell>{cell.band}</TableCell>
+                            <TableCell>
+                              {cell.type === "LTE"
+                                ? (cell as LTECellInfo).bandwidthMHz
+                                : "-"}
+                            </TableCell>
                             <TableCell>{cell.cellId}</TableCell>
                             <TableCell>{cell.tac}</TableCell>
                             <TableCell>

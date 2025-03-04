@@ -31,6 +31,18 @@ const CellSettingsLayout = ({ children }: CellSettingsLayoutProps) => {
           >
             QuecWatch
           </Link>
+
+          <Link
+            href="/dashboard/experimental/quecprofiles"
+            className={`${
+              currentPathName === "/dashboard/experimental/quecprofiles/"
+                ? "font-semibold text-primary"
+                : "text-sm"
+            }`}
+          >
+            QuecProfiles
+          </Link>
+
           <Link
             href="/dashboard/experimental/keep-alive"
             className={`${

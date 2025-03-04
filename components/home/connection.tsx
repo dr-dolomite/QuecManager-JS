@@ -46,7 +46,7 @@ const Connection = ({
         <div className="flex flex-row justify-between text-md">
           <div>Operator State</div>
           {isLoading ? (
-            <Skeleton className="h-4 w-[100px]" />
+            <Skeleton className="h-6 w-[100px]" />
           ) : (
             <Badge
               className={`font-bold ${
@@ -64,7 +64,7 @@ const Connection = ({
         <div className="flex flex-row justify-between text-md">
           <div>Functionality State</div>
           {isLoading ? (
-            <Skeleton className="h-4 w-[100px]" />
+            <Skeleton className="h-6 w-[100px]" />
           ) : (
             <Badge
               className={`font-bold ${
@@ -81,7 +81,7 @@ const Connection = ({
         <div className="flex flex-row justify-between text-md">
           <div>Data Connection State</div>
           {connectionStateLoading ? (
-            <Skeleton className="h-4 w-[100px]" />
+            <Skeleton className="h-6 w-[100px]" />
           ) : (
               <Badge
                 className={`font-bold ${

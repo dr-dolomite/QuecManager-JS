@@ -32,7 +32,7 @@ const DataTransmission = ({
         <div className="flex flex-row justify-between text-md">
           <p>Carrier Aggregation</p>
           {isLoading ? (
-            <Skeleton className="h-4 w-[100px]" />
+            <Skeleton className="h-6 w-[100px]" />
           ) : (
             <Badge
               className={`font-bold ${
@@ -67,7 +67,7 @@ const DataTransmission = ({
         <div className="flex flex-row justify-between text-md">
           <p>Signal Strength</p>
           {isLoading ? (
-            <Skeleton className="h-4 w-[100px]" />
+            <Skeleton className="h-6 w-[100px]" />
           ) : (
             // Use appropriate class for the signal strength badge
             // if > 80% use bg-emerald-500 hover:bg-emerald-800 if > 40% use bg-orange-500 else use bg-rose-500 hover:bg-rose-800

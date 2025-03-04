@@ -80,7 +80,7 @@ const CellularInformation = ({ data, isLoading }: CellularInformationProps) => {
         <div className="flex flex-row justify-between text-md">
           <p>Signal Quality</p>
           {isLoading ? (
-            <Skeleton className="h-4 w-[80px]" />
+            <Skeleton className="h-6 w-[80px]" />
           ) : (
             <Badge
               className={`

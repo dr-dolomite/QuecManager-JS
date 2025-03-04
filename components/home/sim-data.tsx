@@ -35,7 +35,7 @@ const SimData = ({ data, isLoading } : SimDataProps ) => {
         <div className="flex flex-row justify-between text-md">
           <p>Sim Card State</p>
           {isLoading ? (
-            <Skeleton className="h-4 w-[100px]" />
+            <Skeleton className="h-6 w-[100px]" />
           ) : (
             <Badge
               className={`font-bold ${

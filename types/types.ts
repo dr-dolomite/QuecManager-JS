@@ -187,3 +187,13 @@ export interface APNProfileResponse {
   lastActivity?: string;
 }
 
+export const LTE_RB_BANDWIDTH_MAP: BandwidthMap = {
+  "6": "1.4 MHz",
+  "15": "3 MHz",
+  "25": "5 MHz",
+  "50": "10 MHz",
+  "75": "15 MHz",
+  "100": "20 MHz",
+  "-" : "-" 
+};
+
