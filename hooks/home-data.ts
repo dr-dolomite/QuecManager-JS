@@ -1,25 +1,25 @@
 /**
  * Custom hook that fetches and processes cellular modem data for the home dashboard.
  * This hook handles data fetching, processing, error handling, and automatic refresh at regular intervals.
- * 
- * The hook fetches data from the API endpoint `/cgi-bin/quecmanager/at_cmd/fetch_data.sh?set=1` 
+ *
+ * The hook fetches data from the API endpoint `/cgi-bin/quecmanager/at_cmd/fetch_data.sh?set=1`
  * and transforms the raw response into a structured {@link HomeData} format with information about:
  * - SIM card details (slot, state, provider, etc.)
  * - Connection information (APN, network type, temperature, etc.)
  * - Data transmission metrics (carrier aggregation, bandwidth, signal strength)
  * - Cellular information (cell ID, tracking area code, signal quality)
  * - Current bands information (band numbers, EARFCN, PCI, signal metrics)
- * 
+ *
  * @returns An object containing:
  * - `data` - The processed cellular modem information, or null if not yet loaded
  * - `isLoading` - Boolean indicating if data is currently being fetched
  * - `error` - Any error that occurred during data fetching, or null if no error
  * - `refresh` - Function to manually trigger a data refresh
- * 
+ *
  * @example
  * ```tsx
  * const { data, isLoading, error, refresh } = useHomeData();
- * 
+ *
  * if (isLoading) return <LoadingSpinner />;
  * if (error) return <ErrorMessage error={error} />;
  * return <HomeDisplay data={data} onRefresh={refresh} />;
@@ -38,7 +38,9 @@ const useHomeData = () => {
 
   const fetchHomeData = useCallback(async () => {
     try {
-      const response = await fetch("/cgi-bin/quecmanager/at_cmd/fetch_data.sh?set=1");
+      const response = await fetch(
+        "/api/cgi-bin/quecmanager/at_cmd/fetch_data.sh?set=1"
+      );
       const rawData = await response.json();
       console.log(rawData);
 
@@ -51,13 +53,7 @@ const useHomeData = () => {
           state: rawData[6].response.match("READY")
             ? "Inserted"
             : "Not Inserted",
-          provider:
-            rawData[2].response
-              .split("\n")[1]
-              ?.split(":")[1]
-              ?.split(",")[2]
-              .replace(/"/g, "")
-              .trim() || "Unknown",
+          provider: getProviderName(rawData[2].response) || "Unknown",
           phoneNumber:
             rawData[1].response
               .split("\n")[1]
@@ -96,12 +92,7 @@ const useHomeData = () => {
           networkType: getNetworkType(rawData[13].response) || "No Signal",
           modemTemperature:
             getModemTemperature(rawData[11].response) || "Unknown",
-          accessTechnology:
-            rawData[2].response
-              .split("\n")[1]
-              ?.split(":")[1]
-              ?.split(",")[3]
-              .trim() || "Unknown",
+          accessTechnology: getAccessTechnology(rawData[2].response) || "Unknown",
         },
         dataTransmission: {
           carrierAggregation:
@@ -280,6 +271,39 @@ const useHomeData = () => {
 };
 
 // Helper functions for data processing
+const getProviderName = (response: string) => {
+  //             rawData[2].response
+  // ?.split("\n")[1]
+  // ?.split(":")[1]
+  // ?.split(",")[2]
+  // .replace(/"/g, "")
+  // .trim() || "Unknown",
+  try {
+    return (
+      response
+        ?.split("\n")[1]
+        ?.split(":")[1]
+        ?.split(",")[2]
+        .replace(/"/g, "")
+        .trim() || "Unknown"
+    );
+  } catch (error) {
+    return "-";
+  }
+};
+
+const getAccessTechnology = (response: string) => {
+  try {
+    return response
+      ?.split("\n")[1]
+      ?.split(":")[1]
+      ?.split(",")[3]
+      .trim() || "Unknown";
+  } catch (error) {
+    return "-";
+  }
+};
+
 const getOperatorState = (lteResponse: string, nr5gResponse: string) => {
   const state =
     lteResponse.split("\n")[1]?.split(":")[1]?.split(",")[1].trim() ||
@@ -313,7 +337,9 @@ const getNetworkType = (response: string) => {
 const getModemTemperature = (response: string) => {
   const temps = ["cpuss-0", "cpuss-1", "cpuss-2", "cpuss-3"].map((cpu) => {
     const line = response.split("\n").find((l) => l.includes(cpu));
-    return parseInt(line!?.split(":")[1]?.split(",")[1].replace(/"/g, "").trim());
+    return parseInt(
+      line!?.split(":")[1]?.split(",")[1].replace(/"/g, "").trim()
+    );
   });
   const avgTemp = temps.reduce((acc, t) => acc + t, 0) / temps.length;
   return `${Math.round(avgTemp)}°C`;
@@ -520,7 +546,9 @@ const getPhysicalCellIDs = (response: string, networkType: string) => {
     let sccPCIsNR5G = response
       .split("\n")
       .filter((l) => l.includes("SCC") && l.includes("NR5G"));
-    sccPCIsNR5G = sccPCIsNR5G.map((l) => l?.split(":")[1]?.split(",")[4].trim());
+    sccPCIsNR5G = sccPCIsNR5G.map((l) =>
+      l?.split(":")[1]?.split(",")[4].trim()
+    );
 
     // Combine the PCIs into a single string separated by commas
     // If only PCC PCI is present
@@ -695,7 +723,9 @@ const getCurrentBandsBandNumber = (response: string) => {
       l?.split(":")[1]?.split(",")[3].replace(/"/g, "")
     );
   } else if (bandsLte.length) {
-    return bandsLte.map((l) => l?.split(":")[1]?.split(",")[3].replace(/"/g, ""));
+    return bandsLte.map((l) =>
+      l?.split(":")[1]?.split(",")[3].replace(/"/g, "")
+    );
   } else if (bandsNr5g.length) {
     return bandsNr5g.map((l) =>
       l?.split(":")[1]?.split(",")[3].replace(/"/g, "")

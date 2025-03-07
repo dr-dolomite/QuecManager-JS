@@ -1,0 +1,180 @@
+#!/bin/sh /etc/rc.common
+# Location: /etc/init.d/quecprofiles
+# Updated init script with improved error handling
+
+START=99  # Low priority, start after most services
+# Don't use procd as it might be causing issues
+# USE_PROCD=1
+
+PROG="/www/cgi-bin/services/quec_profile_daemon.sh"
+CONF="/etc/config/quecprofiles"
+LOG="/tmp/quecprofiles_init.log"
+
+# Direct logging for init script
+init_log() {
+    local message="$1"
+    echo "$(date): $message" >> "$LOG"
+    logger -t quecprofiles -p daemon.info "init: $message"
+}
+
+start() {
+    init_log "Starting quecprofiles service"
+    
+    # Ensure configuration exists
+    if [ ! -f "$CONF" ]; then
+        # Create default configuration
+        init_log "Creating default configuration"
+        cat > "$CONF" <<-EOF
+config quecprofiles 'settings'
+    option check_interval '60'
+    option enable_autoswitch '1'
+    option apply_priority '20'
+EOF
+    fi
+
+    # Ensure permissions are correct
+    if [ -f "$PROG" ]; then
+        chmod 755 "$PROG"
+        init_log "Script permissions set to 755"
+    else
+        init_log "ERROR: Profile daemon script not found at $PROG"
+        return 1
+    fi
+
+    # Get enable_autoswitch option
+    local enabled
+    config_load quecprofiles
+    config_get_bool enabled settings enable_autoswitch 1
+    
+    if [ "$enabled" -eq 0 ]; then
+        init_log "QuecProfiles service is disabled in config"
+        return 0
+    fi
+    
+    # Start daemon directly
+    init_log "Starting daemon script: $PROG"
+    
+    # Force script to run in background
+    nohup "$PROG" > /tmp/quecprofiles_stdout.log 2> /tmp/quecprofiles_stderr.log &
+    
+    # Get PID and log it
+    local PID=$!
+    init_log "Daemon started with PID: $PID"
+    
+    # Check if process is actually running
+    sleep 1
+    if kill -0 $PID 2>/dev/null; then
+        init_log "Process is running after 1 second check"
+    else
+        init_log "ERROR: Process failed to start or exited immediately"
+        cat /tmp/quecprofiles_stderr.log >> "$LOG"
+    fi
+    
+    # Return success
+    return 0
+}
+
+stop() {
+    init_log "Stopping quecprofiles service"
+    
+    # Clean up state files
+    rm -f /tmp/quecprofiles_active
+    rm -f /tmp/quecprofiles_check
+    
+    # Find and kill any running instances
+    local pid
+    pid=$(pgrep -f "$PROG")
+    if [ -n "$pid" ]; then
+        init_log "Killing process $pid"
+        kill $pid 2>/dev/null
+        
+        # Verify process is killed
+        sleep 1
+        if kill -0 $pid 2>/dev/null; then
+            init_log "Process $pid still running, forcing kill"
+            kill -9 $pid 2>/dev/null
+        else
+            init_log "Process $pid successfully terminated"
+        fi
+    else
+        init_log "No running process found"
+    fi
+    
+    init_log "Service stopped"
+    return 0
+}
+
+restart() {
+    init_log "Restarting quecprofiles service"
+    stop
+    sleep 1
+    start
+}
+
+reload() {
+    init_log "Reloading quecprofiles service"
+    restart
+}
+
+check_profiles() {
+    # Trigger profile check
+    init_log "Manual profile check triggered"
+    touch /tmp/quecprofiles_check
+}
+
+status() {
+    # Check if service is running
+    if pgrep -f "$PROG" >/dev/null; then
+        echo "QuecProfiles service is running"
+        
+        # Check status file
+        if [ -f /tmp/quecprofiles_status.json ]; then
+            echo "Status: $(cat /tmp/quecprofiles_status.json | jsonfilter -e '@.status')"
+            echo "Message: $(cat /tmp/quecprofiles_status.json | jsonfilter -e '@.message')"
+            echo "Profile: $(cat /tmp/quecprofiles_status.json | jsonfilter -e '@.profile')"
+            echo "Progress: $(cat /tmp/quecprofiles_status.json | jsonfilter -e '@.progress')%"
+            echo "Last update: $(date -d @$(cat /tmp/quecprofiles_status.json | jsonfilter -e '@.timestamp'))"
+            
+            # Show additional info from log
+            if [ -f /tmp/quecprofiles_debug.log ]; then
+                echo ""
+                echo "Last 5 log entries:"
+                tail -n 5 /tmp/quecprofiles_debug.log
+            fi
+        } else {
+            echo "Status: unknown (no status file found)"
+        }
+        
+        # Check active profiles
+        echo ""
+        echo "Configured profiles:"
+        for profile in $(uci -q show quecprofiles | grep "=profile$" | cut -d'.' -f2); do
+            echo "- $(uci -q get quecprofiles.$profile.name) (ICCID: $(uci -q get quecprofiles.$profile.iccid))"
+        done
+    } else {
+        echo "QuecProfiles service is not running"
+        
+        # Check if log exists but service not running
+        if [ -f /tmp/quecprofiles_debug.log ]; then
+            echo ""
+            echo "Last log entries (service not running):"
+            tail -n 5 /tmp/quecprofiles_debug.log
+        }
+        
+        # Check stderr log if it exists
+        if [ -f /tmp/quecprofiles_stderr.log ]; then
+            echo ""
+            echo "Error log contents:"
+            cat /tmp/quecprofiles_stderr.log
+        }
+    }
+}
+
+boot() {
+    # Create initial log entry
+    echo "==== Boot sequence started at $(date) ====" > "$LOG"
+    
+    # Add a delay on boot to ensure modem is ready
+    init_log "Scheduling service start after 30s delay"
+    (sleep 30 && start) &
+}

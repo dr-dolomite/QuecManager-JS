@@ -51,7 +51,7 @@ const Connection = ({
             <Badge
               className={`font-bold ${
                 data?.connection.operatorState === "Unknown" ||
-                data?.connection.operatorState === "Denied"
+                data?.connection.operatorState === "Denied" || data?.connection.operatorState === "Not Registered"
                   ? "bg-rose-500 hover:bg-rose-800"
                   : "bg-emerald-500 hover:bg-emerald-800"
               }`}
