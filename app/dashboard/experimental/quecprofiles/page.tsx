@@ -54,7 +54,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
-// Type definitions for our profile data
+// Updated Type definitions for our profile data
 interface Profile {
   name: string;
   iccid: string;
@@ -62,8 +62,10 @@ interface Profile {
   apn: string;
   pdp_type: string;
   lte_bands: string;
-  nr5g_bands?: string;
+  sa_nr5g_bands?: string;
+  nsa_nr5g_bands?: string;
   network_type: string;
+  ttl: string;
 }
 
 // Type for profile application status
@@ -92,7 +94,7 @@ const QuecProfilesPage = () => {
   // Track last displayed status to avoid repeated messages
   const [lastToastStatus, setLastToastStatus] = useState<string>("");
 
-  // Form state
+  // Form state with fields
   const [formData, setFormData] = useState<Profile>({
     name: "",
     iccid: "",
@@ -100,8 +102,10 @@ const QuecProfilesPage = () => {
     apn: "",
     pdp_type: "IPV4V6",
     lte_bands: "",
-    nr5g_bands: "",
+    sa_nr5g_bands: "",
+    nsa_nr5g_bands: "",
     network_type: "LTE",
+    ttl: "0",
   });
 
   // Error message state
@@ -127,15 +131,21 @@ const QuecProfilesPage = () => {
 
       if (response.ok) {
         const data = await response.json();
+
         if (data.status === "success" && Array.isArray(data.profiles)) {
+          // Log the data to see what we're getting
+          console.log("Fetched profiles:", data.profiles);
           setProfiles(data.profiles);
         } else {
+          console.error("Invalid profile data structure:", data);
           setProfiles([]);
         }
       } else {
+        console.error("Failed to fetch profiles:", response.statusText);
         setProfiles([]);
       }
     } catch (error) {
+      console.error("Error fetching profiles:", error);
       setProfiles([]);
       toast({
         title: "Error",
@@ -186,6 +196,34 @@ const QuecProfilesPage = () => {
   // Handle form input changes
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { id, value } = e.target;
+
+    // Special validation for TTL field
+    if (id === "ttl") {
+      const numValue = parseInt(value);
+      if (value === "" || isNaN(numValue)) {
+        setFormData({
+          ...formData,
+          ttl: "0",
+        });
+        return;
+      }
+
+      // Enforce TTL range 0-255
+      if (numValue < 0) {
+        setFormData({
+          ...formData,
+          ttl: "0",
+        });
+        return;
+      } else if (numValue > 255) {
+        setFormData({
+          ...formData,
+          ttl: "255",
+        });
+        return;
+      }
+    }
+
     setFormData({
       ...formData,
       [id]: value,
@@ -248,7 +286,17 @@ const QuecProfilesPage = () => {
         return;
       }
 
-      // Format data for API request
+      // TTL validation
+      if (
+        formData.ttl &&
+        (parseInt(formData.ttl) < 0 || parseInt(formData.ttl) > 255)
+      ) {
+        setErrorMessage("TTL must be between 0 and 255");
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Format data for API request with fields
       const requestData = {
         name: formData.name,
         iccid: formData.iccid,
@@ -256,8 +304,10 @@ const QuecProfilesPage = () => {
         apn: formData.apn,
         pdp_type: formData.pdp_type,
         lte_bands: formData.lte_bands,
-        nr5g_bands: formData.nr5g_bands || "",
+        sa_nr5g_bands: formData.sa_nr5g_bands || "",
+        nsa_nr5g_bands: formData.nsa_nr5g_bands || "",
         network_type: formData.network_type,
+        ttl: formData.ttl || "0",
       };
 
       // Send API request to CGI script
@@ -297,8 +347,10 @@ const QuecProfilesPage = () => {
           apn: "",
           pdp_type: "IPV4V6",
           lte_bands: "",
-          nr5g_bands: "",
+          sa_nr5g_bands: "",
+          nsa_nr5g_bands: "",
           network_type: "LTE",
+          ttl: "0",
         });
 
         // Show success message
@@ -334,6 +386,16 @@ const QuecProfilesPage = () => {
         return;
       }
 
+      // TTL validation
+      if (
+        formData.ttl &&
+        (parseInt(formData.ttl) < 0 || parseInt(formData.ttl) > 255)
+      ) {
+        setErrorMessage("TTL must be between 0 and 255");
+        setIsSubmitting(false);
+        return;
+      }
+
       // Format data for API request
       const requestData = {
         name: formData.name,
@@ -342,9 +404,13 @@ const QuecProfilesPage = () => {
         apn: formData.apn,
         pdp_type: formData.pdp_type,
         lte_bands: formData.lte_bands,
-        nr5g_bands: formData.nr5g_bands || "",
+        sa_nr5g_bands: formData.sa_nr5g_bands || "",
+        nsa_nr5g_bands: formData.nsa_nr5g_bands || "",
         network_type: formData.network_type,
+        ttl: formData.ttl || "0",
       };
+
+      console.log("Sending update request with data:", requestData);
 
       // Send API request
       const response = await fetch(
@@ -383,8 +449,10 @@ const QuecProfilesPage = () => {
           apn: "",
           pdp_type: "IPV4V6",
           lte_bands: "",
-          nr5g_bands: "",
+          sa_nr5g_bands: "",
+          nsa_nr5g_bands: "",
           network_type: "LTE",
+          ttl: "0",
         });
 
         // Show success message
@@ -475,6 +543,7 @@ const QuecProfilesPage = () => {
   // Function to show edit modal with profile data
   const handleEditClick = (profile: Profile) => {
     setModalMode("edit");
+
     setFormData({
       name: profile.name,
       iccid: profile.iccid,
@@ -482,9 +551,12 @@ const QuecProfilesPage = () => {
       apn: profile.apn,
       pdp_type: profile.pdp_type,
       lte_bands: profile.lte_bands,
-      nr5g_bands: profile.nr5g_bands || "",
+      sa_nr5g_bands: profile.sa_nr5g_bands || "",
+      nsa_nr5g_bands: profile.nsa_nr5g_bands || "",
       network_type: profile.network_type,
+      ttl: profile.ttl || "0",
     });
+
     setCurrentProfile(profile);
     setErrorMessage(null);
     setShowModal(true);
@@ -621,8 +693,10 @@ const QuecProfilesPage = () => {
                       apn: "",
                       pdp_type: "IPV4V6",
                       lte_bands: "",
-                      nr5g_bands: "",
+                      sa_nr5g_bands: "",
+                      nsa_nr5g_bands: "",
                       network_type: "LTE",
+                      ttl: "0",
                     });
                   }}
                 >
@@ -731,22 +805,37 @@ const QuecProfilesPage = () => {
                     </div>
                   </div>
 
-                  <div className="col-span-2 grid gap-1.5">
-                    <Label htmlFor="nr5g_bands">NR5G Bands</Label>
+                  <div className="grid gap-1.5">
+                    <Label htmlFor="nsa_nr5g_bands">NR5G-NSA Bands</Label>
                     <div className="grid gap-0.5">
                       <Input
-                        id="nr5g_bands"
+                        id="nsa_nr5g_bands"
                         placeholder="41,78"
-                        value={formData.nr5g_bands}
+                        value={formData.nsa_nr5g_bands}
                         onChange={handleInputChange}
                       />
                       <p className="text-xs text-muted-foreground italic">
-                        Comma-separated list of NR5G bands.
+                        Comma-separated list of NSA bands.
                       </p>
                     </div>
                   </div>
 
-                  <div className="grid gap-1.5 col-span-2">
+                  <div className="grid gap-1.5">
+                    <Label htmlFor="sa_nr5g_bands">NR5G-SA Bands</Label>
+                    <div className="grid gap-0.5">
+                      <Input
+                        id="sa_nr5g_bands"
+                        placeholder="41,78"
+                        value={formData.sa_nr5g_bands}
+                        onChange={handleInputChange}
+                      />
+                      <p className="text-xs text-muted-foreground italic">
+                        Comma-separated list of SA bands.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-1.5">
                     <Label htmlFor="network_type">Network Type</Label>
                     <Select
                       value={formData.network_type}
@@ -765,6 +854,25 @@ const QuecProfilesPage = () => {
                         </SelectItem>
                       </SelectContent>
                     </Select>
+                  </div>
+
+                  <div className="grid gap-1.5">
+                    <Label htmlFor="ttl">TTL Value</Label>
+                    <div className="grid gap-0.5">
+                      <Input
+                        id="ttl"
+                        type="number"
+                        min="0"
+                        max="255"
+                        placeholder="0 (disabled)"
+                        value={formData.ttl}
+                        onChange={handleInputChange}
+                      />
+                      <p className="text-xs text-muted-foreground italic">
+                        Set TTL for outgoing traffic (0 = disabled, 1-255 =
+                        custom TTL)
+                      </p>
+                    </div>
                   </div>
                 </div>
                 <DialogFooter>
@@ -849,7 +957,7 @@ const QuecProfilesPage = () => {
                     </div>
                   </div>
                 </>
-              ) : profiles.length > 0 ? (
+              ) : profiles && profiles.length > 0 ? (
                 // Actual profiles in grid view
                 profiles.map((profile, index) => (
                   <Card key={index}>
@@ -887,6 +995,11 @@ const QuecProfilesPage = () => {
                         <Badge variant="secondary" className="text-xs">
                           {formatNetworkType(profile.network_type)}
                         </Badge>
+                        {/* {profile.ttl && parseInt(profile.ttl) > 0 && (
+                          <Badge variant="outline" className="text-xs ml-2">
+                            TTL: {profile.ttl}
+                          </Badge>
+                        )} */}
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
@@ -941,6 +1054,18 @@ const QuecProfilesPage = () => {
 
                         <div className="grid gap-0.5">
                           <Label
+                            htmlFor={`prefTTl-${index}`}
+                            className="text-sm text-muted-foreground"
+                          >
+                            Preferred TTL
+                          </Label>
+                          <p id={`prefTTL-${index}`} className="font-semibold">
+                            {profile.ttl || "0"}
+                          </p>
+                        </div>
+
+                        <div className="grid gap-0.5">
+                          <Label
                             htmlFor={`prefLTEBands-${index}`}
                             className="text-sm text-muted-foreground"
                           >
@@ -956,16 +1081,31 @@ const QuecProfilesPage = () => {
 
                         <div className="grid gap-0.5">
                           <Label
-                            htmlFor={`prefNRBands-${index}`}
+                            htmlFor={`prefNRNSABands-${index}`}
                             className="text-sm text-muted-foreground"
                           >
-                            Preferred NR5G Bands
+                            Preferred NR5G-NSA Bands
                           </Label>
                           <p
-                            id={`prefNRBands-${index}`}
+                            id={`prefNRNSABands-${index}`}
                             className="font-semibold"
                           >
-                            {profile.nr5g_bands || "-"}
+                            {profile.nsa_nr5g_bands || "-"}
+                          </p>
+                        </div>
+
+                        <div className="grid gap-0.5">
+                          <Label
+                            htmlFor={`prefNRSABands-${index}`}
+                            className="text-sm text-muted-foreground"
+                          >
+                            Preferred NR5G-NSA Bands
+                          </Label>
+                          <p
+                            id={`prefNRSABands-${index}`}
+                            className="font-semibold"
+                          >
+                            {profile.sa_nr5g_bands || "-"}
                           </p>
                         </div>
                       </div>
@@ -982,7 +1122,8 @@ const QuecProfilesPage = () => {
                     No Profiles Found
                   </h3>
                   <p className="text-muted-foreground mb-4">
-                  Simplify network management with profiles that automatically apply your preferred settings.
+                    Simplify network management with profiles that automatically
+                    apply your preferred settings.
                   </p>
                 </div>
               )}
@@ -1005,6 +1146,9 @@ const QuecProfilesPage = () => {
                     </th>
                     <th className="h-10 px-4 text-left align-middle font-medium text-muted-foreground">
                       Network Type
+                    </th>
+                    <th className="h-10 px-4 text-left align-middle font-medium text-muted-foreground">
+                      TTL
                     </th>
                     <th className="h-10 px-4 text-left align-middle font-medium text-muted-foreground">
                       Actions
@@ -1030,25 +1174,7 @@ const QuecProfilesPage = () => {
                           <Skeleton className="h-5 w-20" />
                         </td>
                         <td className="p-4">
-                          <div className="flex items-center gap-2">
-                            <Skeleton className="h-8 w-8 rounded-md" />
-                            <Skeleton className="h-8 w-8 rounded-md" />
-                          </div>
-                        </td>
-                      </tr>
-                      <tr className="border-t">
-                        <td className="p-4">
-                          <Skeleton className="h-5 w-32" />
-                          <Skeleton className="h-3 w-24 mt-1" />
-                        </td>
-                        <td className="p-4">
-                          <Skeleton className="h-5 w-40" />
-                        </td>
-                        <td className="p-4">
-                          <Skeleton className="h-5 w-28" />
-                        </td>
-                        <td className="p-4">
-                          <Skeleton className="h-5 w-20" />
+                          <Skeleton className="h-5 w-10" />
                         </td>
                         <td className="p-4">
                           <div className="flex items-center gap-2">
@@ -1058,7 +1184,7 @@ const QuecProfilesPage = () => {
                         </td>
                       </tr>
                     </>
-                  ) : profiles.length > 0 ? (
+                  ) : profiles && profiles.length > 0 ? (
                     // Actual profiles in list view
                     profiles.map((profile, index) => (
                       <tr
@@ -1084,6 +1210,17 @@ const QuecProfilesPage = () => {
                           <Badge variant="secondary" className="text-xs">
                             {formatNetworkType(profile.network_type)}
                           </Badge>
+                        </td>
+                        <td className="p-4">
+                          {profile.ttl && parseInt(profile.ttl) > 0 ? (
+                            <Badge variant="outline" className="text-xs">
+                              {profile.ttl}
+                            </Badge>
+                          ) : (
+                            <span className="text-muted-foreground text-sm">
+                              Off
+                            </span>
+                          )}
                         </td>
                         <td className="p-4">
                           <div className="flex items-center gap-2">
@@ -1115,7 +1252,7 @@ const QuecProfilesPage = () => {
                     // Empty state for list view
                     <tr className="border-t">
                       <td
-                        colSpan={5}
+                        colSpan={6}
                         className="p-8 text-center text-muted-foreground"
                       >
                         No profiles found. Create one to get started.

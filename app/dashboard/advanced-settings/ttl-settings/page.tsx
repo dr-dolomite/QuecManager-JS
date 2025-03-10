@@ -13,43 +13,148 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { InfoIcon, LockIcon } from "lucide-react";
 
 import GithubButtonToast from "@/components/github-button";
 
-const TTLSettingsPage = () => {
-  const [ttlValue, setTtlValue] = useState("0");
-  const [ttlState, setTtlState] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
-  const toast = useToast();
+// Define interfaces for the API responses
+interface TTLData {
+  currentValue: number;
+  isEnabled: boolean;
+  success?: boolean;
+  error?: string;
+}
 
-  // Fetch current TTL state
+interface Profile {
+  name: string;
+  iccid: string;
+  imei: string;
+  apn: string;
+  pdp_type: string;
+  lte_bands: string;
+  sa_nr5g_bands: string;
+  nsa_nr5g_bands: string;
+  network_type: string;
+  ttl: string;
+}
+
+interface ProfileStatus {
+  status: string;
+  message: string;
+  profile: string;
+  progress?: number;
+  timestamp?: number;
+}
+
+interface ProfilesResponse {
+  status: string;
+  profiles: Profile[];
+}
+
+const TTLSettingsPage = () => {
+  const [ttlValue, setTtlValue] = useState<string>("0");
+  const [ttlState, setTtlState] = useState<boolean>(false);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string>("");
+  const [success, setSuccess] = useState<string>("");
+  const [activeProfile, setActiveProfile] = useState<Profile | null>(null);
+  const [isProfileControlled, setIsProfileControlled] =
+    useState<boolean>(false);
+  const { toast } = useToast();
+
+  // Fetch current TTL state and active profile
   useEffect(() => {
-    const fetchTTLState = async () => {
+    const fetchData = async () => {
+      setLoading(true);
+
       try {
-        // const response = await fetch("/fetch-ttl");
-        const response = await fetch("/cgi-bin/quecmanager/advance/ttl.sh");
-        const data = await response.json();
-        setTtlState(data.isEnabled);
-        setTtlValue(data.currentValue.toString());
-        setLoading(false);
+        // Fetch TTL settings
+        const ttlResponse = await fetch(
+          "/api/cgi-bin/quecmanager/advance/ttl.sh"
+        );
+        if (!ttlResponse.ok) {
+          throw new Error(
+            `Failed to fetch TTL settings: ${ttlResponse.statusText}`
+          );
+        }
+        const ttlData = (await ttlResponse.json()) as TTLData;
+
+        // Fetch active profile status
+        const profileResponse = await fetch(
+          "/api/cgi-bin/quecmanager/profiles/check_status.sh"
+        );
+        if (!profileResponse.ok) {
+          throw new Error(
+            `Failed to fetch profile status: ${profileResponse.statusText}`
+          );
+        }
+        const profileData = (await profileResponse.json()) as ProfileStatus;
+
+        console.log("TTL Data:", ttlData);
+        console.log("Profile Status:", profileData);
+
+        // Handle active profile with TTL
+        let isControlled = false;
+        let finalTtlValue = ttlData.currentValue.toString();
+        let finalTtlState = ttlData.isEnabled;
+
+        // Check if there's an active profile with TTL settings
+        if (
+          profileData.status === "success" &&
+          profileData.profile &&
+          profileData.profile !== "unknown" &&
+          profileData.profile !== "none"
+        ) {
+          // Fetch all profiles to find the active one
+          const profilesResponse = await fetch(
+            "/api/cgi-bin/quecmanager/profiles/list_profiles.sh"
+          );
+          if (profilesResponse.ok) {
+            const profilesData =
+              (await profilesResponse.json()) as ProfilesResponse;
+            if (
+              profilesData.status === "success" &&
+              Array.isArray(profilesData.profiles)
+            ) {
+              // Find the active profile
+              const active = profilesData.profiles.find(
+                (p) => p.name === profileData.profile
+              );
+              if (active && active.ttl && parseInt(active.ttl) > 0) {
+                // Profile has active TTL setting
+                setActiveProfile(active);
+                isControlled = true;
+                finalTtlValue = active.ttl;
+                finalTtlState = true;
+              }
+            }
+          }
+        }
+
+        setTtlValue(finalTtlValue);
+        setTtlState(finalTtlState);
+        setIsProfileControlled(isControlled);
       } catch (err) {
-        setError("Failed to fetch TTL settings");
-        setLoading(false);
-        toast.toast({
+        console.error("Error fetching data:", err);
+        setError(
+          err instanceof Error ? err.message : "Failed to fetch TTL settings"
+        );
+        toast({
           variant: "destructive",
-          title: "Uh oh! Something went wrong.",
-          description: error,
-          action: <GithubButtonToast />,
+          title: "Error fetching settings",
+          description:
+            err instanceof Error ? err.message : "Failed to fetch TTL settings",
         });
+      } finally {
+        setLoading(false);
       }
     };
 
-    fetchTTLState();
-  }, []);
+    fetchData();
+  }, [toast]);
 
-  const handleSubmit = async (e: { preventDefault: () => void }) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError("");
     setSuccess("");
@@ -64,38 +169,33 @@ const TTLSettingsPage = () => {
           "Content-Type": "application/x-www-form-urlencoded",
         },
         body: `ttl=${valueToSend}`,
-        // body: JSON.stringify({ command: valueToSend }),
       });
 
-      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(`HTTP error! Status: ${response.status}`);
+      }
+
+      const data = (await response.json()) as TTLData;
 
       if (data.success === true) {
-        toast.toast({
+        setSuccess("Settings saved successfully");
+        toast({
           title: "Success",
-          description: "Settings saved successfully",
+          description: "TTL settings saved successfully",
         });
       } else {
-        toast.toast({
-          variant: "destructive",
-          title: "Uh oh! Something went wrong.",
-          description: "Failed to save settings",
-          action: <GithubButtonToast />,
-        });
+        throw new Error(data.error || "Failed to save settings");
       }
     } catch (err) {
-      setError("Failed to save settings");
+      setError(err instanceof Error ? err.message : "Failed to save settings");
+      toast({
+        variant: "destructive",
+        title: "Error saving settings",
+        description:
+          err instanceof Error ? err.message : "Failed to save TTL settings",
+      });
     }
   };
-
-  // if (loading) {
-  //   return (
-  //     <Card className="w-full max-w-2xl mx-auto">
-  //       <CardContent className="p-6">
-  //         <div className="text-center">Loading TTL settings...</div>
-  //       </CardContent>
-  //     </Card>
-  //   );
-  // }
 
   return (
     <Card>
@@ -106,6 +206,30 @@ const TTLSettingsPage = () => {
         </CardDescription>
       </CardHeader>
       <CardContent>
+        {isProfileControlled && activeProfile && (
+          <Alert className="mb-6">
+            <LockIcon className="h-4 w-4" color="orange" />
+            <AlertTitle>Profile Controlled</AlertTitle>
+            <AlertDescription>
+              TTL is currently being managed by profile "{activeProfile.name}".
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {error && (
+          <Alert variant="destructive" className="mb-6">
+            <AlertTitle>Error</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+
+        {success && (
+          <Alert className="mb-6">
+            <AlertTitle>Success</AlertTitle>
+            <AlertDescription>{success}</AlertDescription>
+          </Alert>
+        )}
+
         <form onSubmit={handleSubmit} className="space-y-8">
           <div className="space-y-6">
             <div>
@@ -116,7 +240,7 @@ const TTLSettingsPage = () => {
                 max="255"
                 value={ttlValue}
                 onChange={(e) => setTtlValue(e.target.value)}
-                disabled={!ttlState}
+                disabled={!ttlState || isProfileControlled || loading}
                 className="mt-1"
               />
               <p className="text-sm text-gray-500 mt-1">
@@ -131,11 +255,19 @@ const TTLSettingsPage = () => {
                   Toggle to enable or disable TTL mangling
                 </p>
               </div>
-              <Switch checked={ttlState} onCheckedChange={setTtlState} />
+              <Switch
+                checked={ttlState}
+                onCheckedChange={setTtlState}
+                disabled={isProfileControlled || loading}
+              />
             </div>
           </div>
 
-          <Button type="submit" className="w-full" disabled={loading}>
+          <Button
+            type="submit"
+            className="w-full"
+            disabled={loading || isProfileControlled}
+          >
             Save Configuration
           </Button>
         </form>

@@ -53,7 +53,7 @@ const useCellSettingsData = () => {
       // Clean up data from previous fetch
       setData(null);
 
-      const response = await fetch("/cgi-bin/quecmanager/at_cmd/fetch_data.sh?set=2");
+      const response = await fetch("/api/cgi-bin/quecmanager/at_cmd/fetch_data.sh?set=2");
       const rawData = await response.json();
       console.log("Fetched cell settings data:", rawData);
 

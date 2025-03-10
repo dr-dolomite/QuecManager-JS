@@ -1,5 +1,5 @@
 #!/bin/sh
-# Complete QuecProfiles daemon with batch command processing
+# Updated QuecProfiles daemon with enhanced SA/NSA NR5G band management and TTL support
 # Including profile application functions and fixed comparison logic
 
 # Configuration
@@ -17,8 +17,8 @@ QUEUE_PRIORITY=3          # Medium-high priority (1 is highest for cell scan)
 MAX_TOKEN_WAIT=15         # Maximum seconds to wait for token acquisition
 
 # Initialize log file
-echo "$(date) - Starting QuecProfiles daemon with fixed comparison (PID: $$)" >"$DEBUG_LOG"
-echo "$(date) - Starting QuecProfiles daemon with fixed comparison (PID: $$)" >"$DETAILED_LOG"
+echo "$(date) - Starting QuecProfiles daemon with SA/NSA NR5G and TTL support (PID: $$)" >"$DEBUG_LOG"
+echo "$(date) - Starting QuecProfiles daemon with SA/NSA NR5G and TTL support (PID: $$)" >"$DETAILED_LOG"
 chmod 644 "$DEBUG_LOG" "$DETAILED_LOG"
 
 # Function to log messages
@@ -443,50 +443,34 @@ extract_lte_bands() {
     return 0
 }
 
-# Function to extract NR5G bands from modem data
+# Updated: Function to extract both SA and NSA NR5G bands from modem data
 extract_nr5g_bands() {
     local modem_data="$1"
-    local nsa_bands=""
-    local sa_bands=""
-    local combined_bands=""
+    local bands_type="$2" # "sa" or "nsa"
+
+    local section_type=""
+    if [ "$bands_type" = "sa" ]; then
+        section_type="nr5g_band"
+    else
+        section_type="nsa_nr5g_band"
+    fi
 
     # Extract sections containing NR5G band command responses
-    local nsa_section=$(echo -e "$modem_data" | sed -n '/====COMMAND_START:AT+QNWPREFCFG="nsa_nr5g_band"====/,/====COMMAND_END====/p')
-    local sa_section=$(echo -e "$modem_data" | sed -n '/====COMMAND_START:AT+QNWPREFCFG="nr5g_band"====/,/====COMMAND_END====/p')
+    local bands_section=$(echo -e "$modem_data" | sed -n "/====COMMAND_START:AT+QNWPREFCFG=\"$section_type\"====/,/====COMMAND_END====/p")
 
-    # Try to extract NSA bands
-    nsa_bands=$(echo "$nsa_section" | grep -o '+QNWPREFCFG:.*' | cut -d'"' -f3)
-    if [ -n "$nsa_bands" ]; then
+    # Try to extract bands
+    local bands=$(echo "$bands_section" | grep -o '+QNWPREFCFG:.*' | cut -d'"' -f3)
+
+    if [ -n "$bands" ]; then
         # Clean up the value - convert colon-separated to comma-separated and remove leading comma
-        nsa_bands=$(echo "$nsa_bands" | tr ':' ',' | sed 's/^,//')
-        log_message "Extracted NSA NR5G bands: $nsa_bands" "info"
+        bands=$(echo "$bands" | tr ':' ',' | sed 's/^,//')
+        log_message "Extracted $bands_type NR5G bands: $bands" "info"
+        echo "$bands"
+        return 0
     fi
 
-    # Try to extract SA bands
-    sa_bands=$(echo "$sa_section" | grep -o '+QNWPREFCFG:.*' | cut -d'"' -f3)
-    if [ -n "$sa_bands" ]; then
-        # Clean up the value - convert colon-separated to comma-separated and remove leading comma
-        sa_bands=$(echo "$sa_bands" | tr ':' ',' | sed 's/^,//')
-        log_message "Extracted SA NR5G bands: $sa_bands" "info"
-    fi
-
-    # Combine bands if both are present
-    if [ -n "$nsa_bands" ] && [ -n "$sa_bands" ]; then
-        combined_bands="${nsa_bands},${sa_bands}"
-    elif [ -n "$nsa_bands" ]; then
-        combined_bands="$nsa_bands"
-    elif [ -n "$sa_bands" ]; then
-        combined_bands="$sa_bands"
-    fi
-
-    if [ -z "$combined_bands" ]; then
-        log_message "Failed to extract any NR5G bands from modem data" "warn"
-        return 1
-    fi
-
-    log_message "Combined NR5G bands: $combined_bands" "info"
-    echo "$combined_bands"
-    return 0
+    log_message "Failed to extract $bands_type NR5G bands from modem data" "warn"
+    return 1
 }
 
 # Function to extract IMEI from modem data
@@ -510,35 +494,140 @@ extract_imei() {
     return 0
 }
 
-# Function to apply profile settings with a single token
+# Function to setup TTL configuration persistence
+setup_ttl_persistence() {
+    if [ ! -f "/etc/data/lanUtils.sh" ]; then
+        log_message "lanUtils.sh not found, TTL changes might not persist across reboots" "warn"
+        return 1
+    fi
+
+    # Backup the original script if not already done
+    if [ ! -f "/etc/data/lanUtils.sh.bak" ]; then
+        cp "/etc/data/lanUtils.sh" "/etc/data/lanUtils.sh.bak"
+    fi
+
+    # Add the local ttl_firewall_file line if it's not already present
+    if ! grep -q "local ttl_firewall_file" "/etc/data/lanUtils.sh"; then
+        sed -i '/local tcpmss_firewall_filev6/a \  local ttl_firewall_file=/etc/firewall.user.ttl' "/etc/data/lanUtils.sh"
+    fi
+
+    # Add the condition to include the ttl_firewall_file if it's not already present
+    if ! grep -q "if \[ -f \"\$ttl_firewall_file\" \]; then" "/etc/data/lanUtils.sh"; then
+        sed -i '/if \[ -f "\$tcpmss_firewall_filev6" \]; then/i \  if [ -f "\$ttl_firewall_file" ]; then\n    cat \$ttl_firewall_file >> \$firewall_file\n  fi' "/etc/data/lanUtils.sh"
+    fi
+
+    log_message "TTL persistence setup completed" "info"
+    return 0
+}
+
+# Function to apply TTL settings
+apply_ttl_settings() {
+    local ttl="$1"
+    local current_ttl="$2"
+    local token_id="$3"
+    local profile_name="$4"
+
+    # If TTL is not set, default to 0 (disabled)
+    ttl="${ttl:-0}"
+    current_ttl="${current_ttl:-0}"
+
+    # Check if change is needed
+    if [ "$ttl" = "$current_ttl" ]; then
+        log_message "TTL already set to $ttl, no change needed" "debug"
+        return 0
+    fi
+
+    update_track "applying" "Setting TTL from '$current_ttl' to '$ttl'" "$profile_name" "85"
+    log_message "Changing TTL from '$current_ttl' to '$ttl'" "info"
+
+    # Create TTL file directory if it doesn't exist
+    mkdir -p /etc
+
+    if [ "$ttl" = "0" ]; then
+        # Clear existing rules
+        iptables -t mangle -D POSTROUTING -o rmnet+ -j TTL --ttl-set "$current_ttl" 2>/dev/null
+        ip6tables -t mangle -D POSTROUTING -o rmnet+ -j HL --hl-set "$current_ttl" 2>/dev/null
+        >"/etc/firewall.user.ttl"
+        log_message "TTL settings cleared" "info"
+    else
+        # Clear existing rules
+        if [ "$current_ttl" != "0" ]; then
+            iptables -t mangle -D POSTROUTING -o rmnet+ -j TTL --ttl-set "$current_ttl" 2>/dev/null
+            ip6tables -t mangle -D POSTROUTING -o rmnet+ -j HL --hl-set "$current_ttl" 2>/dev/null
+        fi
+
+        # Set new rules
+        echo "iptables -t mangle -A POSTROUTING -o rmnet+ -j TTL --ttl-set $ttl" >"/etc/firewall.user.ttl"
+        echo "ip6tables -t mangle -A POSTROUTING -o rmnet+ -j HL --hl-set $ttl" >>"/etc/firewall.user.ttl"
+
+        # Apply the rules
+        iptables -t mangle -A POSTROUTING -o rmnet+ -j TTL --ttl-set "$ttl"
+        ip6tables -t mangle -A POSTROUTING -o rmnet+ -j HL --hl-set "$ttl"
+
+        log_message "TTL changed successfully to $ttl" "info"
+    fi
+
+    # Setup persistence
+    setup_ttl_persistence
+
+    return 0
+}
+
+# Function to get current TTL value
+get_current_ttl() {
+    local current_ttl=0
+
+    if [ -f "/etc/firewall.user.ttl" ]; then
+        current_ttl=$(grep 'iptables -t mangle -A POSTROUTING' "/etc/firewall.user.ttl" | awk '{for(i=1;i<=NF;i++){if($i=="--ttl-set"){print $(i+1)}}}')
+        if ! [[ "$current_ttl" =~ ^[0-9]+$ ]]; then
+            current_ttl=0
+        fi
+    fi
+
+    log_message "Current TTL value: $current_ttl" "debug"
+    echo "$current_ttl"
+    return 0
+}
+
+# Updated function to apply profile settings with separate SA/NSA NR5G bands and TTL support
 apply_profile_settings() {
     local profile_name="$1"
     local network_type="$2"
     local lte_bands="$3"
-    local nr5g_bands="$4"
-    local apn="$5"
-    local pdp_type="$6"
-    local imei="$7"
-    local current_apn="$8"
-    local current_mode="$9"
-    local current_lte_bands="${10}"
-    local current_nr5g_bands="${11}"
-    local current_imei="${12}"
-    local iccid="${13}"
+    local sa_nr5g_bands="$4"
+    local nsa_nr5g_bands="$5"
+    local apn="$6"
+    local pdp_type="$7"
+    local imei="$8"
+    local ttl="$9"
+    local current_apn="${10}"
+    local current_mode="${11}"
+    local current_lte_bands="${12}"
+    local current_sa_nr5g_bands="${13}"
+    local current_nsa_nr5g_bands="${14}"
+    local current_imei="${15}"
+    local iccid="${16}"
+
+    # Set TTL to 0 (disabled) if not specified
+    ttl="${ttl:-0}"
 
     log_message "Applying profile '$profile_name' with settings:" "info"
     log_message "- Network type: $network_type" "info"
     log_message "- LTE bands: $lte_bands" "info"
-    log_message "- NR5G bands: $nr5g_bands" "info"
+    log_message "- SA NR5G bands: $sa_nr5g_bands" "info"
+    log_message "- NSA NR5G bands: $nsa_nr5g_bands" "info"
     log_message "- APN: $apn ($pdp_type)" "info"
     log_message "- IMEI: $imei" "info"
+    log_message "- TTL: $ttl" "info"
 
     # Check if any changes are needed using improved comparison
     local needs_apn_change=0
     local needs_mode_change=0
     local needs_lte_bands_change=0
-    local needs_nr5g_bands_change=0
+    local needs_sa_nr5g_bands_change=0
+    local needs_nsa_nr5g_bands_change=0
     local needs_imei_change=0
+    local needs_ttl_change=0
     local changes_needed=0
     local requires_reboot=0
 
@@ -546,7 +635,17 @@ apply_profile_settings() {
     compare_values "$current_apn" "$apn" "apn" && needs_apn_change=1 && changes_needed=1
     compare_values "$current_mode" "$network_type" "mode" && needs_mode_change=1 && changes_needed=1
     compare_values "$current_lte_bands" "$lte_bands" "bands" && needs_lte_bands_change=1 && changes_needed=1
-    compare_values "$current_nr5g_bands" "$nr5g_bands" "bands" && needs_nr5g_bands_change=1 && changes_needed=1
+    compare_values "$current_sa_nr5g_bands" "$sa_nr5g_bands" "bands" && needs_sa_nr5g_bands_change=1 && changes_needed=1
+    compare_values "$current_nsa_nr5g_bands" "$nsa_nr5g_bands" "bands" && needs_nsa_nr5g_bands_change=1 && changes_needed=1
+
+    # Get current TTL value
+    local current_ttl=$(get_current_ttl)
+
+    # Compare TTL values
+    if [ "$current_ttl" != "$ttl" ]; then
+        needs_ttl_change=1
+        changes_needed=1
+    fi
 
     # IMEI is a special case - only change if explicitly specified
     if [ -n "$imei" ]; then
@@ -645,36 +744,58 @@ apply_profile_settings() {
         fi
     fi
 
-    # Apply NR5G bands change
-    if [ $needs_nr5g_bands_change -eq 1 ] && [ $apply_success -eq 1 ] && [ -n "$nr5g_bands" ]; then
-        update_track "applying" "Setting NR5G bands from '$current_nr5g_bands' to '$nr5g_bands'" "$profile_name" "80"
-        log_message "Changing NR5G bands from '$current_nr5g_bands' to '$nr5g_bands'" "info"
+    # Apply NSA NR5G bands change
+    if [ $needs_nsa_nr5g_bands_change -eq 1 ] && [ $apply_success -eq 1 ] && [ -n "$nsa_nr5g_bands" ]; then
+        update_track "applying" "Setting NSA NR5G bands from '$current_nsa_nr5g_bands' to '$nsa_nr5g_bands'" "$profile_name" "75"
+        log_message "Changing NSA NR5G bands from '$current_nsa_nr5g_bands' to '$nsa_nr5g_bands'" "info"
 
         # Convert comma-separated to colon-separated for AT command
-        local bands_formatted=$(echo "$nr5g_bands" | tr ',' ':')
-
-        # Set both NSA and SA bands
+        local bands_formatted=$(echo "$nsa_nr5g_bands" | tr ',' ':')
         local nsa_cmd="AT+QNWPREFCFG=\"nsa_nr5g_band\",$bands_formatted"
         local output=$(execute_at_command "$nsa_cmd" 10 "$token_id")
 
         if [ $? -eq 0 ]; then
             changes_made=1
-            log_message "NSA NR5G bands changed successfully to $nr5g_bands" "info"
-
-            # Set SA bands too
-            local sa_cmd="AT+QNWPREFCFG=\"nr5g_band\",$bands_formatted"
-            execute_at_command "$sa_cmd" 10 "$token_id"
-
-            update_track "applying" "NR5G bands set successfully" "$profile_name" "85"
+            log_message "NSA NR5G bands changed successfully to $nsa_nr5g_bands" "info"
+            update_track "applying" "NSA NR5G bands set successfully" "$profile_name" "80"
         else
-            log_message "Failed to change NR5G bands to $nr5g_bands" "error"
-            update_track "applying" "Failed to set NR5G bands, continuing" "$profile_name" "80"
+            log_message "Failed to change NSA NR5G bands to $nsa_nr5g_bands" "error"
+            update_track "applying" "Failed to set NSA NR5G bands, continuing" "$profile_name" "75"
+        fi
+    fi
+
+    # Apply SA NR5G bands change
+    if [ $needs_sa_nr5g_bands_change -eq 1 ] && [ $apply_success -eq 1 ] && [ -n "$sa_nr5g_bands" ]; then
+        update_track "applying" "Setting SA NR5G bands from '$current_sa_nr5g_bands' to '$sa_nr5g_bands'" "$profile_name" "85"
+        log_message "Changing SA NR5G bands from '$current_sa_nr5g_bands' to '$sa_nr5g_bands'" "info"
+
+        # Convert comma-separated to colon-separated for AT command
+        local bands_formatted=$(echo "$sa_nr5g_bands" | tr ',' ':')
+        local sa_cmd="AT+QNWPREFCFG=\"nr5g_band\",$bands_formatted"
+        local output=$(execute_at_command "$sa_cmd" 10 "$token_id")
+
+        if [ $? -eq 0 ]; then
+            changes_made=1
+            log_message "SA NR5G bands changed successfully to $sa_nr5g_bands" "info"
+            update_track "applying" "SA NR5G bands set successfully" "$profile_name" "90"
+        else
+            log_message "Failed to change SA NR5G bands to $sa_nr5g_bands" "error"
+            update_track "applying" "Failed to set SA NR5G bands, continuing" "$profile_name" "85"
+        fi
+    fi
+
+    # Apply TTL change if needed
+    if [ $needs_ttl_change -eq 1 ] && [ $apply_success -eq 1 ]; then
+        apply_ttl_settings "$ttl" "$current_ttl" "$token_id" "$profile_name"
+        if [ $? -eq 0 ]; then
+            changes_made=1
+            log_message "TTL settings applied successfully" "info"
         fi
     fi
 
     # Apply IMEI change (requires reboot)
     if [ $needs_imei_change -eq 1 ] && [ $apply_success -eq 1 ] && [ -n "$imei" ]; then
-        update_track "applying" "Setting IMEI from '$current_imei' to '$imei'" "$profile_name" "90"
+        update_track "applying" "Setting IMEI from '$current_imei' to '$imei'" "$profile_name" "95"
         log_message "Changing IMEI from '$current_imei' to '$imei'" "info"
 
         local imei_cmd="AT+EGMR=1,7,\"$imei\""
@@ -741,7 +862,7 @@ apply_profile_settings() {
     return 0
 }
 
-# Check profile function with fixed flow control
+# Check profile function with updated SA/NSA bands and TTL support
 check_profile() {
     local forced="${1:-0}"
 
@@ -786,16 +907,28 @@ check_profile() {
     local profile_name=$(uci -q get quecprofiles.$profile_index.name)
     local network_type=$(uci -q get quecprofiles.$profile_index.network_type)
     local lte_bands=$(uci -q get quecprofiles.$profile_index.lte_bands)
-    local nr5g_bands=$(uci -q get quecprofiles.$profile_index.nr5g_bands)
+    local sa_nr5g_bands=$(uci -q get quecprofiles.$profile_index.sa_nr5g_bands)
+    local nsa_nr5g_bands=$(uci -q get quecprofiles.$profile_index.nsa_nr5g_bands)
     local apn=$(uci -q get quecprofiles.$profile_index.apn)
     local pdp_type=$(uci -q get quecprofiles.$profile_index.pdp_type)
     local imei=$(uci -q get quecprofiles.$profile_index.imei)
+    local ttl=$(uci -q get quecprofiles.$profile_index.ttl)
 
     # Default pdp_type to "IP" if not specified
     pdp_type="${pdp_type:-IP}"
+    # Default TTL to 0 (disabled) if not specified
+    ttl="${ttl:-0}"
+
+    # For backward compatibility - check if old nr5g_bands exists but new fields don't
+    local nr5g_bands=$(uci -q get quecprofiles.$profile_index.nr5g_bands)
+    if [ -n "$nr5g_bands" ] && [ -z "$sa_nr5g_bands" ] && [ -z "$nsa_nr5g_bands" ]; then
+        sa_nr5g_bands=$nr5g_bands
+        nsa_nr5g_bands=$nr5g_bands
+        log_message "Migrating legacy nr5g_bands for profile $profile_name" "info"
+    fi
 
     log_message "Found profile: $profile_name for ICCID: $current_iccid" "info"
-    log_message "Profile settings: network_type=$network_type, lte_bands=$lte_bands, nr5g_bands=$nr5g_bands, apn=$apn, pdp_type=$pdp_type, imei=$imei" "info"
+    log_message "Profile settings: network_type=$network_type, lte_bands=$lte_bands, sa_nr5g_bands=$sa_nr5g_bands, nsa_nr5g_bands=$nsa_nr5g_bands, apn=$apn, pdp_type=$pdp_type, imei=$imei, ttl=$ttl" "info"
 
     # Check if APN is configured - it's the minimum required setting
     if [ -z "$apn" ]; then
@@ -804,7 +937,6 @@ check_profile() {
         return 1
     fi
 
-    # Rest of the function remains unchanged...
     # Check if profile is already applied (unless forced)
     if [ "$forced" != "1" ] && is_profile_applied "$current_iccid" "$profile_name"; then
         log_message "Profile '$profile_name' is already applied, skipping" "info"
@@ -825,18 +957,21 @@ check_profile() {
         local current_apn=""
         local current_mode=""
         local current_lte_bands=""
-        local current_nr5g_bands=""
+        local current_sa_nr5g_bands=""
+        local current_nsa_nr5g_bands=""
         local current_imei=""
 
         current_apn=$(extract_apn "$modem_data")
         current_mode=$(extract_network_mode "$modem_data")
         current_lte_bands=$(extract_lte_bands "$modem_data")
-        current_nr5g_bands=$(extract_nr5g_bands "$modem_data")
+        current_sa_nr5g_bands=$(extract_nr5g_bands "$modem_data" "sa")
+        current_nsa_nr5g_bands=$(extract_nr5g_bands "$modem_data" "nsa")
         current_imei=$(extract_imei "$modem_data")
 
-        apply_profile_settings "$profile_name" "$network_type" "$lte_bands" "$nr5g_bands" "$apn" "$pdp_type" "$imei" \
-            "$current_apn" "$current_mode" "$current_lte_bands" "$current_nr5g_bands" "$current_imei" \
-            "$current_iccid"
+        # Apply profile settings with the new parameters
+        apply_profile_settings "$profile_name" "$network_type" "$lte_bands" "$sa_nr5g_bands" "$nsa_nr5g_bands" \
+            "$apn" "$pdp_type" "$imei" "$ttl" "$current_apn" "$current_mode" "$current_lte_bands" \
+            "$current_sa_nr5g_bands" "$current_nsa_nr5g_bands" "$current_imei" "$current_iccid"
         return $?
     else
         log_message "Automatic profile switching is disabled, not applying profile" "info"
@@ -847,7 +982,7 @@ check_profile() {
 
 # Main function
 main() {
-    log_message "QuecProfiles daemon starting (PID: $$)" "info"
+    log_message "QuecProfiles daemon starting with SA/NSA NR5G and TTL support (PID: $$)" "info"
 
     # Clear status files at startup
     rm -f "$TRACK_FILE" "$CHECK_TRIGGER"

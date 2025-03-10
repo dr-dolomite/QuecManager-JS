@@ -9,52 +9,58 @@ import {
   CardTitle,
   CardDescription,
 } from "@/components/ui/card";
+
 import {
-  HoverCard,
-  HoverCardContent,
-  HoverCardTrigger,
-} from "@/components/ui/hover-card";
-import { Trash2, TriangleAlert } from "lucide-react";
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+
+import { Trash2, TriangleAlert, LockIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from "@/components/ui/separator";
-import { useIMEIConfig } from "@/hooks/imei-config";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { atCommandSender } from "@/utils/at-command";
 
-interface IMEIProfile {
-  imei: string;
+interface Profile {
+  name: string;
   iccid: string;
+  imei?: string;
+  apn: string;
+  pdp_type: string;
+  lte_bands: string;
+  sa_nr5g_bands?: string;
+  nsa_nr5g_bands?: string;
+  network_type: string;
+  ttl: string;
 }
 
-interface IMEIProfileFormData {
-  profile1: IMEIProfile;
-  profile2: IMEIProfile;
+interface ProfileStatus {
+  status: string;
+  message: string;
+  profile: string;
+  progress: number;
+  timestamp: number;
 }
-
-const INITIAL_PROFILE_STATE: IMEIProfile = {
-  imei: "",
-  iccid: "",
-};
-
-const INITIAL_FORM_STATE: IMEIProfileFormData = {
-  profile1: { ...INITIAL_PROFILE_STATE },
-  profile2: { ...INITIAL_PROFILE_STATE },
-};
 
 const IMEIManglingPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [currentIMEI, setCurrentIMEI] = useState("");
   const [newIMEI, setNewIMEI] = useState("");
+  const [activeProfile, setActiveProfile] = useState<Profile | null>(null);
+  const [isProfileControlled, setIsProfileControlled] = useState(false);
   const { toast } = useToast();
 
   const fetchIMEI = useCallback(async () => {
     try {
       setIsLoading(true);
       const response = await fetch(
-        "/cgi-bin/quecmanager/at_cmd/fetch_data.sh?set=3"
+        "/api/cgi-bin/quecmanager/at_cmd/fetch_data.sh?set=3"
       );
       const rawData = await response.json();
 
@@ -84,13 +90,91 @@ const IMEIManglingPage = () => {
     }
   }, []);
 
-  // First effect just for fetching IMEI
+  // Function to check if an active profile is managing the IMEI
+  const checkActiveProfile = useCallback(async () => {
+    try {
+      // Fetch active profile status
+      const profileResponse = await fetch(
+        "/api/cgi-bin/quecmanager/profiles/check_status.sh"
+      );
+      if (!profileResponse.ok) {
+        throw new Error(
+          `Failed to fetch profile status: ${profileResponse.statusText}`
+        );
+      }
+      const profileData = await profileResponse.json();
+
+      console.log("Profile Status:", profileData);
+
+      // Only proceed if there's an active profile
+      if (
+        profileData.status === "success" &&
+        profileData.profile &&
+        profileData.profile !== "unknown" &&
+        profileData.profile !== "none"
+      ) {
+        // Fetch all profiles to find the active one
+        const profilesResponse = await fetch(
+          "/api/cgi-bin/quecmanager/profiles/list_profiles.sh"
+        );
+        if (profilesResponse.ok) {
+          const profilesData = await profilesResponse.json();
+          if (
+            profilesData.status === "success" &&
+            Array.isArray(profilesData.profiles)
+          ) {
+            // Find the active profile
+            const active = profilesData.profiles.find(
+              (p: Profile) => p.name === profileData.profile
+            );
+            if (active && active.imei) {
+              setActiveProfile(active);
+              setIsProfileControlled(true);
+
+              // If profile has IMEI set, use it for display
+              setNewIMEI(active.imei);
+
+              console.log("Active Profile with IMEI:", active);
+            } else {
+              setActiveProfile(null);
+              setIsProfileControlled(false);
+            }
+          }
+        }
+      } else {
+        setActiveProfile(null);
+        setIsProfileControlled(false);
+      }
+    } catch (err) {
+      console.error("Error checking active profile:", err);
+      setActiveProfile(null);
+      setIsProfileControlled(false);
+    }
+  }, []);
+
+  // Effect for fetching IMEI and checking profile
   useEffect(() => {
-    fetchIMEI();
-  }, []); // No dependencies needed since fetchIMEI is stable
+    const initialize = async () => {
+      await fetchIMEI();
+      await checkActiveProfile();
+    };
+
+    initialize();
+  }, [fetchIMEI, checkActiveProfile]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Don't allow submission if profile controlled
+    if (isProfileControlled) {
+      toast({
+        title: "Profile Controlled",
+        description: `IMEI is currently managed by profile "${activeProfile?.name}". Edit the profile to change IMEI.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsLoading(true);
 
     // Add checker for the new IMEI if it's valid (must be 15 digits and numbers only)
@@ -152,15 +236,42 @@ const IMEIManglingPage = () => {
             <CardTitle>IMEI Mangling</CardTitle>
             <CardDescription className="flex items-center justify-between">
               Change the IMEI of the device.
-              <span className="flex items-center text-orange-500">
-                <TriangleAlert className="size-4 mr-1" />
-                Do at your own risk!
-              </span>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger>
+                    <span className="flex items-center text-orange-500">
+                      <TriangleAlert className="size-4 mr-1" />
+                      Do at your own risk!
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Add to library</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </CardDescription>
           </CardHeader>
           <CardContent>
+            {isProfileControlled && activeProfile && (
+              <Alert className="mb-6">
+                <LockIcon className="h-4 w-4" color="orange" />
+                <AlertTitle>Profile Controlled</AlertTitle>
+                <AlertDescription>
+                  IMEI is currently being managed by profile "
+                  {activeProfile.name}".
+                </AlertDescription>
+              </Alert>
+            )}
+
             <div className="grid w-full max-w-sm items-center gap-2">
-              <Label htmlFor="IMEI">Change Current IMEI</Label>
+              <Label htmlFor="IMEI">
+                Change Current IMEI
+                {isProfileControlled && (
+                  <span className="ml-2 text-xs text-muted-foreground">
+                    (Profile Controlled)
+                  </span>
+                )}
+              </Label>
               {isLoading ? (
                 <Skeleton className="h-8" />
               ) : (
@@ -169,8 +280,14 @@ const IMEIManglingPage = () => {
                     type="text"
                     id="IMEI"
                     value={newIMEI}
-                    onChange={(e) => setNewIMEI(e.target.value)}
+                    onChange={(e) =>
+                      !isProfileControlled && setNewIMEI(e.target.value)
+                    }
                     placeholder={currentIMEI}
+                    disabled={isProfileControlled}
+                    className={
+                      isProfileControlled ? "bg-muted cursor-not-allowed" : ""
+                    }
                   />
                   <p className="text-xs text-muted-foreground font-medium">
                     This will reboot the device.
@@ -183,7 +300,9 @@ const IMEIManglingPage = () => {
             <Button
               type="submit"
               className="w-full"
-              disabled={isLoading || newIMEI === currentIMEI}
+              disabled={
+                isLoading || newIMEI === currentIMEI || isProfileControlled
+              }
             >
               {isLoading ? "Processing..." : "Change IMEI"}
             </Button>

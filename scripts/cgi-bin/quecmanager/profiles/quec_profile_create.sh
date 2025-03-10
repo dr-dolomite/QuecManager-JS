@@ -17,7 +17,7 @@ output_json() {
     local status="$1"
     local message="$2"
     local data="${3:-{}}"
-    
+
     printf '{"status":"%s","message":"%s","data":%s}\n' "$status" "$message" "$data"
     exit 0
 }
@@ -44,7 +44,7 @@ validate_iccid() {
 validate_imei() {
     local imei="$1"
     if [ -z "$imei" ]; then
-        return 0  # IMEI is optional
+        return 0 # IMEI is optional
     fi
     if [ ${#imei} -ne 15 ] || ! echo "$imei" | grep -q '^[0-9]\+$'; then
         return 1
@@ -56,7 +56,7 @@ validate_imei() {
 validate_bands() {
     local bands="$1"
     if [ -z "$bands" ]; then
-        return 0  # Empty is valid
+        return 0 # Empty is valid
     fi
     # Check format (comma-separated numbers)
     if ! echo "$bands" | grep -q '^[0-9]\+\(,[0-9]\+\)*$'; then
@@ -69,12 +69,12 @@ validate_bands() {
 validate_network_type() {
     local net_type="$1"
     case "$net_type" in
-        "LTE"|"NR5G"|"LTE:NR5G")
-            return 0
-            ;;
-        *)
-            return 1
-            ;;
+    "LTE" | "NR5G" | "LTE:NR5G")
+        return 0
+        ;;
+    *)
+        return 1
+        ;;
     esac
 }
 
@@ -82,32 +82,45 @@ validate_network_type() {
 validate_pdp_type() {
     local pdp_type="$1"
     case "$pdp_type" in
-        "IP"|"IPV6"|"IPV4V6")
-            return 0
-            ;;
-        *)
-            return 1
-            ;;
+    "IP" | "IPV6" | "IPV4V6")
+        return 0
+        ;;
+    *)
+        return 1
+        ;;
     esac
+}
+
+# Add function to validate TTL
+validate_ttl() {
+    local ttl="$1"
+    if [ -z "$ttl" ]; then
+        return 0 # Empty is valid (will be treated as 0/disabled)
+    fi
+    # Check that TTL is a number between 0 and 255
+    if ! echo "$ttl" | grep -q '^[0-9]\+$' || [ "$ttl" -gt 255 ]; then
+        return 1
+    fi
+    return 0
 }
 
 # Function to check if a profile with the same name or ICCID already exists
 check_duplicate_profile() {
     local name="$1"
     local iccid="$2"
-    
+
     # Check for duplicate name
     local existing_name=$(uci -q show quecprofiles | grep ".name='$name'" | head -n 1)
     if [ -n "$existing_name" ]; then
         return 1
     fi
-    
+
     # Check for duplicate ICCID
     local existing_iccid=$(uci -q show quecprofiles | grep ".iccid='$iccid'" | head -n 1)
     if [ -n "$existing_iccid" ]; then
         return 2
     fi
-    
+
     return 0
 }
 
@@ -119,12 +132,14 @@ create_profile() {
     local apn="$4"
     local pdp_type="$5"
     local lte_bands="$6"
-    local nr5g_bands="$7"
-    local network_type="$8"
-    
+    local sa_nr5g_bands="$7"
+    local nsa_nr5g_bands="$8"
+    local network_type="$9"
+    local ttl="${10}"
+
     # Generate a unique ID for the profile
     local profile_id="profile_$(date +%s)_$(head -c 4 /dev/urandom | hexdump -e '"%x"')"
-    
+
     # Add to UCI config
     uci -q batch <<EOF
 add quecprofiles profile
@@ -134,11 +149,13 @@ set quecprofiles.@profile[-1].imei='$imei'
 set quecprofiles.@profile[-1].apn='$apn'
 set quecprofiles.@profile[-1].pdp_type='$pdp_type'
 set quecprofiles.@profile[-1].lte_bands='$lte_bands'
-set quecprofiles.@profile[-1].nr5g_bands='$nr5g_bands'
+set quecprofiles.@profile[-1].sa_nr5g_bands='$sa_nr5g_bands'
+set quecprofiles.@profile[-1].nsa_nr5g_bands='$nsa_nr5g_bands'
 set quecprofiles.@profile[-1].network_type='$network_type'
+set quecprofiles.@profile[-1].ttl='$ttl'
 commit quecprofiles
 EOF
-    
+
     # Check if the operation was successful
     if [ $? -eq 0 ]; then
         log_message "Successfully created profile '$name' for ICCID $iccid"
@@ -155,7 +172,7 @@ log_message "Received create profile request" "debug"
 # Ensure UCI config exists
 if [ ! -f /etc/config/quecprofiles ]; then
     # Create initial config file
-    cat > /etc/config/quecprofiles <<EOF
+    cat >/etc/config/quecprofiles <<EOF
 config quecprofiles 'settings'
     option check_interval '60'
     option enable_autoswitch '1'
@@ -168,14 +185,14 @@ fi
 if [ "$REQUEST_METHOD" = "POST" ]; then
     # Get content length
     CONTENT_LENGTH=$(echo "$CONTENT_LENGTH" | tr -cd '0-9')
-    
+
     if [ -n "$CONTENT_LENGTH" ]; then
         # Read POST data
         POST_DATA=$(dd bs=1 count=$CONTENT_LENGTH 2>/dev/null)
-        
+
         # Debug log
         log_message "Received POST data: $POST_DATA" "debug"
-        
+
         # Parse JSON with jsonfilter if available
         if command -v jsonfilter >/dev/null 2>&1; then
             name=$(echo "$POST_DATA" | jsonfilter -e '@.name' 2>/dev/null)
@@ -184,9 +201,11 @@ if [ "$REQUEST_METHOD" = "POST" ]; then
             apn=$(echo "$POST_DATA" | jsonfilter -e '@.apn' 2>/dev/null)
             pdp_type=$(echo "$POST_DATA" | jsonfilter -e '@.pdp_type' 2>/dev/null)
             lte_bands=$(echo "$POST_DATA" | jsonfilter -e '@.lte_bands' 2>/dev/null)
-            nr5g_bands=$(echo "$POST_DATA" | jsonfilter -e '@.nr5g_bands' 2>/dev/null)
+            sa_nr5g_bands=$(echo "$POST_DATA" | jsonfilter -e '@.sa_nr5g_bands' 2>/dev/null)
+            nsa_nr5g_bands=$(echo "$POST_DATA" | jsonfilter -e '@.nsa_nr5g_bands' 2>/dev/null)
             network_type=$(echo "$POST_DATA" | jsonfilter -e '@.network_type' 2>/dev/null)
-            
+            ttl=$(echo "$POST_DATA" | jsonfilter -e '@.ttl' 2>/dev/null)
+
             log_message "Parsed JSON data for profile: $name" "debug"
         else
             # If jsonfilter is not available, try basic parsing
@@ -197,9 +216,11 @@ if [ "$REQUEST_METHOD" = "POST" ]; then
             apn=$(echo "$POST_DATA" | grep -o '"apn":"[^"]*"' | head -1 | cut -d':' -f2 | tr -d '"')
             pdp_type=$(echo "$POST_DATA" | grep -o '"pdp_type":"[^"]*"' | head -1 | cut -d':' -f2 | tr -d '"')
             lte_bands=$(echo "$POST_DATA" | grep -o '"lte_bands":"[^"]*"' | head -1 | cut -d':' -f2 | tr -d '"')
-            nr5g_bands=$(echo "$POST_DATA" | grep -o '"nr5g_bands":"[^"]*"' | head -1 | cut -d':' -f2 | tr -d '"')
+            sa_nr5g_bands=$(echo "$POST_DATA" | grep -o '"sa_nr5g_bands":"[^"]*"' | head -1 | cut -d':' -f2 | tr -d '"')
+            nsa_nr5g_bands=$(echo "$POST_DATA" | grep -o '"nsa_nr5g_bands":"[^"]*"' | head -1 | cut -d':' -f2 | tr -d '"')
             network_type=$(echo "$POST_DATA" | grep -o '"network_type":"[^"]*"' | head -1 | cut -d':' -f2 | tr -d '"')
-            
+            ttl=$(echo "$POST_DATA" | grep -o '"ttl":"[^"]*"' | head -1 | cut -d':' -f2 | tr -d '"')
+
             log_message "Basic parsing for profile: $name" "warn"
         fi
     else
@@ -214,9 +235,11 @@ else
     apn=$(echo "$QUERY_STRING" | grep -o 'apn=[^&]*' | cut -d'=' -f2)
     pdp_type=$(echo "$QUERY_STRING" | grep -o 'pdp_type=[^&]*' | cut -d'=' -f2)
     lte_bands=$(echo "$QUERY_STRING" | grep -o 'lte_bands=[^&]*' | cut -d'=' -f2)
-    nr5g_bands=$(echo "$QUERY_STRING" | grep -o 'nr5g_bands=[^&]*' | cut -d'=' -f2)
+    sa_nr5g_bands=$(echo "$QUERY_STRING" | grep -o 'sa_nr5g_bands=[^&]*' | cut -d'=' -f2)
+    nsa_nr5g_bands=$(echo "$QUERY_STRING" | grep -o 'nsa_nr5g_bands=[^&]*' | cut -d'=' -f2)
     network_type=$(echo "$QUERY_STRING" | grep -o 'network_type=[^&]*' | cut -d'=' -f2)
-    
+    ttl=$(echo "$QUERY_STRING" | grep -o 'ttl=[^&]*' | cut -d'=' -f2)
+
     # URL decode values
     name=$(echo "$name" | sed 's/+/ /g;s/%\(..\)/\\x\1/g;' | xargs -0 printf "%b")
     iccid=$(echo "$iccid" | sed 's/+/ /g;s/%\(..\)/\\x\1/g;' | xargs -0 printf "%b")
@@ -224,9 +247,11 @@ else
     apn=$(echo "$apn" | sed 's/+/ /g;s/%\(..\)/\\x\1/g;' | xargs -0 printf "%b")
     pdp_type=$(echo "$pdp_type" | sed 's/+/ /g;s/%\(..\)/\\x\1/g;' | xargs -0 printf "%b")
     lte_bands=$(echo "$lte_bands" | sed 's/+/ /g;s/%\(..\)/\\x\1/g;' | xargs -0 printf "%b")
-    nr5g_bands=$(echo "$nr5g_bands" | sed 's/+/ /g;s/%\(..\)/\\x\1/g;' | xargs -0 printf "%b")
+    sa_nr5g_bands=$(echo "$sa_nr5g_bands" | sed 's/+/ /g;s/%\(..\)/\\x\1/g;' | xargs -0 printf "%b")
+    nsa_nr5g_bands=$(echo "$nsa_nr5g_bands" | sed 's/+/ /g;s/%\(..\)/\\x\1/g;' | xargs -0 printf "%b")
     network_type=$(echo "$network_type" | sed 's/+/ /g;s/%\(..\)/\\x\1/g;' | xargs -0 printf "%b")
-    
+    ttl=$(echo "$ttl" | sed 's/+/ /g;s/%\(..\)/\\x\1/g;' | xargs -0 printf "%b")
+
     log_message "Using URL parameters" "warn"
 fi
 
@@ -237,8 +262,10 @@ imei=$(sanitize "${imei:-}")
 apn=$(sanitize "${apn:-}")
 pdp_type=$(sanitize "${pdp_type:-IP}")
 lte_bands=$(sanitize "${lte_bands:-}")
-nr5g_bands=$(sanitize "${nr5g_bands:-}")
+sa_nr5g_bands=$(sanitize "${sa_nr5g_bands:-}")
+nsa_nr5g_bands=$(sanitize "${nsa_nr5g_bands:-}")
 network_type=$(sanitize "${network_type:-LTE}")
+ttl=$(sanitize "${ttl:-0}") # Default to 0 (disabled)
 
 # Output debug info
 log_message "Creating profile: $name, ICCID: $iccid, IMEI: $imei, APN: $apn" "debug"
@@ -275,9 +302,14 @@ if ! validate_bands "$lte_bands"; then
     output_json "error" "Invalid LTE bands format. Use comma-separated numbers (e.g., 1,3,7)"
 fi
 
-if ! validate_bands "$nr5g_bands"; then
-    log_message "Invalid NR5G bands format: $nr5g_bands" "error"
-    output_json "error" "Invalid NR5G bands format. Use comma-separated numbers (e.g., 41,78)"
+if ! validate_bands "$sa_nr5g_bands"; then
+    log_message "Invalid SA NR5G bands format: $sa_nr5g_bands" "error"
+    output_json "error" "Invalid SA NR5G bands format. Use comma-separated numbers (e.g., 41,78)"
+fi
+
+if ! validate_bands "$nsa_nr5g_bands"; then
+    log_message "Invalid NSA NR5G bands format: $nsa_nr5g_bands" "error"
+    output_json "error" "Invalid NSA NR5G bands format. Use comma-separated numbers (e.g., 1,79)"
 fi
 
 if ! validate_network_type "$network_type"; then
@@ -288,6 +320,11 @@ fi
 if ! validate_pdp_type "$pdp_type"; then
     log_message "Invalid PDP type: $pdp_type" "error"
     output_json "error" "Invalid PDP type. Use 'IP', 'IPV6', or 'IPV4V6'"
+fi
+
+if ! validate_ttl "$ttl"; then
+    log_message "Invalid TTL value: $ttl" "error"
+    output_json "error" "Invalid TTL value. It should be a number between 0 and 255."
 fi
 
 # Check for duplicates
@@ -302,10 +339,10 @@ elif [ $dup_status -eq 2 ]; then
 fi
 
 # Create the profile
-if create_profile "$name" "$iccid" "$imei" "$apn" "$pdp_type" "$lte_bands" "$nr5g_bands" "$network_type"; then
+if create_profile "$name" "$iccid" "$imei" "$apn" "$pdp_type" "$lte_bands" "$sa_nr5g_bands" "$nsa_nr5g_bands" "$network_type" "$ttl"; then
     # Create profile data JSON for return - WITHOUT outer curly braces
-    profile_data="\"name\":\"$name\",\"iccid\":\"$iccid\",\"imei\":\"$imei\",\"apn\":\"$apn\",\"pdp_type\":\"$pdp_type\",\"lte_bands\":\"$lte_bands\",\"nr5g_bands\":\"$nr5g_bands\",\"network_type\":\"$network_type\""
-    
+    profile_data="\"name\":\"$name\",\"iccid\":\"$iccid\",\"imei\":\"$imei\",\"apn\":\"$apn\",\"pdp_type\":\"$pdp_type\",\"lte_bands\":\"$lte_bands\",\"sa_nr5g_bands\":\"$sa_nr5g_bands\",\"nsa_nr5g_bands\":\"$nsa_nr5g_bands\",\"network_type\":\"$network_type\",\"ttl\":\"$ttl\""
+
     # Wrap the data field in curly braces inside output_json
     output_json "success" "Profile created successfully" "{$profile_data}"
 else

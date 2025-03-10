@@ -23,6 +23,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { LockIcon } from "lucide-react";
 
 import useCellSettingsData from "@/hooks/cell-settings-data";
 
@@ -49,6 +51,27 @@ interface QueueResponse {
   };
 }
 
+interface ProfileStatus {
+  status: string;
+  message: string;
+  profile: string;
+  progress: number;
+  timestamp: number;
+}
+
+interface Profile {
+  name: string;
+  iccid: string;
+  imei?: string;
+  apn: string;
+  pdp_type: string;
+  lte_bands: string;
+  sa_nr5g_bands?: string;
+  nsa_nr5g_bands?: string;
+  network_type: string;
+  ttl: string;
+}
+
 const BasicSettings = () => {
   const { toast } = useToast();
   const {
@@ -58,6 +81,15 @@ const BasicSettings = () => {
   } = useCellSettingsData();
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [isDataLoaded, setIsDataLoaded] = useState<boolean>(false);
+  const [activeProfile, setActiveProfile] = useState<Profile | null>(null);
+  const [profileStatus, setProfileStatus] = useState<ProfileStatus | null>(null);
+  const [profileControlledFields, setProfileControlledFields] = useState<{[key: string]: boolean}>({
+    currentAPN: false,
+    apnPDPType: false,
+    preferredNetworkType: false,
+    nr5gMode: false
+  });
+  
   const [formData, setFormData] = useState<FormData>({
     currentAPN: "",
     apnPDPType: "",
@@ -83,6 +115,68 @@ const BasicSettings = () => {
     }
   }, [initialData, isDataLoaded]);
 
+  // Fetch active profile information
+  useEffect(() => {
+    const fetchProfileData = async () => {
+      try {
+        // Fetch active profile status
+        const profileResponse = await fetch("/api/cgi-bin/quecmanager/profiles/check_status.sh");
+        if (!profileResponse.ok) {
+          throw new Error(`Failed to fetch profile status: ${profileResponse.statusText}`);
+        }
+        const profileData = await profileResponse.json();
+        setProfileStatus(profileData);
+        
+        console.log("Profile Status:", profileData);
+        
+        // Only proceed if there's an active profile
+        if (profileData.status === "success" && 
+            profileData.profile && 
+            profileData.profile !== "unknown" && 
+            profileData.profile !== "none") {
+          
+          // Fetch all profiles to find the active one
+          const profilesResponse = await fetch("/api/cgi-bin/quecmanager/profiles/list_profiles.sh");
+          if (profilesResponse.ok) {
+            const profilesData = await profilesResponse.json();
+            if (profilesData.status === "success" && Array.isArray(profilesData.profiles)) {
+              // Find the active profile
+              const active = profilesData.profiles.find((p: Profile) => p.name === profileData.profile);
+              if (active) {
+                setActiveProfile(active);
+                
+                // Determine which fields are controlled by the profile
+                const controlledFields = {
+                  currentAPN: Boolean(active.apn),
+                  apnPDPType: Boolean(active.pdp_type),
+                  preferredNetworkType: Boolean(active.network_type),
+                  nr5gMode: Boolean(active.sa_nr5g_bands || active.nsa_nr5g_bands)
+                };
+                
+                setProfileControlledFields(controlledFields);
+                
+                console.log("Active Profile:", active);
+                console.log("Controlled Fields:", controlledFields);
+              }
+            }
+          }
+        } else {
+          setActiveProfile(null);
+          setProfileControlledFields({
+            currentAPN: false,
+            apnPDPType: false,
+            preferredNetworkType: false,
+            nr5gMode: false
+          });
+        }
+      } catch (err) {
+        console.error("Error fetching profile data:", err);
+      }
+    };
+
+    fetchProfileData();
+  }, []);
+
   // Reset isDataLoaded when initialData changes
   useEffect(() => {
     if (!initialData) {
@@ -93,18 +187,19 @@ const BasicSettings = () => {
   const constructATCommand = (changes: Partial<FormData>): string => {
     const commands: string[] = [];
 
-    if (changes.currentAPN || changes.apnPDPType) {
+    if ((changes.currentAPN || changes.apnPDPType) && 
+        !profileControlledFields.currentAPN && !profileControlledFields.apnPDPType) {
       const pdpType = changes.apnPDPType || formData.apnPDPType;
       const apn = changes.currentAPN || formData.currentAPN;
       commands.push(`AT+CGDCONT=1,"${pdpType}","${apn}"`);
     }
 
-    if (changes.preferredNetworkType) {
+    if (changes.preferredNetworkType && !profileControlledFields.preferredNetworkType) {
       const command = `+QNWPREFCFG="mode_pref",${changes.preferredNetworkType}`;
       commands.push(commands.length === 0 ? `AT${command}` : command);
     }
 
-    if (changes.nr5gMode) {
+    if (changes.nr5gMode && !profileControlledFields.nr5gMode) {
       const command = `+QNWPREFCFG="nr5g_disable_mode",${changes.nr5gMode}`;
       commands.push(commands.length === 0 ? `AT${command}` : command);
     }
@@ -123,15 +218,18 @@ const BasicSettings = () => {
   };
 
   const handleFieldChange = (field: keyof FormData, value: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
+    // Only allow changes to fields not controlled by profile
+    if (!profileControlledFields[field]) {
+      setFormData((prev) => ({
+        ...prev,
+        [field]: value,
+      }));
+    }
   };
 
   const forceRerunScripts = async () => {
     try {
-      const response = await fetch("/cgi-bin/quecmanager/settings/force-rerun.sh");
+      const response = await fetch("/api/cgi-bin/quecmanager/settings/force-rerun.sh");
       const data = await response.json();
       
       if (data.status === "success") {
@@ -160,7 +258,7 @@ const BasicSettings = () => {
 
   const executeATCommand = async (command: string): Promise<boolean> => {
     const encodedCommand = encodeURIComponent(command);
-    const response = await fetch(`/cgi-bin/quecmanager/at_cmd/at_queue_client?command=${encodedCommand}&wait=1`);
+    const response = await fetch(`/api/cgi-bin/quecmanager/at_cmd/at_queue_client?command=${encodedCommand}&wait=1`);
     
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
@@ -183,7 +281,8 @@ const BasicSettings = () => {
       const changes: Partial<FormData> = {};
       Object.keys(formData).forEach((key) => {
         const k = key as keyof FormData;
-        if (formData[k] !== initialData?.[k]) {
+        // Only include changes for fields not controlled by profile
+        if (formData[k] !== initialData?.[k] && !profileControlledFields[k]) {
           changes[k] = formData[k];
         }
       });
@@ -193,11 +292,16 @@ const BasicSettings = () => {
           title: "No changes detected",
           description: "Try changing some settings before saving",
         });
+        setIsSaving(false);
         return;
       }
   
       const command = constructATCommand(changes);
-      await executeATCommand(command);
+      
+      // Only execute if we have commands to run
+      if (command) {
+        await executeATCommand(command);
+      }
   
       // Add a delay to allow the settings to take effect
       await new Promise((resolve) => setTimeout(resolve, 1500));
@@ -269,6 +373,11 @@ const BasicSettings = () => {
     return cfunStates[value] || value;
   };
 
+  // Helper function to check if any settings are controlled by profile
+  const hasProfileControlledSettings = () => {
+    return Object.values(profileControlledFields).some(value => value);
+  };
+
   return (
     <div className="grid grid-cols-1 grid-flow-row gap-8">
       <Card>
@@ -280,9 +389,24 @@ const BasicSettings = () => {
             </CardDescription>
           </CardHeader>
           <CardContent>
+            {activeProfile && hasProfileControlledSettings() && (
+              <Alert className="mb-6">
+                <LockIcon className="h-4 w-4" color="orange" />
+                <AlertTitle>Profile Controlled Settings</AlertTitle>
+                <AlertDescription>
+                  Some settings are currently being managed by profile "{activeProfile.name}".
+                </AlertDescription>
+              </Alert>
+            )}
+          
             <div className="grid grid-cols-1 lg:grid-cols-2 grid-flow-row gap-6">
               <div className="grid w-full max-w-sm items-center gap-2">
-                <Label htmlFor="APN">Current APN</Label>
+                <Label htmlFor="APN">
+                  Current APN
+                  {profileControlledFields.currentAPN && (
+                    <span className="ml-2 text-xs text-muted-foreground">(Profile Controlled)</span>
+                  )}
+                </Label>
                 {isLoading ? (
                   <Skeleton className="h-8" />
                 ) : (
@@ -290,29 +414,39 @@ const BasicSettings = () => {
                     type="text"
                     id="APN"
                     placeholder="Current APN"
-                    value={formData.currentAPN}
+                    value={profileControlledFields.currentAPN && activeProfile ? activeProfile.apn : formData.currentAPN}
                     onChange={(e) =>
                       handleFieldChange("currentAPN", e.target.value)
                     }
+                    disabled={profileControlledFields.currentAPN || isLoading}
+                    className={profileControlledFields.currentAPN ? "bg-muted cursor-not-allowed" : ""}
                   />
                 )}
               </div>
 
               <div className="grid w-full max-w-sm items-center gap-2">
-                <Label htmlFor="APN">APN PDP Type</Label>
+                <Label htmlFor="APN">
+                  APN PDP Type
+                  {profileControlledFields.apnPDPType && (
+                    <span className="ml-2 text-xs text-muted-foreground">(Profile Controlled)</span>
+                  )}
+                </Label>
                 {isLoading ? (
                   <Skeleton className="h-8" />
                 ) : (
                   <Select
-                    key={`pdp-type-${formData.apnPDPType}`}
-                    value={formData.apnPDPType}
+                    key={`pdp-type-${profileControlledFields.apnPDPType && activeProfile ? activeProfile.pdp_type : formData.apnPDPType}`}
+                    value={profileControlledFields.apnPDPType && activeProfile ? activeProfile.pdp_type : formData.apnPDPType}
                     onValueChange={(value) =>
                       handleFieldChange("apnPDPType", value)
                     }
+                    disabled={profileControlledFields.apnPDPType || isLoading}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className={profileControlledFields.apnPDPType ? "bg-muted cursor-not-allowed" : ""}>
                       <SelectValue>
-                        {formData.apnPDPType ? getPDPTypeLabel(formData.apnPDPType) : "Select PDP Type"}
+                        {(profileControlledFields.apnPDPType && activeProfile ? activeProfile.pdp_type : formData.apnPDPType) ? 
+                          getPDPTypeLabel(profileControlledFields.apnPDPType && activeProfile ? activeProfile.pdp_type : formData.apnPDPType) : 
+                          "Select PDP Type"}
                       </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
@@ -329,20 +463,28 @@ const BasicSettings = () => {
               </div>
 
               <div className="grid w-full max-w-sm items-center gap-2">
-                <Label>Preferred Network Type</Label>
+                <Label>
+                  Preferred Network Type
+                  {profileControlledFields.preferredNetworkType && (
+                    <span className="ml-2 text-xs text-muted-foreground">(Profile Controlled)</span>
+                  )}
+                </Label>
                 {isLoading ? (
                   <Skeleton className="h-8" />
                 ) : (
                   <Select
-                    key={`network-type-${formData.preferredNetworkType}`}
-                    value={formData.preferredNetworkType}
+                    key={`network-type-${profileControlledFields.preferredNetworkType && activeProfile ? activeProfile.network_type : formData.preferredNetworkType}`}
+                    value={profileControlledFields.preferredNetworkType && activeProfile ? activeProfile.network_type : formData.preferredNetworkType}
                     onValueChange={(value) =>
                       handleFieldChange("preferredNetworkType", value)
                     }
+                    disabled={profileControlledFields.preferredNetworkType || isLoading}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className={profileControlledFields.preferredNetworkType ? "bg-muted cursor-not-allowed" : ""}>
                       <SelectValue>
-                        {formData.preferredNetworkType ? getNetworkTypeLabel(formData.preferredNetworkType) : "Select Network Type"}
+                        {(profileControlledFields.preferredNetworkType && activeProfile ? activeProfile.network_type : formData.preferredNetworkType) ? 
+                          getNetworkTypeLabel(profileControlledFields.preferredNetworkType && activeProfile ? activeProfile.network_type : formData.preferredNetworkType) : 
+                          "Select Network Type"}
                       </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
@@ -359,7 +501,12 @@ const BasicSettings = () => {
               </div>
 
               <div className="grid w-full max-w-sm items-center gap-2">
-                <Label>NR5G Mode Control</Label>
+                <Label>
+                  NR5G Mode Control
+                  {profileControlledFields.nr5gMode && (
+                    <span className="ml-2 text-xs text-muted-foreground">(Profile Controlled)</span>
+                  )}
+                </Label>
                 {isLoading ? (
                   <Skeleton className="h-8" />
                 ) : (
@@ -369,8 +516,9 @@ const BasicSettings = () => {
                     onValueChange={(value) =>
                       handleFieldChange("nr5gMode", value)
                     }
+                    disabled={profileControlledFields.nr5gMode || isLoading}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className={profileControlledFields.nr5gMode ? "bg-muted cursor-not-allowed" : ""}>
                       <SelectValue>
                         {formData.nr5gMode ? getNR5GModeLabel(formData.nr5gMode) : "Select NR5G Mode"}
                       </SelectValue>
