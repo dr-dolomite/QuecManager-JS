@@ -46,6 +46,7 @@ import {
   Save,
   Trash2Icon,
   UserRoundPen,
+  RefreshCcw,
 } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -88,6 +89,8 @@ const QuecProfilesPage = () => {
   const [profileStatus, setProfileStatus] = useState<ProfileStatus | null>(
     null
   );
+  // Track last displayed status to avoid repeated messages
+  const [lastToastStatus, setLastToastStatus] = useState<string>("");
 
   // Form state
   const [formData, setFormData] = useState<Profile>({
@@ -153,15 +156,26 @@ const QuecProfilesPage = () => {
 
       if (response.ok) {
         const data = await response.json();
+
+        // Update the status state
         setProfileStatus(data);
 
-        // Show toast notification for active processes
-        if (data.status !== "idle") {
+        // Only show toast notifications for non-idle status AND active operations (not already applied)
+        if (
+          data.status !== "idle" &&
+          data.status !== lastToastStatus && // Don't repeat the same status
+          !data.message.includes("already applied") && // Skip "already applied" messages
+          !data.message.includes("Profile already correctly applied") &&
+          data.status === "applying" // Only show toast for active operations
+        ) {
           toast({
             title: `Profile: ${data.profile}`,
             description: data.message,
             variant: data.status === "error" ? "destructive" : "default",
           });
+
+          // Update last shown status to avoid repeats
+          setLastToastStatus(data.status);
         }
       }
     } catch (error) {
@@ -490,32 +504,93 @@ const QuecProfilesPage = () => {
     }
   };
 
-  // Render profile status banner if active
+  // Enhanced renderStatusBanner function for the React component
   const renderStatusBanner = () => {
-    if (!profileStatus || profileStatus.status === "idle") return null;
+    if (!profileStatus || profileStatus.status === "idle") {
+      // If there's an idle message and it contains "No profile exists" (our new improved message)
+      if (
+        profileStatus &&
+        profileStatus.message &&
+        profileStatus.message.includes("No profile exists")
+      ) {
+        return (
+          <Alert className="mb-1" variant="default">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>No Profile Found</AlertTitle>
+            <AlertDescription className="flex justify-between items-center">
+              <span>
+                No profile exists for the current SIM card. Create a profile to
+                configure your network settings.
+              </span>
+            </AlertDescription>
+          </Alert>
+        );
+      }
+      return null;
+    }
+
+    // Customize the status message based on content
+    let messageToShow = profileStatus.message;
+    let titleToShow = "";
+
+    // Handle error messages more gracefully
+    if (profileStatus.status === "error") {
+      titleToShow = "Profile Issue";
+
+      // Make specific error messages more user-friendly
+      if (profileStatus.message.includes("missing the required APN setting")) {
+        titleToShow = "Missing APN Setting";
+        messageToShow = `Please edit profile "${profileStatus.profile}" and add an APN to enable network connectivity.`;
+      } else if (profileStatus.message.includes("Could not detect SIM card")) {
+        titleToShow = "SIM Card Not Detected";
+        messageToShow =
+          "Please check that a SIM card is properly inserted in your device.";
+      } else if (
+        profileStatus.message.includes("Could not communicate with modem")
+      ) {
+        titleToShow = "Modem Communication Error";
+        messageToShow =
+          "Having trouble connecting to the cellular modem. Please check your device.";
+      }
+    }
+    // Handle other statuses as before
+    else if (
+      profileStatus.status === "success" &&
+      (profileStatus.message.includes("already applied") ||
+        profileStatus.message.includes("Profile already correctly applied"))
+    ) {
+      titleToShow = "Profile Active";
+      messageToShow = `Profile "${profileStatus.profile}" is active and correctly applied`;
+    } else if (profileStatus.status === "applying") {
+      titleToShow = "Applying Profile";
+    } else if (profileStatus.status === "rebooting") {
+      titleToShow = "Device Rebooting";
+      messageToShow =
+        "Your device is restarting to apply configuration changes.";
+    } else {
+      titleToShow = "Success";
+    }
 
     return (
       <Alert
-        className="mb-4"
+        className="mb-1"
         variant={profileStatus.status === "error" ? "destructive" : "default"}
       >
         {profileStatus.status === "applying" ? (
           <Loader2 className="h-4 w-4 animate-spin" />
         ) : profileStatus.status === "error" ? (
           <AlertCircle className="h-4 w-4" />
+        ) : profileStatus.status === "rebooting" ? (
+          <RefreshCcw className="h-4 w-4 animate-spin" />
         ) : (
           <CheckCircle2 className="h-4 w-4" />
         )}
-        <AlertTitle>
-          {profileStatus.status === "applying"
-            ? "Applying Profile"
-            : profileStatus.status === "error"
-            ? "Error"
-            : "Success"}
-        </AlertTitle>
+        <AlertTitle>{titleToShow}</AlertTitle>
         <AlertDescription className="flex justify-between items-center">
-          <span>{profileStatus.message}</span>
-          <span className="font-semibold">{profileStatus.progress}%</span>
+          <span>{messageToShow}</span>
+          {profileStatus.status === "applying" && (
+            <span className="font-semibold">{profileStatus.progress}%</span>
+          )}
         </AlertDescription>
       </Alert>
     );
@@ -532,9 +607,6 @@ const QuecProfilesPage = () => {
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-y-8">
-          {/* Status Banner */}
-          {renderStatusBanner()}
-
           <div className="flex items-center justify-between">
             <Dialog open={showModal} onOpenChange={setShowModal}>
               <DialogTrigger asChild>
@@ -910,12 +982,8 @@ const QuecProfilesPage = () => {
                     No Profiles Found
                   </h3>
                   <p className="text-muted-foreground mb-4">
-                    Create your first profile to manage modem settings
+                  Simplify network management with profiles that automatically apply your preferred settings.
                   </p>
-                  <Button onClick={() => setShowModal(true)}>
-                    <UserRoundPen className="w-4 h-4" />
-                    Add New Profile
-                  </Button>
                 </div>
               )}
             </div>
@@ -1058,6 +1126,9 @@ const QuecProfilesPage = () => {
               </table>
             </div>
           )}
+
+          {/* Status Banner */}
+          {renderStatusBanner()}
         </CardContent>
       </Card>
     </div>

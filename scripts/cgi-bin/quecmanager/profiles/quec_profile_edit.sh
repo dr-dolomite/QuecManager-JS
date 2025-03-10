@@ -6,6 +6,10 @@ echo -n ""
 echo "Content-type: application/json"
 echo ""
 
+# Configuration
+CHECK_TRIGGER="/tmp/quecprofiles_check"
+APPLIED_FLAG="/tmp/quecprofiles_applied"
+
 # Function to log messages
 log_message() {
     local level="${2:-info}"
@@ -169,6 +173,14 @@ EOF
     # Check if the operation was successful
     if [ $? -eq 0 ]; then
         log_message "Successfully updated profile '$name'" "info"
+        
+        # Remove the applied flag file to force reapplication on next check
+        rm -f "$APPLIED_FLAG"
+        
+        # Touch the check trigger file to force daemon to check ASAP
+        touch "$CHECK_TRIGGER"
+        
+        log_message "Triggered profile check for updated profile '$name'" "info"
         return 0
     else
         log_message "Failed to update profile '$name'" "error"
