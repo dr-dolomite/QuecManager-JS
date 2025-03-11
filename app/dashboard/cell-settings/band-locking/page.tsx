@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { LockIcon, RefreshCw, AlertCircle } from "lucide-react";
 import { atCommandSender } from "@/utils/at-command"; // Import from utils
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+// import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 type BandType = "lte" | "nsa" | "sa";
 

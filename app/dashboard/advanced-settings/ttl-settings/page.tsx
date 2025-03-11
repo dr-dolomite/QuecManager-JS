@@ -14,9 +14,7 @@ import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { InfoIcon, LockIcon } from "lucide-react";
-
-import GithubButtonToast from "@/components/github-button";
+import { LockIcon } from "lucide-react";
 
 // Define interfaces for the API responses
 interface TTLData {
@@ -152,7 +150,7 @@ const TTLSettingsPage = () => {
     };
 
     fetchData();
-  }, [toast]);
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();

@@ -171,7 +171,7 @@ const HomePage = () => {
         description: "Failed to refresh the data",
       });
     }
-  }, [refreshHomeData, refreshConnectionState, refreshTrafficStats, toast]);
+  }, [refreshHomeData, refreshConnectionState, refreshTrafficStats]);
 
   const [bands, setBands] = useState<newBands[]>([]);
 

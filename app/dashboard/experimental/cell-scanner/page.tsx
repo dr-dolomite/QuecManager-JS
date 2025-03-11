@@ -199,7 +199,7 @@ const CellScannerPage = () => {
         variant: "destructive",
       });
     }
-  }, [toast]);
+  }, []);
 
   useEffect(() => {
     fetchMccMncList();
@@ -221,7 +221,7 @@ const CellScannerPage = () => {
         variant: "destructive",
       });
     }
-  }, [toast]);
+  }, []);
 
   // Find operator info
   const findOperatorInfo = useCallback(
