@@ -209,10 +209,11 @@ const KeepAliveCard = () => {
         <Toggle
           pressed={enabled}
           onPressedChange={handleToggle}
-          disabled={!startTime || !endTime || !interval}
+          // disabled={!startTime || !endTime || !interval}
+          disabled
         >
           <DiscIcon className="h-4 w-4 mr-2" />
-          Enable Keep Alive
+          Keep Alive is Under Consideration
         </Toggle>
       </CardFooter>
     </Card>

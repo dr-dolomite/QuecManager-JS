@@ -60,7 +60,7 @@ const IMEIManglingPage = () => {
     try {
       setIsLoading(true);
       const response = await fetch(
-        "/api/cgi-bin/quecmanager/at_cmd/fetch_data.sh?set=3"
+        "/cgi-bin/quecmanager/at_cmd/fetch_data.sh?set=3"
       );
       const rawData = await response.json();
 
@@ -95,7 +95,7 @@ const IMEIManglingPage = () => {
     try {
       // Fetch active profile status
       const profileResponse = await fetch(
-        "/api/cgi-bin/quecmanager/profiles/check_status.sh"
+        "/cgi-bin/quecmanager/profiles/check_status.sh"
       );
       if (!profileResponse.ok) {
         throw new Error(
@@ -115,7 +115,7 @@ const IMEIManglingPage = () => {
       ) {
         // Fetch all profiles to find the active one
         const profilesResponse = await fetch(
-          "/api/cgi-bin/quecmanager/profiles/list_profiles.sh"
+          "/cgi-bin/quecmanager/profiles/list_profiles.sh"
         );
         if (profilesResponse.ok) {
           const profilesData = await profilesResponse.json();

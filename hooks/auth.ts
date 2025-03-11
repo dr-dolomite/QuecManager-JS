@@ -69,7 +69,7 @@ export function useAuth() {
   // New function to check server status
   async function checkServerStatus() {
     try {
-      const response = await fetch('/api/cgi-bin/quecmanager/heartbeat.sh', {
+      const response = await fetch('/cgi-bin/quecmanager/heartbeat.sh', {
         method: 'GET',
         headers: {
           'Cache-Control': 'no-cache',
@@ -162,7 +162,7 @@ export function useAuth() {
   async function login(password: string) {
     const encodedPassword = encodeURIComponent(password);
     try {
-      const response = await fetch("/api/cgi-bin/quecmanager/auth.sh", {
+      const response = await fetch("/cgi-bin/quecmanager/auth.sh", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

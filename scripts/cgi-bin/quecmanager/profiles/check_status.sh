@@ -31,23 +31,28 @@ EOF
 
 # Check if status file exists
 if [ -f "$STATUS_FILE" ]; then
-    # Check if file is not empty and is valid JSON
-    if [ -s "$STATUS_FILE" ] && grep -q "status" "$STATUS_FILE"; then
-        # Check if the file is recent (less than 5 minutes old)
-        file_time=$(stat -c %Y "$STATUS_FILE" 2>/dev/null || echo "0")
-        current_time=$(date +%s)
-        age=$((current_time - file_time))
+    # Check if file is not empty
+    if [ -s "$STATUS_FILE" ]; then
+        # Cat the entire file content (more reliable than grep)
+        status_content=$(cat "$STATUS_FILE")
         
-        if [ $age -lt 300 ]; then
+        # Log content for debugging
+        log_message "Status file content: $status_content" "debug"
+        
+        # Check if it looks like valid JSON
+        if echo "$status_content" | grep -q "status"; then
             # Output the status file content
             cat "$STATUS_FILE"
-            log_message "Retrieved status from file: $(cat "$STATUS_FILE" | grep -o '"status":"[^"]*"' | cut -d'"' -f4)"
+            
+            # Extract status for logging only
+            status=$(echo "$status_content" | sed -n 's/.*"status":"\([^"]*\)".*/\1/p')
+            log_message "Status from file: $status" "info"
             exit 0
         else
-            log_message "Status file too old (${age}s), returning idle state"
+            log_message "Status file exists but not valid JSON" "warn"
         fi
     else
-        log_message "Status file exists but invalid or empty"
+        log_message "Status file exists but empty" "warn"
     fi
 fi
 
@@ -59,17 +64,30 @@ if [ -f "$TRACK_FILE" ]; then
     profile=$(echo "$status_info" | cut -d':' -f2)
     progress=$(echo "$status_info" | cut -d':' -f3)
     
+    # Make sure the message reflects the actual status
+    if [ "$status" = "success" ]; then
+        message="Profile successfully applied"
+    elif [ "$status" = "applying" ]; then
+        message="Profile operation in progress"
+    elif [ "$status" = "error" ]; then
+        message="Profile operation failed"
+    elif [ "$status" = "rebooting" ]; then
+        message="Device is rebooting to apply changes"
+    else
+        message="Profile operation status: $status"
+    fi
+    
     # Output JSON based on track file
     cat <<EOF
 {
     "status": "$status",
-    "message": "Profile operation in progress",
+    "message": "$message",
     "profile": "$profile",
     "progress": $progress,
     "timestamp": $(date +%s)
 }
 EOF
-    log_message "Retrieved status from track file: $status"
+    log_message "Retrieved status from track file: $status" "info"
     exit 0
 fi
 

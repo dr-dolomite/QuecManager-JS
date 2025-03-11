@@ -16,7 +16,7 @@ start_service() {
     # Start the AT Command Queue Manager
     echo "Starting AT Command Queue Manager..."
     procd_open_instance
-    procd_set_param command /www/cgi-bin/services/at_queue_manager
+    procd_set_param command /www/cgi-bin/services/at_queue_manager.sh
     procd_set_param respawn
     procd_set_param stdout 1
     procd_set_param stderr 1

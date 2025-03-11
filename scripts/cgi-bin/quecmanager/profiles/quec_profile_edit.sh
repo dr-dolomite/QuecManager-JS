@@ -372,11 +372,21 @@ if check_duplicate_name "$name" "$iccid"; then
     output_json "error" "A profile with this name already exists"
 fi
 
-# Update the profile
-if update_profile "$profile_index" "$name" "$imei" "$apn" "$pdp_type" "$lte_bands" "$sa_nr5g_bands" "$nsa_nr5g_bands" "$network_type" "$ttl"; then
-    # Create a properly formatted JSON object for the data field
-    # The curly braces go outside the variable substitutions to avoid issues
-    output_json "success" "Profile updated successfully" "{\"name\":\"$name\",\"iccid\":\"$iccid\",\"imei\":\"$imei\",\"apn\":\"$apn\",\"pdp_type\":\"$pdp_type\",\"lte_bands\":\"$lte_bands\",\"sa_nr5g_bands\":\"$sa_nr5g_bands\",\"nsa_nr5g_bands\":\"$nsa_nr5g_bands\",\"network_type\":\"$network_type\",\"ttl\":\"$ttl\"}"
+# Update profile
+if update_profile "$profile_index" "$name" "$imei" "$apn" "$pdp_type" "$lte_bands" "$nr5g_bands" "$network_type"; then
+    # Trigger immediate profile application
+    touch "/tmp/quecprofiles_check"
+    chmod 644 "/tmp/quecprofiles_check"
+    log_message "Triggered immediate profile check after update" "info"
+    
+    # Create a clean JSON response with properly escaped quotes
+    printf '{"status":"success","message":"Profile updated successfully","data":{"name":"%s","iccid":"%s","imei":"%s","apn":"%s","pdp_type":"%s","lte_bands":"%s","nr5g_bands":"%s","network_type":"%s"}}' \
+        "$name" "$iccid" "$imei" "$apn" "$pdp_type" "$lte_bands" "$nr5g_bands" "$network_type"
+    
+    log_message "Profile updated successfully: $name" "info"
+    
+    # Note: The conditional trigger is replaced with the direct trigger above
 else
-    output_json "error" "Failed to update profile. Please check system logs."
+    printf '{"status":"error","message":"Failed to update profile. Please check system logs."}'
+    log_message "Failed to update profile: $name" "error"
 fi

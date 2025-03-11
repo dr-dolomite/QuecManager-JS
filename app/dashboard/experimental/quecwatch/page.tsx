@@ -18,6 +18,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -29,6 +36,7 @@ import {
   RotateCcw,
   ScanEyeIcon,
   BanIcon,
+  Loader2,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -52,18 +60,28 @@ interface QuecWatchConfig {
   refreshCount?: number;
 }
 
+interface CurrentStatus {
+  status: string;
+  message: string;
+  retry: number;
+  maxRetries: number;
+  timestamp: number;
+}
+
 interface QuecWatchResponse {
-  status: "success" | "error" | "inactive" | "active";
-  message?: string;
+  status: string;
+  serviceStatus?: string;
+  currentStatus?: CurrentStatus;
   config?: QuecWatchConfig;
   lastActivity?: string;
+  message?: string;
 }
 
 const QuecWatchPage = () => {
   const { toast } = useToast();
   const [config, setConfig] = useState<QuecWatchConfig>({
-    pingTarget: "",
-    pingInterval: 30,
+    pingTarget: "8.8.8.8",
+    pingInterval: 60,
     pingFailures: 3,
     maxRetries: 5,
     connectionRefresh: false,
@@ -75,57 +93,54 @@ const QuecWatchPage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastActivity, setLastActivity] = useState<string | null>(null);
+  const [currentRetries, setCurrentRetries] = useState(0);
 
   // Fetch QuecWatch configuration
   const fetchQuecWatchConfig = async () => {
     try {
       const response = await fetch(
-        "/api/cgi-bin/quecmanager/experimental/quecwatch/fetch-quecwatch.sh"
+        "/cgi-bin/quecmanager/experimental/quecwatch/fetch-quecwatch.sh"
       );
       if (!response.ok) throw new Error("Network response was not ok");
 
       const data: QuecWatchResponse = await response.json();
 
-      switch (data.status) {
-        case "active":
-          if (data.config) {
-            const newConfig = {
-              pingTarget: data.config.pingTarget,
-              pingInterval: data.config.pingInterval,
-              pingFailures: data.config.pingFailures,
-              maxRetries: data.config.maxRetries,
-              connectionRefresh: data.config.connectionRefresh === true,
-              autoSimFailover: data.config.autoSimFailover === true,
-              simFailoverSchedule: data.config.simFailoverSchedule || 30,
-              currentRetries: data.config.currentRetries,
-              refreshCount: data.config.refreshCount,
-            };
-            setConfig(newConfig);
+      if (data.status === "active") {
+        if (data.config) {
+          const newConfig = {
+            pingTarget: data.config.pingTarget || "8.8.8.8",
+            pingInterval: data.config.pingInterval || 60,
+            pingFailures: data.config.pingFailures || 3,
+            maxRetries: data.config.maxRetries || 5,
+            connectionRefresh: Boolean(data.config.connectionRefresh),
+            autoSimFailover: Boolean(data.config.autoSimFailover),
+            simFailoverSchedule: data.config.simFailoverSchedule || 30,
+          };
+          setConfig(newConfig);
+
+          // Update current retries
+          if (data.config.currentRetries !== undefined) {
+            setCurrentRetries(data.config.currentRetries);
 
             // Update status based on retries
-            if (
-              newConfig.currentRetries !== undefined &&
-              newConfig.currentRetries >= newConfig.maxRetries
-            ) {
+            if (data.config.currentRetries >= newConfig.maxRetries) {
               setStatus("maxRetries");
-              toast({
-                title: "Maximum Retries Reached",
-                description: "QuecWatch has reached maximum retry attempts",
-                variant: "destructive",
-              });
             } else {
               setStatus("active");
             }
-
-            setLastActivity(data.lastActivity || null);
+          } else {
+            setStatus("active");
           }
-          break;
-        case "inactive":
-          setStatus("inactive");
-          break;
-        default:
-          setStatus("error");
-          setError(data.message || "Unknown error occurred");
+
+          setLastActivity(data.lastActivity || null);
+        } else {
+          setStatus("active");
+        }
+      } else if (data.status === "inactive") {
+        setStatus("inactive");
+      } else {
+        setStatus("error");
+        setError(data.message || "Unknown error occurred");
       }
     } catch (err) {
       setStatus("error");
@@ -147,7 +162,7 @@ const QuecWatchPage = () => {
 
   useEffect(() => {
     // Only set up interval when status is active
-    if (status === "active") {
+    if (status === "active" || status === "maxRetries") {
       const intervalId = setInterval(fetchQuecWatchConfig, 5000);
 
       // Cleanup interval when component unmounts or status changes
@@ -159,17 +174,13 @@ const QuecWatchPage = () => {
   const resetRetryCounter = async () => {
     setIsLoading(true);
     try {
-      const formData = new URLSearchParams();
-      formData.append("action", "reset");
-
       const response = await fetch(
-        "/api/cgi-bin/quecmanager/experimental/quecwatch/reset-quecwatch.sh",
+        "/cgi-bin/quecmanager/experimental/quecwatch/reset-quecwatch.sh",
         {
           method: "POST",
           headers: {
-            "Content-Type": "application/x-www-form-urlencoded",
+            "Content-Type": "application/json",
           },
-          body: formData,
         }
       );
 
@@ -183,20 +194,18 @@ const QuecWatchPage = () => {
         });
         // Set status back to active immediately
         setStatus("active");
-        // Update the current retries in the config
-        setConfig((prev) => ({
-          ...prev,
-          currentRetries: 0,
-        }));
+        // Update current retries
+        setCurrentRetries(0);
         // Fetch the latest config after a brief delay to ensure service has restarted
         setTimeout(fetchQuecWatchConfig, 1000);
       } else {
-        throw new Error(result.message);
+        throw new Error(result.message || "Failed to reset retry counter");
       }
     } catch (err) {
       toast({
         title: "Error",
-        description: "Failed to reset retry counter",
+        description:
+          err instanceof Error ? err.message : "Failed to reset retry counter",
         variant: "destructive",
       });
     } finally {
@@ -210,32 +219,22 @@ const QuecWatchPage = () => {
     setError(null);
 
     try {
-      const formData = new URLSearchParams();
-
-      // Add configuration parameters
-      formData.append("action", "enable");
-      formData.append("ping_target", config.pingTarget);
-      formData.append("ping_interval", config.pingInterval.toString());
-      formData.append("ping_failures", config.pingFailures.toString());
-      formData.append("max_retries", config.maxRetries.toString());
-      formData.append(
-        "connection_refresh",
-        config.connectionRefresh.toString()
-      );
-      formData.append("auto_sim_failover", config.autoSimFailover.toString());
-      formData.append(
-        "sim_failover_schedule",
-        config.simFailoverSchedule.toString()
-      );
-
       const response = await fetch(
-        "/api/cgi-bin/quecmanager/experimental/quecwatch/enable-quecwatch.sh",
+        "/cgi-bin/quecmanager/experimental/quecwatch/enable-quecwatch.sh",
         {
           method: "POST",
           headers: {
-            "Content-Type": "application/x-www-form-urlencoded",
+            "Content-Type": "application/json",
           },
-          body: formData,
+          body: JSON.stringify({
+            pingTarget: config.pingTarget,
+            pingInterval: config.pingInterval,
+            pingFailures: config.pingFailures,
+            maxRetries: config.maxRetries,
+            connectionRefresh: config.connectionRefresh,
+            autoSimFailover: config.autoSimFailover,
+            simFailoverSchedule: config.simFailoverSchedule,
+          }),
         }
       );
 
@@ -243,26 +242,30 @@ const QuecWatchPage = () => {
         throw new Error("Network response was not ok");
       }
 
-      const result = (await response.json()) as QuecWatchResponse;
+      const result = await response.json();
 
       if (result.status === "success") {
         setStatus("active");
-        // Refetch configuration to ensure latest state
-
         toast({
           title: "QuecWatch Enabled",
-          description: "Quecwatch enabled successfully",
+          description: "QuecWatch enabled successfully",
         });
 
         await fetchQuecWatchConfig();
       } else {
-        throw new Error(result.message);
+        throw new Error(result.message || "Failed to enable QuecWatch");
       }
     } catch (err) {
       setStatus("error");
       setError(
         err instanceof Error ? err.message : "An unknown error occurred"
       );
+      toast({
+        title: "Error",
+        description:
+          err instanceof Error ? err.message : "Failed to enable QuecWatch",
+        variant: "destructive",
+      });
     } finally {
       setIsLoading(false);
     }
@@ -274,17 +277,13 @@ const QuecWatchPage = () => {
     setError(null);
 
     try {
-      const formData = new URLSearchParams();
-      formData.append("action", "disable");
-
       const response = await fetch(
-        "/api/cgi-bin/quecmanager/experimental/quecwatch/disable-quecwatch.sh",
+        "/cgi-bin/quecmanager/experimental/quecwatch/disable-quecwatch.sh",
         {
           method: "POST",
           headers: {
-            "Content-Type": "application/x-www-form-urlencoded",
+            "Content-Type": "application/json",
           },
-          body: formData,
         }
       );
 
@@ -292,28 +291,17 @@ const QuecWatchPage = () => {
         throw new Error("Network response was not ok");
       }
 
-      const result = (await response.json()) as QuecWatchResponse;
+      const result = await response.json();
 
       if (result.status === "success") {
         setStatus("inactive");
-        // Reset configuration to defaults
-        setConfig({
-          pingTarget: "",
-          pingInterval: 30,
-          pingFailures: 3,
-          maxRetries: 5,
-          connectionRefresh: false,
-          autoSimFailover: false,
-          simFailoverSchedule: 30,
-        });
-
         toast({
           title: "QuecWatch Disabled",
-          description: "Quecwatch disabled successfully",
+          description: "QuecWatch disabled successfully",
           variant: "default",
         });
       } else {
-        throw new Error(result.message);
+        throw new Error(result.message || "Failed to disable QuecWatch");
       }
     } catch (err) {
       setStatus("error");
@@ -322,7 +310,8 @@ const QuecWatchPage = () => {
       );
       toast({
         title: "Error",
-        description: "Failed to disable QuecWatch",
+        description:
+          err instanceof Error ? err.message : "Failed to disable QuecWatch",
         variant: "destructive",
       });
     } finally {
@@ -335,7 +324,9 @@ const QuecWatchPage = () => {
       <CardHeader>
         <CardTitle>QuecWatch</CardTitle>
         <CardDescription>
-        An intelligent watchdog service for Quectel-AP modems that ensures network reliability through automated monitoring, connection management, and SIM failover capabilities.
+          An intelligent watchdog service for Quectel-AP modems that ensures
+          network reliability through automated monitoring, connection
+          management, and SIM failover capabilities.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -344,7 +335,12 @@ const QuecWatchPage = () => {
             <div className="flex justify-between items-center gap-x-4 rounded-lg border p-4">
               <Label>QuecWatch Status</Label>
               <div className="flex items-center space-x-1">
-                {status === "inactive" ? (
+                {status === "loading" ? (
+                  <>
+                    <Loader2 className="animate-spin text-primary size-4" />
+                    <p className="text-muted-foreground text-sm">Loading...</p>
+                  </>
+                ) : status === "inactive" ? (
                   <>
                     <ShieldClose className="text-rose-500 size-4" />
                     <p className="text-muted-foreground text-sm">Inactive</p>
@@ -373,18 +369,27 @@ const QuecWatchPage = () => {
               <Label>Remaining Retries</Label>
               <div className="flex items-center gap-2">
                 {(status === "active" || status === "maxRetries") && (
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-6 w-6"
-                    onClick={resetRetryCounter}
-                    disabled={isLoading}
-                  >
-                    <RotateCcw className="h-4 w-4" />
-                  </Button>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="h-6 w-6"
+                          onClick={resetRetryCounter}
+                          disabled={isLoading}
+                        >
+                          <RotateCcw className="h-4 w-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Reset the retry counter</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 )}
                 <p className="text-muted-foreground text-sm">
-                  {config.currentRetries} / {config.maxRetries}
+                  {currentRetries} / {config.maxRetries}
                 </p>
               </div>
             </div>
@@ -396,8 +401,7 @@ const QuecWatchPage = () => {
                 id="ping"
                 placeholder="8.8.8.8"
                 value={config.pingTarget}
-                disabled={status === "active"}
-                readOnly={status === "active"}
+                disabled={status === "active" || status === "maxRetries"}
                 onChange={(e) =>
                   setConfig((prev) => ({
                     ...prev,
@@ -411,7 +415,7 @@ const QuecWatchPage = () => {
               <Label htmlFor="ping-interval">Ping Interval</Label>
               <Select
                 value={config.pingInterval.toString()}
-                disabled={status === "active"}
+                disabled={status === "active" || status === "maxRetries"}
                 onValueChange={(value) =>
                   setConfig((prev) => ({
                     ...prev,
@@ -423,7 +427,7 @@ const QuecWatchPage = () => {
                   <SelectValue placeholder="Select Ping Interval" />
                 </SelectTrigger>
                 <SelectContent>
-                  {[3, 5, 10, 15, 30, 60, 120, 600, 1800, 3600].map(
+                  {[5, 10, 15, 30, 60, 120, 300, 600, 1800, 3600].map(
                     (interval) => (
                       <SelectItem key={interval} value={interval.toString()}>
                         {interval >= 3600
@@ -446,7 +450,7 @@ const QuecWatchPage = () => {
               <Label htmlFor="ping-failure">Ping Failures</Label>
               <Select
                 value={config.pingFailures.toString()}
-                disabled={status === "active"}
+                disabled={status === "active" || status === "maxRetries"}
                 onValueChange={(value) =>
                   setConfig((prev) => ({
                     ...prev,
@@ -471,7 +475,7 @@ const QuecWatchPage = () => {
               <Label htmlFor="max-retries">Max Retries</Label>
               <Select
                 value={config.maxRetries.toString()}
-                disabled={status === "active"}
+                disabled={status === "active" || status === "maxRetries"}
                 onValueChange={(value) =>
                   setConfig((prev) => ({
                     ...prev,
@@ -502,7 +506,7 @@ const QuecWatchPage = () => {
             </div>
             <Switch
               checked={config.connectionRefresh}
-              disabled={status === "active"}
+              disabled={status === "active" || status === "maxRetries"}
               onCheckedChange={(checked) =>
                 setConfig((prev) => ({
                   ...prev,
@@ -524,7 +528,7 @@ const QuecWatchPage = () => {
               </div>
               <Switch
                 checked={config.autoSimFailover}
-                disabled={status === "active"}
+                disabled={status === "active" || status === "maxRetries"}
                 onCheckedChange={(checked) =>
                   setConfig((prev) => ({
                     ...prev,
@@ -538,7 +542,11 @@ const QuecWatchPage = () => {
               <Label htmlFor="sim-failover">Schedule SIM Checking</Label>
               <Select
                 value={config.simFailoverSchedule.toString()}
-                disabled={status === "active"}
+                disabled={
+                  status === "active" ||
+                  status === "maxRetries" ||
+                  !config.autoSimFailover
+                }
                 onValueChange={(value) =>
                   setConfig((prev) => ({
                     ...prev,
@@ -550,6 +558,7 @@ const QuecWatchPage = () => {
                   <SelectValue placeholder="Select SIM Checking Interval" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="0">Disabled</SelectItem>
                   <SelectItem value="1">1 Minute</SelectItem>
                   <SelectItem value="5">5 Minutes</SelectItem>
                   <SelectItem value="30">30 Minutes</SelectItem>
@@ -563,32 +572,49 @@ const QuecWatchPage = () => {
           </div>
           <div className="rounded-lg border p-4">
             <Label className="text-base">Last Activity</Label>
-            <p className="text-sm text-muted-foreground mt-2">{lastActivity}</p>
+            <p className="text-sm text-muted-foreground mt-2">
+              {lastActivity || "No recent activity"}
+            </p>
           </div>
           {error && <div className="text-red-500 text-sm">{error}</div>}
         </div>
       </CardContent>
       <CardFooter className="flex gap-4 border-t py-4">
-        <Button
-          onClick={enableQuecWatch}
-          disabled={
-            isLoading ||
-            !config.pingTarget ||
-            status === "active" ||
-            status === "maxRetries"
-          }
-        >
-          <ScanEyeIcon className="w-4 h-4" />
-          {isLoading ? "Enabling..." : "Enable QuecWatch"}
-        </Button>
+        {(status === "inactive" || status === "error") && (
+          <Button
+            onClick={enableQuecWatch}
+            disabled={isLoading || !config.pingTarget}
+          >
+            {isLoading ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Enabling...
+              </>
+            ) : (
+              <>
+                <ScanEyeIcon className="w-4 h-4" />
+                Enable QuecWatch
+              </>
+            )}
+          </Button>
+        )}
         {(status === "active" || status === "maxRetries") && (
           <Button
             variant="destructive"
             onClick={disableQuecWatch}
             disabled={isLoading}
           >
-            <BanIcon className="w-4 h-4" />
-            {isLoading ? "Disabling..." : "Disable QuecWatch"}
+            {isLoading ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Disabling...
+              </>
+            ) : (
+              <>
+                <BanIcon className="w-4 h-4" />
+                Disable QuecWatch
+              </>
+            )}
           </Button>
         )}
       </CardFooter>

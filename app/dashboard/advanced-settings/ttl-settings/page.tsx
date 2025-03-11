@@ -71,7 +71,7 @@ const TTLSettingsPage = () => {
       try {
         // Fetch TTL settings
         const ttlResponse = await fetch(
-          "/api/cgi-bin/quecmanager/advance/ttl.sh"
+          "/cgi-bin/quecmanager/advance/ttl.sh"
         );
         if (!ttlResponse.ok) {
           throw new Error(
@@ -82,7 +82,7 @@ const TTLSettingsPage = () => {
 
         // Fetch active profile status
         const profileResponse = await fetch(
-          "/api/cgi-bin/quecmanager/profiles/check_status.sh"
+          "/cgi-bin/quecmanager/profiles/check_status.sh"
         );
         if (!profileResponse.ok) {
           throw new Error(
@@ -108,7 +108,7 @@ const TTLSettingsPage = () => {
         ) {
           // Fetch all profiles to find the active one
           const profilesResponse = await fetch(
-            "/api/cgi-bin/quecmanager/profiles/list_profiles.sh"
+            "/cgi-bin/quecmanager/profiles/list_profiles.sh"
           );
           if (profilesResponse.ok) {
             const profilesData =

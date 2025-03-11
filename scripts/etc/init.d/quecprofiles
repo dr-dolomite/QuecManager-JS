@@ -4,7 +4,7 @@ STOP=10
 USE_PROCD=1
 
 # Configuration paths
-PROG="/www/cgi-bin/services/quec_profile_daemon.sh"
+PROG="/www/cgi-bin/services/quecprofile.sh"
 CONF="/etc/config/quecprofiles"
 TRACK_FILE="/tmp/quecprofiles_active"
 CHECK_TRIGGER="/tmp/quecprofiles_check"

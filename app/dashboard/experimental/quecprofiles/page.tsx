@@ -126,7 +126,7 @@ const QuecProfilesPage = () => {
     setIsLoading(true);
     try {
       const response = await fetch(
-        "/api/cgi-bin/quecmanager/profiles/list_profiles.sh"
+        "/cgi-bin/quecmanager/profiles/list_profiles.sh"
       );
 
       if (response.ok) {
@@ -161,7 +161,7 @@ const QuecProfilesPage = () => {
   const checkProfileStatus = async () => {
     try {
       const response = await fetch(
-        "/api/cgi-bin/quecmanager/profiles/check_status.sh"
+        "/cgi-bin/quecmanager/profiles/check_status.sh"
       );
 
       if (response.ok) {
@@ -312,7 +312,7 @@ const QuecProfilesPage = () => {
 
       // Send API request to CGI script
       const response = await fetch(
-        "/api/cgi-bin/quecmanager/profiles/quec_profile_create.sh",
+        "/cgi-bin/quecmanager/profiles/quec_profile_create.sh",
         {
           method: "POST",
           headers: {
@@ -362,6 +362,9 @@ const QuecProfilesPage = () => {
 
         // Refresh profiles from server
         await fetchProfiles();
+
+        // Refresh status check to avoid stale data
+        await checkProfileStatus();
       } else {
         // Show error message
         setErrorMessage(responseData.message || "Failed to create profile");
@@ -414,7 +417,7 @@ const QuecProfilesPage = () => {
 
       // Send API request
       const response = await fetch(
-        "/api/cgi-bin/quecmanager/profiles/quec_profile_edit.sh",
+        "/cgi-bin/quecmanager/profiles/quec_profile_edit.sh",
         {
           method: "POST",
           headers: {
@@ -486,7 +489,7 @@ const QuecProfilesPage = () => {
       }
 
       const response = await fetch(
-        "/api/cgi-bin/quecmanager/profiles/quec_profile_delete.sh",
+        "/cgi-bin/quecmanager/profiles/quec_profile_delete.sh",
         {
           method: "POST",
           headers: {
@@ -523,6 +526,9 @@ const QuecProfilesPage = () => {
 
         // Refresh profiles from server
         await fetchProfiles();
+
+        // Refresh status check to avoid stale data
+        await checkProfileStatus();
       } else {
         // Show error message
         toast({
@@ -587,7 +593,7 @@ const QuecProfilesPage = () => {
       ) {
         return (
           <Alert className="mb-1" variant="default">
-            <AlertCircle className="h-4 w-4" />
+            <AlertCircle className="h-4 w-4" color="orange" />
             <AlertTitle>No Profile Found</AlertTitle>
             <AlertDescription className="flex justify-between items-center">
               <span>
@@ -651,11 +657,11 @@ const QuecProfilesPage = () => {
         {profileStatus.status === "applying" ? (
           <Loader2 className="h-4 w-4 animate-spin" />
         ) : profileStatus.status === "error" ? (
-          <AlertCircle className="h-4 w-4" />
+          <AlertCircle className="h-4 w-4" color="orange" />
         ) : profileStatus.status === "rebooting" ? (
           <RefreshCcw className="h-4 w-4 animate-spin" />
         ) : (
-          <CheckCircle2 className="h-4 w-4" />
+          <CheckCircle2 className="h-4 w-4" color="green" />
         )}
         <AlertTitle>{titleToShow}</AlertTitle>
         <AlertDescription className="flex justify-between items-center">
@@ -868,10 +874,6 @@ const QuecProfilesPage = () => {
                         value={formData.ttl}
                         onChange={handleInputChange}
                       />
-                      <p className="text-xs text-muted-foreground italic">
-                        Set TTL for outgoing traffic (0 = disabled, 1-255 =
-                        custom TTL)
-                      </p>
                     </div>
                   </div>
                 </div>

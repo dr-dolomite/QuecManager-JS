@@ -120,7 +120,7 @@ const BasicSettings = () => {
     const fetchProfileData = async () => {
       try {
         // Fetch active profile status
-        const profileResponse = await fetch("/api/cgi-bin/quecmanager/profiles/check_status.sh");
+        const profileResponse = await fetch("/cgi-bin/quecmanager/profiles/check_status.sh");
         if (!profileResponse.ok) {
           throw new Error(`Failed to fetch profile status: ${profileResponse.statusText}`);
         }
@@ -136,7 +136,7 @@ const BasicSettings = () => {
             profileData.profile !== "none") {
           
           // Fetch all profiles to find the active one
-          const profilesResponse = await fetch("/api/cgi-bin/quecmanager/profiles/list_profiles.sh");
+          const profilesResponse = await fetch("/cgi-bin/quecmanager/profiles/list_profiles.sh");
           if (profilesResponse.ok) {
             const profilesData = await profilesResponse.json();
             if (profilesData.status === "success" && Array.isArray(profilesData.profiles)) {
@@ -229,7 +229,7 @@ const BasicSettings = () => {
 
   const forceRerunScripts = async () => {
     try {
-      const response = await fetch("/api/cgi-bin/quecmanager/settings/force-rerun.sh");
+      const response = await fetch("/cgi-bin/quecmanager/settings/force-rerun.sh");
       const data = await response.json();
       
       if (data.status === "success") {
@@ -258,7 +258,7 @@ const BasicSettings = () => {
 
   const executeATCommand = async (command: string): Promise<boolean> => {
     const encodedCommand = encodeURIComponent(command);
-    const response = await fetch(`/api/cgi-bin/quecmanager/at_cmd/at_queue_client?command=${encodedCommand}&wait=1`);
+    const response = await fetch(`/cgi-bin/quecmanager/at_cmd/at_queue_client?command=${encodedCommand}&wait=1`);
     
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);

@@ -7,22 +7,34 @@ import {
   CardContent,
   CardFooter,
 } from "@/components/ui/card";
-
-import { Toggle } from "@/components/ui/toggle";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { CheckCircle2, Clock1, Info, XCircle } from "lucide-react";
+import {
+  CheckCircle2,
+  Clock1,
+  XCircle,
+  LockIcon,
+  CalendarIcon,
+} from "lucide-react";
 import { LucideIcon } from "lucide-react";
+import { Button } from "../ui/button";
 
+// Update the props to receive schedule data from parent
 interface ScheduledLockingCardProps {
   loading: boolean;
-  scheduling: boolean;
-  startTime: string;
-  endTime: string;
+  scheduleData: {
+    enabled: boolean;
+    startTime: string;
+    endTime: string;
+    active: boolean;
+    status: string;
+    message: string;
+    locked: boolean;
+  };
   onStartTimeChange: (time: string) => void;
   onEndTimeChange: (time: string) => void;
   onSchedulingToggle: (pressed: boolean) => void;
-  locked: boolean;
 }
 
 interface StatusState {
@@ -33,13 +45,10 @@ interface StatusState {
 
 const ScheduledLockingCard = ({
   loading,
-  scheduling,
-  startTime,
-  endTime,
+  scheduleData,
   onStartTimeChange,
   onEndTimeChange,
   onSchedulingToggle,
-  locked,
 }: ScheduledLockingCardProps) => {
   const [status, setStatus] = useState<StatusState>({
     text: "Disabled",
@@ -47,8 +56,9 @@ const ScheduledLockingCard = ({
     icon: XCircle,
   });
 
-  const updateStatus = () => {
-    if (!scheduling) {
+  // Use local time calculation
+  const updateStatusFromLocalTime = () => {
+    if (!scheduleData.enabled) {
       setStatus({ text: "Disabled", color: "text-red-600", icon: XCircle });
       return;
     }
@@ -56,8 +66,10 @@ const ScheduledLockingCard = ({
     const now = new Date();
     const currentTime = now.getHours() * 60 + now.getMinutes();
 
-    const [startHour, startMinute] = startTime.split(":").map(Number);
-    const [endHour, endMinute] = endTime.split(":").map(Number);
+    const [startHour, startMinute] = scheduleData.startTime
+      .split(":")
+      .map(Number);
+    const [endHour, endMinute] = scheduleData.endTime.split(":").map(Number);
 
     const startMinutes = startHour * 60 + startMinute;
     const endMinutes = endHour * 60 + endMinute;
@@ -95,11 +107,40 @@ const ScheduledLockingCard = ({
     }
   };
 
+  // Update status based on backend data
+  const updateStatusFromBackend = () => {
+    if (scheduleData.active) {
+      setStatus({
+        text: "Active",
+        color: "text-green-600",
+        icon: CheckCircle2,
+      });
+    } else if (scheduleData.enabled && !scheduleData.active) {
+      setStatus({
+        text: "Inactive",
+        color: "text-yellow-500",
+        icon: Clock1,
+      });
+    } else {
+      setStatus({
+        text: "Disabled",
+        color: "text-red-600",
+        icon: XCircle,
+      });
+    }
+  };
+
   useEffect(() => {
-    updateStatus();
-    const interval = setInterval(updateStatus, 60000); // Update every minute
-    return () => clearInterval(interval);
-  }, [scheduling, startTime, endTime]);
+    // Use backend data for status if available
+    updateStatusFromBackend();
+
+    // Also start an interval to update based on local time if needed
+    const localInterval = setInterval(updateStatusFromLocalTime, 60000);
+
+    return () => {
+      clearInterval(localInterval);
+    };
+  }, [scheduleData]);
 
   const StatusIcon = status.icon;
 
@@ -121,15 +162,26 @@ const ScheduledLockingCard = ({
         </CardDescription>
       </CardHeader>
       <CardContent>
+        {scheduleData.enabled && (
+          <Alert className="mb-6">
+            <LockIcon className="h-4 w-4" color="orange" />
+            <AlertTitle>Scheduled Cell Locking Active</AlertTitle>
+            <AlertDescription>
+              Cell locking is currently being managed by the scheduler. Manual
+              changes to cell locks may be overridden during scheduled hours.
+            </AlertDescription>
+          </Alert>
+        )}
+
         <div className="grid lg:grid-cols-2 grid-cols-1 grid-flow-row gap-4">
           <div className="grid w-full max-w-sm items-center gap-2">
             <Label htmlFor="start-time">Start Time</Label>
             <Input
               type="time"
               id="start-time"
-              value={startTime}
+              value={scheduleData.startTime}
               onChange={(e) => onStartTimeChange(e.target.value)}
-              disabled={loading || scheduling}
+              disabled={loading || scheduleData.enabled}
               placeholder="START TIME"
             />
           </div>
@@ -139,9 +191,9 @@ const ScheduledLockingCard = ({
             <Input
               type="time"
               id="end-time"
-              value={endTime}
+              value={scheduleData.endTime}
               onChange={(e) => onEndTimeChange(e.target.value)}
-              disabled={loading || scheduling}
+              disabled={loading || scheduleData.enabled}
               placeholder="END TIME"
             />
           </div>
@@ -158,15 +210,13 @@ const ScheduledLockingCard = ({
         </div>
       </CardContent>
       <CardFooter className="border-t py-4">
-        <Toggle
-          disabled={loading || !startTime || !endTime || !locked}
-          pressed={scheduling}
-          onPressedChange={onSchedulingToggle}
-          variant="outline"
+        <Button
+          onClick={() => onSchedulingToggle(!scheduleData.enabled)}
+          disabled={loading || (!scheduleData.locked && !scheduleData.enabled)}
         >
-          <Clock1 className="h-4 w-4 mr-2" />
-          {scheduling ? "Disable" : "Enable"} Scheduled Locking
-        </Toggle>
+          <CalendarIcon className="h-4 w-4" />
+          {scheduleData.enabled ? "Disable Scheduler" : "Enable Scheduler"}
+        </Button>
       </CardFooter>
     </Card>
   );

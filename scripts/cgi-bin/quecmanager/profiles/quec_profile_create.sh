@@ -340,6 +340,11 @@ fi
 
 # Create the profile
 if create_profile "$name" "$iccid" "$imei" "$apn" "$pdp_type" "$lte_bands" "$sa_nr5g_bands" "$nsa_nr5g_bands" "$network_type" "$ttl"; then
+    # Trigger immediate profile application
+    touch "/tmp/quecprofiles_check"
+    chmod 644 "/tmp/quecprofiles_check"
+    log_message "Triggered immediate profile check after creation" "info"
+    
     # Create profile data JSON for return - WITHOUT outer curly braces
     profile_data="\"name\":\"$name\",\"iccid\":\"$iccid\",\"imei\":\"$imei\",\"apn\":\"$apn\",\"pdp_type\":\"$pdp_type\",\"lte_bands\":\"$lte_bands\",\"sa_nr5g_bands\":\"$sa_nr5g_bands\",\"nsa_nr5g_bands\":\"$nsa_nr5g_bands\",\"network_type\":\"$network_type\",\"ttl\":\"$ttl\""
 

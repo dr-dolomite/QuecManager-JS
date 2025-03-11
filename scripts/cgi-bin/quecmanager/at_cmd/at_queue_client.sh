@@ -4,7 +4,7 @@
 
 QUEUE_DIR="/tmp/at_queue"
 RESULTS_DIR="$QUEUE_DIR/results"
-QUEUE_MANAGER="/www/cgi-bin/services/at_queue_manager"
+QUEUE_MANAGER="/www/cgi-bin/services/at_queue_manager.sh"
 POLL_INTERVAL=0.01
 
 usage() {

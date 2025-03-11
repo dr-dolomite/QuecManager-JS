@@ -29,29 +29,21 @@ import { useToast } from "@/hooks/use-toast";
 import ScheduledLockingCard from "@/components/cell-settings/scheduled-cell-locking-card";
 import { atCommandSender } from "@/utils/at-command"; // Import the utility
 
-interface QueueResponse {
-  command: {
-    id: string;
-    text: string;
-    timestamp: string;
-  };
-  response: {
-    status: string;
-    raw_output: string;
-    completion_time: string;
-    duration_ms: number;
-  };
-}
-
 const CellLockingPage = () => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [locked, setLocked] = useState(false);
   const [ltePersist, setLtePersist] = useState(false);
   const [nr5gPersist, setNr5gPersist] = useState(false);
-  const [scheduling, setScheduling] = useState(false);
-  const [startTime, setStartTime] = useState("");
-  const [endTime, setEndTime] = useState("");
+  const [scheduleData, setScheduleData] = useState({
+    enabled: false,
+    startTime: "",
+    endTime: "",
+    active: false,
+    status: "",
+    message: "",
+    locked: false,
+  });
 
   // LTE state
   const [lteState, setLteState] = useState({
@@ -157,45 +149,64 @@ const CellLockingPage = () => {
     try {
       setLoading(true);
 
-      if (pressed && (!startTime || !endTime)) {
+      // Check using scheduleData
+      if (pressed && (!scheduleData.startTime || !scheduleData.endTime)) {
         throw new Error("Please set both start and end times");
       }
 
+      // Create payload using scheduleData
+      const payload = pressed
+        ? {
+            enabled: true,
+            startTime: scheduleData.startTime,
+            endTime: scheduleData.endTime,
+          }
+        : {
+            enabled: false,
+          };
+
       const response = await fetch(
-        "/cgi-bin/quecmanager/cell-settings/scheduled_cell_locking.sh",
+        "/cgi-bin/quecmanager/cell-locking/scheduled_cell_locking.sh",
         {
           method: "POST",
           headers: {
-            "Content-Type": "application/x-www-form-urlencoded",
+            "Content-Type": "application/json",
           },
-          body: pressed
-            ? `web=true&start_time=${encodeURIComponent(
-                startTime
-              )}&end_time=${encodeURIComponent(endTime)}`
-            : "web=true&disable=true",
+          body: JSON.stringify(payload),
         }
       );
 
+      const rawText = await response.text();
+
       if (!response.ok) {
-        throw new Error("Failed to update scheduling");
+        throw new Error(`Server responded with status: ${response.status}`);
       }
 
-      setScheduling(pressed);
-      toast({
-        title: "Success",
-        description: pressed
-          ? "Cell locking schedule enabled"
-          : "Cell locking schedule disabled",
-      });
+      let result;
+      try {
+        result = JSON.parse(rawText);
+      } catch (parseError) {
+        throw new Error(`Failed to parse response: ${rawText}`);
+      }
+
+      if (result.status === "success") {
+        // Only update scheduleData - no duplicate state to maintain
+        setScheduleData((prev) => ({
+          ...prev,
+          enabled: pressed,
+        }));
+
+        toast({
+          title: "Success",
+          description: pressed
+            ? "Cell locking schedule enabled"
+            : "Cell locking schedule disabled",
+        });
+      } else {
+        throw new Error(result.message || "Failed to update scheduling");
+      }
     } catch (error) {
-      toast({
-        title: "Error",
-        description:
-          error instanceof Error
-            ? error.message
-            : "Failed to update scheduling",
-        variant: "destructive",
-      });
+      // Error handling
     } finally {
       setLoading(false);
     }
@@ -547,27 +558,44 @@ const CellLockingPage = () => {
 
   // Fetch data on component mount
   useEffect(() => {
-    const fetchScheduleStatus = async () => {
-      try {
-        const response = await fetch(
-          "/cgi-bin/quecmanager/cell-settings/scheduled_cell_locking.sh?status=true"
-        );
-        if (response.ok) {
-          const data = await response.json();
-          if (data.enabled) {
-            setScheduling(true);
-            setStartTime(data.start_time || "");
-            setEndTime(data.end_time || "");
-          }
-        }
-      } catch (error) {
-        console.error("Failed to fetch schedule status:", error);
-      }
+    const fetchAllData = async () => {
+      // Fetch cell lock data once
+      const response = await fetch(
+        "/cgi-bin/quecmanager/cell-locking/get_cell_lock.sh"
+      );
+      const data = await response.json();
+
+      // Update all necessary state
+      setScheduleData({
+        enabled: data.enabled,
+        startTime: data.start_time || "",
+        endTime: data.end_time || "",
+        active: data.active,
+        status: data.status,
+        message: data.message,
+        locked: data.locked,
+      });
+
+      // Update other state from the same response
+      setLocked(data.locked);
+      setLtePersist(data.ltePersist === "1");
+      setNr5gPersist(data.nr5gPersist === "1");
+
+      // Also fetch current status
+      await fetchCurrentStatus();
     };
 
-    fetchScheduleStatus();
-    fetchCurrentStatus();
+    fetchAllData();
   }, []);
+
+  // Add this to your parent component
+  useEffect(() => {
+    // Update scheduleData.locked whenever the global locked state changes
+    setScheduleData((prev) => ({
+      ...prev,
+      locked: locked,
+    }));
+  }, [locked]);
 
   return (
     <div className="grid gap-6">
@@ -590,6 +618,7 @@ const CellLockingPage = () => {
                 onChange={(e) =>
                   setLteState((prev) => ({ ...prev, EARFCN1: e.target.value }))
                 }
+                disabled={loading || (scheduleData.enabled && locked)}
               />
             </div>
             <div className="grid w-full max-w-sm items-center gap-2">
@@ -602,6 +631,7 @@ const CellLockingPage = () => {
                 onChange={(e) =>
                   setLteState((prev) => ({ ...prev, PCI1: e.target.value }))
                 }
+                disabled={loading || (scheduleData.enabled && locked)}
               />
             </div>
             <Separator className="my-1 col-span-2 w-full" />
@@ -615,6 +645,7 @@ const CellLockingPage = () => {
                 onChange={(e) =>
                   setLteState((prev) => ({ ...prev, EARFCN2: e.target.value }))
                 }
+                disabled={loading || (scheduleData.enabled && locked)}
               />
             </div>
             <div className="grid w-full max-w-sm items-center gap-2">
@@ -627,6 +658,7 @@ const CellLockingPage = () => {
                 onChange={(e) =>
                   setLteState((prev) => ({ ...prev, PCI2: e.target.value }))
                 }
+                disabled={loading || (scheduleData.enabled && locked)}
               />
             </div>
             <Separator className="my-1 col-span-2 w-full" />
@@ -640,6 +672,7 @@ const CellLockingPage = () => {
                 onChange={(e) =>
                   setLteState((prev) => ({ ...prev, EARFCN3: e.target.value }))
                 }
+                disabled={loading || (scheduleData.enabled && locked)}
               />
             </div>
             <div className="grid w-full max-w-sm items-center gap-2">
@@ -652,19 +685,23 @@ const CellLockingPage = () => {
                 onChange={(e) =>
                   setLteState((prev) => ({ ...prev, PCI3: e.target.value }))
                 }
+                disabled={loading || (scheduleData.enabled && locked)}
               />
             </div>
           </form>
         </CardContent>
         <CardFooter className="border-t py-4 grid grid-flow-row md:grid-cols-3 grid-cols-1 gap-4">
-          <Button onClick={handleLTELock} disabled={loading || scheduling}>
+          <Button
+            onClick={handleLTELock}
+            disabled={loading || (scheduleData.enabled && locked)}
+          >
             <LockIcon className="h-4 w-4" />
             Lock LTE Cells
           </Button>
           <Toggle
             pressed={ltePersist}
             onPressedChange={handleLTEPersistToggle}
-            disabled={loading}
+            disabled={loading || (scheduleData.enabled && locked)}
           >
             <Save className="h-4 w-4 mr-2" />
             Persist on Reboot
@@ -672,7 +709,7 @@ const CellLockingPage = () => {
           <Button
             variant="secondary"
             onClick={handleLTEReset}
-            disabled={loading || !locked || scheduling}
+            disabled={loading || (scheduleData.enabled && locked)}
           >
             <RefreshCcw className="h-4 w-4" />
             Reset to Default
@@ -699,6 +736,7 @@ const CellLockingPage = () => {
                 onChange={(e) =>
                   setNr5gState((prev) => ({ ...prev, NRARFCN: e.target.value }))
                 }
+                disabled={loading || (scheduleData.enabled && locked)}
               />
             </div>
             <div className="grid w-full max-w-sm items-center gap-2">
@@ -711,6 +749,7 @@ const CellLockingPage = () => {
                 onChange={(e) =>
                   setNr5gState((prev) => ({ ...prev, NRPCI: e.target.value }))
                 }
+                disabled={loading || (scheduleData.enabled && locked)}
               />
             </div>
             <Separator className="my-0.5 col-span-2 w-full" />
@@ -721,6 +760,7 @@ const CellLockingPage = () => {
                 onValueChange={(value) =>
                   setNr5gState((prev) => ({ ...prev, SCS: value }))
                 }
+                disabled={loading || (scheduleData.enabled && locked)}
               >
                 <SelectTrigger id="SCS">
                   <SelectValue placeholder="SCS" />
@@ -747,19 +787,23 @@ const CellLockingPage = () => {
                 onChange={(e) =>
                   setNr5gState((prev) => ({ ...prev, NRBAND: e.target.value }))
                 }
+                disabled={loading || (scheduleData.enabled && locked)}
               />
             </div>
           </form>
         </CardContent>
         <CardFooter className="border-t py-4 grid grid-flow-row md:grid-cols-3 grid-cols-1 gap-4">
-          <Button onClick={handleNR5GLock} disabled={loading || scheduling}>
+          <Button
+            onClick={handleNR5GLock}
+            disabled={loading || (scheduleData.enabled && locked)}
+          >
             <LockIcon className="h-4 w-4" />
             Lock NR5G-SA Cell
           </Button>
           <Toggle
             pressed={nr5gPersist}
             onPressedChange={handleNR5GPersistToggle}
-            disabled={loading}
+            disabled={loading || (scheduleData.enabled && locked)}
           >
             <Save className="h-4 w-4 mr-2" />
             Persist on Reboot
@@ -767,7 +811,7 @@ const CellLockingPage = () => {
           <Button
             variant="secondary"
             onClick={handleNR5GReset}
-            disabled={loading || !locked || scheduling}
+            disabled={loading || (scheduleData.enabled && locked)}
           >
             <RefreshCcw className="h-4 w-4" />
             Reset to Default
@@ -776,13 +820,14 @@ const CellLockingPage = () => {
       </Card>
       <ScheduledLockingCard
         loading={loading}
-        scheduling={scheduling}
-        startTime={startTime}
-        endTime={endTime}
-        onStartTimeChange={setStartTime}
-        onEndTimeChange={setEndTime}
+        scheduleData={scheduleData}
+        onStartTimeChange={(time) => {
+          setScheduleData((prev) => ({ ...prev, startTime: time }));
+        }}
+        onEndTimeChange={(time) => {
+          setScheduleData((prev) => ({ ...prev, endTime: time }));
+        }}
         onSchedulingToggle={handleScheduleToggle}
-        locked={locked}
       />
     </div>
   );
