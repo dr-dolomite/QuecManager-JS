@@ -357,75 +357,9 @@ const EarfcnCalculator: React.FC = () => {
   ];
 
   // NR Band configurations updated to match 3GPP TS 38.104 table
+  // Updated NR Band configurations based on 3GPP TS 138.104
   const nrBands: NRBand[] = [
-    // Sub-6 GHz TDD bands (FR1)
-    {
-      band: 41,
-      name: "BRS/EBS",
-      dlLow: 2496,
-      dlHigh: 2690,
-      ulLow: 2496,
-      ulHigh: 2690,
-      nrarfcnOffset: 499200,
-      nrarfcnRange: [499200, 537999],
-      duplexType: "TDD",
-    },
-    {
-      band: 77,
-      name: "C-Band Upper",
-      dlLow: 3300,
-      dlHigh: 4200,
-      ulLow: 3300,
-      ulHigh: 4200,
-      nrarfcnOffset: 620000,
-      nrarfcnRange: [620000, 680000],
-      duplexType: "TDD",
-    },
-    {
-      band: 78,
-      name: "C-Band Lower",
-      dlLow: 3300,
-      dlHigh: 3800,
-      ulLow: 3300,
-      ulHigh: 3800,
-      nrarfcnOffset: 620000,
-      nrarfcnRange: [620000, 653333],
-      duplexType: "TDD",
-    },
-    {
-      band: 48,
-      name: "CBRS",
-      dlLow: 3550,
-      dlHigh: 3700,
-      ulLow: 3550,
-      ulHigh: 3700,
-      nrarfcnOffset: 636667,
-      nrarfcnRange: [636667, 646666],
-      duplexType: "TDD",
-    },
-    {
-      band: 90,
-      name: "TD 2600",
-      dlLow: 2496,
-      dlHigh: 2690,
-      ulLow: 2496,
-      ulHigh: 2690,
-      nrarfcnOffset: 499200,
-      nrarfcnRange: [499200, 538000],
-      duplexType: "TDD",
-    },
-    {
-      band: 40,
-      name: "TD 2300",
-      dlLow: 2300,
-      dlHigh: 2400,
-      ulLow: 2300,
-      ulHigh: 2400,
-      nrarfcnOffset: 460000,
-      nrarfcnRange: [460000, 480000],
-      duplexType: "TDD",
-    },
-    // Sub-6 GHz FDD bands (FR1)
+    // Low bands (FR1)
     {
       band: 5,
       name: "850",
@@ -438,6 +372,61 @@ const EarfcnCalculator: React.FC = () => {
       duplexType: "FDD",
     },
     {
+      band: 8,
+      name: "900",
+      dlLow: 925,
+      dlHigh: 960,
+      ulLow: 880,
+      ulHigh: 915,
+      nrarfcnOffset: 185000,
+      nrarfcnRange: [185000, 192000],
+      duplexType: "FDD",
+    },
+    {
+      band: 12,
+      name: "700 a",
+      dlLow: 729,
+      dlHigh: 746,
+      ulLow: 699,
+      ulHigh: 716,
+      nrarfcnOffset: 145800,
+      nrarfcnRange: [145800, 149200],
+      duplexType: "FDD",
+    },
+    {
+      band: 14,
+      name: "700 PS",
+      dlLow: 758,
+      dlHigh: 768,
+      ulLow: 788,
+      ulHigh: 798,
+      nrarfcnOffset: 151600,
+      nrarfcnRange: [151600, 153600],
+      duplexType: "FDD",
+    },
+    {
+      band: 20,
+      name: "800 DD",
+      dlLow: 791,
+      dlHigh: 821,
+      ulLow: 832,
+      ulHigh: 862,
+      nrarfcnOffset: 158200,
+      nrarfcnRange: [158200, 164200],
+      duplexType: "FDD",
+    },
+    {
+      band: 28,
+      name: "700 APT",
+      dlLow: 758,
+      dlHigh: 803,
+      ulLow: 703,
+      ulHigh: 748,
+      nrarfcnOffset: 151600,
+      nrarfcnRange: [151600, 160600],
+      duplexType: "FDD",
+    },
+    {
       band: 71,
       name: "600",
       dlLow: 617,
@@ -446,6 +435,18 @@ const EarfcnCalculator: React.FC = () => {
       ulHigh: 698,
       nrarfcnOffset: 123400,
       nrarfcnRange: [123400, 130400],
+      duplexType: "FDD",
+    },
+    // Mid bands (FR1)
+    {
+      band: 1,
+      name: "2100",
+      dlLow: 2110,
+      dlHigh: 2170,
+      ulLow: 1920,
+      ulHigh: 1980,
+      nrarfcnOffset: 422000,
+      nrarfcnRange: [422000, 434000],
       duplexType: "FDD",
     },
     {
@@ -460,14 +461,14 @@ const EarfcnCalculator: React.FC = () => {
       duplexType: "FDD",
     },
     {
-      band: 66,
-      name: "AWS",
-      dlLow: 2110,
-      dlHigh: 2200,
+      band: 3,
+      name: "1800",
+      dlLow: 1805,
+      dlHigh: 1880,
       ulLow: 1710,
-      ulHigh: 1780,
-      nrarfcnOffset: 422000,
-      nrarfcnRange: [422000, 440000],
+      ulHigh: 1785,
+      nrarfcnOffset: 361000,
+      nrarfcnRange: [361000, 376000],
       duplexType: "FDD",
     },
     {
@@ -481,7 +482,151 @@ const EarfcnCalculator: React.FC = () => {
       nrarfcnRange: [524000, 538000],
       duplexType: "FDD",
     },
-    // mmWave bands (FR2)
+    {
+      band: 25,
+      name: "1900+",
+      dlLow: 1930,
+      dlHigh: 1995,
+      ulLow: 1850,
+      ulHigh: 1915,
+      nrarfcnOffset: 386000,
+      nrarfcnRange: [386000, 399000],
+      duplexType: "FDD",
+    },
+    {
+      band: 66,
+      name: "AWS-3",
+      dlLow: 2110,
+      dlHigh: 2200,
+      ulLow: 1710,
+      ulHigh: 1780,
+      nrarfcnOffset: 422000,
+      nrarfcnRange: [422000, 440000],
+      duplexType: "FDD",
+    },
+    {
+      band: 70,
+      name: "AWS-4",
+      dlLow: 1995,
+      dlHigh: 2020,
+      ulLow: 1695,
+      ulHigh: 1710,
+      nrarfcnOffset: 399000,
+      nrarfcnRange: [399000, 404000],
+      duplexType: "FDD",
+    },
+    // TDD bands (FR1)
+    {
+      band: 34,
+      name: "2000 TDD",
+      dlLow: 2010,
+      dlHigh: 2025,
+      ulLow: 2010,
+      ulHigh: 2025,
+      nrarfcnOffset: 402000,
+      nrarfcnRange: [402000, 405000],
+      duplexType: "TDD",
+    },
+    {
+      band: 38,
+      name: "TD 2600",
+      dlLow: 2570,
+      dlHigh: 2620,
+      ulLow: 2570,
+      ulHigh: 2620,
+      nrarfcnOffset: 514000,
+      nrarfcnRange: [514000, 524000],
+      duplexType: "TDD",
+    },
+    {
+      band: 39,
+      name: "IMT 1900 TDD",
+      dlLow: 1880,
+      dlHigh: 1920,
+      ulLow: 1880,
+      ulHigh: 1920,
+      nrarfcnOffset: 376000,
+      nrarfcnRange: [376000, 384000],
+      duplexType: "TDD",
+    },
+    {
+      band: 40,
+      name: "TD 2300",
+      dlLow: 2300,
+      dlHigh: 2400,
+      ulLow: 2300,
+      ulHigh: 2400,
+      nrarfcnOffset: 460000,
+      nrarfcnRange: [460000, 480000],
+      duplexType: "TDD",
+    },
+    {
+      band: 41,
+      name: "TD 2500",
+      dlLow: 2496,
+      dlHigh: 2690,
+      ulLow: 2496,
+      ulHigh: 2690,
+      nrarfcnOffset: 499200,
+      nrarfcnRange: [499200, 537999],
+      duplexType: "TDD",
+    },
+    {
+      band: 48,
+      name: "CBRS",
+      dlLow: 3550,
+      dlHigh: 3700,
+      ulLow: 3550,
+      ulHigh: 3700,
+      nrarfcnOffset: 636667,
+      nrarfcnRange: [636667, 646666],
+      duplexType: "TDD",
+    },
+    {
+      band: 77,
+      name: "C-Band",
+      dlLow: 3300,
+      dlHigh: 4200,
+      ulLow: 3300,
+      ulHigh: 4200,
+      nrarfcnOffset: 620000,
+      nrarfcnRange: [620000, 680000],
+      duplexType: "TDD",
+    },
+    {
+      band: 78,
+      name: "C-Band (3.5GHz)",
+      dlLow: 3300,
+      dlHigh: 3800,
+      ulLow: 3300,
+      ulHigh: 3800,
+      nrarfcnOffset: 620000,
+      nrarfcnRange: [620000, 653333],
+      duplexType: "TDD",
+    },
+    {
+      band: 79,
+      name: "4.5GHz",
+      dlLow: 4400,
+      dlHigh: 5000,
+      ulLow: 4400,
+      ulHigh: 5000,
+      nrarfcnOffset: 693334,
+      nrarfcnRange: [693334, 733333],
+      duplexType: "TDD",
+    },
+    {
+      band: 90,
+      name: "TD 2600",
+      dlLow: 2496,
+      dlHigh: 2690,
+      ulLow: 2496,
+      ulHigh: 2690,
+      nrarfcnOffset: 499200,
+      nrarfcnRange: [499200, 538000],
+      duplexType: "TDD",
+    },
+    // FR2 (mmWave) bands
     {
       band: 257,
       name: "28 GHz",
@@ -494,6 +639,28 @@ const EarfcnCalculator: React.FC = () => {
       duplexType: "TDD",
     },
     {
+      band: 258,
+      name: "26 GHz",
+      dlLow: 24250,
+      dlHigh: 27500,
+      ulLow: 24250,
+      ulHigh: 27500,
+      nrarfcnOffset: 2016667,
+      nrarfcnRange: [2016667, 2070832],
+      duplexType: "TDD",
+    },
+    {
+      band: 259,
+      name: "41 GHz",
+      dlLow: 39500,
+      dlHigh: 43500,
+      ulLow: 39500,
+      ulHigh: 43500,
+      nrarfcnOffset: 2270832,
+      nrarfcnRange: [2270832, 2337499],
+      duplexType: "TDD",
+    },
+    {
       band: 260,
       name: "39 GHz",
       dlLow: 37000,
@@ -502,6 +669,17 @@ const EarfcnCalculator: React.FC = () => {
       ulHigh: 40000,
       nrarfcnOffset: 2229166,
       nrarfcnRange: [2229166, 2279165],
+      duplexType: "TDD",
+    },
+    {
+      band: 261,
+      name: "28 GHz",
+      dlLow: 27500,
+      dlHigh: 28350,
+      ulLow: 27500,
+      ulHigh: 28350,
+      nrarfcnOffset: 2070833,
+      nrarfcnRange: [2070833, 2084999],
       duplexType: "TDD",
     },
   ];
@@ -560,22 +738,19 @@ const EarfcnCalculator: React.FC = () => {
 
   // Calculate NR frequency from NR-ARFCN using 3GPP TS 38.104 specifications
   const calculateNRFrequency = (nrarfcn: number): NRResult | null => {
-    // Remove parseInt since nrarfcn is already a number
-    // const nrarfcnNum = parseInt(nrarfcn);
-
-    // Apply the global frequency raster formula from 3GPP TS 38.104 Chapter 5.4.2.1
     let frequency: number;
 
-    // Global frequency raster formula: FREF = FREF-Offs + ΔFGlobal (NREF - NREF-Offs)
+    // Global frequency raster formula from 3GPP TS 38.104 Section 5.4.2.1
+    // F_REF = F_REF-Offs + ΔF_Global (N_REF – N_REF-Offs)
     if (nrarfcn >= 0 && nrarfcn <= 599999) {
       // Range 0-3000 MHz: 5 kHz spacing
-      frequency = 0 + (nrarfcn - 0) * 0.005;
+      frequency = 0 + (nrarfcn - 0) * 0.005; // ΔF_Global = 5 kHz
     } else if (nrarfcn >= 600000 && nrarfcn <= 2016666) {
       // Range 3000-24250 MHz: 15 kHz spacing
-      frequency = 3000 + (nrarfcn - 600000) * 0.015;
+      frequency = 3000 + (nrarfcn - 600000) * 0.015; // ΔF_Global = 15 kHz
     } else if (nrarfcn >= 2016667 && nrarfcn <= 3279165) {
       // Range 24250-100000 MHz: 60 kHz spacing
-      frequency = 24250.08 + (nrarfcn - 2016667) * 0.06;
+      frequency = 24250.08 + (nrarfcn - 2016667) * 0.06; // ΔF_Global = 60 kHz
     } else {
       return null; // Out of defined ranges
     }
@@ -788,7 +963,9 @@ const EarfcnCalculator: React.FC = () => {
               </div>
               <div className="font-medium">{result.earfcn}</div>
 
-              <div className="text-gray-600 dark:text-gray-400 font-medium">Frequency</div>
+              <div className="text-gray-600 dark:text-gray-400 font-medium">
+                Frequency
+              </div>
               <div className="font-medium">{result.frequency} MHz</div>
             </div>
 
@@ -849,19 +1026,25 @@ const EarfcnCalculator: React.FC = () => {
                         <div className="text-gray-600 dark:text-gray-400 font-medium">
                           Downlink Frequency
                         </div>
-                        <div className="font-semibold">{(band as LTEMatchingBand).dlFrequency} MHz</div>
+                        <div className="font-semibold">
+                          {(band as LTEMatchingBand).dlFrequency} MHz
+                        </div>
 
                         <div className="text-gray-600 dark:text-gray-400 font-medium">
                           Uplink Frequency
                         </div>
-                        <div className="font-semibold">{(band as LTEMatchingBand).ulFrequency} MHz</div>
+                        <div className="font-semibold">
+                          {(band as LTEMatchingBand).ulFrequency} MHz
+                        </div>
 
                         {band.duplexType === "FDD" && (
                           <>
                             <div className="text-gray-600 dark:text-gray-400 font-medium">
                               Uplink EARFCN
                             </div>
-                            <div className="font-semibold">{(band as LTEMatchingBand).ulEarfcn}</div>
+                            <div className="font-semibold">
+                              {(band as LTEMatchingBand).ulEarfcn}
+                            </div>
                           </>
                         )}
                       </>
