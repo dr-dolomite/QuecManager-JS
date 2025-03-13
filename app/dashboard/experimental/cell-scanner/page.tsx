@@ -45,6 +45,7 @@ import { useToast } from "@/hooks/use-toast";
 import NeighborCellsDisplay from "@/components/cell-scan/neighborcell-card";
 import { MagnifyingGlassIcon } from "@radix-ui/react-icons";
 import { LTE_RB_BANDWIDTH_MAP } from "@/types/types";
+import FrequencyInfoCard from "@/components/pages/frequency-info-card";
 
 // Types for Cell Information
 interface BaseCellInfo {
@@ -715,7 +716,8 @@ const CellScannerPage = () => {
           <CardTitle>Full Network Cell Scan</CardTitle>
           <CardDescription>
             Scan all available network cells, including those from other network
-            providers. Current network mode will affect the results and you may be disconnected during the scan.
+            providers. Current network mode will affect the results and you may
+            be disconnected during the scan.
             {lastScanTime && (
               <div className="mt-1 text-sm text-muted-foreground">
                 Last scan: {lastScanTime}
@@ -915,7 +917,11 @@ const CellScannerPage = () => {
           </div>
         </CardFooter>
       </Card>
-
+      <FrequencyInfoCard
+        scanResult={scanResult}
+        isLoading={scanState.status === "scanning"}
+        mccMncList={mccMncList}
+      />
       <Card>
         <CardHeader>
           <CardTitle>Neighbor Cell Scan</CardTitle>
