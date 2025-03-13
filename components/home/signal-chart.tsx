@@ -13,7 +13,15 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
-import { CartesianGrid, Line, LineChart, XAxis } from "recharts";
+import {
+  CartesianGrid,
+  Line,
+  LineChart,
+  XAxis,
+  AreaChart,
+  Area,
+  YAxis,
+} from "recharts";
 import { Skeleton } from "../ui/skeleton";
 
 interface SignalMetrics {
@@ -54,12 +62,12 @@ const chartConfig = {
 
 const parseSignalOutput = (output: string): number => {
   // Split the output into LTE and NR5G parts if they exist
-  const parts = output.split('\n').filter(part => part.trim());
-  
+  const parts = output.split("\n").filter((part) => part.trim());
+
   // Extract all numbers from both LTE and NR5G readings
   const allNumbers: number[] = [];
-  
-  parts.forEach(part => {
+
+  parts.forEach((part) => {
     const numbers = part.match(/-?\d+/g);
     if (numbers) {
       allNumbers.push(...numbers.map(Number));
@@ -67,7 +75,9 @@ const parseSignalOutput = (output: string): number => {
   });
 
   // Filter out invalid values (-140 and -32768)
-  const validNumbers = allNumbers.filter(num => num !== -140 && num !== -32768);
+  const validNumbers = allNumbers.filter(
+    (num) => num !== -140 && num !== -32768
+  );
 
   // Return 0 if no valid numbers after filtering
   if (validNumbers.length === 0) return 0;
@@ -79,21 +89,23 @@ const parseSignalOutput = (output: string): number => {
 
 const SignalChart = () => {
   const [chartData, setChartData] = useState<ChartDataPoint[]>([]);
-  const [activeChart, setActiveChart] = 
+  const [activeChart, setActiveChart] =
     useState<keyof typeof chartConfig>("rsrp");
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const fetchSignalMetrics = useCallback(async () => {
     try {
-      const response = await fetch("/cgi-bin/quecmanager/home/fetch_signal_metrics.sh");
+      const response = await fetch(
+        "/cgi-bin/quecmanager/home/fetch_signal_metrics.sh"
+      );
 
       if (!response.ok) {
         throw new Error("Failed to fetch signal metrics");
       }
 
       const data: SignalResponse = await response.json();
-      
+
       // Ensure all arrays have the same length
       const length = Math.min(
         data.rsrp.length,
@@ -101,12 +113,15 @@ const SignalChart = () => {
         data.sinr.length
       );
 
-      const transformedData: ChartDataPoint[] = Array.from({ length }, (_, i) => ({
-        time: data.rsrp[i].datetime,
-        rsrp: parseSignalOutput(data.rsrp[i].output),
-        rsrq: parseSignalOutput(data.rsrq[i].output),
-        sinr: parseSignalOutput(data.sinr[i].output)
-      }));
+      const transformedData: ChartDataPoint[] = Array.from(
+        { length },
+        (_, i) => ({
+          time: data.rsrp[i].datetime,
+          rsrp: parseSignalOutput(data.rsrp[i].output),
+          rsrq: parseSignalOutput(data.rsrq[i].output),
+          sinr: parseSignalOutput(data.sinr[i].output),
+        })
+      );
 
       setChartData(transformedData);
       setError(null);
@@ -121,17 +136,51 @@ const SignalChart = () => {
     }
   }, []);
 
+  // Helper function to determine the correct baseValue for each metric
+  const getBaseValue = (metric: keyof typeof chartConfig): number => {
+    switch (metric) {
+      case "rsrp":
+        return -140; // RSRP typically ranges from -70 to -140 dBm
+      case "rsrq":
+        return -20; // RSRQ typically ranges from -5 to -20 dB
+      case "sinr":
+        return -10; // SINR can go negative, so start below the lowest expected value
+      default:
+        return 0;
+    }
+  };
+
+  // Helper function to determine the appropriate Y axis domain for each metric
+  // Modify the return type to support 'auto' as a valid value
+  const getYAxisDomain = (
+    metric: keyof typeof chartConfig
+  ): [number, number | "auto"] => {
+    switch (metric) {
+      case "rsrp":
+        return [-140, -60]; // RSRP range
+      case "rsrq":
+        return [-20, 0]; // RSRQ range
+      case "sinr":
+        return [-10, 30]; // SINR range
+      default:
+        return [0, "auto"];
+    }
+  };
+
   useEffect(() => {
     fetchSignalMetrics();
     const intervalId = setInterval(fetchSignalMetrics, 15000);
     return () => clearInterval(intervalId);
   }, [fetchSignalMetrics]);
 
-  const currentValues = chartData.length > 0 ? chartData[chartData.length - 1] : {
-    rsrp: 0,
-    rsrq: 0,
-    sinr: 0
-  };
+  const currentValues =
+    chartData.length > 0
+      ? chartData[chartData.length - 1]
+      : {
+          rsrp: 0,
+          rsrq: 0,
+          sinr: 0,
+        };
 
   if (error) {
     return (
@@ -168,7 +217,9 @@ const SignalChart = () => {
                   <Skeleton className="lg:h-10 h-6 w-full" />
                 ) : (
                   <span className="text-base font-bold leading-none sm:text-3xl">
-                    {currentValues[key as keyof typeof currentValues].toFixed(0)}
+                    {currentValues[key as keyof typeof currentValues].toFixed(
+                      0
+                    )}
                   </span>
                 )}
               </button>
@@ -181,7 +232,7 @@ const SignalChart = () => {
           config={chartConfig}
           className="aspect-auto h-[250px] w-full"
         >
-          <LineChart
+          <AreaChart
             accessibilityLayer
             data={chartData}
             margin={{
@@ -189,6 +240,45 @@ const SignalChart = () => {
               right: 12,
             }}
           >
+            <defs>
+              {/* Define gradients for each metric */}
+              <linearGradient id="fillRsrp" x1="0" y1="0" x2="0" y2="1">
+                <stop
+                  offset="5%"
+                  stopColor="var(--color-rsrp)"
+                  stopOpacity={0.8}
+                />
+                <stop
+                  offset="95%"
+                  stopColor="var(--color-rsrp)"
+                  stopOpacity={0.1}
+                />
+              </linearGradient>
+              <linearGradient id="fillRsrq" x1="0" y1="0" x2="0" y2="1">
+                <stop
+                  offset="5%"
+                  stopColor="var(--color-rsrq)"
+                  stopOpacity={0.8}
+                />
+                <stop
+                  offset="95%"
+                  stopColor="var(--color-rsrq)"
+                  stopOpacity={0.1}
+                />
+              </linearGradient>
+              <linearGradient id="fillSinr" x1="0" y1="0" x2="0" y2="1">
+                <stop
+                  offset="5%"
+                  stopColor="var(--color-sinr)"
+                  stopOpacity={0.8}
+                />
+                <stop
+                  offset="95%"
+                  stopColor="var(--color-sinr)"
+                  stopOpacity={0.1}
+                />
+              </linearGradient>
+            </defs>
             <CartesianGrid vertical={false} />
             <XAxis
               dataKey="time"
@@ -205,6 +295,8 @@ const SignalChart = () => {
                 });
               }}
             />
+            {/* Add YAxis with domain to control the visible range */}
+            <YAxis hide={true} domain={getYAxisDomain(activeChart)} />
             <ChartTooltip
               content={
                 <ChartTooltipContent
@@ -221,14 +313,18 @@ const SignalChart = () => {
                 />
               }
             />
-            <Line
+            <Area
               dataKey={activeChart}
               type="monotone"
               stroke={`var(--color-${activeChart})`}
+              fill={`url(#fill${
+                activeChart.charAt(0).toUpperCase() + activeChart.slice(1)
+              })`}
               strokeWidth={2}
-              dot={false}
+              activeDot={{ r: 4 }}
+              baseValue={getBaseValue(activeChart)}
             />
-          </LineChart>
+          </AreaChart>
         </ChartContainer>
       </CardContent>
       <CardFooter className="flex-col items-start gap-2 text-sm">

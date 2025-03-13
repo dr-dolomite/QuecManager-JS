@@ -299,7 +299,7 @@ export default function ChartPreviewSignal() {
         <Button asChild>
           <Link href="/login">
             Login to QuecManager
-            <ArrowRightIcon className="w-4 h-4 ml-2" />
+            <ArrowRightIcon className="w-4 h-4" />
           </Link>
         </Button>
       </CardFooter>
