@@ -182,7 +182,7 @@ const AboutPage = () => {
               <h1 className="text-xl font-bold antialiased">QuecManager</h1>
               <p className="text-md font-medium antialiased">
                 QuecManager began as 'Simple Admin,' a straightforward GUI in
-                the RGMII toolkit. Over time, it’s evolved into a comprehensive
+                the RGMII toolkit. Over time, it evolved into a comprehensive
                 dashboard with powerful features for managing cellular modems.
                 While we’ve moved beyond the 'Simple' name, our goal remains the
                 same: providing a clean, easy-to-use interface that makes

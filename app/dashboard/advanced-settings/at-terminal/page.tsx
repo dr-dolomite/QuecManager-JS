@@ -212,7 +212,7 @@ const ATTerminalPage = () => {
       // Send command to queue client with wait flag
       const encodedCommand = encodeURIComponent(command);
       const response = await fetch(
-        `/cgi-bin/quecmanager/at_cmd/at_queue_client?command=${encodedCommand}&wait=1`
+        `/cgi-bin/quecmanager/at_cmd/at_queue_client.sh?command=${encodedCommand}&wait=1`
       );
       const data: QueueResponse = await response.json();
 
