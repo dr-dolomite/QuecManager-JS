@@ -63,7 +63,8 @@ const useCellSettingsData = () => {
         preferredNetworkType: processPreferredNetworkType(rawData[2].response),
         nr5gMode: processNR5GMode(rawData[3].response),
         simSlot: processSimSlot(rawData[4].response),
-        cfunState: rawData[5].response.split(",")[1].replace(/"/g, ""),
+        // For cfun state simply get the number character from the response
+        cfunState: rawData[5].response.match(/\d+/)[0].trim(),
       };
 
       setData(processedData);

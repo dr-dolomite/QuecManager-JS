@@ -37,19 +37,19 @@ interface FormData {
   cfunState: string;
 }
 
-interface QueueResponse {
-  command: {
-    id: string;
-    text: string;
-    timestamp: string;
-  };
-  response: {
-    status: string;
-    raw_output: string;
-    completion_time: string;
-    duration_ms: number;
-  };
-}
+// interface QueueResponse {
+//   command: {
+//     id: string;
+//     text: string;
+//     timestamp: string;
+//   };
+//   response: {
+//     status: string;
+//     raw_output: string;
+//     completion_time: string;
+//     duration_ms: number;
+//   };
+// }
 
 interface ProfileStatus {
   status: string;
@@ -71,6 +71,8 @@ interface Profile {
   network_type: string;
   ttl: string;
 }
+
+import { atCommandSender } from "@/utils/at-command";
 
 const BasicSettings = () => {
   const { toast } = useToast();
@@ -227,50 +229,53 @@ const BasicSettings = () => {
     }
   };
 
-  const forceRerunScripts = async () => {
-    try {
-      const response = await fetch("/cgi-bin/quecmanager/settings/force-rerun.sh");
-      const data = await response.json();
+  // const forceRerunScripts = async () => {
+  //   try {
+  //     const response = await fetch("/cgi-bin/quecmanager/settings/force-rerun.sh");
+  //     const data = await response.json();
       
-      if (data.status === "success") {
-        toast({
-          title: "Scripts Restarted",
-          description: "Scripts have been restarted successfully",
-        });
-      } else if (data.status === "info") {
-        toast({
-          title: "Info",
-          description: "No scripts were found to restart",
-        });
-      }
-      else {
-        throw new Error("Failed to restart scripts");
-      }
-    } catch (error) {
-      console.error("Error rerunning scripts:", error);
-      toast({
-        variant: "destructive",
-        title: "Script Restart Failed",
-        description: "Failed to restart the required scripts",
-      });
-    }
-  };
+  //     if (data.status === "success") {
+  //       toast({
+  //         title: "Scripts Restarted",
+  //         description: "Scripts have been restarted successfully",
+  //       });
+  //     } else if (data.status === "info") {
+  //       toast({
+  //         title: "Info",
+  //         description: "No scripts were found to restart",
+  //       });
+  //     }
+  //     else {
+  //       throw new Error("Failed to restart scripts");
+  //     }
+  //   } catch (error) {
+  //     console.error("Error rerunning scripts:", error);
+  //     toast({
+  //       variant: "destructive",
+  //       title: "Script Restart Failed",
+  //       description: "Failed to restart the required scripts",
+  //     });
+  //   }
+  // };
 
   const executeATCommand = async (command: string): Promise<boolean> => {
-    const encodedCommand = encodeURIComponent(command);
-    const response = await fetch(`/cgi-bin/quecmanager/at_cmd/at_queue_client?command=${encodedCommand}&wait=1`);
-    
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+    try {
+      console.log("Executing AT command:", command);
+      const response = await atCommandSender(command);
+      
+      if (response.status === "error") {
+        throw new Error(response.status || "Command execution failed");
+      }
+      
+      if (response.response?.status === "error" || response.response?.status === "timeout") {
+        throw new Error(response.response.raw_output || `Command execution ${response.response.status}`);
+      }
+      
+      return response.response?.status === "success";
+    } catch (error) {
+      console.error("AT command execution error:", error);
+      throw error;
     }
-    
-    const data: QueueResponse = await response.json();
-    
-    if (data.response.status === "error" || data.response.status === "timeout") {
-      throw new Error(data.response.raw_output || `Command execution ${data.response.status}`);
-    }
-    
-    return data.response.status === "success";
   };
 
   const handleSavedSettings = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -315,11 +320,11 @@ const BasicSettings = () => {
       });
   
       // If SIM slot was changed, trigger the force-rerun script
-      if (changes.simSlot) {
-        setTimeout(() => {
-          forceRerunScripts();
-        }, 3100);
-      }
+      // if (changes.simSlot) {
+      //   setTimeout(() => {
+      //     forceRerunScripts();
+      //   }, 3100);
+      // }
     } catch (error) {
       console.error("Error saving settings:", error);
       toast({
