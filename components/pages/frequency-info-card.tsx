@@ -695,7 +695,7 @@ const FrequencyInfoCard = ({
         <CardDescription>
           {scanResult.timestamp && (
             <div className="mt-1 text-sm text-muted-foreground">
-              Analysis based on scan from: {scanResult.timestamp}
+              Analysis based on full cell scan from: {scanResult.timestamp}
             </div>
           )}
         </CardDescription>

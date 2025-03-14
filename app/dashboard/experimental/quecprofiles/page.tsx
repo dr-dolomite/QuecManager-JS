@@ -42,17 +42,22 @@ import {
   Loader2,
   List,
   MoreVertical,
+  PauseCircle,
+  PlayCircle,
   PencilLine,
   Save,
   Trash2Icon,
   UserRoundPen,
   RefreshCcw,
+  Play,
+  Pause,
 } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Separator } from "@/components/ui/separator";
 
 // Updated Type definitions for our profile data
 interface Profile {
@@ -66,6 +71,7 @@ interface Profile {
   nsa_nr5g_bands?: string;
   network_type: string;
   ttl: string;
+  paused?: string; // Add this field for pause/resume feature
 }
 
 // Type for profile application status
@@ -106,6 +112,7 @@ const QuecProfilesPage = () => {
     nsa_nr5g_bands: "",
     network_type: "LTE",
     ttl: "0",
+    paused: "0",
   });
 
   // Error message state
@@ -308,6 +315,7 @@ const QuecProfilesPage = () => {
         nsa_nr5g_bands: formData.nsa_nr5g_bands || "",
         network_type: formData.network_type,
         ttl: formData.ttl || "0",
+        paused: "0", // New profiles start active by default
       };
 
       // Send API request to CGI script
@@ -351,6 +359,7 @@ const QuecProfilesPage = () => {
           nsa_nr5g_bands: "",
           network_type: "LTE",
           ttl: "0",
+          paused: "0",
         });
 
         // Show success message
@@ -411,6 +420,7 @@ const QuecProfilesPage = () => {
         nsa_nr5g_bands: formData.nsa_nr5g_bands || "",
         network_type: formData.network_type,
         ttl: formData.ttl || "0",
+        paused: formData.paused || "0", // Maintain pause state during edit
       };
 
       console.log("Sending update request with data:", requestData);
@@ -456,6 +466,7 @@ const QuecProfilesPage = () => {
           nsa_nr5g_bands: "",
           network_type: "LTE",
           ttl: "0",
+          paused: "0",
         });
 
         // Show success message
@@ -546,6 +557,75 @@ const QuecProfilesPage = () => {
     }
   };
 
+  // TOGGLE PAUSE FUNCTION
+  const toggleProfilePause = async (
+    iccid: string,
+    name: string,
+    currentPausedState: string
+  ) => {
+    try {
+      // New paused state is the opposite of the current state
+      const newPausedState = currentPausedState === "1" ? "0" : "1";
+
+      const response = await fetch(
+        "/cgi-bin/quecmanager/profiles/toggle_pause.sh",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            iccid,
+            paused: newPausedState,
+          }),
+        }
+      );
+
+      // Get response as text first for parsing
+      const rawText = await response.text();
+
+      // Try to parse JSON safely with the fix for malformed responses
+      let responseData;
+      try {
+        responseData = parseAPIResponse(rawText);
+      } catch (parseError) {
+        toast({
+          title: "Error",
+          description: "Invalid response format from server",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (responseData.status === "success") {
+        toast({
+          title: newPausedState === "1" ? "Profile Paused" : "Profile Resumed",
+          description: responseData.message,
+          variant: "default",
+        });
+
+        // Refresh profiles from server
+        await fetchProfiles();
+
+        // Refresh status check to avoid stale data
+        await checkProfileStatus();
+      } else {
+        toast({
+          title: "Error",
+          description:
+            responseData.message || "Failed to update profile status",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred while updating the profile",
+        variant: "destructive",
+      });
+    }
+  };
+
   // Function to show edit modal with profile data
   const handleEditClick = (profile: Profile) => {
     setModalMode("edit");
@@ -561,6 +641,7 @@ const QuecProfilesPage = () => {
       nsa_nr5g_bands: profile.nsa_nr5g_bands || "",
       network_type: profile.network_type,
       ttl: profile.ttl || "0",
+      paused: profile.paused || "0",
     });
 
     setCurrentProfile(profile);
@@ -605,6 +686,22 @@ const QuecProfilesPage = () => {
         );
       }
       return null;
+    }
+
+    // Handle paused status
+    else if (profileStatus.status === "paused") {
+      return (
+        <Alert className="mb-1" variant="default">
+          <PauseCircle className="h-4 w-4" color="orange" />
+          <AlertTitle>Profile Paused</AlertTitle>
+          <AlertDescription className="flex justify-between items-center">
+            <span>
+              {profileStatus.message ||
+                `Profile "${profileStatus.profile}" is currently paused. Resume to apply settings.`}
+            </span>
+          </AlertDescription>
+        </Alert>
+      );
     }
 
     // Customize the status message based on content
@@ -703,6 +800,7 @@ const QuecProfilesPage = () => {
                       nsa_nr5g_bands: "",
                       network_type: "LTE",
                       ttl: "0",
+                      paused: "0",
                     });
                   }}
                 >
@@ -968,18 +1066,47 @@ const QuecProfilesPage = () => {
                         <CardTitle className="xl:text-xl font-bold tracking-wide">
                           {profile.name}
                         </CardTitle>
+
                         <Popover>
                           <PopoverTrigger>
                             <MoreVertical className="h-4 w-4" />
                           </PopoverTrigger>
                           <PopoverContent className="grid gap-2 max-w-[180px]">
+                            {/* Pause/Resume Button */}
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="p-1"
+                              onClick={() =>
+                                toggleProfilePause(
+                                  profile.iccid,
+                                  profile.name,
+                                  profile.paused || "0"
+                                )
+                              }
+                            >
+                              {profile.paused === "1" ? (
+                                <>
+                                  <Play className="w-4 h-4 text-emerald-500" />
+                                  Resume Profile
+                                </>
+                              ) : (
+                                <>
+                                  <Pause className="w-4 h-4 text-orange-500" />
+                                  Pause Profile
+                                </>
+                              )}
+                            </Button>
                             <Button
                               size="sm"
                               onClick={() => handleEditClick(profile)}
+                              variant="outline"
                             >
                               <PencilLine className="w-4 h-4" />
                               Edit Profile
                             </Button>
+
+                            <Separator className="w-full my-2" />
                             <Button
                               size="sm"
                               variant="destructive"
@@ -993,13 +1120,26 @@ const QuecProfilesPage = () => {
                           </PopoverContent>
                         </Popover>
                       </div>
-                      <CardDescription>
+                      <CardDescription className="flex items-center">
                         <Badge variant="secondary" className="text-xs">
                           {formatNetworkType(profile.network_type)}
                         </Badge>
-                        {/* {profile.ttl && parseInt(profile.ttl) > 0 && (
-                          <Badge variant="outline" className="text-xs ml-2">
-                            TTL: {profile.ttl}
+
+                        {/* Paused Status Badge */}
+                        {/* {profile.paused === "1" ? (
+                          <Badge
+                            variant="outline"
+                            className="ml-2 bg-orange-600 text-white"
+                          >
+                            <PauseCircle className="w-4 h-4 mr-1" />
+                            Paused
+                          </Badge>
+                        ) : (
+                          <Badge
+                            variant="outline"
+                            className="text-xs ml-2 bg-green-600 text-white"
+                          >
+                            Active
                           </Badge>
                         )} */}
                       </CardDescription>
@@ -1101,7 +1241,7 @@ const QuecProfilesPage = () => {
                             htmlFor={`prefNRSABands-${index}`}
                             className="text-sm text-muted-foreground"
                           >
-                            Preferred NR5G-NSA Bands
+                            Preferred NR5G-SA Bands
                           </Label>
                           <p
                             id={`prefNRSABands-${index}`}
@@ -1194,7 +1334,19 @@ const QuecProfilesPage = () => {
                         className="border-t hover:bg-muted/50 transition-colors"
                       >
                         <td className="p-4">
-                          <div className="font-medium">{profile.name}</div>
+                          <div className="font-medium">
+                            {profile.name}
+
+                            {/* Paused Status Badge */}
+                            {profile.paused === "1" && (
+                              <Badge
+                                variant="outline"
+                                className="ml-2 text-xs bg-amber-100 text-amber-700 border-amber-300"
+                              >
+                                Paused
+                              </Badge>
+                            )}
+                          </div>
                           <div className="text-xs text-muted-foreground">
                             IMEI: {profile.imei || "Not specified"}
                           </div>
@@ -1235,6 +1387,35 @@ const QuecProfilesPage = () => {
                               <PencilLine className="h-4 w-4" />
                               <span className="sr-only">Edit</span>
                             </Button>
+
+                            {/* Pause/Resume Button */}
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() =>
+                                toggleProfilePause(
+                                  profile.iccid,
+                                  profile.name,
+                                  profile.paused || "0"
+                                )
+                              }
+                              title={
+                                profile.paused === "1"
+                                  ? "Resume Profile"
+                                  : "Pause Profile"
+                              }
+                            >
+                              {profile.paused === "1" ? (
+                                <PlayCircle className="h-4 w-4 text-green-600" />
+                              ) : (
+                                <PauseCircle className="h-4 w-4 text-amber-600" />
+                              )}
+                              <span className="sr-only">
+                                {profile.paused === "1" ? "Resume" : "Pause"}
+                              </span>
+                            </Button>
+
                             <Button
                               variant="ghost"
                               size="icon"

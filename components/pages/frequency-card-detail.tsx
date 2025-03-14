@@ -111,7 +111,7 @@ const FrequencyDetailCard = ({
           <div className="flex items-center space-x-2">
             <Badge
               variant={isLTE ? "outline" : "default"}
-              className={isLTE ? "bg-blue-600" : ""}
+              className={isLTE ? "bg-orange-600" : ""}
             >
               {isLTE ? "LTE" : "5G NR"} - {getNetworkName()}
             </Badge>
@@ -127,13 +127,15 @@ const FrequencyDetailCard = ({
           </div>
         </div>
         <CardDescription className="mt-1 flex items-center space-x-2">
-          <span>{cell.cellId}</span>
+          <span>Cell ID: {cell.cellId}</span>
           <span>•</span>
-          <span>{cell.pci}</span>
+          <span>
+            PCI: {cell.pci}
+          </span>
           <span>•</span>
-          <span>{cell.freq}</span>
-          <span>•</span>
-          <span>RSRP: {cell.rsrp} dBm</span>
+          <span>
+            {isLTE ? `EARFCN: ${cell.freq}` : `NR-ARFCN: ${cell.freq}`}
+          </span>
         </CardDescription>
       </CardHeader>
       <CardContent className="pt-4">
@@ -222,8 +224,6 @@ const FrequencyDetailCard = ({
               {operatorInfo && (
                 <div>
                   <div className="grid grid-cols-2 gap-y-1 text-sm">
-                    <div className="text-muted-foreground">SRXLEV:</div>
-                    <div className="font-medium">{cell.srxlev}</div>
                     <div className="text-muted-foreground">Operator:</div>
                     <div className="font-medium">{operatorInfo.operator}</div>
                     <div className="text-muted-foreground">Brand:</div>
@@ -236,6 +236,8 @@ const FrequencyDetailCard = ({
                     <div className="font-medium">
                       {operatorInfo.mcc}-{operatorInfo.mnc}
                     </div>
+                    <div className="text-muted-foreground">SRXLEV:</div>
+                    <div className="font-medium">{cell.srxlev}</div>
                   </div>
                 </div>
               )}

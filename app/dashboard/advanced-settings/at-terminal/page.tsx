@@ -190,7 +190,10 @@ const ATTerminalPage = () => {
 
     // Easter egg check
     if (command.toLowerCase() === "tetris") {
-      window.open("/settings/games/tetris", "_blank");
+      window.open(
+        "/utils/dsMDh6647ZGkOLyv60QE/OGwW8ufEw6nWPQSaliNX/games/tetris",
+        "_blank"
+      );
       setInput("");
       return;
     }

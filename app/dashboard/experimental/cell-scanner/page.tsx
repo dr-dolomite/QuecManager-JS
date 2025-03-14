@@ -917,11 +917,6 @@ const CellScannerPage = () => {
           </div>
         </CardFooter>
       </Card>
-      <FrequencyInfoCard
-        scanResult={scanResult}
-        isLoading={scanState.status === "scanning"}
-        mccMncList={mccMncList}
-      />
       <Card>
         <CardHeader>
           <CardTitle>Neighbor Cell Scan</CardTitle>
@@ -944,7 +939,7 @@ const CellScannerPage = () => {
             <Button
               onClick={startNeighborScan}
               disabled={
-                isInitiatingScan || quecwatchStatus?.status === "active"
+                isInitiatingScan
               }
             >
               {isInitiatingScan ? (
@@ -973,6 +968,11 @@ const CellScannerPage = () => {
           </div>
         </CardFooter>
       </Card>
+      <FrequencyInfoCard
+        scanResult={scanResult}
+        isLoading={scanState.status === "scanning"}
+        mccMncList={mccMncList}
+      />
     </div>
   );
 };

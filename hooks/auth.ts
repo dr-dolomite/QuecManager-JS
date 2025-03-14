@@ -1,32 +1,32 @@
 /**
  * A custom React hook that manages authentication state and session handling.
- * 
+ *
  * This hook handles:
  * - User authentication state management
  * - Server heartbeat monitoring
  * - Session token generation and validation
  * - Session expiration and renewal
  * - Login and logout operations
- * 
+ *
  * Sessions are maintained in localStorage and expire after 30 minutes of inactivity.
  * The hook also periodically checks server status and logs out the user if the server becomes unreachable.
- * 
+ *
  * @returns An object containing authentication state and methods
  * @property {boolean} isAuthenticated - Whether the user is currently authenticated
  * @property {boolean} isServerAlive - Whether the server is currently reachable
  * @property {function} login - Authenticates a user with their password
  * @property {function} logout - Logs out the current user and redirects to login page
  * @property {function} checkAuth - Checks if the current session is valid
- * 
+ *
  * @example
  * // Basic usage in a component
  * function MyProtectedComponent() {
  *   const { isAuthenticated, logout } = useAuth();
- *   
+ *
  *   if (!isAuthenticated) {
  *     return <p>Please log in</p>;
  *   }
- *   
+ *
  *   return (
  *     <div>
  *       <h1>Protected Content</h1>
@@ -38,8 +38,8 @@
 
 "use client";
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 
 const SESSION_DURATION = 30 * 60 * 1000; // 30 minutes in milliseconds
 const HEARTBEAT_INTERVAL = 5 * 1000; // Check server every 5 seconds
@@ -57,10 +57,13 @@ export function useAuth() {
 
   useEffect(() => {
     checkAuth();
-    
+
     // Start heartbeat check
-    const heartbeatInterval = setInterval(checkServerStatus, HEARTBEAT_INTERVAL);
-    
+    const heartbeatInterval = setInterval(
+      checkServerStatus,
+      HEARTBEAT_INTERVAL
+    );
+
     return () => {
       clearInterval(heartbeatInterval);
     };
@@ -69,13 +72,13 @@ export function useAuth() {
   // New function to check server status
   async function checkServerStatus() {
     try {
-      const response = await fetch('/cgi-bin/quecmanager/heartbeat.sh', {
-        method: 'GET',
+      const response = await fetch("/cgi-bin/quecmanager/heartbeat.sh", {
+        method: "GET",
         headers: {
-          'Cache-Control': 'no-cache',
+          "Cache-Control": "no-cache",
         },
       });
-      
+
       if (!response.ok) {
         handleServerDown();
         return;
@@ -99,18 +102,19 @@ export function useAuth() {
 
   // Your existing functions
   function generateAuthToken(length = 32) {
-    const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    const charset =
+      "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
     return Array.from(crypto.getRandomValues(new Uint8Array(length)))
-      .map(x => charset[x % charset.length])
-      .join('');
+      .map((x) => charset[x % charset.length])
+      .join("");
   }
 
   function getSessionData(): SessionData | null {
-    if (typeof window === 'undefined') return null;
-    
+    if (typeof window === "undefined") return null;
+
     const sessionStr = localStorage.getItem("session");
     if (!sessionStr) return null;
-    
+
     try {
       return JSON.parse(sessionStr);
     } catch {
@@ -122,7 +126,7 @@ export function useAuth() {
     const session: SessionData = {
       token,
       lastActivity: Date.now(),
-      expiresAt: Date.now() + SESSION_DURATION
+      expiresAt: Date.now() + SESSION_DURATION,
     };
     localStorage.setItem("session", JSON.stringify(session));
   }
@@ -130,27 +134,27 @@ export function useAuth() {
   function isSessionValid(): boolean {
     const session = getSessionData();
     if (!session) return false;
-    
+
     const now = Date.now();
-    
+
     // Check if session has expired
     if (now > session.expiresAt) {
       logout();
       return false;
     }
-    
+
     // Extend session if it's been more than 5 minutes since last activity
     if (now - session.lastActivity > 5 * 60 * 1000) {
       setSessionData(session.token);
     }
-    
+
     return true;
   }
 
   function logout() {
     localStorage.removeItem("session");
     setIsAuthenticated(false);
-    router.push('/login');
+    router.push("/login");
   }
 
   function checkAuth() {
@@ -175,7 +179,7 @@ export function useAuth() {
         const newToken = generateAuthToken();
         setSessionData(newToken);
         setIsAuthenticated(true);
-        router.push('/dashboard/home');
+        router.push("/dashboard/home");
         return true;
       } else {
         return false;

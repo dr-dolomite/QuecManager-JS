@@ -204,7 +204,7 @@ const SpeedtestStream = () => {
       }
 
       const startResponse = await fetch(
-        "/cgi-bin/home/speedtest/start_speedtest.sh",
+        "/cgi-bin/quecmanager/home/speedtest/start_speedtest.sh",
         {
           method: "GET",
         }
@@ -235,7 +235,7 @@ const SpeedtestStream = () => {
     setIsStarting(false);
 
     try {
-      fetch("/cgi-bin/home/speedtest/speedtest_stream.sh", {
+      fetch("/cgi-bin/quecmanager/home/speedtest/speedtest_stream.sh", {
         method: "GET",
         signal: abortControllerRef.current.signal,
       })
