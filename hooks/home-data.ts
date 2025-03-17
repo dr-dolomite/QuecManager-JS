@@ -176,6 +176,7 @@ const useHomeData = () => {
       };
 
       setData(processedData);
+      console.log("Processed home data:", processedData);
     } catch (error) {
       console.error("Error fetching home data:", error);
 
@@ -670,7 +671,7 @@ const getSignalQuality = (response: string) => {
       ?.split(",")
       .slice(0, 4)
       .map((v) => parseInt(v.trim()))
-      .filter((v) => v !== -140 && v !== -37625);
+      .filter((v) => v !== -140 && v !== -32768);
   };
 
   // Calculation function for percentage
@@ -691,6 +692,9 @@ const getSignalQuality = (response: string) => {
   // Parse signal values
   const sinrLteArr = parseSignalValues(sinrLTE);
   const sinrNrArr = parseSignalValues(sinrNR5G);
+
+  console.log("LTE SINR Array:", sinrLteArr);
+  console.log("NR5G SINR Array:", sinrNrArr);
 
   // Calculate percentages
   const ltePercentage = calculatePercentage(sinrLteArr);

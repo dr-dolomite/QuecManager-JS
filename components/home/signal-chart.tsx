@@ -197,8 +197,10 @@ const SignalChart = () => {
     <Card>
       <CardHeader className="flex flex-col items-stretch space-y-0 border-b p-0 sm:flex-row">
         <div className="flex flex-1 flex-col justify-center gap-1 px-6 py-5 sm:py-6">
-          <CardTitle>Signal Metrics</CardTitle>
-          <CardDescription>Realtime LTE/5G Signal performance</CardDescription>
+          <CardTitle>Antenna Port Signal Metrics</CardTitle>
+          <CardDescription>
+            Per-port signal values averaged across all active ports
+          </CardDescription>
         </div>
         <div className="flex">
           {["rsrp", "rsrq", "sinr"].map((key) => {
@@ -329,10 +331,11 @@ const SignalChart = () => {
       </CardContent>
       <CardFooter className="flex-col items-start gap-2 text-sm">
         <div className="flex gap-2 font-medium leading-none">
-          The tabs show the combined average value for LTE and 5G metrics.
+          These metrics show the aggregate antenna port measurements, not the
+          per-band values.
         </div>
         <div className="leading-none text-muted-foreground italic">
-          The higher the value, the better the signal quality.
+          Higher values indicate better signal quality.
         </div>
       </CardFooter>
     </Card>

@@ -18,6 +18,14 @@ import {
   SelectGroup,
   SelectLabel,
 } from "@/components/ui/select";
+
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -35,6 +43,9 @@ interface FormData {
   nr5gMode: string;
   simSlot: string;
   cfunState: string;
+  autoSelState: string;
+  selectedMbnProfile?: string;
+  mbnProfilesList?: string[];
 }
 
 // interface QueueResponse {
@@ -73,6 +84,7 @@ interface Profile {
 }
 
 import { atCommandSender } from "@/utils/at-command";
+import { Separator } from "@/components/ui/separator";
 
 const BasicSettings = () => {
   const { toast } = useToast();
@@ -84,14 +96,18 @@ const BasicSettings = () => {
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [isDataLoaded, setIsDataLoaded] = useState<boolean>(false);
   const [activeProfile, setActiveProfile] = useState<Profile | null>(null);
-  const [profileStatus, setProfileStatus] = useState<ProfileStatus | null>(null);
-  const [profileControlledFields, setProfileControlledFields] = useState<{[key: string]: boolean}>({
+  const [profileStatus, setProfileStatus] = useState<ProfileStatus | null>(
+    null
+  );
+  const [profileControlledFields, setProfileControlledFields] = useState<{
+    [key: string]: boolean;
+  }>({
     currentAPN: false,
     apnPDPType: false,
     preferredNetworkType: false,
-    nr5gMode: false
+    nr5gMode: false,
   });
-  
+
   const [formData, setFormData] = useState<FormData>({
     currentAPN: "",
     apnPDPType: "",
@@ -99,6 +115,9 @@ const BasicSettings = () => {
     nr5gMode: "",
     simSlot: "",
     cfunState: "",
+    autoSelState: "",
+    selectedMbnProfile: "",
+    mbnProfilesList: [],
   });
 
   // Initialize form data when initial data loads
@@ -111,6 +130,9 @@ const BasicSettings = () => {
         nr5gMode: String(initialData.nr5gMode || ""),
         simSlot: String(initialData.simSlot || ""),
         cfunState: String(initialData.cfunState || ""),
+        autoSelState: String(initialData.autoSelState || ""),
+        selectedMbnProfile: initialData.selectedMbnProfile || "",
+        mbnProfilesList: (initialData.mbnProfilesList || []) as string[],
       };
       setFormData(sanitizedData);
       setIsDataLoaded(true);
@@ -122,41 +144,55 @@ const BasicSettings = () => {
     const fetchProfileData = async () => {
       try {
         // Fetch active profile status
-        const profileResponse = await fetch("/cgi-bin/quecmanager/profiles/check_status.sh");
+        const profileResponse = await fetch(
+          "/cgi-bin/quecmanager/profiles/check_status.sh"
+        );
         if (!profileResponse.ok) {
-          throw new Error(`Failed to fetch profile status: ${profileResponse.statusText}`);
+          throw new Error(
+            `Failed to fetch profile status: ${profileResponse.statusText}`
+          );
         }
         const profileData = await profileResponse.json();
         setProfileStatus(profileData);
-        
+
         console.log("Profile Status:", profileData);
-        
+
         // Only proceed if there's an active profile
-        if (profileData.status === "success" && 
-            profileData.profile && 
-            profileData.profile !== "unknown" && 
-            profileData.profile !== "none") {
-          
+        if (
+          profileData.status === "success" &&
+          profileData.profile &&
+          profileData.profile !== "unknown" &&
+          profileData.profile !== "none"
+        ) {
           // Fetch all profiles to find the active one
-          const profilesResponse = await fetch("/cgi-bin/quecmanager/profiles/list_profiles.sh");
+          const profilesResponse = await fetch(
+            "/cgi-bin/quecmanager/profiles/list_profiles.sh"
+          );
           if (profilesResponse.ok) {
             const profilesData = await profilesResponse.json();
-            if (profilesData.status === "success" && Array.isArray(profilesData.profiles)) {
+            if (
+              profilesData.status === "success" &&
+              Array.isArray(profilesData.profiles)
+            ) {
               // Find the active profile
-              const active = profilesData.profiles.find((p: Profile) => p.name === profileData.profile);
+              const active = profilesData.profiles.find(
+                (p: Profile) => p.name === profileData.profile
+              );
               if (active) {
                 setActiveProfile(active);
-                
+
                 // Determine which fields are controlled by the profile
                 const controlledFields = {
                   currentAPN: Boolean(active.apn),
                   apnPDPType: Boolean(active.pdp_type),
                   preferredNetworkType: Boolean(active.network_type),
-                  nr5gMode: Boolean(active.sa_nr5g_bands || active.nsa_nr5g_bands)
+                  nr5gMode: Boolean(
+                    active.sa_nr5g_bands || active.nsa_nr5g_bands
+                  ),
                 };
-                
+
                 setProfileControlledFields(controlledFields);
-                
+
                 console.log("Active Profile:", active);
                 console.log("Controlled Fields:", controlledFields);
               }
@@ -168,7 +204,7 @@ const BasicSettings = () => {
             currentAPN: false,
             apnPDPType: false,
             preferredNetworkType: false,
-            nr5gMode: false
+            nr5gMode: false,
           });
         }
       } catch (err) {
@@ -189,14 +225,20 @@ const BasicSettings = () => {
   const constructATCommand = (changes: Partial<FormData>): string => {
     const commands: string[] = [];
 
-    if ((changes.currentAPN || changes.apnPDPType) && 
-        !profileControlledFields.currentAPN && !profileControlledFields.apnPDPType) {
+    if (
+      (changes.currentAPN || changes.apnPDPType) &&
+      !profileControlledFields.currentAPN &&
+      !profileControlledFields.apnPDPType
+    ) {
       const pdpType = changes.apnPDPType || formData.apnPDPType;
       const apn = changes.currentAPN || formData.currentAPN;
       commands.push(`AT+CGDCONT=1,"${pdpType}","${apn}"`);
     }
 
-    if (changes.preferredNetworkType && !profileControlledFields.preferredNetworkType) {
+    if (
+      changes.preferredNetworkType &&
+      !profileControlledFields.preferredNetworkType
+    ) {
       const command = `+QNWPREFCFG="mode_pref",${changes.preferredNetworkType}`;
       commands.push(commands.length === 0 ? `AT${command}` : command);
     }
@@ -216,6 +258,36 @@ const BasicSettings = () => {
       commands.push(commands.length === 0 ? `AT${command}` : command);
     }
 
+    // Handle AutoSel changes
+    if (changes.autoSelState) {
+      const command = `+QMBNCFG="AutoSel",${changes.autoSelState}`;
+      commands.push(commands.length === 0 ? `AT${command}` : command);
+    }
+
+    // Handle MBN profile selection - only when autosel is disabled
+    if (
+      changes.selectedMbnProfile &&
+      (changes.autoSelState === "0" || formData.autoSelState === "0")
+    ) {
+      // Get the profile name from the index
+      const profileIndex = parseInt(changes.selectedMbnProfile);
+      const profileName = formData.mbnProfilesList?.[profileIndex];
+
+      if (profileName) {
+        // First deactivate, then select by name
+        const command = `+QMBNCFG="deactivate";+QMBNCFG="select","${profileName}"`;
+        commands.push(commands.length === 0 ? `AT${command}` : command);
+
+        // Add a message about reboot required
+        toast({
+          title: "MBN Profile Changed",
+          description:
+            "A full device reboot is required for this change to take effect.",
+          duration: 5000,
+        });
+      }
+    }
+
     return commands.join(";");
   };
 
@@ -233,7 +305,7 @@ const BasicSettings = () => {
   //   try {
   //     const response = await fetch("/cgi-bin/quecmanager/settings/force-rerun.sh");
   //     const data = await response.json();
-      
+
   //     if (data.status === "success") {
   //       toast({
   //         title: "Scripts Restarted",
@@ -262,15 +334,21 @@ const BasicSettings = () => {
     try {
       console.log("Executing AT command:", command);
       const response = await atCommandSender(command);
-      
+
       if (response.status === "error") {
         throw new Error(response.status || "Command execution failed");
       }
-      
-      if (response.response?.status === "error" || response.response?.status === "timeout") {
-        throw new Error(response.response.raw_output || `Command execution ${response.response.status}`);
+
+      if (
+        response.response?.status === "error" ||
+        response.response?.status === "timeout"
+      ) {
+        throw new Error(
+          response.response.raw_output ||
+            `Command execution ${response.response.status}`
+        );
       }
-      
+
       return response.response?.status === "success";
     } catch (error) {
       console.error("AT command execution error:", error);
@@ -278,20 +356,48 @@ const BasicSettings = () => {
     }
   };
 
-  const handleSavedSettings = async (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSavedSettings = async (
+    event: React.FormEvent<HTMLFormElement>
+  ) => {
     event.preventDefault();
     setIsSaving(true);
-  
+
     try {
       const changes: Partial<FormData> = {};
-      Object.keys(formData).forEach((key) => {
-        const k = key as keyof FormData;
-        // Only include changes for fields not controlled by profile
-        if (formData[k] !== initialData?.[k] && !profileControlledFields[k]) {
-          changes[k] = formData[k];
+
+      // Special handling for each field type to avoid TypeScript errors
+      const fieldKeys = Object.keys(formData) as Array<keyof FormData>;
+
+      fieldKeys.forEach((key) => {
+        // Skip profile controlled fields
+        if (profileControlledFields[key]) return;
+
+        // Handle array types like mbnProfilesList specially
+        if (key === "mbnProfilesList") return; // Skip arrays in change detection
+
+        // Special handling for selectedMbnProfile - include it if changed and autosel is 0
+        if (
+          key === "selectedMbnProfile" &&
+          formData.selectedMbnProfile !== initialData?.selectedMbnProfile &&
+          formData.autoSelState === "0"
+        ) {
+          changes.selectedMbnProfile = formData.selectedMbnProfile;
+          return;
+        }
+
+        // For all other string fields, do direct comparison
+        if (typeof formData[key] === "string") {
+          const formValue = formData[key] as string;
+          const initialValue = initialData?.[
+            key as keyof typeof initialData
+          ] as string | undefined;
+
+          if (formValue !== initialValue) {
+            changes[key] = formValue;
+          }
         }
       });
-  
+
       if (Object.keys(changes).length === 0) {
         toast({
           title: "No changes detected",
@@ -300,37 +406,37 @@ const BasicSettings = () => {
         setIsSaving(false);
         return;
       }
-  
+
+      // Log the detected changes
+      console.log("Detected changes:", changes);
+
       const command = constructATCommand(changes);
-      
+
       // Only execute if we have commands to run
       if (command) {
+        console.log("Executing command:", command);
         await executeATCommand(command);
       }
-  
+
       // Add a delay to allow the settings to take effect
       await new Promise((resolve) => setTimeout(resolve, 1500));
       await fetchCellSettingsData();
       setIsDataLoaded(false);
-  
+
       toast({
         title: "Settings saved!",
         description: "The settings have been saved successfully",
         duration: 3000,
       });
-  
-      // If SIM slot was changed, trigger the force-rerun script
-      // if (changes.simSlot) {
-      //   setTimeout(() => {
-      //     forceRerunScripts();
-      //   }, 3100);
-      // }
     } catch (error) {
       console.error("Error saving settings:", error);
       toast({
         variant: "destructive",
         title: "Failed to save settings!",
-        description: error instanceof Error ? error.message : "An error occurred while saving the settings",
+        description:
+          error instanceof Error
+            ? error.message
+            : "An error occurred while saving the settings",
       });
     } finally {
       setIsSaving(false);
@@ -340,10 +446,10 @@ const BasicSettings = () => {
   // Map PDP type values to display labels
   const getPDPTypeLabel = (value: string) => {
     const pdpTypes: Record<string, string> = {
-      "IP": "IPv4 Only",
-      "IPV6": "IPv6 Only",
-      "IPV4V6": "IPv4 and IPv6",
-      "P2P": "P2P Protocol"
+      IP: "IPv4 Only",
+      IPV6: "IPv6 Only",
+      IPV4V6: "IPv4 and IPv6",
+      P2P: "P2P Protocol",
     };
     return pdpTypes[value] || value;
   };
@@ -351,10 +457,10 @@ const BasicSettings = () => {
   // Helper function to get network type label
   const getNetworkTypeLabel = (value: string) => {
     const networkTypes: Record<string, string> = {
-      "AUTO": "Automatic",
-      "LTE": "LTE Only",
+      AUTO: "Automatic",
+      LTE: "LTE Only",
       "LTE:NR5G": "NR5G-NSA",
-      "NR5G": "NR5G-SA"
+      NR5G: "NR5G-SA",
     };
     return networkTypes[value] || value;
   };
@@ -364,7 +470,7 @@ const BasicSettings = () => {
     const nr5gModes: Record<string, string> = {
       "0": "NR5G-SA and NSA Enabled",
       "1": "NR5G-NSA Only",
-      "2": "NR5G-SA Only"
+      "2": "NR5G-SA Only",
     };
     return nr5gModes[value] || value;
   };
@@ -373,14 +479,23 @@ const BasicSettings = () => {
     const cfunStates: Record<string, string> = {
       "0": "Minimum Functionality",
       "1": "Full Functionality",
-      "4": "Disabled RX/TX"
+      "4": "Disabled RX/TX",
     };
     return cfunStates[value] || value;
   };
 
+  // Helper function to get Auto Selection state label
+  const getAutoSelStateLabel = (value: string) => {
+    const autoSelStates: Record<string, string> = {
+      "0": "Disabled",
+      "1": "Enabled",
+    };
+    return autoSelStates[value] || value;
+  };
+
   // Helper function to check if any settings are controlled by profile
   const hasProfileControlledSettings = () => {
-    return Object.values(profileControlledFields).some(value => value);
+    return Object.values(profileControlledFields).some((value) => value);
   };
 
   return (
@@ -399,17 +514,20 @@ const BasicSettings = () => {
                 <LockIcon className="h-4 w-4" color="orange" />
                 <AlertTitle>Profile Controlled Settings</AlertTitle>
                 <AlertDescription>
-                  Some settings are currently being managed by profile "{activeProfile.name}".
+                  Some settings are currently being managed by profile "
+                  {activeProfile.name}".
                 </AlertDescription>
               </Alert>
             )}
-          
+
             <div className="grid grid-cols-1 lg:grid-cols-2 grid-flow-row gap-6">
               <div className="grid w-full max-w-sm items-center gap-2">
                 <Label htmlFor="APN">
                   Current APN
                   {profileControlledFields.currentAPN && (
-                    <span className="ml-2 text-xs text-muted-foreground">(Profile Controlled)</span>
+                    <span className="ml-2 text-xs text-muted-foreground">
+                      (Profile Controlled)
+                    </span>
                   )}
                 </Label>
                 {isLoading ? (
@@ -419,12 +537,20 @@ const BasicSettings = () => {
                     type="text"
                     id="APN"
                     placeholder="Current APN"
-                    value={profileControlledFields.currentAPN && activeProfile ? activeProfile.apn : formData.currentAPN}
+                    value={
+                      profileControlledFields.currentAPN && activeProfile
+                        ? activeProfile.apn
+                        : formData.currentAPN
+                    }
                     onChange={(e) =>
                       handleFieldChange("currentAPN", e.target.value)
                     }
                     disabled={profileControlledFields.currentAPN || isLoading}
-                    className={profileControlledFields.currentAPN ? "bg-muted cursor-not-allowed" : ""}
+                    className={
+                      profileControlledFields.currentAPN
+                        ? "bg-muted cursor-not-allowed"
+                        : ""
+                    }
                   />
                 )}
               </div>
@@ -433,25 +559,50 @@ const BasicSettings = () => {
                 <Label htmlFor="APN">
                   APN PDP Type
                   {profileControlledFields.apnPDPType && (
-                    <span className="ml-2 text-xs text-muted-foreground">(Profile Controlled)</span>
+                    <span className="ml-2 text-xs text-muted-foreground">
+                      (Profile Controlled)
+                    </span>
                   )}
                 </Label>
                 {isLoading ? (
                   <Skeleton className="h-8" />
                 ) : (
                   <Select
-                    key={`pdp-type-${profileControlledFields.apnPDPType && activeProfile ? activeProfile.pdp_type : formData.apnPDPType}`}
-                    value={profileControlledFields.apnPDPType && activeProfile ? activeProfile.pdp_type : formData.apnPDPType}
+                    key={`pdp-type-${
+                      profileControlledFields.apnPDPType && activeProfile
+                        ? activeProfile.pdp_type
+                        : formData.apnPDPType
+                    }`}
+                    value={
+                      profileControlledFields.apnPDPType && activeProfile
+                        ? activeProfile.pdp_type
+                        : formData.apnPDPType
+                    }
                     onValueChange={(value) =>
                       handleFieldChange("apnPDPType", value)
                     }
                     disabled={profileControlledFields.apnPDPType || isLoading}
                   >
-                    <SelectTrigger className={profileControlledFields.apnPDPType ? "bg-muted cursor-not-allowed" : ""}>
+                    <SelectTrigger
+                      className={
+                        profileControlledFields.apnPDPType
+                          ? "bg-muted cursor-not-allowed"
+                          : ""
+                      }
+                    >
                       <SelectValue>
-                        {(profileControlledFields.apnPDPType && activeProfile ? activeProfile.pdp_type : formData.apnPDPType) ? 
-                          getPDPTypeLabel(profileControlledFields.apnPDPType && activeProfile ? activeProfile.pdp_type : formData.apnPDPType) : 
-                          "Select PDP Type"}
+                        {(
+                          profileControlledFields.apnPDPType && activeProfile
+                            ? activeProfile.pdp_type
+                            : formData.apnPDPType
+                        )
+                          ? getPDPTypeLabel(
+                              profileControlledFields.apnPDPType &&
+                                activeProfile
+                                ? activeProfile.pdp_type
+                                : formData.apnPDPType
+                            )
+                          : "Select PDP Type"}
                       </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
@@ -468,28 +619,143 @@ const BasicSettings = () => {
               </div>
 
               <div className="grid w-full max-w-sm items-center gap-2">
+                <Label htmlFor="MBNAutoSel">MBN Profile Auto Selection</Label>
+                {isLoading ? (
+                  <Skeleton className="h-8" />
+                ) : (
+                  <Select
+                    key={`auto-sel-${formData.autoSelState}`}
+                    value={formData.autoSelState}
+                    onValueChange={(value) =>
+                      handleFieldChange("autoSelState", value)
+                    }
+                    disabled={isLoading}
+                  >
+                    <SelectTrigger>
+                      <SelectValue>
+                        {formData.autoSelState
+                          ? getAutoSelStateLabel(formData.autoSelState)
+                          : "Select Auto Selection State"}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        <SelectLabel>Auto Selection State</SelectLabel>
+                        <SelectItem value="1">Enabled</SelectItem>
+                        <SelectItem value="0">Disabled</SelectItem>
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+
+              <div className="grid w-full max-w-sm items-center gap-2">
+                <Label htmlFor="MBNProfile">MBN Profile Selection</Label>
+                {isLoading ? (
+                  <Skeleton className="h-8" />
+                ) : (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger>
+                        <Select
+                          value={formData.selectedMbnProfile || ""}
+                          onValueChange={(value) =>
+                            handleFieldChange("selectedMbnProfile", value)
+                          }
+                          disabled={isLoading || formData.autoSelState === "1"}
+                        >
+                          <SelectTrigger
+                            className={
+                              formData.autoSelState === "1"
+                                ? "bg-muted cursor-not-allowed"
+                                : ""
+                            }
+                          >
+                            <SelectValue placeholder="Select MBN Profile" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectGroup>
+                              <SelectLabel>Available MBN Profiles</SelectLabel>
+                              {formData.mbnProfilesList?.map(
+                                (profile, index) => (
+                                  <SelectItem
+                                    key={`profile-${index}`}
+                                    value={String(index)}
+                                  >
+                                    {profile}
+                                  </SelectItem>
+                                )
+                              )}
+                            </SelectGroup>
+                          </SelectContent>
+                        </Select>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>
+                          {formData.autoSelState === "1" &&
+                            "Disable Auto Selection to manually select a profile"}
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
+              </div>
+
+              <Separator className="col-span-2 my-2" />
+
+              <div className="grid w-full max-w-sm items-center gap-2">
                 <Label>
                   Preferred Network Type
                   {profileControlledFields.preferredNetworkType && (
-                    <span className="ml-2 text-xs text-muted-foreground">(Profile Controlled)</span>
+                    <span className="ml-2 text-xs text-muted-foreground">
+                      (Profile Controlled)
+                    </span>
                   )}
                 </Label>
                 {isLoading ? (
                   <Skeleton className="h-8" />
                 ) : (
                   <Select
-                    key={`network-type-${profileControlledFields.preferredNetworkType && activeProfile ? activeProfile.network_type : formData.preferredNetworkType}`}
-                    value={profileControlledFields.preferredNetworkType && activeProfile ? activeProfile.network_type : formData.preferredNetworkType}
+                    key={`network-type-${
+                      profileControlledFields.preferredNetworkType &&
+                      activeProfile
+                        ? activeProfile.network_type
+                        : formData.preferredNetworkType
+                    }`}
+                    value={
+                      profileControlledFields.preferredNetworkType &&
+                      activeProfile
+                        ? activeProfile.network_type
+                        : formData.preferredNetworkType
+                    }
                     onValueChange={(value) =>
                       handleFieldChange("preferredNetworkType", value)
                     }
-                    disabled={profileControlledFields.preferredNetworkType || isLoading}
+                    disabled={
+                      profileControlledFields.preferredNetworkType || isLoading
+                    }
                   >
-                    <SelectTrigger className={profileControlledFields.preferredNetworkType ? "bg-muted cursor-not-allowed" : ""}>
+                    <SelectTrigger
+                      className={
+                        profileControlledFields.preferredNetworkType
+                          ? "bg-muted cursor-not-allowed"
+                          : ""
+                      }
+                    >
                       <SelectValue>
-                        {(profileControlledFields.preferredNetworkType && activeProfile ? activeProfile.network_type : formData.preferredNetworkType) ? 
-                          getNetworkTypeLabel(profileControlledFields.preferredNetworkType && activeProfile ? activeProfile.network_type : formData.preferredNetworkType) : 
-                          "Select Network Type"}
+                        {(
+                          profileControlledFields.preferredNetworkType &&
+                          activeProfile
+                            ? activeProfile.network_type
+                            : formData.preferredNetworkType
+                        )
+                          ? getNetworkTypeLabel(
+                              profileControlledFields.preferredNetworkType &&
+                                activeProfile
+                                ? activeProfile.network_type
+                                : formData.preferredNetworkType
+                            )
+                          : "Select Network Type"}
                       </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
@@ -509,7 +775,9 @@ const BasicSettings = () => {
                 <Label>
                   NR5G Mode Control
                   {profileControlledFields.nr5gMode && (
-                    <span className="ml-2 text-xs text-muted-foreground">(Profile Controlled)</span>
+                    <span className="ml-2 text-xs text-muted-foreground">
+                      (Profile Controlled)
+                    </span>
                   )}
                 </Label>
                 {isLoading ? (
@@ -523,9 +791,17 @@ const BasicSettings = () => {
                     }
                     disabled={profileControlledFields.nr5gMode || isLoading}
                   >
-                    <SelectTrigger className={profileControlledFields.nr5gMode ? "bg-muted cursor-not-allowed" : ""}>
+                    <SelectTrigger
+                      className={
+                        profileControlledFields.nr5gMode
+                          ? "bg-muted cursor-not-allowed"
+                          : ""
+                      }
+                    >
                       <SelectValue>
-                        {formData.nr5gMode ? getNR5GModeLabel(formData.nr5gMode) : "Select NR5G Mode"}
+                        {formData.nr5gMode
+                          ? getNR5GModeLabel(formData.nr5gMode)
+                          : "Select NR5G Mode"}
                       </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
@@ -556,7 +832,9 @@ const BasicSettings = () => {
                   >
                     <SelectTrigger>
                       <SelectValue>
-                        {formData.simSlot ? `U-SIM Slot ${formData.simSlot}` : "Select U-SIM Slot"}
+                        {formData.simSlot
+                          ? `U-SIM Slot ${formData.simSlot}`
+                          : "Select U-SIM Slot"}
                       </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
@@ -584,7 +862,9 @@ const BasicSettings = () => {
                   >
                     <SelectTrigger>
                       <SelectValue>
-                        {formData.cfunState ? getCFUNStateLabel(formData.cfunState) : "Select CFUN State"}
+                        {formData.cfunState
+                          ? getCFUNStateLabel(formData.cfunState)
+                          : "Select CFUN State"}
                       </SelectValue>
                     </SelectTrigger>
                     <SelectContent>

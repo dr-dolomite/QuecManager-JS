@@ -80,6 +80,9 @@ export interface CellSettingsData {
   nr5gMode?: string;
   simSlot?: string;
   cfunState?: string;
+  autoSelState?: string;
+  selectedMbnProfile?: string; 
+  mbnProfilesList: string[];
 }
 
 export interface AboutData {

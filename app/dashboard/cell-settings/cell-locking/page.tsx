@@ -24,7 +24,8 @@ import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Toggle } from "@/components/ui/toggle";
-import { LockIcon, RefreshCcw, Save } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { LockIcon, RefreshCcw, Save, UnlockIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import ScheduledLockingCard from "@/components/cell-settings/scheduled-cell-locking-card";
 import { atCommandSender } from "@/utils/at-command"; // Import the utility
@@ -166,7 +167,7 @@ const CellLockingPage = () => {
           };
 
       const response = await fetch(
-        "/cgi-bin/quecmanager/cell-locking/scheduled_cell_locking.sh",
+        "/cgi-bin/quecmanager/cell-locking/handle_scheduled_locking.sh",
         {
           method: "POST",
           headers: {
@@ -209,6 +210,8 @@ const CellLockingPage = () => {
       // Error handling
     } finally {
       setLoading(false);
+      // refetch scheduled cell lock status to ensure that the UI is updated
+      await fetchCurrentStatus();
     }
   };
 
@@ -601,7 +604,29 @@ const CellLockingPage = () => {
     <div className="grid gap-6">
       <Card>
         <CardHeader>
-          <CardTitle>4G LTE Cellular Locking</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle>4G LTE Cellular Locking</CardTitle>
+            <Badge>
+              {locked ? (
+                <p
+                  className="flex items-center
+            gap-x-1"
+                >
+                  <LockIcon className="h-3 w-3" />
+                  Locked
+                </p>
+              ) : (
+                <p
+                  className="flex items-center
+              gap-x-1"
+                >
+                  <UnlockIcon className="h-3 w-3" />
+                  Unlocked
+                </p>
+              )}
+            </Badge>
+          </div>
+
           <CardDescription>
             Lock the device to specific LTE Physical Cell IDs.
           </CardDescription>
@@ -693,7 +718,7 @@ const CellLockingPage = () => {
         <CardFooter className="border-t py-4 grid grid-flow-row md:grid-cols-3 grid-cols-1 gap-4">
           <Button
             onClick={handleLTELock}
-            disabled={loading || (scheduleData.enabled && locked)}
+            disabled={loading || scheduleData.enabled}
           >
             <LockIcon className="h-4 w-4" />
             Lock LTE Cells
@@ -701,7 +726,7 @@ const CellLockingPage = () => {
           <Toggle
             pressed={ltePersist}
             onPressedChange={handleLTEPersistToggle}
-            disabled={loading || (scheduleData.enabled && locked)}
+            disabled={loading || scheduleData.enabled}
           >
             <Save className="h-4 w-4 mr-2" />
             Persist on Reboot
@@ -709,7 +734,7 @@ const CellLockingPage = () => {
           <Button
             variant="secondary"
             onClick={handleLTEReset}
-            disabled={loading || (scheduleData.enabled && locked)}
+            disabled={loading || scheduleData.enabled}
           >
             <RefreshCcw className="h-4 w-4" />
             Reset to Default
@@ -795,7 +820,7 @@ const CellLockingPage = () => {
         <CardFooter className="border-t py-4 grid grid-flow-row md:grid-cols-3 grid-cols-1 gap-4">
           <Button
             onClick={handleNR5GLock}
-            disabled={loading || (scheduleData.enabled && locked)}
+            disabled={loading || scheduleData.enabled}
           >
             <LockIcon className="h-4 w-4" />
             Lock NR5G-SA Cell
@@ -803,7 +828,7 @@ const CellLockingPage = () => {
           <Toggle
             pressed={nr5gPersist}
             onPressedChange={handleNR5GPersistToggle}
-            disabled={loading || (scheduleData.enabled && locked)}
+            disabled={loading || scheduleData.enabled}
           >
             <Save className="h-4 w-4 mr-2" />
             Persist on Reboot
@@ -811,7 +836,7 @@ const CellLockingPage = () => {
           <Button
             variant="secondary"
             onClick={handleNR5GReset}
-            disabled={loading || (scheduleData.enabled && locked)}
+            disabled={loading || scheduleData.enabled}
           >
             <RefreshCcw className="h-4 w-4" />
             Reset to Default

@@ -1,24 +1,24 @@
 /**
  * @module useCellSettingsData
  * @description Custom React hook for fetching and processing cellular network settings data.
- * This hook communicates with the device's CGI endpoints to retrieve information about 
+ * This hook communicates with the device's CGI endpoints to retrieve information about
  * APN settings, network type preferences, 5G mode, and SIM slot configuration.
- * 
+ *
  * @returns {Object} An object containing:
  *   - data: The processed cell settings data or null if not loaded
  *   - isLoading: Boolean indicating if data is currently being fetched
  *   - fetchCellSettingsData: Function to manually trigger a data refresh
- * 
+ *
  * @example
  * ```tsx
  * import useCellSettingsData from '@/hooks/cell-settings-data';
- * 
+ *
  * function CellSettingsComponent() {
  *   const { data, isLoading, fetchCellSettingsData } = useCellSettingsData();
- *   
+ *
  *   if (isLoading) return <p>Loading...</p>;
  *   if (!data) return <p>No data available</p>;
- *   
+ *
  *   return (
  *     <div>
  *       <p>Current APN: {data.currentAPN}</p>
@@ -28,7 +28,7 @@
  *   );
  * }
  * ```
- * 
+ *
  * @internal
  * The hook fetches data from the endpoint '/cgi-bin/quecmanager/at_cmd/fetch_data.sh?set=2'
  * and processes the response using several helper functions to extract the relevant information:
@@ -53,7 +53,9 @@ const useCellSettingsData = () => {
       // Clean up data from previous fetch
       setData(null);
 
-      const response = await fetch("/cgi-bin/quecmanager/at_cmd/fetch_data.sh?set=2");
+      const response = await fetch(
+        "/cgi-bin/quecmanager/at_cmd/fetch_data.sh?set=2"
+      );
       const rawData = await response.json();
       console.log("Fetched cell settings data:", rawData);
 
@@ -65,6 +67,19 @@ const useCellSettingsData = () => {
         simSlot: processSimSlot(rawData[4].response),
         // For cfun state simply get the number character from the response
         cfunState: rawData[5].response.match(/\d+/)[0].trim(),
+        // For auto select state simply get the number character from the response
+        autoSelState: rawData[6].response.match(/\d+/)[0].trim(),
+        // Extract the MBN profiles list from the response
+        mbnProfilesList: rawData[7].response
+          .split("\n")
+          .filter((line: string) => line.includes('+QMBNCFG: "List"')) // Only get profile lines
+          .map((line: string) => {
+            // Extract just the profile name from the quotes
+            const match = line.match(/\+QMBNCFG: "List",\d+,\d+,\d+,"([^"]+)"/);
+            return match ? match[1] : null; // Return just the name or null if pattern doesn't match
+          })
+          .filter(Boolean),
+        selectedMbnProfile: "",
       };
 
       setData(processedData);
@@ -109,57 +124,57 @@ const processAPN = (manualAPNData: string, autoAPNData: string) => {
 };
 
 const processAPNPDPType = (data: string) => {
-    const PDPType = data
+  const PDPType = data
     .split("\n")
     .find((line: string) => line.includes("+CGDCONT: 1"))
     ?.split(",")[1]
     .replace(/"/g, "");
 
-    if (PDPType === undefined || PDPType === "") {
-        return "Error fetching PDP Type";
-    }
+  if (PDPType === undefined || PDPType === "") {
+    return "Error fetching PDP Type";
+  }
 
-    return PDPType;
-}
+  return PDPType;
+};
 
 const processPreferredNetworkType = (data: string) => {
-    const networkType = data
+  const networkType = data
     .split("\n")
     .find((line: string) => line.includes('+QNWPREFCFG: "mode_pref"'))
     ?.split(",")[1]
     .replace(/"/g, "");
 
-    if (networkType === undefined || networkType === "") {
-        return "Error fetching network type";
-    }
+  if (networkType === undefined || networkType === "") {
+    return "Error fetching network type";
+  }
 
-    return networkType;
-}
+  return networkType;
+};
 
 const processNR5GMode = (data: string) => {
-    const nr5gMode = data
+  const nr5gMode = data
     .split("\n")
     .find((line: string) => line.includes('+QNWPREFCFG: "nr5g_disable_mode"'))
     ?.split(",")[1]
     .replace(/"/g, "");
 
-    if (nr5gMode === undefined || nr5gMode === "") {
-        return "Error fetching NR5G mode";
-    }
+  if (nr5gMode === undefined || nr5gMode === "") {
+    return "Error fetching NR5G mode";
+  }
 
-    return nr5gMode;
-}
+  return nr5gMode;
+};
 
 const processSimSlot = (data: string) => {
-    const simSlot = data
+  const simSlot = data
     .split("\n")
-    .find((line: string) => line.includes('+QUIMSLOT:'))
+    .find((line: string) => line.includes("+QUIMSLOT:"))
     ?.split(":")[1]
     .trim();
 
-    if (simSlot === undefined || simSlot === "") {
-        return "Error fetching SIM slot";
-    }
+  if (simSlot === undefined || simSlot === "") {
+    return "Error fetching SIM slot";
+  }
 
-    return simSlot;
-}
+  return simSlot;
+};
