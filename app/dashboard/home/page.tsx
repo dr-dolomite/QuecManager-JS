@@ -39,8 +39,9 @@ import useHomeData from "@/hooks/home-data";
 import useDataConnectionState from "@/hooks/home-connection";
 import useTrafficStats from "@/hooks/home-traffic";
 import useRunDiagnostics from "@/hooks/diagnostics";
-import { BsEthernet, BsMemory, BsSimSlashFill } from "react-icons/bs";
+import { BsSimSlashFill } from "react-icons/bs";
 import SpeedtestStream from "@/components/home/speedtest-card";
+import { atCommandSender } from "@/utils/at-command";
 
 interface newBands {
   id: number;
@@ -107,16 +108,14 @@ const HomePage = () => {
       const command =
         currentSimSlot === "Slot 1" ? "AT+QUIMSLOT=1" : "AT+QUIMSLOT=2";
 
-      const encodedCommand = encodeURIComponent(command);
-      const response = await fetch(`/cgi-bin/at_command.sh?command=${encodedCommand}`);
+      // Use atCommandSender instead of direct fetch
+      const response = await atCommandSender(command);
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-      if (data.error) {
-        throw new Error(data.error);
+      if (
+        response.status === "error" ||
+        response.response?.status === "error"
+      ) {
+        throw new Error("Failed to change SIM slot");
       }
 
       toast({
@@ -124,20 +123,28 @@ const HomePage = () => {
         description: "The SIM slot has been changed successfully",
       });
 
-      // Wait for 2 seconds then send COPS command
+      // Wait 3 seconds then send COPS command
       setTimeout(async () => {
-        const copsCommand = "AT+COPS=0;+COPS=2";
-        const encodedCommand = encodeURIComponent(copsCommand);
-        const response = await fetch(`/cgi-bin/at_command.sh?command=${encodedCommand}`);
-
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const copsData = await response.json();
-        if (copsData.error) {
-          throw new Error(copsData.error);
-        }
+        const disconnectCopsCommand = "AT+COPS=0";
+        const reconnectCopsCommand = "AT+COPS=2";
+        // Disconnect from the network
+        const disconnectCopsResponse = await atCommandSender(
+          disconnectCopsCommand
+        );
+        // Wait for 2 seconds before sending out the reconnect command
+        setTimeout(async () => {
+          // Reconnect to the network
+          const reconnectCopsResponse = await atCommandSender(
+            reconnectCopsCommand
+          );
+          if (reconnectCopsResponse.status === "error") {
+            throw new Error("Failed to reconnect to the network");
+          }
+          toast({
+            title: "Network Reconnected",
+            description: "The device has been reconnected to the network",
+          });
+        }, 2000);
       }, 3000);
 
       // After 3 seconds, refresh the data
@@ -147,7 +154,10 @@ const HomePage = () => {
       toast({
         variant: "destructive",
         title: "SIM Slot Change Failed",
-        description: "Failed to change the SIM slot",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Failed to change the SIM slot",
       });
     }
   };
@@ -372,7 +382,9 @@ const HomePage = () => {
           </div>
         </div>
         <div className="grid lg:grid-cols-2 grid-cols-1 grid-flow-row gap-4">
-          <div><SignalChart /></div>
+          <div>
+            <SignalChart />
+          </div>
           <div className="grid gap-2 lg:grid-cols-2 grid-cols-1 grid-flow-row">
             <EthernetCard />
             <MemoryCard />

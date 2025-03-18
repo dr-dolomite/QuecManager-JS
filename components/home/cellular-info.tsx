@@ -78,7 +78,7 @@ const CellularInformation = ({ data, isLoading }: CellularInformationProps) => {
         </div>
 
         <div className="flex flex-row justify-between text-md">
-          <p>Signal Quality</p>
+          <p>Antenna Signal Quality</p>
           {isLoading ? (
             <Skeleton className="h-6 w-[80px]" />
           ) : (
