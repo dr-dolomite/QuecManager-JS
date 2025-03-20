@@ -463,8 +463,8 @@ const getSignalStrength = (response: string) => {
   }
 
   // Filter out -140 and -37625 from the arrays
-  rsrpLteArr = rsrpLteArr.filter((v) => v !== -140 && v !== -37625);
-  rsrpNrArr = rsrpNrArr.filter((v) => v !== -140 && v !== -37625);
+  rsrpLteArr = rsrpLteArr.filter((v) => v !== -140 && v !== -37625 && v !== -32768); ;
+  rsrpNrArr = rsrpNrArr.filter((v) => v !== -140 && v !== -37625 && v !== -32768);
 
   // Calculate the average RSRP values average percentage where -75 is best and -125 is worst
   if (rsrpLteArr.length) {

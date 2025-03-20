@@ -652,12 +652,14 @@ const QuecProfilesPage = () => {
   // Function to format network type for display
   const formatNetworkType = (type: string) => {
     switch (type) {
+      case "AUTO":
+        return "AUTO";
       case "LTE":
         return "4G LTE";
       case "NR5G":
         return "5G SA";
       case "LTE:NR5G":
-        return "NR5G-NSA w/ LTE";
+        return "NR5G-NSA";
       default:
         return type;
     }

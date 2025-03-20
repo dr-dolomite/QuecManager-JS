@@ -1,6 +1,6 @@
 #!/bin/sh /etc/rc.common
 
-START=95
+START=99
 STOP=10
 
 SCRIPTS_DIR="/www/cgi-bin/quecmanager/cell-locking"
