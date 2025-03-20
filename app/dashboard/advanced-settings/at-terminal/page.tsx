@@ -198,6 +198,100 @@ const ATTerminalPage = () => {
       return;
     }
 
+    // Special "prev" command handling
+    if (command.toLowerCase() === "prev") {
+      if (commandHistory.length > 0) {
+        const previousCommand = commandHistory[0].command;
+
+        // Instead of setting the input, directly execute the previous command
+        setInput(""); // Clear current input
+
+        // Show a toast that we're executing the command
+        toast({
+          title: "Executing Previous Command",
+          description: `Executing ${previousCommand}`,
+        });
+
+        // We need to call executeCommand with the previous command
+        // Since we can't recursively call the current function directly with a new value,
+        // we need to simulate it by setting up the execution environment
+
+        setIsLoading(true);
+        setOutput(`> ${previousCommand}\nExecuting command, please wait...`);
+
+        // Execute the previous command using the same fetch logic
+        const executePreviousCommand = async () => {
+          try {
+            const encodedCommand = encodeURIComponent(previousCommand);
+            const response = await fetch(
+              `/cgi-bin/quecmanager/at_cmd/at_queue_client.sh?command=${encodedCommand}&wait=1`
+            );
+            const data: QueueResponse = await response.json();
+
+            // Format output
+            let outputText = `> ${previousCommand}\n`;
+            if (data.response.raw_output) {
+              outputText += data.response.raw_output;
+            }
+            setOutput(outputText);
+
+            // Create new history item
+            const newHistoryItem: CommandHistoryItem = {
+              command: previousCommand,
+              response: data.response.raw_output || "No output",
+              timestamp: data.command.timestamp,
+              status: data.response.status,
+              duration: data.response.duration_ms,
+              commandId: data.command.id,
+            };
+
+            // Update command history
+            setCommandHistory((prev) => [newHistoryItem, ...prev]);
+
+            // Show toast for errors
+            if (
+              data.response.status === "error" ||
+              data.response.status === "timeout"
+            ) {
+              toast({
+                title: `Command ${
+                  data.response.status === "timeout" ? "Timeout" : "Error"
+                }`,
+                description:
+                  data.response.raw_output ||
+                  `Command execution ${data.response.status}`,
+                variant: "destructive",
+              });
+            }
+          } catch (error) {
+            const errorMessage =
+              error instanceof Error
+                ? error.message
+                : "An unknown error occurred";
+            setOutput(`> ${previousCommand}\nError: ${errorMessage}`);
+
+            toast({
+              title: "Error",
+              description: errorMessage,
+              variant: "destructive",
+            });
+          } finally {
+            setIsLoading(false);
+          }
+        };
+
+        executePreviousCommand();
+        return;
+      } else {
+        toast({
+          title: "No Previous Command",
+          description: "Command history is empty",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
     if (!command.toUpperCase().startsWith("AT")) {
       toast({
         title: "Invalid Command",
@@ -438,14 +532,21 @@ const ATTerminalPage = () => {
                   <ScrollArea className="h-44 p-4">
                     <div className="grid gap-y-2">
                       {commandHistory.map((item, index) => (
-                        <Card key={`${item.timestamp}-${index}`}>
+                        <Card
+                          key={`${item.timestamp}-${index}`}
+                          className="hover:bg-accent/50 transition-colors cursor-pointer"
+                          onClick={() => handleCopyCommand(item.command)}
+                        >
                           <CardContent className="p-3 relative">
                             <ScrollArea className="max-w-xs md:max-w-full">
                               <Button
                                 variant="ghost"
                                 size="icon"
                                 className="absolute right-2 top-2 h-4 w-4"
-                                onClick={() => removeHistoryItem(index)}
+                                onClick={(e) => {
+                                  e.stopPropagation(); // Prevent card click when removing
+                                  removeHistoryItem(index);
+                                }}
                               >
                                 <X className="h-4 w-4" />
                               </Button>
