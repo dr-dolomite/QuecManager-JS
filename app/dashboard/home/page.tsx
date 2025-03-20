@@ -104,9 +104,15 @@ const HomePage = () => {
 
   const sendChangeSimSlot = async () => {
     try {
-      const currentSimSlot = homeData?.simCard?.slot;
+      // Get the current SIM slot through AT+QUIMSLOT? command
+      const currentSimSlotResponse = await atCommandSender("AT+QUIMSLOT?");
+      // Extract the current SIM slot number from the response raw_output
+      const currentSimSlot = currentSimSlotResponse.response?.raw_output
+        .split("\n")[1]
+        .split(":")[1]
+        .trim();
       const command =
-        currentSimSlot === "Slot 1" ? "AT+QUIMSLOT=1" : "AT+QUIMSLOT=2";
+        currentSimSlot === "1" ? "AT+QUIMSLOT=2" : "AT+QUIMSLOT=1";
 
       // Use atCommandSender instead of direct fetch
       const response = await atCommandSender(command);
@@ -125,8 +131,8 @@ const HomePage = () => {
 
       // Wait 3 seconds then send COPS command
       setTimeout(async () => {
-        const disconnectCopsCommand = "AT+COPS=0";
-        const reconnectCopsCommand = "AT+COPS=2";
+        const disconnectCopsCommand = "AT+COPS=2";
+        const reconnectCopsCommand = "AT+COPS=0";
         // Disconnect from the network
         const disconnectCopsResponse = await atCommandSender(
           disconnectCopsCommand

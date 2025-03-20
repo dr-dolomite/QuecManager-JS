@@ -693,9 +693,6 @@ const getSignalQuality = (response: string) => {
   const sinrLteArr = parseSignalValues(sinrLTE);
   const sinrNrArr = parseSignalValues(sinrNR5G);
 
-  console.log("LTE SINR Array:", sinrLteArr);
-  console.log("NR5G SINR Array:", sinrNrArr);
-
   // Calculate percentages
   const ltePercentage = calculatePercentage(sinrLteArr);
   const nrPercentage = calculatePercentage(sinrNrArr);
