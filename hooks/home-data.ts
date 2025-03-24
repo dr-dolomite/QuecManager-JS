@@ -92,7 +92,8 @@ const useHomeData = () => {
           networkType: getNetworkType(rawData[13].response) || "No Signal",
           modemTemperature:
             getModemTemperature(rawData[11].response) || "Unknown",
-          accessTechnology: getAccessTechnology(rawData[2].response) || "Unknown",
+          accessTechnology:
+            getAccessTechnology(rawData[2].response) || "Unknown",
         },
         dataTransmission: {
           carrierAggregation:
@@ -295,11 +296,9 @@ const getProviderName = (response: string) => {
 
 const getAccessTechnology = (response: string) => {
   try {
-    return response
-      ?.split("\n")[1]
-      ?.split(":")[1]
-      ?.split(",")[3]
-      .trim() || "Unknown";
+    return (
+      response?.split("\n")[1]?.split(":")[1]?.split(",")[3].trim() || "Unknown"
+    );
   } catch (error) {
     return "-";
   }
@@ -307,18 +306,18 @@ const getAccessTechnology = (response: string) => {
 
 const getOperatorState = (lteResponse: string, nr5gResponse: string) => {
   const state =
-    lteResponse.split("\n")[1]?.split(":")[1]?.split(",")[1].trim() ||
-    nr5gResponse.split("\n")[1]?.split(":")[1]?.split(",")[1].trim();
+    Number(lteResponse.split("\n")[1]?.split(":")[1]?.split(",")[1].trim()) ||
+    Number(nr5gResponse.split("\n")[1]?.split(":")[1]?.split(",")[1].trim());
   switch (state) {
-    case "1":
+    case 1:
       return "Registered";
-    case "2":
+    case 2:
       return "Searching";
-    case "3":
+    case 3:
       return "Denied";
-    case "4":
+    case 4:
       return "Unknown";
-    case "5":
+    case 5:
       return "Roaming";
     default:
       return "Not Registered";
@@ -463,8 +462,12 @@ const getSignalStrength = (response: string) => {
   }
 
   // Filter out -140 and -37625 from the arrays
-  rsrpLteArr = rsrpLteArr.filter((v) => v !== -140 && v !== -37625 && v !== -32768); ;
-  rsrpNrArr = rsrpNrArr.filter((v) => v !== -140 && v !== -37625 && v !== -32768);
+  rsrpLteArr = rsrpLteArr.filter(
+    (v) => v !== -140 && v !== -37625 && v !== -32768
+  );
+  rsrpNrArr = rsrpNrArr.filter(
+    (v) => v !== -140 && v !== -37625 && v !== -32768
+  );
 
   // Calculate the average RSRP values average percentage where -75 is best and -125 is worst
   if (rsrpLteArr.length) {
@@ -788,25 +791,25 @@ const getCurrentBandsPCI = (response: string, networkType: string) => {
   if (networkType === "NR5G-SA") {
     const lines = response.split("\n");
     const result = [];
-    
+
     // Handle PCC - keep your existing code since it works
-    const pccLine = lines.find(l => l.includes("PCC"));
+    const pccLine = lines.find((l) => l.includes("PCC"));
     if (pccLine) {
       const pccPCI = pccLine.split(":")[1].split(",")[4].trim();
       result.push(pccPCI || "Unknown");
     }
-    
+
     // Handle SCCs - fix the index for NR5G-SA mode
-    const sccLines = lines.filter(l => l.includes("SCC"));
+    const sccLines = lines.filter((l) => l.includes("SCC"));
     for (const sccLine of sccLines) {
       const parts = sccLine.split(":")[1].split(",");
       // For NR5G-SA mode, SCC PCI is at index 5, not 4
       result.push(parts.length > 5 ? parts[5].trim() : "Unknown");
     }
-    
+
     return result.length > 0 ? result : ["Unknown"];
-  } 
-  
+  }
+
   // Keep your existing code for LTE and NR5G-NSA
   else if (networkType === "LTE") {
     let PCCpci = response.split("\n").find((l) => l.includes("PCC"));
@@ -820,16 +823,20 @@ const getCurrentBandsPCI = (response: string, networkType: string) => {
       );
       return [PCCpci, ...pcis];
     }
-  }
-  
-  else if (networkType === "NR5G-NSA") {
-    const pcisLte = response.split("\n").filter(l => l.includes("LTE BAND"));
-    const pcisNr5g = response.split("\n").filter(l => l.includes("NR5G BAND"));
-    const pcisLteValues = pcisLte.map(l => l?.split(":")[1]?.split(",")[5] || "Unknown");
-    const pcisNr5gValues = pcisNr5g.map(l => l?.split(":")[1]?.split(",")[4] || "Unknown");
+  } else if (networkType === "NR5G-NSA") {
+    const pcisLte = response.split("\n").filter((l) => l.includes("LTE BAND"));
+    const pcisNr5g = response
+      .split("\n")
+      .filter((l) => l.includes("NR5G BAND"));
+    const pcisLteValues = pcisLte.map(
+      (l) => l?.split(":")[1]?.split(",")[5] || "Unknown"
+    );
+    const pcisNr5gValues = pcisNr5g.map(
+      (l) => l?.split(":")[1]?.split(",")[4] || "Unknown"
+    );
     return [...pcisLteValues, ...pcisNr5gValues];
   }
-  
+
   return ["Unknown"];
 };
 

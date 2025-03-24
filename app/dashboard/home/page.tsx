@@ -56,7 +56,7 @@ interface newBands {
 
 const HomePage = () => {
   const { toast } = useToast();
-
+  const [noSimDialogOpen, setNoSimDialogOpen] = useState(false);
   const { data: homeData, isLoading, refresh: refreshHomeData } = useHomeData();
   const {
     dataConnectionState,
@@ -223,6 +223,12 @@ const HomePage = () => {
     }
   }, [homeData]);
 
+  useEffect(() => {
+    if (!isLoading && homeData?.simCard.state === "Not Inserted") {
+      setNoSimDialogOpen(true);
+    }
+  }, [homeData, isLoading]);
+
   return (
     <div className="grid xl:gap-y-12 gap-y-8 gap-4">
       <div className="grid gap-4">
@@ -245,8 +251,8 @@ const HomePage = () => {
           </div>
           <div className="flex flex-row items-center gap-x-2">
             {homeData?.simCard.state === "Not Inserted" && (
-              <Dialog>
-                <DialogTrigger>
+              <Dialog open={noSimDialogOpen} onOpenChange={setNoSimDialogOpen}>
+                <DialogTrigger asChild>
                   <Button variant="destructive">
                     <BsSimSlashFill className="xl:size-6 size-5" />
                     <span className="hidden md:block">No SIM</span>
@@ -268,15 +274,16 @@ const HomePage = () => {
                   </div>
 
                   <div className="flex justify-end mt-4">
-                    <Button
-                      variant="secondary"
-                      onClick={sendChangeSimSlot}
-                      className="mr-2"
-                    >
+                    <Button onClick={sendChangeSimSlot} className="mr-2">
                       Change SIM Slot
                     </Button>
                     <DialogClose asChild>
-                      <Button>Close</Button>
+                      <Button
+                        variant="secondary"
+                        onClick={() => setNoSimDialogOpen(false)}
+                      >
+                        Close
+                      </Button>
                     </DialogClose>
                   </div>
                 </DialogContent>
@@ -284,7 +291,7 @@ const HomePage = () => {
             )}
             <Dialog>
               <DialogTrigger>
-                <Button variant="secondary" onClick={runDiagnostics}>
+                <Button onClick={runDiagnostics}>
                   <CirclePlay className="xl:size-6 size-5" />
                   <span className="hidden md:block">Run Diagnostics</span>
                 </Button>

@@ -1,4 +1,5 @@
 "use client";
+
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -83,6 +84,13 @@ interface ProfileStatus {
   timestamp: number;
 }
 
+// Type for the AT command response
+interface ATCommandResponse {
+  command: string;
+  response: string;
+  status: string;
+}
+
 const QuecProfilesPage = () => {
   const { toast } = useToast();
 
@@ -99,6 +107,9 @@ const QuecProfilesPage = () => {
   );
   // Track last displayed status to avoid repeated messages
   const [lastToastStatus, setLastToastStatus] = useState<string>("");
+  // New state for fetching ICCID and IMEI
+  const [fetchingDeviceInfo, setFetchingDeviceInfo] = useState(false);
+  const [deviceInfo, setDeviceInfo] = useState({ iccid: "", imei: "" });
 
   // Form state with fields
   const [formData, setFormData] = useState<Profile>({
@@ -122,11 +133,74 @@ const QuecProfilesPage = () => {
   useEffect(() => {
     fetchProfiles();
     checkProfileStatus();
+    fetchDeviceInfo(); // Prefetch device info when component mounts
 
     // Set up status check interval
     const statusInterval = setInterval(checkProfileStatus, 5000);
     return () => clearInterval(statusInterval);
   }, []);
+
+  // Function to fetch current device ICCID and IMEI
+  const fetchDeviceInfo = async () => {
+    setFetchingDeviceInfo(true);
+    try {
+      const response = await fetch(
+        "/cgi-bin/quecmanager/at_cmd/fetch_data.sh?set=9"
+      );
+      
+      if (!response.ok) {
+        throw new Error("Failed to fetch device information");
+      }
+      
+      const data = await response.json() as ATCommandResponse[];
+      console.log("Device info response:", data);
+      
+      let iccid = "";
+      let imei = "";
+      
+      // Extract ICCID from AT+ICCID response
+      const iccidResponse = data.find(item => item.command === "AT+ICCID");
+      if (iccidResponse && iccidResponse.status === "success") {
+        // ICCID is typically a string of numbers in the response
+        const match = iccidResponse.response.match(/\d{10,20}/);
+        if (match) {
+          iccid = match[0];
+        }
+      }
+      
+      // Extract IMEI from AT+CGSN response
+      const imeiResponse = data.find(item => item.command === "AT+CGSN");
+      if (imeiResponse && imeiResponse.status === "success") {
+        // IMEI is typically a 15-digit number in the response
+        const match = imeiResponse.response.match(/\d{15}/);
+        if (match) {
+          imei = match[0];
+        }
+      }
+      
+      console.log("Extracted device info - ICCID:", iccid, "IMEI:", imei);
+      
+      // Update state and also immediately set values in form data
+      setDeviceInfo({ iccid, imei });
+      
+      // Directly update the form with the fetched values
+      setFormData(prev => ({
+        ...prev,
+        iccid: iccid || prev.iccid,
+        imei: imei || prev.imei
+      }));
+      
+    } catch (error) {
+      console.error("Error fetching device information:", error);
+      toast({
+        title: "Info",
+        description: "Could not auto-populate device information",
+        variant: "default",
+      });
+    } finally {
+      setFetchingDeviceInfo(false);
+    }
+  };
 
   // Function to fetch profiles
   const fetchProfiles = async () => {
@@ -278,6 +352,30 @@ const QuecProfilesPage = () => {
 
     // Now parse the cleaned JSON
     return JSON.parse(cleanedJson);
+  };
+
+  // Handler for opening the Create Profile dialog
+  const handleOpenCreateDialog = () => {
+    setModalMode("create");
+    setErrorMessage(null);
+    
+    // Reset form with empty values except for device info
+    setFormData({
+      name: "",
+      iccid: deviceInfo.iccid || "",
+      imei: deviceInfo.imei || "",
+      apn: "",
+      pdp_type: "IPV4V6",
+      lte_bands: "",
+      sa_nr5g_bands: "",
+      nsa_nr5g_bands: "",
+      network_type: "LTE",
+      ttl: "0",
+      paused: "0",
+    });
+    
+    // Show the modal with pre-populated device info
+    setShowModal(true);
   };
 
   // CREATE PROFILE FUNCTION
@@ -787,25 +885,7 @@ const QuecProfilesPage = () => {
           <div className="flex items-center justify-between">
             <Dialog open={showModal} onOpenChange={setShowModal}>
               <DialogTrigger asChild>
-                <Button
-                  onClick={() => {
-                    setModalMode("create");
-                    setErrorMessage(null);
-                    setFormData({
-                      name: "",
-                      iccid: "",
-                      imei: "",
-                      apn: "",
-                      pdp_type: "IPV4V6",
-                      lte_bands: "",
-                      sa_nr5g_bands: "",
-                      nsa_nr5g_bands: "",
-                      network_type: "LTE",
-                      ttl: "0",
-                      paused: "0",
-                    });
-                  }}
-                >
+                <Button onClick={handleOpenCreateDialog}>
                   <UserRoundPen className="w-4 h-4" />
                   Add New Profile
                 </Button>
@@ -1128,22 +1208,14 @@ const QuecProfilesPage = () => {
                         </Badge>
 
                         {/* Paused Status Badge */}
-                        {/* {profile.paused === "1" ? (
+                        {profile.paused === "1" && (
                           <Badge
                             variant="outline"
-                            className="ml-2 bg-orange-600 text-white"
+                            className="ml-2 bg-orange-500 hover:bg-orange-600"
                           >
-                            <PauseCircle className="w-4 h-4 mr-1" />
                             Paused
                           </Badge>
-                        ) : (
-                          <Badge
-                            variant="outline"
-                            className="text-xs ml-2 bg-green-600 text-white"
-                          >
-                            Active
-                          </Badge>
-                        )} */}
+                        )}
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
