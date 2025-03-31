@@ -110,11 +110,6 @@ const BandTable = ({ bands, isLoading }: BandTableProps) => {
         <Card className="p-6 grid gap-4">
           {bands &&
             bands.map((band: Band) => <BandCard key={band.id} {...band} />)}
-          <CardFooter className="w-full p-6 flex items-center justify-center">
-            <CardDescription className="text-md">
-              Current bands connected.
-            </CardDescription>
-          </CardFooter>
         </Card>
       </div>
 
@@ -195,8 +190,8 @@ const BandTable = ({ bands, isLoading }: BandTableProps) => {
               </CarouselItem>
             ))}
           </CarouselContent>
-          <CarouselPrevious />
-          <CarouselNext />
+          {/* <CarouselPrevious />
+          <CarouselNext /> */}
         </Carousel>
     </div>
   );

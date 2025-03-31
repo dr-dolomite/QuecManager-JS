@@ -54,12 +54,21 @@ export interface CurrentBandsData {
   sinr?: string[];
 }
 
+export interface NetworkAddressingData {
+  publicIPv4: string;
+  cellularIPv4: string;
+  cellularIPv6: string;
+  carrierPrimaryDNS: string;
+  carrierSecondaryDNS: string;
+}
+
 export interface HomeData {
   simCard: SimCardData;
   connection: ConnectionData;
   dataTransmission: DataTransmissionData;
   cellularInfo: CellularInfoData;
   currentBands: CurrentBandsData;
+  networkAddressing: NetworkAddressingData;
 }
 
 export interface Band {
@@ -74,7 +83,7 @@ export interface Band {
 }
 
 export interface CellSettingsData {
-  currentAPN?: string;
+  APNProfiles?: string[];
   apnPDPType?: string;
   preferredNetworkType?: string;
   nr5gMode?: string;
@@ -83,6 +92,7 @@ export interface CellSettingsData {
   autoSelState?: string;
   selectedMbnProfile?: string; 
   mbnProfilesList: string[];
+  dataProfileIndex: string;
 }
 
 export interface AboutData {

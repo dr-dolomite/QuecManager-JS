@@ -2,7 +2,7 @@
  * Custom hook that fetches and processes cellular modem data for the home dashboard.
  * This hook handles data fetching, processing, error handling, and automatic refresh at regular intervals.
  *
- * The hook fetches data from the API endpoint `/cgi-bin/quecmanager/at_cmd/fetch_data.sh?set=1`
+ * The hook fetches data from the API endpoint `/api/cgi-bin/quecmanager/at_cmd/fetch_data.sh?set=1`
  * and transforms the raw response into a structured {@link HomeData} format with information about:
  * - SIM card details (slot, state, provider, etc.)
  * - Connection information (APN, network type, temperature, etc.)
@@ -39,10 +39,15 @@ const useHomeData = () => {
   const fetchHomeData = useCallback(async () => {
     try {
       const response = await fetch(
-        "/cgi-bin/quecmanager/at_cmd/fetch_data.sh?set=1"
+        "/api/cgi-bin/quecmanager/at_cmd/fetch_data.sh?set=1"
       );
       const rawData = await response.json();
       console.log(rawData);
+
+      // fetch public ip from /cgi-bin/quecmanager/home/fetch_public_ip.sh
+      const publicIPResponse = await fetch(
+        "/api/cgi-bin/quecmanager/home/fetch_public_ip.sh"
+      );
 
       // Process the raw data into the HomeData format
       const processedData: HomeData = {
@@ -174,6 +179,64 @@ const useHomeData = () => {
             rawData[10].response
           ) || ["Unknown"],
         },
+        networkAddressing: {
+          // Public IP address is fetched from the publicIPResponse and its in JSON form already
+          publicIPv4: publicIPResponse.ok
+            ? (await publicIPResponse.json()).public_ip || "-"
+            : "-",
+          cellularIPv4:
+            rawData[20].response
+              .split("\n")[1]
+              ?.split(":")[1]
+              .split(",")[3]
+              .replace(/"/g, "")
+              .trim() || "-",
+          // For IPv6, count the remaining elements in the array. If there 2 elements left after cellularIPv4, then theres no IPv6 address. If there are 3 elements left, then there is an IPv6 address and it is the next element from cellularIPv4.
+          cellularIPv6:
+            rawData[20].response.split("\n")[1]?.split(":")[1].split(",")
+              .length === 5
+              ? rawData[20].response
+                  .split("\n")[1]
+                  ?.split(":")[1]
+                  .split(",")[4]
+                  .replace(/"/g, "")
+                  .trim()
+              : "-",
+          // For DNS, count the remaining elements in the array. If there 2 elements left after cellularIPv4, then the next element is the primary DNS and the last element is the secondary DNS. If there are 3 elements left, then the next element after cellularIPv4 is the IPv6 address and the last 2 elements are the primary and secondary DNS.
+          carrierPrimaryDNS:
+            rawData[20].response.split("\n")[1]?.split(":")[1].split(",")
+              .length === 5
+              ? rawData[20].response
+                  .split("\n")[1]
+                  ?.split(":")[1]
+                  .split(",")[4]
+                  .replace(/"/g, "")
+                  .trim()
+              : rawData[20].response
+                  .split("\n")[1]
+                  ?.split(":")[1]
+                  .split(",")
+                  .slice(-2)[0]
+                  .replace(/"/g, "")
+                  .trim(),
+          carrierSecondaryDNS:
+            rawData[20].response.split("\n")[1]?.split(":")[1].split(",")
+              .length === 5
+              ? rawData[20].response
+                  .split("\n")[1]
+                  ?.split(":")[1]
+                  .split(",")
+                  .slice(-1)[0]
+                  .replace(/"/g, "")
+                  .trim()
+              : rawData[20].response
+                  .split("\n")[1]
+                  ?.split(":")[1]
+                  .split(",")
+                  .slice(-1)[0]
+                  .replace(/"/g, "")
+                  .trim(),
+        },
       };
 
       setData(processedData);
@@ -184,46 +247,53 @@ const useHomeData = () => {
       // Make all values as "Unknown" if there is an error
       const errorData: HomeData = {
         simCard: {
-          slot: "Unknown",
+          slot: "Not Inserted",
           state: "Not Inserted",
           provider: "Unknown",
           phoneNumber: "Unknown",
-          imsi: "Unknown",
-          iccid: "Unknown",
-          imei: "Unknown",
+          imsi: "-",
+          iccid: "-",
+          imei: "-",
         },
         connection: {
-          apn: "Unknown",
+          apn: "No APN",
           operatorState: "Unknown",
           functionalityState: "Disabled",
           networkType: "No Signal",
           modemTemperature: "Unknown",
-          accessTechnology: "Unknown",
+          accessTechnology: "-",
         },
         dataTransmission: {
           carrierAggregation: "Inactive",
-          connectedBands: "Unknown",
-          signalStrength: "Unknown",
-          mimoLayers: "Unknown",
+          connectedBands: "-",
+          signalStrength: "-%",
+          mimoLayers: "-",
         },
         cellularInfo: {
-          cellId: "Unknown",
-          trackingAreaCode: "Unknown",
-          physicalCellId: "Unknown",
-          earfcn: "Unknown",
-          mnc: "Unknown",
-          signalQuality: "Unknown",
+          cellId: "-",
+          trackingAreaCode: "-",
+          physicalCellId: "-",
+          earfcn: "-",
+          mnc: "-",
+          signalQuality: "-%",
         },
         currentBands: {
           // id is length of bandNumber
           id: [1],
-          bandNumber: ["Unknown"],
-          earfcn: ["Unknown"],
-          bandwidth: ["Unknown"],
-          pci: ["Unknown"],
-          rsrp: ["Unknown"],
-          rsrq: ["Unknown"],
-          sinr: ["Unknown"],
+          bandNumber: ["-"],
+          earfcn: ["-"],
+          bandwidth: ["-"],
+          pci: ["-"],
+          rsrp: ["-"],
+          rsrq: ["-"],
+          sinr: ["-"],
+        },
+        networkAddressing: {
+          publicIPv4: "-",
+          cellularIPv4: "-",
+          cellularIPv6: "-",
+          carrierPrimaryDNS: "-",
+          carrierSecondaryDNS: "-",
         },
       };
 
@@ -813,8 +883,10 @@ const getCurrentBandsPCI = (response: string, networkType: string) => {
   // Keep your existing code for LTE and NR5G-NSA
   else if (networkType === "LTE") {
     let PCCpci = response.split("\n").find((l) => l.includes("PCC"));
-    PCCpci = PCCpci ? PCCpci?.split(":")[1]?.split(",")[4].trim() : "Unknown";
-    const SCCpcis = response.split("\n").filter((l) => l.includes("LTE BAND"));
+    PCCpci = PCCpci ? PCCpci?.split(":")[1]?.split(",")[5].trim() : "Unknown";
+    const SCCpcis = response
+      .split("\n")
+      .filter((l) => l.includes("SCC") && l.includes("LTE BAND"));
     if (!SCCpcis.length) {
       return [PCCpci];
     } else {
@@ -878,7 +950,7 @@ const getCurrentBandsRSRP = (
     const pccRSRP = servingCell.split("\n").find((l) => l.includes("NR5G-SA"));
 
     if (pccRSRP) {
-      return [pccRSRP?.split(":")[1]?.split(",")[12]];
+      return [pccRSRP?.split(":")[1]?.split(",")[9]];
     } else {
       return ["Unknown"];
     }
@@ -902,7 +974,7 @@ const getCurrentBandsRSRQ = (
     const pccRSRQ = servingCell.split("\n").find((l) => l.includes("NR5G-SA"));
 
     if (pccRSRQ) {
-      return [pccRSRQ?.split(":")[1]?.split(",")[13]];
+      return [pccRSRQ?.split(":")[1]?.split(",")[10]];
     } else {
       return ["Unknown"];
     }
@@ -948,7 +1020,9 @@ const getCurrentBandsSINR = (
     const pccSINR = servingCell.split("\n").find((l) => l.includes("NR5G-SA"));
 
     if (pccSINR) {
-      return [pccSINR?.split(":")[1]?.split(",")[14]];
+      const SINR = [pccSINR?.split(":")[1]?.split(",")[11]];
+      // If value is -32768, return "-" instead of "Unknown"
+      return SINR[0] === "-32768" ? ["-"] : SINR;
     } else {
       return ["Unknown"];
     }

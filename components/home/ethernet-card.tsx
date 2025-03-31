@@ -38,7 +38,7 @@ const EthernetCard = () => {
   useEffect(() => {
     const fetchEthernetInfo = async () => {
       try {
-        const response = await fetch("/cgi-bin/quecmanager/home/fetch_hw_details.sh?type=eth", {
+        const response = await fetch("/api/cgi-bin/quecmanager/home/fetch_hw_details.sh?type=eth", {
           method: "GET",
           cache: "no-store",
           headers: {

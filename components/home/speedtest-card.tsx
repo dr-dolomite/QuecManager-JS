@@ -136,7 +136,6 @@ const SpeedtestStream = () => {
   const [isStarting, setIsStarting] = useState<boolean>(false);
   const [pingProgress, setPingProgress] = useState<number>(0);
   const [isCooldown, setIsCooldown] = useState<boolean>(false);
-  const [isKeepAliveActive, setIsKeepAliveActive] = useState<boolean>(false);
   const [isDialogOpen, setIsDialogOpen] = useState<boolean>(false);
 
   const pollInterval = useRef<NodeJS.Timeout | null>(null);
@@ -151,48 +150,13 @@ const SpeedtestStream = () => {
     setIsStarting(false);
     setPingProgress(0);
     speedtestDataRef.current = null;
-    
+
     // Clear any existing poll interval
     if (pollInterval.current) {
       clearInterval(pollInterval.current);
       pollInterval.current = null;
     }
   }, []);
-
-  const checkKeepAliveSchedule = useCallback(async () => {
-    try {
-      const response = await fetch(
-        "/cgi-bin/quecmanager/experimental/keep_alive.sh?status=true"
-      );
-      const data = await response.json();
-
-      if (data.enabled) {
-        const now = new Date();
-        const currentTime = now.getHours() * 60 + now.getMinutes();
-
-        const [startHour, startMin] = data.start_time.split(":").map(Number);
-        const [endHour, endMin] = data.end_time.split(":").map(Number);
-
-        const startMinutes = startHour * 60 + startMin;
-        const endMinutes = endHour * 60 + endMin;
-
-        setIsKeepAliveActive(
-          currentTime >= startMinutes && currentTime <= endMinutes
-        );
-      } else {
-        setIsKeepAliveActive(false);
-      }
-    } catch (error) {
-      console.error("Failed to check keep-alive schedule:", error);
-      setIsKeepAliveActive(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    checkKeepAliveSchedule();
-    const interval = setInterval(checkKeepAliveSchedule, 60000);
-    return () => clearInterval(interval);
-  }, [checkKeepAliveSchedule]);
 
   useEffect(() => {
     if (showResults && !isTestRunning) {
@@ -215,34 +179,36 @@ const SpeedtestStream = () => {
 
   const pollStatus = useCallback(async () => {
     try {
-      const response = await fetch("/cgi-bin/quecmanager/home/speedtest/speedtest_status.sh");
+      const response = await fetch(
+        "/cgi-bin/quecmanager/home/speedtest/speedtest_status.sh"
+      );
       if (!response.ok) {
         throw new Error(`Failed to fetch status: ${response.status}`);
       }
-      
+
       const data = await response.json();
-      
+
       // Check if test is not running
       if (data.status === "not_running") {
         if (isTestRunning) {
           setError("Test ended unexpectedly");
           setIsTestRunning(false);
         }
-        
+
         if (pollInterval.current) {
           clearInterval(pollInterval.current);
           pollInterval.current = null;
         }
         return;
       }
-      
+
       // Update state based on the data type
       if (data.type) {
         try {
           switch (data.type) {
             case "ping":
               setCurrentType("ping");
-              if (data.ping && typeof data.ping.progress === 'number') {
+              if (data.ping && typeof data.ping.progress === "number") {
                 setPingProgress(data.ping.progress);
               }
               break;
@@ -261,7 +227,7 @@ const SpeedtestStream = () => {
                 setSpeedtestData(data);
                 setShowResults(true);
                 setIsTestRunning(false);
-                
+
                 if (pollInterval.current) {
                   clearInterval(pollInterval.current);
                   pollInterval.current = null;
@@ -276,13 +242,15 @@ const SpeedtestStream = () => {
           console.error("Error processing speedtest data:", error);
         }
       }
-      
+
       // Update the speedtest data - only if we have meaningful data
-      if ((data.type && (data.download || data.upload || data.ping)) || data.isp) {
+      if (
+        (data.type && (data.download || data.upload || data.ping)) ||
+        data.isp
+      ) {
         speedtestDataRef.current = data;
         setSpeedtestData(data);
       }
-      
     } catch (error) {
       console.error("Error polling speedtest status:", error);
       if (isTestRunning) {
@@ -297,15 +265,15 @@ const SpeedtestStream = () => {
   }, [currentType, isTestRunning]);
 
   const startSpeedtest = useCallback(async () => {
-    if (isCooldown || isKeepAliveActive) return;
-    
+    if (isCooldown) return;
+
     try {
       // Reset all state before starting new test
       resetState();
       setIsStarting(true);
       setIsTestRunning(true);
       setIsDialogOpen(true);
-      
+
       // Start the speedtest
       const startResponse = await fetch(
         "/cgi-bin/quecmanager/home/speedtest/start_speedtest.sh",
@@ -315,11 +283,10 @@ const SpeedtestStream = () => {
       if (!startResponse.ok) {
         throw new Error("Failed to start speedtest");
       }
-      
+
       // Begin polling for status updates - 300ms for smoother UI updates
       pollInterval.current = setInterval(pollStatus, 300);
       setIsStarting(false);
-      
     } catch (startError) {
       console.error("Speedtest start error:", startError);
       setError(
@@ -330,7 +297,7 @@ const SpeedtestStream = () => {
       setIsStarting(false);
       setIsTestRunning(false);
     }
-  }, [isCooldown, isKeepAliveActive, resetState, pollStatus]);
+  }, [isCooldown, resetState, pollStatus]);
 
   const renderSpeedtestContent = () => {
     if (error) {
@@ -360,7 +327,7 @@ const SpeedtestStream = () => {
       return (
         <div className="flex flex-col items-center justify-center space-y-4">
           <Play className="text-primary lg:size-48 size-16 animate-pulse" />
-          <h3 className="text-xl font-semibold">
+          <h3 className="md:text-xl text-lg font-semibold">
             Initiating Network Speedtest
           </h3>
           <p className="text-sm text-gray-500 text-center">
@@ -395,14 +362,19 @@ const SpeedtestStream = () => {
     // Result view
     if (showResults) {
       // Ensure speedtestData and all required nested properties exist
-      if (!speedtestData || !speedtestData.download || !speedtestData.upload || !speedtestData.ping) {
+      if (
+        !speedtestData ||
+        !speedtestData.download ||
+        !speedtestData.upload ||
+        !speedtestData.ping
+      ) {
         return (
           <div className="flex flex-col items-center justify-center space-y-4">
             <TriangleAlert className="text-amber-500 lg:size-16 size-8" />
             <h3 className="text-xl font-semibold">Incomplete Test Results</h3>
             <p className="text-sm text-gray-500 text-center">
               The test didn't complete properly. Some data may be missing.
-              <span 
+              <span
                 className="underline cursor-pointer ml-2 block"
                 onClick={() => {
                   resetState();
@@ -472,7 +444,7 @@ const SpeedtestStream = () => {
                 </div>
               </div>
             </CardContent>
-            <CardFooter className="mt-4 grid grid-cols-2 grid-flow-row gap-2 truncate">
+            <CardFooter className="flex items-center justify-between mx-auto">
               <div className="grid gap-0.5 lg:flex lg:items-center lg:space-x-1">
                 <div className="flex items-center justify-center gap-x-2">
                   <Clock className="text-gray-600 lg:size-6 size-4" />
@@ -566,7 +538,7 @@ const SpeedtestStream = () => {
     // Download/upload view
     if (!currentType) return null;
     if (!speedtestData) return null;
-    
+
     // Ensure the required data exists
     if (!speedtestData[currentType]) {
       return (
@@ -576,7 +548,7 @@ const SpeedtestStream = () => {
         </div>
       );
     }
-    
+
     const data = speedtestData[currentType];
     const isDownload = currentType === "download";
 
@@ -654,13 +626,9 @@ const SpeedtestStream = () => {
                 }}
               />
               <CirclePlay
-                className={`size-32 ${
-                  isKeepAliveActive
-                    ? "text-gray-400 cursor-not-allowed"
-                    : "text-primary cursor-pointer"
-                } z-10`}
+                className="size-32 z-10 text-primary cursor-pointer hover:text-primary/80 transition-colors duration-300"
                 onClick={(e) => {
-                  if (!isKeepAliveActive && !isCooldown) {
+                  if (!isCooldown) {
                     e.preventDefault(); // Prevent DialogTrigger from opening automatically
                     startSpeedtest();
                   }
@@ -668,12 +636,20 @@ const SpeedtestStream = () => {
               />
             </div>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[800px]">
+          <DialogContent className="sm:max-w-[800px] max-w-xs mx-auto">
             <DialogHeader>
               <DialogTitle className="flex items-center">
                 <Gauge className="mr-2" /> Network Speedtest
-                {showResults && <Badge variant="outline" className="ml-2">Complete</Badge>}
-                {isTestRunning && !showResults && <Badge variant="outline" className="ml-2 bg-primary/10">Running...</Badge>}
+                {showResults && (
+                  <Badge variant="outline" className="ml-2">
+                    Complete
+                  </Badge>
+                )}
+                {isTestRunning && !showResults && (
+                  <Badge variant="outline" className="ml-2 bg-primary/10">
+                    Running...
+                  </Badge>
+                )}
               </DialogTitle>
             </DialogHeader>
             <div className="lg:max-w-full max-w-sm mx-auto min-w-sm py-6">
@@ -698,7 +674,7 @@ const SpeedtestStream = () => {
                       variant="outline"
                       disabled={isCooldown}
                     >
-                      <RefreshCw className="mr-2 h-4 w-4" />
+                      <RefreshCw className="h-4 w-4" />
                       Run Again
                     </Button>
                   </div>
@@ -707,14 +683,19 @@ const SpeedtestStream = () => {
               ) : (
                 <>
                   {isTestRunning ? (
-                    <Button onClick={() => {
-                      resetState();
-                      setIsDialogOpen(false);
-                    }} variant="destructive">
+                    <Button
+                      onClick={() => {
+                        resetState();
+                        setIsDialogOpen(false);
+                      }}
+                      variant="destructive"
+                    >
                       Cancel Test
                     </Button>
                   ) : (
-                    <Button onClick={() => setIsDialogOpen(false)}>Close</Button>
+                    <Button onClick={() => setIsDialogOpen(false)}>
+                      Close
+                    </Button>
                   )}
                 </>
               )}
@@ -722,9 +703,7 @@ const SpeedtestStream = () => {
           </DialogContent>
         </Dialog>
         <CardDescription>
-          {isKeepAliveActive
-            ? "Speedtest is disabled during keep-alive schedule."
-            : isCooldown
+          {isCooldown
             ? "Please wait 10 seconds before starting another test."
             : "Run a speed test to check your internet connection."}
         </CardDescription>

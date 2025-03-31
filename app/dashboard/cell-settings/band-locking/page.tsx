@@ -93,6 +93,7 @@ const BandLocking = () => {
   });
 
   const [loading, setLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
   const [activeProfile, setActiveProfile] = useState<Profile | null>(null);
   const [profileControlled, setProfileControlled] =
     useState<ProfileControllState>({
@@ -133,7 +134,7 @@ const BandLocking = () => {
       try {
         // Fetch active profile status
         const profileResponse = await fetch(
-          "/cgi-bin/quecmanager/profiles/check_status.sh"
+          "/api/cgi-bin/quecmanager/profiles/check_status.sh"
         );
         if (!profileResponse.ok) {
           throw new Error(
@@ -153,7 +154,7 @@ const BandLocking = () => {
         ) {
           // Fetch all profiles to find the active one
           const profilesResponse = await fetch(
-            "/cgi-bin/quecmanager/profiles/list_profiles.sh"
+            "/api/cgi-bin/quecmanager/profiles/list_profiles.sh"
           );
           if (profilesResponse.ok) {
             const profilesData = await profilesResponse.json();
@@ -201,7 +202,7 @@ const BandLocking = () => {
   const fetchBandsData = async () => {
     try {
       const response = await fetch(
-        "/cgi-bin/quecmanager/at_cmd/fetch_data.sh?set=7"
+        "/api/cgi-bin/quecmanager/at_cmd/fetch_data.sh?set=7"
       );
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -310,8 +311,11 @@ const BandLocking = () => {
       });
       return;
     }
+    
 
     try {
+      // Set isSaving to true to indicate that a save operation is in progress
+      setIsSaving(true);
       const selectedBands = checkedBands[bandType].join(":");
 
       if (bandType === "nsa") {
@@ -391,6 +395,9 @@ const BandLocking = () => {
 
       // Fetch the latest data after a short delay to ensure the modem has processed the changes
       setTimeout(fetchBandsData, 1000);
+
+      // Reset isSaving to false after the operation is complete
+      setIsSaving(false);
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : "Unknown error";
@@ -400,6 +407,7 @@ const BandLocking = () => {
         description: `Failed to lock ${bandType.toUpperCase()} bands: ${errorMessage}`,
         variant: "destructive",
       });
+      setIsSaving(false);
     }
   };
 
@@ -548,7 +556,7 @@ const BandLocking = () => {
       <CardFooter className="border-t py-4 grid grid-flow-row md:grid-cols-3 grid-cols-1 gap-3">
         <Button
           onClick={() => handleLockBands(bandType)}
-          disabled={isProfileControlled}
+          disabled={isProfileControlled || loading || isSaving}
         >
           <LockIcon className="h-4 w-4" />
           Lock Selected Bands
@@ -556,14 +564,14 @@ const BandLocking = () => {
         <Button
           variant="secondary"
           onClick={() => handleUncheckAll(bandType)}
-          disabled={isProfileControlled}
+          disabled={isProfileControlled || loading || isSaving}
         >
           Uncheck All
         </Button>
         <Button
           variant="secondary"
           onClick={() => handleResetToDefault(bandType)}
-          disabled={isProfileControlled}
+          disabled={isProfileControlled || loading || isSaving}
         >
           <RefreshCw className="h-4 w-4" />
           Reset to Default

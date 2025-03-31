@@ -32,7 +32,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { LockIcon } from "lucide-react";
+import { LockIcon, RefreshCw } from "lucide-react";
 
 import useCellSettingsData from "@/hooks/cell-settings-data";
 
@@ -46,21 +46,11 @@ interface FormData {
   autoSelState: string;
   selectedMbnProfile?: string;
   mbnProfilesList?: string[];
+  // New fields for APN profiles
+  apnProfiles: string[];
+  selectedAPNProfileIndex: number;
+  dataProfileIndex: string;
 }
-
-// interface QueueResponse {
-//   command: {
-//     id: string;
-//     text: string;
-//     timestamp: string;
-//   };
-//   response: {
-//     status: string;
-//     raw_output: string;
-//     completion_time: string;
-//     duration_ms: number;
-//   };
-// }
 
 interface ProfileStatus {
   status: string;
@@ -108,6 +98,7 @@ const BasicSettings = () => {
     nr5gMode: false,
   });
 
+  // Initialize form data with default values
   const [formData, setFormData] = useState<FormData>({
     currentAPN: "",
     apnPDPType: "",
@@ -118,13 +109,21 @@ const BasicSettings = () => {
     autoSelState: "",
     selectedMbnProfile: "",
     mbnProfilesList: [],
+    // New fields for APN profiles
+    apnProfiles: [],
+    selectedAPNProfileIndex: 0,
+    dataProfileIndex: "1", // Default to profile 1 if not specified
   });
 
   // Initialize form data when initial data loads
   useEffect(() => {
     if (initialData && !isDataLoaded) {
       const sanitizedData: FormData = {
-        currentAPN: String(initialData.currentAPN || ""),
+        currentAPN:
+          Array.isArray(initialData.APNProfiles) &&
+          initialData.APNProfiles.length > 0
+            ? initialData.APNProfiles[0]
+            : "",
         apnPDPType: String(initialData.apnPDPType || ""),
         preferredNetworkType: String(initialData.preferredNetworkType || ""),
         nr5gMode: String(initialData.nr5gMode || ""),
@@ -133,7 +132,18 @@ const BasicSettings = () => {
         autoSelState: String(initialData.autoSelState || ""),
         selectedMbnProfile: initialData.selectedMbnProfile || "",
         mbnProfilesList: (initialData.mbnProfilesList || []) as string[],
+        // Initialize APN profiles array
+        apnProfiles: Array.isArray(initialData.APNProfiles)
+          ? initialData.APNProfiles
+          : [],
+        selectedAPNProfileIndex: 0,
+        dataProfileIndex: initialData.dataProfileIndex || "1", // Use the profile index from the hook
       };
+
+      console.log(
+        "Data profile index from hook:",
+        initialData.dataProfileIndex
+      );
       setFormData(sanitizedData);
       setIsDataLoaded(true);
     }
@@ -222,7 +232,12 @@ const BasicSettings = () => {
     }
   }, [initialData]);
 
-  const constructATCommand = (changes: Partial<FormData>): string => {
+  // No longer need the getActiveDataProfileNumber function as we now get
+  // the profile index directly from the hook
+
+  const constructATCommand = async (
+    changes: Partial<FormData>
+  ): Promise<string> => {
     const commands: string[] = [];
 
     if (
@@ -232,7 +247,35 @@ const BasicSettings = () => {
     ) {
       const pdpType = changes.apnPDPType || formData.apnPDPType;
       const apn = changes.currentAPN || formData.currentAPN;
-      commands.push(`AT+CGDCONT=1,"${pdpType}","${apn}"`);
+
+      // Use the profile index provided by the hook
+      const profileNumber = parseInt(formData.dataProfileIndex, 10);
+      console.log(
+        `Setting APN on profile ${profileNumber} to "${apn}" with type "${pdpType}"`
+      );
+
+      commands.push(`AT+CGDCONT=${profileNumber},"${pdpType}","${apn}"`);
+    }
+
+    // Handle selection from APN profiles dropdown
+    if (
+      changes.selectedAPNProfileIndex !== undefined &&
+      changes.selectedAPNProfileIndex !== formData.selectedAPNProfileIndex &&
+      formData.apnProfiles.length > changes.selectedAPNProfileIndex &&
+      !profileControlledFields.currentAPN
+    ) {
+      const pdpType = formData.apnPDPType;
+      const selectedAPN = formData.apnProfiles[changes.selectedAPNProfileIndex];
+
+      // Use the profile index provided by the hook
+      const profileNumber = parseInt(formData.dataProfileIndex, 10);
+      console.log(
+        `Setting APN profile ${profileNumber} to "${selectedAPN}" with type "${pdpType}"`
+      );
+
+      commands.push(
+        `AT+CGDCONT=${profileNumber},"${pdpType}","${selectedAPN}"`
+      );
     }
 
     if (
@@ -291,9 +334,9 @@ const BasicSettings = () => {
     return commands.join(";");
   };
 
-  const handleFieldChange = (field: keyof FormData, value: string) => {
+  const handleFieldChange = (field: keyof FormData, value: string | number) => {
     // Only allow changes to fields not controlled by profile
-    if (!profileControlledFields[field]) {
+    if (typeof field === "string" && !profileControlledFields[field]) {
       setFormData((prev) => ({
         ...prev,
         [field]: value,
@@ -301,34 +344,18 @@ const BasicSettings = () => {
     }
   };
 
-  // const forceRerunScripts = async () => {
-  //   try {
-  //     const response = await fetch("/cgi-bin/quecmanager/settings/force-rerun.sh");
-  //     const data = await response.json();
+  // Handle selection from APN profiles dropdown
+  const handleAPNProfileSelection = (index: string) => {
+    const selectedIndex = parseInt(index, 10);
 
-  //     if (data.status === "success") {
-  //       toast({
-  //         title: "Scripts Restarted",
-  //         description: "Scripts have been restarted successfully",
-  //       });
-  //     } else if (data.status === "info") {
-  //       toast({
-  //         title: "Info",
-  //         description: "No scripts were found to restart",
-  //       });
-  //     }
-  //     else {
-  //       throw new Error("Failed to restart scripts");
-  //     }
-  //   } catch (error) {
-  //     console.error("Error rerunning scripts:", error);
-  //     toast({
-  //       variant: "destructive",
-  //       title: "Script Restart Failed",
-  //       description: "Failed to restart the required scripts",
-  //     });
-  //   }
-  // };
+    if (selectedIndex >= 0 && selectedIndex < formData.apnProfiles.length) {
+      setFormData((prev) => ({
+        ...prev,
+        selectedAPNProfileIndex: selectedIndex,
+        currentAPN: prev.apnProfiles[selectedIndex] || "",
+      }));
+    }
+  };
 
   const executeATCommand = async (command: string): Promise<boolean> => {
     try {
@@ -373,7 +400,17 @@ const BasicSettings = () => {
         if (profileControlledFields[key]) return;
 
         // Handle array types like mbnProfilesList specially
-        if (key === "mbnProfilesList") return; // Skip arrays in change detection
+        if (key === "mbnProfilesList" || key === "apnProfiles") return; // Skip arrays in change detection
+
+        // Special handling for selectedAPNProfileIndex
+        if (
+          key === "selectedAPNProfileIndex" &&
+          formData.selectedAPNProfileIndex !== 0
+        ) {
+          // 0 is the default active profile
+          changes.selectedAPNProfileIndex = formData.selectedAPNProfileIndex;
+          return;
+        }
 
         // Special handling for selectedMbnProfile - include it if changed and autosel is 0
         if (
@@ -388,12 +425,27 @@ const BasicSettings = () => {
         // For all other string fields, do direct comparison
         if (typeof formData[key] === "string") {
           const formValue = formData[key] as string;
-          const initialValue = initialData?.[
-            key as keyof typeof initialData
-          ] as string | undefined;
 
-          if (formValue !== initialValue) {
-            changes[key] = formValue;
+          // For currentAPN, compare with the active APN from APNProfiles
+          if (key === "currentAPN" && initialData?.APNProfiles) {
+            const initialValue =
+              Array.isArray(initialData.APNProfiles) &&
+              initialData.APNProfiles.length > 0
+                ? initialData.APNProfiles[0]
+                : "";
+
+            if (formValue !== initialValue) {
+              changes.currentAPN = formValue;
+            }
+          } else {
+            // For other fields
+            const initialValue = initialData?.[
+              key as keyof typeof initialData
+            ] as string | undefined;
+
+            if (formValue !== initialValue) {
+              (changes as Record<string, string>)[key] = formValue;
+            }
           }
         }
       });
@@ -410,16 +462,23 @@ const BasicSettings = () => {
       // Log the detected changes
       console.log("Detected changes:", changes);
 
-      const command = constructATCommand(changes);
+      const command = await constructATCommand(changes);
 
       // Only execute if we have commands to run
       if (command) {
         console.log("Executing command:", command);
         await executeATCommand(command);
+
+        // Disconnect from the network registration to apply changes
+        await executeATCommand("AT+COPS=2");
+        // Wait for 1 second before reconnecting
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        // Reconnect to the network registration
+        await executeATCommand("AT+COPS=0");
       }
 
       // Add a delay to allow the settings to take effect
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      await new Promise((resolve) => setTimeout(resolve, 2000));
       await fetchCellSettingsData();
       setIsDataLoaded(false);
 
@@ -552,6 +611,56 @@ const BasicSettings = () => {
                         : ""
                     }
                   />
+                )}
+              </div>
+
+              {/* APN Profiles Dropdown - New Component */}
+              <div className="grid w-full max-w-sm items-center gap-2">
+                <Label htmlFor="APNProfile">
+                  APN Profiles
+                  {profileControlledFields.currentAPN && (
+                    <span className="ml-2 text-xs text-muted-foreground">
+                      (Profile Controlled)
+                    </span>
+                  )}
+                </Label>
+                {isLoading ? (
+                  <Skeleton className="h-8" />
+                ) : (
+                  <Select
+                    disabled={
+                      profileControlledFields.currentAPN ||
+                      isLoading ||
+                      formData.apnProfiles.length <= 1
+                    }
+                    value={String(formData.selectedAPNProfileIndex)}
+                    onValueChange={handleAPNProfileSelection}
+                  >
+                    <SelectTrigger
+                      className={
+                        profileControlledFields.currentAPN ||
+                        formData.apnProfiles.length <= 1
+                          ? "bg-muted cursor-not-allowed"
+                          : ""
+                      }
+                    >
+                      <SelectValue placeholder="Select APN Profile" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        <SelectLabel>Available APNs</SelectLabel>
+                        {formData.apnProfiles.map((apn, index) => (
+                          <SelectItem
+                            key={`apn-${index}`}
+                            value={String(index)}
+                          >
+                            {apn || "(blank APN)"}
+                            {index === 0 && " (Active)"}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
                 )}
               </div>
 

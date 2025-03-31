@@ -42,6 +42,7 @@ import useRunDiagnostics from "@/hooks/diagnostics";
 import { BsSimSlashFill } from "react-icons/bs";
 import SpeedtestStream from "@/components/home/speedtest-card";
 import { atCommandSender } from "@/utils/at-command";
+import NetworkInfoCard from "@/components/home/network-info-card";
 
 interface newBands {
   id: number;
@@ -230,7 +231,7 @@ const HomePage = () => {
   }, [homeData, isLoading]);
 
   return (
-    <div className="grid xl:gap-y-12 gap-y-8 gap-4">
+    <div className="grid xl:gap-y-10 gap-y-8 gap-4">
       <div className="grid gap-4">
         <div className="flex flex-row justify-between items-center">
           <div className="flex flex-row gap-2 items-center">
@@ -424,11 +425,20 @@ const HomePage = () => {
         </div>
       </div>
 
-      <div className="grid xl:gap-6 gap-4">
+      <div className="grid gap-4 w-full">
+        <h1 className="xl:text-3xl text-base font-bold">Active Addresses</h1>
+        <div>
+          <NetworkInfoCard data={homeData} isLoading={isLoading} />
+        </div>
+      </div>
+
+      <div className="grid gap-4 w-full">
         <h1 className="xl:text-3xl text-base font-bold">
           Current Active Bands
         </h1>
-        <BandTable bands={bands} isLoading={isLoading} />
+        <div>
+          <BandTable bands={bands} isLoading={isLoading} />
+        </div>
       </div>
     </div>
   );
