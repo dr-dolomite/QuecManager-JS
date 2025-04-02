@@ -83,8 +83,11 @@ const BandCard = ({
           </Badge>
         </div>
 
-        <div className="grid gap-2">
-          <p className="text-sm font-bold">SINR</p>
+        <div className="grid gap-2"> 
+          {/* When it is LTE show "SINR" and if 5G, show NR-SNR */}
+          <p className="text-sm font-bold">
+            {bandNumber.includes("NR5G") ? "NR-SNR" : "SINR"}
+          </p>
           <Badge
             className={
               parseInt(sinr) >= 20

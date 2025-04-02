@@ -70,7 +70,7 @@ const PingCard = () => {
     const fetchPingLatency = async () => {
       try {
         const response = await fetch(
-          "/api/cgi-bin/quecmanager/home/ping_latency.sh",
+          "/cgi-bin/quecmanager/home/ping_latency.sh",
           {
             method: "GET",
             cache: "no-store",

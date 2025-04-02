@@ -140,10 +140,6 @@ const BasicSettings = () => {
         dataProfileIndex: initialData.dataProfileIndex || "1", // Use the profile index from the hook
       };
 
-      console.log(
-        "Data profile index from hook:",
-        initialData.dataProfileIndex
-      );
       setFormData(sanitizedData);
       setIsDataLoaded(true);
     }
@@ -165,7 +161,7 @@ const BasicSettings = () => {
         const profileData = await profileResponse.json();
         setProfileStatus(profileData);
 
-        console.log("Profile Status:", profileData);
+        // console.log("Profile Status:", profileData);
 
         // Only proceed if there's an active profile
         if (
@@ -203,8 +199,8 @@ const BasicSettings = () => {
 
                 setProfileControlledFields(controlledFields);
 
-                console.log("Active Profile:", active);
-                console.log("Controlled Fields:", controlledFields);
+                // console.log("Active Profile:", active);
+                // console.log("Controlled Fields:", controlledFields);
               }
             }
           }
@@ -250,9 +246,9 @@ const BasicSettings = () => {
 
       // Use the profile index provided by the hook
       const profileNumber = parseInt(formData.dataProfileIndex, 10);
-      console.log(
-        `Setting APN on profile ${profileNumber} to "${apn}" with type "${pdpType}"`
-      );
+      // console.log(
+      //   `Setting APN on profile ${profileNumber} to "${apn}" with type "${pdpType}"`
+      // );
 
       commands.push(`AT+CGDCONT=${profileNumber},"${pdpType}","${apn}"`);
     }
@@ -269,9 +265,9 @@ const BasicSettings = () => {
 
       // Use the profile index provided by the hook
       const profileNumber = parseInt(formData.dataProfileIndex, 10);
-      console.log(
-        `Setting APN profile ${profileNumber} to "${selectedAPN}" with type "${pdpType}"`
-      );
+      // console.log(
+      //   `Setting APN profile ${profileNumber} to "${selectedAPN}" with type "${pdpType}"`
+      // );
 
       commands.push(
         `AT+CGDCONT=${profileNumber},"${pdpType}","${selectedAPN}"`
@@ -359,7 +355,7 @@ const BasicSettings = () => {
 
   const executeATCommand = async (command: string): Promise<boolean> => {
     try {
-      console.log("Executing AT command:", command);
+      // console.log("Executing AT command:", command);
       const response = await atCommandSender(command);
 
       if (response.status === "error") {
@@ -460,13 +456,13 @@ const BasicSettings = () => {
       }
 
       // Log the detected changes
-      console.log("Detected changes:", changes);
+      // console.log("Detected changes:", changes);
 
       const command = await constructATCommand(changes);
 
       // Only execute if we have commands to run
       if (command) {
-        console.log("Executing command:", command);
+        // console.log("Executing command:", command);
         await executeATCommand(command);
 
         // Disconnect from the network registration to apply changes

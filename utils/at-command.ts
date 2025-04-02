@@ -42,7 +42,7 @@ export const atCommandSender = async (
     const encodedCommand = encodeURIComponent(normalizedCommand);
 
     // Build the URL with appropriate parameters
-    let url = `/api/cgi-bin/quecmanager/at_cmd/at_queue_client.sh?command=${encodedCommand}`;
+    let url = `/cgi-bin/quecmanager/at_cmd/at_queue_client.sh?command=${encodedCommand}`;
 
     // Add wait parameter if needed
     if (waitForResponse) {
@@ -109,7 +109,7 @@ export const getCommandResult = async (
 ): Promise<ATQueueResponse> => {
   try {
     const response = await fetch(
-      `/api/cgi-bin/quecmanager/at_cmd/at_queue_client.sh?command_id=${commandId}`,
+      `/cgi-bin/quecmanager/at_cmd/at_queue_client.sh?command_id=${commandId}`,
       {
         method: "GET",
         headers: {

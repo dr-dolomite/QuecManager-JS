@@ -2,7 +2,7 @@
  * Custom hook that fetches and processes cellular modem data for the home dashboard.
  * This hook handles data fetching, processing, error handling, and automatic refresh at regular intervals.
  *
- * The hook fetches data from the API endpoint `/api/cgi-bin/quecmanager/at_cmd/fetch_data.sh?set=1`
+ * The hook fetches data from the API endpoint `/cgi-bin/quecmanager/at_cmd/fetch_data.sh?set=1`
  * and transforms the raw response into a structured {@link HomeData} format with information about:
  * - SIM card details (slot, state, provider, etc.)
  * - Connection information (APN, network type, temperature, etc.)
@@ -39,14 +39,14 @@ const useHomeData = () => {
   const fetchHomeData = useCallback(async () => {
     try {
       const response = await fetch(
-        "/api/cgi-bin/quecmanager/at_cmd/fetch_data.sh?set=1"
+        "/cgi-bin/quecmanager/at_cmd/fetch_data.sh?set=1"
       );
       const rawData = await response.json();
       console.log(rawData);
 
       // fetch public ip from /cgi-bin/quecmanager/home/fetch_public_ip.sh
       const publicIPResponse = await fetch(
-        "/api/cgi-bin/quecmanager/home/fetch_public_ip.sh"
+        "/cgi-bin/quecmanager/home/fetch_public_ip.sh"
       );
 
       // Process the raw data into the HomeData format
@@ -180,62 +180,70 @@ const useHomeData = () => {
           ) || ["Unknown"],
         },
         networkAddressing: {
-          // Public IP address is fetched from the publicIPResponse and its in JSON form already
           publicIPv4: publicIPResponse.ok
             ? (await publicIPResponse.json()).public_ip || "-"
-            : "-",
-          cellularIPv4:
-            rawData[20].response
-              .split("\n")[1]
-              ?.split(":")[1]
-              .split(",")[3]
-              .replace(/"/g, "")
-              .trim() || "-",
-          // For IPv6, count the remaining elements in the array. If there 2 elements left after cellularIPv4, then theres no IPv6 address. If there are 3 elements left, then there is an IPv6 address and it is the next element from cellularIPv4.
-          cellularIPv6:
-            rawData[20].response.split("\n")[1]?.split(":")[1].split(",")
-              .length === 5
-              ? rawData[20].response
-                  .split("\n")[1]
-                  ?.split(":")[1]
-                  .split(",")[4]
-                  .replace(/"/g, "")
-                  .trim()
-              : "-",
-          // For DNS, count the remaining elements in the array. If there 2 elements left after cellularIPv4, then the next element is the primary DNS and the last element is the secondary DNS. If there are 3 elements left, then the next element after cellularIPv4 is the IPv6 address and the last 2 elements are the primary and secondary DNS.
-          carrierPrimaryDNS:
-            rawData[20].response.split("\n")[1]?.split(":")[1].split(",")
-              .length === 5
-              ? rawData[20].response
-                  .split("\n")[1]
-                  ?.split(":")[1]
-                  .split(",")[4]
-                  .replace(/"/g, "")
-                  .trim()
-              : rawData[20].response
-                  .split("\n")[1]
-                  ?.split(":")[1]
-                  .split(",")
-                  .slice(-2)[0]
-                  .replace(/"/g, "")
-                  .trim(),
-          carrierSecondaryDNS:
-            rawData[20].response.split("\n")[1]?.split(":")[1].split(",")
-              .length === 5
-              ? rawData[20].response
-                  .split("\n")[1]
-                  ?.split(":")[1]
-                  .split(",")
-                  .slice(-1)[0]
-                  .replace(/"/g, "")
-                  .trim()
-              : rawData[20].response
-                  .split("\n")[1]
-                  ?.split(":")[1]
-                  .split(",")
-                  .slice(-1)[0]
-                  .replace(/"/g, "")
-                  .trim(),
+            : "Can't fetch public IP",
+
+          // Extract IPv4 address from QMAP="WWAN" response
+          cellularIPv4: (() => {
+            const ipv4Line = rawData[15].response
+              .split("\n")
+              .find(
+                (l: string | string[]) =>
+                  l.includes('QMAP: "WWAN"') && l.includes('"IPV4"')
+              );
+
+            const ipv4Address = ipv4Line
+              ? ipv4Line.match(/"IPV4","([^"]+)"/)?.[1] || "-"
+              : "-";
+
+            return ipv4Address === "0.0.0.0" ? "-" : ipv4Address;
+          })(),
+
+          // Extract IPv6 address from QMAP="WWAN" response
+          cellularIPv6: (() => {
+            const ipv6Line = rawData[15].response
+              .split("\n")
+              .find(
+                (l: string | string[]) =>
+                  l.includes('QMAP: "WWAN"') && l.includes('"IPV6"')
+              );
+
+            const ipv6Address = ipv6Line
+              ? ipv6Line.match(/"IPV6","([^"]+)"/)?.[1] || "-"
+              : "-";
+
+            return ipv6Address === "0:0:0:0:0:0:0:0" ? "-" : ipv6Address;
+          })(),
+
+          // Extract DNS servers from CGCONTRDP response
+          carrierPrimaryDNS: (() => {
+            const cgcontrdpLine = rawData[20].response
+              .split("\n")
+              .find((line: string | string[]) => line.includes("+CGCONTRDP:"));
+
+            if (cgcontrdpLine) {
+              const parts = cgcontrdpLine.split(",");
+              return parts.length >= 2
+                ? parts[parts.length - 2].replace(/"/g, "").trim()
+                : "-";
+            }
+            return "-";
+          })(),
+
+          carrierSecondaryDNS: (() => {
+            const cgcontrdpLine = rawData[20].response
+              .split("\n")
+              .find((line: string | string[]) => line.includes("+CGCONTRDP:"));
+
+            if (cgcontrdpLine) {
+              const parts = cgcontrdpLine.split(",");
+              return parts.length >= 1
+                ? parts[parts.length - 1].replace(/"/g, "").trim()
+                : "-";
+            }
+            return "-";
+          })(),
         },
       };
 
@@ -923,37 +931,66 @@ const getCurrentBandsRSRP = (
     return rsrps.map((l) => l?.split(":")[1]?.split(",")[6]);
   }
 
+  // Process NR5G-NSA bands
   if (networkType === "NR5G-NSA") {
-    // Map all the RSRP values for LTE and NR5G
-    let lteRSRP = response
+    // Map all LTE bands RSRP values
+    const lteRSRP = response
       .split("\n")
       .filter((l) => l.includes("LTE BAND"))
       .map((l) => l?.split(":")[1]?.split(",")[6]);
 
-    const nr5gRSRP = servingCell
+    // Handle the NR5G bands with different parsing based on position
+    const nr5gLines = response
       .split("\n")
-      .filter((l) => l.includes("NR5G-NSA"))
-      .map((l) => l?.split(":")[1]?.split(",")[4]);
+      .filter((l) => l.includes("SCC") && l.includes("NR5G BAND"));
 
+    const nr5gRSRP = nr5gLines.map((line, index) => {
+      const parts = line.split(":")[1].split(",");
+
+      // First NR5G SCC uses index 5 for RSRP
+      if (index === 0) {
+        return parts.length > 5 ? parts[5] : "Unknown";
+      }
+      // Subsequent NR5G SCCs use index 9 for RSRP
+      return parts.length > 9 ? parts[9] : "Unknown";
+    });
+
+    // Combine results
     if (lteRSRP.length && nr5gRSRP.length) {
       return [...lteRSRP, ...nr5gRSRP];
     } else if (lteRSRP.length) {
       return lteRSRP;
     } else if (nr5gRSRP.length) {
       return nr5gRSRP;
-    } else {
-      return ["Unknown"];
     }
   }
 
   if (networkType === "NR5G-SA") {
+    // Get PCC RSRP from serving cell
     const pccRSRP = servingCell.split("\n").find((l) => l.includes("NR5G-SA"));
+    const pccValue = pccRSRP
+      ? pccRSRP?.split(":")[1]?.split(",")[9]
+      : "Unknown";
 
-    if (pccRSRP) {
-      return [pccRSRP?.split(":")[1]?.split(",")[9]];
-    } else {
-      return ["Unknown"];
-    }
+    // Get all SCC RSRP values
+    const sccLines = response
+      .split("\n")
+      .filter((l) => l.includes("SCC") && l.includes("NR5G BAND"));
+
+    // Process each SCC line to extract RSRP at index 9
+    const sccValues = sccLines.map((line) => {
+      const parts = line.split(":")[1].split(",");
+      if (parts.length > 9) {
+        const rsrpValue = parts[9];
+        // Extract just the numeric value with negative sign if present
+        const match = rsrpValue.match(/-?\d+/);
+        return match ? match[0] : "Unknown";
+      }
+      return "Unknown";
+    });
+
+    // Return PCC and all SCC values in a single array
+    return [pccValue, ...sccValues];
   }
 
   return ["Unknown"];
@@ -971,34 +1008,64 @@ const getCurrentBandsRSRQ = (
   }
 
   if (networkType === "NR5G-SA") {
+    // Get PCC RSRQ from serving cell (should use index 10, not 9)
     const pccRSRQ = servingCell.split("\n").find((l) => l.includes("NR5G-SA"));
+    const pccValue = pccRSRQ
+      ? pccRSRQ?.split(":")[1]?.split(",")[10]
+      : "Unknown";
 
-    if (pccRSRQ) {
-      return [pccRSRQ?.split(":")[1]?.split(",")[10]];
-    } else {
-      return ["Unknown"];
-    }
+    // Get all SCC RSRQ values
+    const sccLines = response
+      .split("\n")
+      .filter((l) => l.includes("SCC") && l.includes("NR5G BAND"));
+
+    // Process each SCC line to extract RSRQ at index 10
+    const sccValues = sccLines.map((line) => {
+      const parts = line.split(":")[1].split(",");
+      if (parts.length > 10) {
+        const rsrqValue = parts[10];
+        // Extract just the numeric value with negative sign if present
+        const match = rsrqValue.match(/-?\d+/);
+        return match ? match[0] : "Unknown";
+      }
+      return "Unknown";
+    });
+
+    // Return PCC and all SCC values in a single array
+    return [pccValue, ...sccValues];
   }
 
+  // Process NR5G-NSA bands
   if (networkType === "NR5G-NSA") {
+    // Map all LTE bands RSRQ values
     const lteRSRQ = response
       .split("\n")
       .filter((l) => l.includes("LTE BAND"))
       .map((l) => l?.split(":")[1]?.split(",")[7]);
 
-    const nr5gRSRQ = servingCell
+    // Handle the NR5G bands with different parsing based on position
+    const nr5gLines = response
       .split("\n")
-      .filter((l) => l.includes("NR5G-NSA"))
-      .map((l) => l?.split(":")[1]?.split(",")[6]);
+      .filter((l) => l.includes("SCC") && l.includes("NR5G BAND"));
 
+    const nr5gRSRQ = nr5gLines.map((line, index) => {
+      const parts = line.split(":")[1].split(",");
+
+      // First NR5G SCC uses index 6 for RSRQ
+      if (index === 0) {
+        return parts.length > 6 ? parts[6] : "Unknown";
+      }
+      // Subsequent NR5G SCCs use index 10 for RSRQ
+      return parts.length > 10 ? parts[10] : "Unknown";
+    });
+
+    // Combine results
     if (lteRSRQ.length && nr5gRSRQ.length) {
       return [...lteRSRQ, ...nr5gRSRQ];
     } else if (lteRSRQ.length) {
       return lteRSRQ;
     } else if (nr5gRSRQ.length) {
       return nr5gRSRQ;
-    } else {
-      return ["Unknown"];
     }
   }
 
@@ -1017,36 +1084,101 @@ const getCurrentBandsSINR = (
   }
 
   if (networkType === "NR5G-SA") {
+    // Get PCC SINR from serving cell
     const pccSINR = servingCell.split("\n").find((l) => l.includes("NR5G-SA"));
+    let pccValue = "Unknown";
 
     if (pccSINR) {
-      const SINR = [pccSINR?.split(":")[1]?.split(",")[11]];
-      // If value is -32768, return "-" instead of "Unknown"
-      return SINR[0] === "-32768" ? ["-"] : SINR;
-    } else {
-      return ["Unknown"];
+      const rawSINR = pccSINR?.split(":")[1]?.split(",")[11];
+      // If value is -32768, use "-" instead of "Unknown"
+      if (rawSINR === "-32768") {
+        pccValue = "-";
+      } else {
+        // Apply the SNR conversion formula: SNR = value / 100
+        const sinrValue = parseInt(rawSINR);
+        if (!isNaN(sinrValue)) {
+          // Return a whole number only and round up when necessary
+          pccValue = Math.round(sinrValue / 100).toString();
+        } else {
+          pccValue = rawSINR || "Unknown";
+        }
+      }
     }
+
+    // Get all SCC SINR values
+    const sccLines = response
+      .split("\n")
+      .filter((l) => l.includes("SCC") && l.includes("NR5G BAND"));
+
+    // Process each SCC line to extract SINR at index 11
+    const sccValues = sccLines.map((line) => {
+      const parts = line.split(":")[1].split(",");
+      if (parts.length > 11) {
+        const rawSINR = parts[11];
+
+        // Check for special -32768 value
+        if (rawSINR === "-32768") return "-";
+
+        // Extract numeric value and apply conversion
+        const match = rawSINR.match(/-?\d+/);
+        if (match) {
+          const sinrValue = parseInt(match[0]);
+          if (!isNaN(sinrValue)) {
+            return Math.round(sinrValue / 100).toString();
+          }
+          return match[0];
+        }
+      }
+      return "Unknown";
+    });
+
+    // Return PCC and all SCC values in a single array
+    return [pccValue, ...sccValues];
   }
 
+  // Process NR5G-NSA bands
   if (networkType === "NR5G-NSA") {
+    // Map all LTE bands SINR values
     const lteSINR = response
       .split("\n")
       .filter((l) => l.includes("LTE BAND"))
       .map((l) => l?.split(":")[1]?.split(",")[9]);
 
-    const nr5gSINR = servingCell
+    // Handle the NR5G bands with different parsing based on position
+    const nr5gLines = response
       .split("\n")
-      .filter((l) => l.includes("NR5G-NSA"))
-      .map((l) => l?.split(":")[1]?.split(",")[5]);
+      .filter((l) => l.includes("SCC") && l.includes("NR5G BAND"));
 
+    const nr5gSINR = nr5gLines.map((line, index) => {
+      const parts = line.split(":")[1].split(",");
+
+      let rawSINR;
+      // First NR5G SCC uses index 7 for SINR
+      if (index === 0) {
+        rawSINR = parts.length > 7 ? parts[7] : "Unknown";
+      } else {
+        // Subsequent NR5G SCCs use index 11 for SINR
+        rawSINR = parts.length > 11 ? parts[11] : "Unknown";
+      }
+
+      // Apply the SNR conversion formula for NR: SNR = value / 100
+      if (rawSINR !== "Unknown" && rawSINR !== "-") {
+        const sinrValue = parseInt(rawSINR);
+        if (!isNaN(sinrValue)) {
+          // Return a whole number only and round up when necessary
+          return Math.round(sinrValue / 100).toString();
+        }
+      }
+      return rawSINR;
+    });
+
+    // Combine results
     if (lteSINR.length && nr5gSINR.length) {
       return [...lteSINR, ...nr5gSINR];
     } else if (lteSINR.length) {
       return lteSINR;
     } else if (nr5gSINR.length) {
       return nr5gSINR;
-    } else {
-      return ["Unknown"];
     }
   }
 

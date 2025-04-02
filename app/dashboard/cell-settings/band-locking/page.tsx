@@ -134,7 +134,7 @@ const BandLocking = () => {
       try {
         // Fetch active profile status
         const profileResponse = await fetch(
-          "/api/cgi-bin/quecmanager/profiles/check_status.sh"
+          "/cgi-bin/quecmanager/profiles/check_status.sh"
         );
         if (!profileResponse.ok) {
           throw new Error(
@@ -154,7 +154,7 @@ const BandLocking = () => {
         ) {
           // Fetch all profiles to find the active one
           const profilesResponse = await fetch(
-            "/api/cgi-bin/quecmanager/profiles/list_profiles.sh"
+            "/cgi-bin/quecmanager/profiles/list_profiles.sh"
           );
           if (profilesResponse.ok) {
             const profilesData = await profilesResponse.json();
@@ -202,7 +202,7 @@ const BandLocking = () => {
   const fetchBandsData = async () => {
     try {
       const response = await fetch(
-        "/api/cgi-bin/quecmanager/at_cmd/fetch_data.sh?set=7"
+        "/cgi-bin/quecmanager/at_cmd/fetch_data.sh?set=7"
       );
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);

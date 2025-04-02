@@ -97,7 +97,7 @@ const SignalChart = () => {
   const fetchSignalMetrics = useCallback(async () => {
     try {
       const response = await fetch(
-        "/api/cgi-bin/quecmanager/home/fetch_signal_metrics.sh"
+        "/cgi-bin/quecmanager/home/fetch_signal_metrics.sh"
       );
 
       if (!response.ok) {
