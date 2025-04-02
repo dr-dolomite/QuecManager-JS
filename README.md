@@ -20,7 +20,7 @@
 
 ## 🚀 Getting Started
 
-### Prerequisites
+### Prerequisites for Contributing to the Project
 
 - Node.js 16+
 - Yarn or npm
