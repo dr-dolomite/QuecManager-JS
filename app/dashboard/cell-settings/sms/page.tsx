@@ -25,6 +25,7 @@ import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/hooks/use-toast";
+import { PhoneInput } from "@/components/sms/phone-input";
 
 interface SMSMessage {
   index: number;
@@ -39,11 +40,16 @@ const SMSPage = () => {
   const [messages, setMessages] = useState<SMSMessage[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedMessages, setSelectedMessages] = useState<number[]>([]);
-  const [showSendDialog, setShowSendDialog] = useState(false);
+  // const [showSendDialog, setShowSendDialog] = useState(false);
   const [sendTo, setSendTo] = useState("");
   const [newMessage, setNewMessage] = useState("");
   const [sending, setSending] = useState(false);
   const [replyMessage, setReplyMessage] = useState("");
+
+  const processPhoneNumber = (phone: string) => {
+    // Remove the "+" sign and any whitespace
+    return phone.replace(/\+|\s/g, "");
+  };
 
   const validateInputs = (phone: string, message: string) => {
     if (!phone.trim() || !message.trim()) {
@@ -55,8 +61,9 @@ const SMSPage = () => {
       return false;
     }
 
-    // Phone number validation (only numbers allowed)
-    if (!/^\d+$/.test(phone.trim())) {
+    // Phone number validation (only numbers allowed after processing)
+    const processedPhone = processPhoneNumber(phone);
+    if (!/^\d+$/.test(processedPhone)) {
       toast({
         title: "Validation Error",
         description: "Phone number should contain only numbers",
@@ -76,19 +83,22 @@ const SMSPage = () => {
     setSending(true);
     try {
       const payload = {
-        phone: sendTo.trim(),
+        phone: processPhoneNumber(sendTo.trim()),
         message: newMessage.trim(),
       };
 
-      const response = await fetch(`/cgi-bin/quecmanager/cell-settings/sms/sms_send.sh`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-          Accept: "application/json",
-          "Cache-Control": "no-cache",
-        },
-        body: new URLSearchParams(payload).toString(),
-      });
+      const response = await fetch(
+        `/cgi-bin/quecmanager/cell-settings/sms/sms_send.sh`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+            Accept: "application/json",
+            "Cache-Control": "no-cache",
+          },
+          body: new URLSearchParams(payload).toString(),
+        }
+      );
 
       const data = await response.json();
       console.log("Response data:", data);
@@ -125,20 +135,23 @@ const SMSPage = () => {
     setSending(true);
     try {
       const payload = {
-        phone: recipient.trim(),
+        phone: processPhoneNumber(recipient.trim()),
         message: message.trim(),
       };
 
       // Changed the API endpoint to match the working sendMessage function
-      const response = await fetch(`/cgi-bin/quecmanager/cell-settings/sms/sms_send.sh`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-          Accept: "application/json",
-          "Cache-Control": "no-cache",
-        },
-        body: new URLSearchParams(payload).toString(),
-      });
+      const response = await fetch(
+        `/cgi-bin/quecmanager/cell-settings/sms/sms_send.sh`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+            Accept: "application/json",
+            "Cache-Control": "no-cache",
+          },
+          body: new URLSearchParams(payload).toString(),
+        }
+      );
 
       const data = await response.json();
       console.log("Response data:", data);
@@ -217,7 +230,9 @@ const SMSPage = () => {
   const refreshSMS = async () => {
     setLoading(true);
     try {
-      const response = await fetch("/cgi-bin/quecmanager/cell-settings/sms/sms_inbox.sh");
+      const response = await fetch(
+        "/cgi-bin/quecmanager/cell-settings/sms/sms_inbox.sh"
+      );
       const data = await response.json();
 
       if (!data?.msg || !Array.isArray(data.msg)) {
@@ -251,7 +266,7 @@ const SMSPage = () => {
       console.log("Deleting messages with indices:", payload);
 
       const response = await fetch(
-        `/cgi-bin/quecmanager/cell-settings/cell-settings/sms/sms_delete.sh?indexes=${payload}`,
+        `/cgi-bin/quecmanager/cell-settings/sms/sms_delete.sh?indexes=${payload}`,
         {
           method: "GET",
           headers: {
@@ -450,9 +465,9 @@ const SMSPage = () => {
                             disabled={sending || !replyMessage.trim()}
                           >
                             {sending ? (
-                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              <Loader2 className="h-4 w-4 animate-spin" />
                             ) : (
-                              <Send className="h-4 w-4 mr-2" />
+                              <Send className="h-4 w-4" />
                             )}
                             {sending ? "Sending..." : "Reply"}
                           </Button>
@@ -468,7 +483,7 @@ const SMSPage = () => {
         <CardFooter className="border-t py-4">
           <div className="flex w-full justify-between items-center">
             <Button variant="outline" onClick={refreshSMS} disabled={loading}>
-              <RotateCw className="h-4 w-4 mr-2" />
+              <RotateCw className="h-4 w-4" />
               Refresh
             </Button>
             <Button
@@ -490,11 +505,16 @@ const SMSPage = () => {
         </CardHeader>
         <CardContent>
           <div className="grid gap-6">
-            <Input
+            {/* <Input
               placeholder='Recipient number with country code not including "+" symbol.'
               value={sendTo}
               onChange={(e) => setSendTo(e.target.value)}
               required
+            /> */}
+            <PhoneInput
+              value={sendTo}
+              onChange={(value) => setSendTo(value)}
+              placeholder="Enter recipient phone number"
             />
             <Textarea
               placeholder="Type your SMS here..."
