@@ -74,35 +74,6 @@ const HomePage = () => {
     refresh: refreshTrafficStats,
   } = useTrafficStats();
 
-  // const forceRerunScripts = async () => {
-  //   try {
-  //     const response = await fetch("/cgi-bin/settings/force-rerun.sh");
-  //     const data = await response.json();
-
-  //     if (data.status === "success") {
-  //       toast({
-  //         title: "Data Refreshed",
-  //         description: "Data and scripts has been refreshed successfully",
-  //       });
-  //     } else if (data.status === "info") {
-  //       toast({
-  //         title: "Data Refreshed",
-  //         description:
-  //           "Data refreshed successfully, but no scripts to restart.",
-  //       });
-  //     } else {
-  //       throw new Error("Failed to restart scripts");
-  //     }
-  //   } catch (error) {
-  //     console.error("Error rerunning scripts:", error);
-  //     toast({
-  //       variant: "destructive",
-  //       title: "Script Restart Failed",
-  //       description: "Failed to restart the required scripts",
-  //     });
-  //   }
-  // };
-
   const sendChangeSimSlot = async () => {
     try {
       // Get the current SIM slot through AT+QUIMSLOT? command
@@ -428,7 +399,11 @@ const HomePage = () => {
       <div className="grid gap-4 w-full">
         <h1 className="xl:text-3xl text-base font-bold">Active Addresses</h1>
         <div>
-          <NetworkInfoCard data={homeData} isLoading={isLoading} />
+          <NetworkInfoCard 
+          data={homeData} 
+          isLoading={isLoading} 
+          onRefresh={refreshData}
+          />
         </div>
       </div>
 

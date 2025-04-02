@@ -35,12 +35,91 @@ const useHomeData = () => {
   const [data, setData] = useState<HomeData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
+
+    // Automated recovery function 
+    const handleErrorWithRetry = useCallback(async (err: Error) => {
+      console.error("Error fetching home data:", err);
+      
+      if (retryCount < 2) {  // Limit to 2 retry attempts
+        console.log(`Attempting automatic recovery (attempt ${retryCount + 1}/2)...`);
+        
+        // Wait 3 seconds before retrying
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        // Increment retry count and attempt refetch
+        setRetryCount(prev => prev + 1);
+        fetchHomeData();
+      } else {
+        // After max retries, show error state and fallback data
+        console.error("Max retry attempts reached. Please refresh manually.");
+        setError(err);
+        
+        // Set fallback data with "Unknown" values
+        setData({
+          simCard: {
+            slot: "Not Inserted",
+            state: "Not Inserted",
+            provider: "Unknown",
+            phoneNumber: "Unknown",
+            imsi: "-",
+            iccid: "-",
+            imei: "-",
+          },
+          connection: {
+            apn: "No APN",
+            operatorState: "Unknown",
+            functionalityState: "Disabled",
+            networkType: "No Signal",
+            modemTemperature: "Unknown",
+            accessTechnology: "-",
+          },
+          dataTransmission: {
+            carrierAggregation: "Inactive",
+            connectedBands: "-",
+            signalStrength: "-%",
+            mimoLayers: "-",
+            bandwidth: "Unknown",  // Added missing field
+          },
+          cellularInfo: {
+            cellId: "-",
+            trackingAreaCode: "-",
+            physicalCellId: "-",
+            earfcn: "-",
+            mcc: "-",
+            mnc: "-",
+            signalQuality: "-%",
+          },
+          currentBands: {
+            id: [1],
+            bandNumber: ["-"],
+            earfcn: ["-"],
+            bandwidth: ["-"],
+            pci: ["-"],
+            rsrp: ["-"],
+            rsrq: ["-"],
+            sinr: ["-"],
+          },
+          networkAddressing: {
+            publicIPv4: "-",
+            cellularIPv4: "-",
+            cellularIPv6: "-",
+            carrierPrimaryDNS: "-",
+            carrierSecondaryDNS: "-",
+          },
+        });
+      }
+    }, [retryCount]);
 
   const fetchHomeData = useCallback(async () => {
     try {
       const response = await fetch(
         "/cgi-bin/quecmanager/at_cmd/fetch_data.sh?set=1"
       );
+      if (!response.ok) {
+        throw new Error(`API returned status ${response.status}`);
+      }
+
       const rawData = await response.json();
       console.log(rawData);
 
@@ -248,67 +327,72 @@ const useHomeData = () => {
       };
 
       setData(processedData);
+      setRetryCount(0);
+      setData(processedData);
+      setError(null);
       console.log("Processed home data:", processedData);
     } catch (error) {
       console.error("Error fetching home data:", error);
+      handleErrorWithRetry(error instanceof Error ? error : new Error(String(error)));
+      // // Make all values as "Unknown" if there is an error
+      // const errorData: HomeData = {
+      //   simCard: {
+      //     slot: "Not Inserted",
+      //     state: "Not Inserted",
+      //     provider: "Unknown",
+      //     phoneNumber: "Unknown",
+      //     imsi: "-",
+      //     iccid: "-",
+      //     imei: "-",
+      //   },
+      //   connection: {
+      //     apn: "No APN",
+      //     operatorState: "Unknown",
+      //     functionalityState: "Disabled",
+      //     networkType: "No Signal",
+      //     modemTemperature: "Unknown",
+      //     accessTechnology: "-",
+      //   },
+      //   dataTransmission: {
+      //     carrierAggregation: "Inactive",
+      //     connectedBands: "-",
+      //     signalStrength: "-%",
+      //     mimoLayers: "-",
+      //   },
+      //   cellularInfo: {
+      //     cellId: "-",
+      //     trackingAreaCode: "-",
+      //     physicalCellId: "-",
+      //     earfcn: "-",
+      //     mnc: "-",
+      //     signalQuality: "-%",
+      //   },
+      //   currentBands: {
+      //     // id is length of bandNumber
+      //     id: [1],
+      //     bandNumber: ["-"],
+      //     earfcn: ["-"],
+      //     bandwidth: ["-"],
+      //     pci: ["-"],
+      //     rsrp: ["-"],
+      //     rsrq: ["-"],
+      //     sinr: ["-"],
+      //   },
+      //   networkAddressing: {
+      //     publicIPv4: "-",
+      //     cellularIPv4: "-",
+      //     cellularIPv6: "-",
+      //     carrierPrimaryDNS: "-",
+      //     carrierSecondaryDNS: "-",
+      //   },
+      // };
 
-      // Make all values as "Unknown" if there is an error
-      const errorData: HomeData = {
-        simCard: {
-          slot: "Not Inserted",
-          state: "Not Inserted",
-          provider: "Unknown",
-          phoneNumber: "Unknown",
-          imsi: "-",
-          iccid: "-",
-          imei: "-",
-        },
-        connection: {
-          apn: "No APN",
-          operatorState: "Unknown",
-          functionalityState: "Disabled",
-          networkType: "No Signal",
-          modemTemperature: "Unknown",
-          accessTechnology: "-",
-        },
-        dataTransmission: {
-          carrierAggregation: "Inactive",
-          connectedBands: "-",
-          signalStrength: "-%",
-          mimoLayers: "-",
-        },
-        cellularInfo: {
-          cellId: "-",
-          trackingAreaCode: "-",
-          physicalCellId: "-",
-          earfcn: "-",
-          mnc: "-",
-          signalQuality: "-%",
-        },
-        currentBands: {
-          // id is length of bandNumber
-          id: [1],
-          bandNumber: ["-"],
-          earfcn: ["-"],
-          bandwidth: ["-"],
-          pci: ["-"],
-          rsrp: ["-"],
-          rsrq: ["-"],
-          sinr: ["-"],
-        },
-        networkAddressing: {
-          publicIPv4: "-",
-          cellularIPv4: "-",
-          cellularIPv6: "-",
-          carrierPrimaryDNS: "-",
-          carrierSecondaryDNS: "-",
-        },
-      };
-
-      setData(errorData);
-      setError(null);
+      // setData(errorData);
+      // setError(null);
+    } finally {
+      setIsLoading(false);
     }
-  }, []);
+  }, [handleErrorWithRetry]);
 
   useEffect(() => {
     let isMounted = true;
