@@ -1,37 +1,68 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# QuecManager
 
-## Getting Started
+<div align="center">
+  <h3>A modern dashboard for managing and monitoring cellular connectivity</h3>
+  <p>Visualize, configure, and optimize your cellular modem's performance</p>
+</div>
 
-First, run the development server:
+---
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## ✨ Features
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+- **Live Cellular Metrics:** Real-time monitoring of signal strength, connected bands, and throughput.
+- **Network Addressing:** Comprehensive view of IP addresses, DNS servers, and connection state.
+- **Multi-band Support:** Detailed analysis of carrier aggregation, MIMO layers, and band-specific metrics.
+- **APN Management:** Easily configure and switch between APN profiles.
+- **Network Selection:** Control network type, 5G modes, and operator selection.
+- **Responsive Design:** Optimized for both desktop and mobile devices.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+---
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 🚀 Getting Started
 
-## Learn More
+### Prerequisites
 
-To learn more about Next.js, take a look at the following resources:
+- Node.js 16+
+- Yarn or npm
+- Compatible cellular modem with AT command support
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Installation
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+To install QuecManager, refer to [this wiki](https://github.com/iamromulan/quectel-rgmii-toolkit/tree/SDXPINN).
 
-## Deploy on Vercel
+---
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## 💻 Technologies
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
-# QuecManager-JS
+- **Frontend:** React, TypeScript, Tailwind CSS, shadcn/ui
+- **State Management:** React Context API and custom hooks
+- **API Communication:** Fetch API with custom parsers for AT command responses
+
+---
+
+## 📚 Documentation
+
+For detailed documentation, please refer to the [Wiki](https://github.com/iamromulan/quectel-rgmii-toolkit).
+
+---
+
+## 🤝 Support the Project
+
+<div align="center">
+  <h3>Support QuecManager's Development</h3>
+  <p>Your contribution helps maintain the project and fund continued development, testing on new cellular networks, and hardware costs.</p>
+  <br/>
+  <a href="https://ko-fi.com/drdolomite" target="_blank">
+    <img height="64" style="border:0;height:64px;" src="https://storage.ko-fi.com/cdn/kofi1.png?v=3" alt="Buy Me a Coffee at ko-fi.com" />
+  </a>
+</div>
+
+---
+
+## 📄 License
+
+This project is licensed under the [MIT License](LICENSE) - see the LICENSE file for details.
+
+<div align="center">
+  <p>Built with 🧡 by DrDolomite</p>
+</div>
