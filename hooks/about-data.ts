@@ -73,9 +73,6 @@ const useAboutData = () => {
         uptimeResponse.json()
       ]);
 
-      console.log("Fetched about data:", rawData);
-      console.log("Fetched uptime data:", uptimeData);
-
       const processedData: AboutData = {
         manufacturer: rawData[0].response.split("\n")[1].trim(),
         model: rawData[1].response.split("\n")[1].trim(),
@@ -93,7 +90,7 @@ const useAboutData = () => {
       };
 
       setData(processedData);
-      console.log("Processed data:", processedData);
+      // console.log("Processed data:", processedData);
     } catch (error) {
       console.error("Error fetching data:", error);
     }

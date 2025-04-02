@@ -37,24 +37,28 @@ const useHomeData = () => {
   const [error, setError] = useState<Error | null>(null);
   const [retryCount, setRetryCount] = useState(0);
 
-    // Automated recovery function 
-    const handleErrorWithRetry = useCallback(async (err: Error) => {
+  // Automated recovery function
+  const handleErrorWithRetry = useCallback(
+    async (err: Error) => {
       console.error("Error fetching home data:", err);
-      
-      if (retryCount < 2) {  // Limit to 2 retry attempts
-        console.log(`Attempting automatic recovery (attempt ${retryCount + 1}/2)...`);
-        
+
+      if (retryCount < 2) {
+        // Limit to 2 retry attempts
+        console.log(
+          `Attempting automatic recovery (attempt ${retryCount + 1}/2)...`
+        );
+
         // Wait 3 seconds before retrying
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+
         // Increment retry count and attempt refetch
-        setRetryCount(prev => prev + 1);
+        setRetryCount((prev) => prev + 1);
         fetchHomeData();
       } else {
         // After max retries, show error state and fallback data
         console.error("Max retry attempts reached. Please refresh manually.");
         setError(err);
-        
+
         // Set fallback data with "Unknown" values
         setData({
           simCard: {
@@ -79,7 +83,7 @@ const useHomeData = () => {
             connectedBands: "-",
             signalStrength: "-%",
             mimoLayers: "-",
-            bandwidth: "Unknown",  // Added missing field
+            bandwidth: "Unknown", // Added missing field
           },
           cellularInfo: {
             cellId: "-",
@@ -109,7 +113,9 @@ const useHomeData = () => {
           },
         });
       }
-    }, [retryCount]);
+    },
+    [retryCount]
+  );
 
   const fetchHomeData = useCallback(async () => {
     try {
@@ -333,7 +339,9 @@ const useHomeData = () => {
       console.log("Processed home data:", processedData);
     } catch (error) {
       console.error("Error fetching home data:", error);
-      handleErrorWithRetry(error instanceof Error ? error : new Error(String(error)));
+      handleErrorWithRetry(
+        error instanceof Error ? error : new Error(String(error))
+      );
       // // Make all values as "Unknown" if there is an error
       // const errorData: HomeData = {
       //   simCard: {
@@ -1228,35 +1236,55 @@ const getCurrentBandsSINR = (
       .filter((l) => l.includes("LTE BAND"))
       .map((l) => l?.split(":")[1]?.split(",")[9]);
 
-    // Handle the NR5G bands with different parsing based on position
+    // Handle NR5G bands differently
     const nr5gLines = response
       .split("\n")
       .filter((l) => l.includes("SCC") && l.includes("NR5G BAND"));
 
-    const nr5gSINR = nr5gLines.map((line, index) => {
-      const parts = line.split(":")[1].split(",");
+    let nr5gSINR: string[] = [];
 
-      let rawSINR;
-      // First NR5G SCC uses index 7 for SINR
-      if (index === 0) {
-        rawSINR = parts.length > 7 ? parts[7] : "Unknown";
-      } else {
-        // Subsequent NR5G SCCs use index 11 for SINR
-        rawSINR = parts.length > 11 ? parts[11] : "Unknown";
-      }
+    if (nr5gLines.length > 0) {
+      // For the first NR5G band, get SINR from serving cell data
+      const nr5gServingData = servingCell
+        .split("\n")
+        .find((l) => l.includes("NR5G-NSA"));
 
-      // Apply the SNR conversion formula for NR: SNR = value / 100
-      if (rawSINR !== "Unknown" && rawSINR !== "-") {
-        const sinrValue = parseInt(rawSINR);
-        if (!isNaN(sinrValue)) {
-          // Return a whole number only and round up when necessary
-          return Math.round(sinrValue / 100).toString();
+      if (nr5gServingData) {
+        // SINR is the 6th field (index 5) in the NR5G-NSA serving cell line
+        const servingCellParts = nr5gServingData.split(",");
+        if (servingCellParts.length > 5) {
+          const sinrValue = servingCellParts[5].trim();
+          nr5gSINR.push(sinrValue);
+        } else {
+          nr5gSINR.push("Unknown");
         }
+      } else {
+        nr5gSINR.push("Unknown");
       }
-      return rawSINR;
-    });
 
-    // Combine results
+      // For any additional NR5G bands (2nd onwards),
+      // continue using QCAINFO data at index 11
+      if (nr5gLines.length > 1) {
+        const additionalBands = nr5gLines.slice(1).map((line) => {
+          const parts = line.split(":")[1].split(",");
+          const rawSINR = parts.length > 11 ? parts[11] : "Unknown";
+
+          // Apply the SNR conversion formula for NR: SNR = value / 100
+          if (rawSINR !== "Unknown" && rawSINR !== "-") {
+            if (rawSINR === "-32768") return "-";
+
+            const sinrValue = parseInt(rawSINR);
+            if (!isNaN(sinrValue)) {
+              return Math.round(sinrValue / 100).toString();
+            }
+          }
+          return rawSINR;
+        });
+
+        nr5gSINR = [...nr5gSINR, ...additionalBands];
+      }
+    }
+
     if (lteSINR.length && nr5gSINR.length) {
       return [...lteSINR, ...nr5gSINR];
     } else if (lteSINR.length) {

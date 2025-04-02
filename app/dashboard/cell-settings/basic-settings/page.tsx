@@ -355,7 +355,7 @@ const BasicSettings = () => {
 
   const executeATCommand = async (command: string): Promise<boolean> => {
     try {
-      // console.log("Executing AT command:", command);
+      console.log("Executing AT command:", command);
       const response = await atCommandSender(command);
 
       if (response.status === "error") {
@@ -456,7 +456,7 @@ const BasicSettings = () => {
       }
 
       // Log the detected changes
-      // console.log("Detected changes:", changes);
+      console.log("Detected changes:", changes);
 
       const command = await constructATCommand(changes);
 
@@ -465,12 +465,17 @@ const BasicSettings = () => {
         // console.log("Executing command:", command);
         await executeATCommand(command);
 
-        // Disconnect from the network registration to apply changes
-        await executeATCommand("AT+COPS=2");
-        // Wait for 1 second before reconnecting
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-        // Reconnect to the network registration
-        await executeATCommand("AT+COPS=0");
+        // Only reconnect if the command included APN changes
+        if (changes.currentAPN || changes.apnPDPType) {
+          // Add a short buffer to allow the command to take effect
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+          // Disconnect from the network registration to apply changes
+          await executeATCommand("AT+COPS=2");
+          // Wait for 1 second before reconnecting
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+          // Reconnect to the network registration
+          await executeATCommand("AT+COPS=0");
+        }
       }
 
       // Add a delay to allow the settings to take effect

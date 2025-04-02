@@ -235,17 +235,15 @@ const IMEIManglingPage = () => {
           <CardHeader>
             <CardTitle>IMEI Mangling</CardTitle>
             <CardDescription className="flex items-center justify-between">
-              Change the IMEI of the device.
+              Change the IMEI of the device. Changing the IMEI may void your
+              warranty and is illegal in some jurisdictions.
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger>
-                    <span className="flex items-center text-orange-500">
-                      <TriangleAlert className="size-4 mr-1" />
-                      Do at your own risk!
-                    </span>
+                    <TriangleAlert className="size-4 text-orange-500" />
                   </TooltipTrigger>
                   <TooltipContent>
-                    <p>Add to library</p>
+                    <p>Do at your own risk!</p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>

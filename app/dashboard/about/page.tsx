@@ -181,12 +181,18 @@ const AboutPage = () => {
             <div className="grid gap-2">
               <h1 className="text-xl font-bold antialiased">QuecManager</h1>
               <p className="text-md font-medium antialiased">
-                QuecManager began as 'Simple Admin,' a straightforward GUI in
-                the RGMII toolkit. Over time, it evolved into a comprehensive
-                dashboard with powerful features for managing cellular modems.
-                While we’ve moved beyond the 'Simple' name, our goal remains the
-                same: providing a clean, easy-to-use interface that makes
-                advanced modem management feel straightforward and accessible.
+                QuecManager is a modern dashboard for managing and monitoring
+                cellular modems, evolved from its roots as 'Simple Admin' in the
+                RGMII toolkit. The application provides real-time insights into
+                signal metrics, carrier aggregation, network addressing, and
+                band-specific performance while offering intuitive controls for
+                modem configuration. With its comprehensive feature set and
+                clean interface, QuecManager transforms complex cellular
+                technology into an accessible experience for both technical
+                users and those simply looking to optimize their connectivity.
+                Our mission remains focused on delivering powerful monitoring
+                and management capabilities without sacrificing usability or
+                visual clarity.
               </p>
             </div>
 
@@ -204,7 +210,7 @@ const AboutPage = () => {
                   </a>
                 </li>
                 <li>
-                  Simple Admin 2.0 and QuecManager GUI
+                  Simple Admin 2.0 and QuecManager Scripts & GUI
                   <a
                     href="https://github.com/dr-dolomite"
                     target="_blank"
