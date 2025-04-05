@@ -46,10 +46,11 @@ interface FormData {
   autoSelState: string;
   selectedMbnProfile?: string;
   mbnProfilesList?: string[];
-  // New fields for APN profiles
   apnProfiles: string[];
   selectedAPNProfileIndex: number;
   dataProfileIndex: string;
+  lteAMBR: string[];
+  nr5gAMBR: string[];
 }
 
 interface ProfileStatus {
@@ -75,6 +76,7 @@ interface Profile {
 
 import { atCommandSender } from "@/utils/at-command";
 import { Separator } from "@/components/ui/separator";
+import AMBRCard from "@/components/cell-settings/amb-card";
 
 const BasicSettings = () => {
   const { toast } = useToast();
@@ -113,6 +115,8 @@ const BasicSettings = () => {
     apnProfiles: [],
     selectedAPNProfileIndex: 0,
     dataProfileIndex: "1", // Default to profile 1 if not specified
+    lteAMBR: [],
+    nr5gAMBR: [],
   });
 
   // Initialize form data when initial data loads
@@ -138,6 +142,8 @@ const BasicSettings = () => {
           : [],
         selectedAPNProfileIndex: 0,
         dataProfileIndex: initialData.dataProfileIndex || "1", // Use the profile index from the hook
+        lteAMBR: initialData.lteAMBR || [],
+        nr5gAMBR: initialData.nr5gAMBR || [],
       };
 
       setFormData(sanitizedData);
@@ -246,9 +252,9 @@ const BasicSettings = () => {
 
       // Use the profile index provided by the hook
       const profileNumber = parseInt(formData.dataProfileIndex, 10);
-      // console.log(
-      //   `Setting APN on profile ${profileNumber} to "${apn}" with type "${pdpType}"`
-      // );
+      console.log(
+        `Setting APN on profile ${profileNumber} to "${apn}" with type "${pdpType}"`
+      );
 
       commands.push(`AT+CGDCONT=${profileNumber},"${pdpType}","${apn}"`);
     }
@@ -288,7 +294,7 @@ const BasicSettings = () => {
     }
 
     if (changes.simSlot) {
-      const command = `+QUIMSLOT=${changes.simSlot};+COPS=2;+COPS=0`;
+      const command = `+QUIMSLOT=${changes.simSlot}`;
       commands.push(commands.length === 0 ? `AT${command}` : command);
     }
 
@@ -465,7 +471,7 @@ const BasicSettings = () => {
         // console.log("Executing command:", command);
         await executeATCommand(command);
 
-        // Only reconnect if the command included APN changes
+        // Only reconnect if the command included APN or SIM slot changes
         if (changes.currentAPN || changes.apnPDPType) {
           // Add a short buffer to allow the command to take effect
           await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -479,7 +485,7 @@ const BasicSettings = () => {
       }
 
       // Add a delay to allow the settings to take effect
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+      await new Promise((resolve) => setTimeout(resolve, 4000));
       await fetchCellSettingsData();
       setIsDataLoaded(false);
 
@@ -997,6 +1003,11 @@ const BasicSettings = () => {
           </CardFooter>
         </form>
       </Card>
+
+      <AMBRCard
+      lteAMBR={formData.lteAMBR}
+      nr5gAMBR={formData.nr5gAMBR}
+      />
     </div>
   );
 };

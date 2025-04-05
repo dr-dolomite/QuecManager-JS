@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 
 interface EthernetData {
@@ -10,20 +10,20 @@ interface EthernetData {
 
 const formatSpeed = (speed: string): string => {
   if (speed === "Unknown!") return "-";
-  
+
   // Extract the numeric value using regex
   const match = speed.match(/(\d+)/);
   if (!match) return speed;
-  
+
   const numericSpeed = parseInt(match[1], 10);
-  
+
   // Convert to Gb/s if speed is 1000Mb/s or higher
   if (numericSpeed >= 1000) {
     const gbSpeed = numericSpeed / 1000;
-    return `${gbSpeed}${speed.includes('Gb') ? 'Gb/s' : 'Gb/s'}`;
+    return `${gbSpeed}${speed.includes("Gb") ? "Gb/s" : "Gb/s"}`;
   }
-  
-  return `${numericSpeed}${speed.includes('Mb') ? 'Mb/s' : 'Mb/s'}`;
+
+  return `${numericSpeed}${speed.includes("Mb") ? "Mb/s" : "Mb/s"}`;
 };
 
 const EthernetCard = () => {
@@ -38,13 +38,16 @@ const EthernetCard = () => {
   useEffect(() => {
     const fetchEthernetInfo = async () => {
       try {
-        const response = await fetch("/cgi-bin/quecmanager/home/fetch_hw_details.sh?type=eth", {
-          method: "GET",
-          cache: "no-store",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        });
+        const response = await fetch(
+          "/cgi-bin/quecmanager/home/fetch_hw_details.sh?type=eth",
+          {
+            method: "GET",
+            cache: "no-store",
+            headers: {
+              "Content-Type": "application/json",
+            },
+          }
+        );
 
         if (!response.ok) {
           throw new Error("Network response was not ok");
@@ -66,7 +69,7 @@ const EthernetCard = () => {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Ethernet</CardTitle>
+          <CardTitle>Ethernet Information</CardTitle>
         </CardHeader>
         <CardContent className="flex items-center justify-center">
           <div className="text-red-500">{error}</div>
@@ -78,7 +81,10 @@ const EthernetCard = () => {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Ethernet</CardTitle>
+        <CardTitle>Ethernet Information</CardTitle>
+        <CardDescription>
+          Shows the status of the Ethernet connection and its speed.
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <div className="grid lg:grid-cols-3 grid-cols-2 grid-flow-row gap-4 col-span-3">

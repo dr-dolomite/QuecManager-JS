@@ -34,8 +34,8 @@ const AboutPage = () => {
           </CardHeader>
           <CardContent>
             <ScrollArea className="w-full">
-              <div className="grid gap-2">
-                <div className="flex items-center justify-between">
+              <div className="grid md:gap-2 gap-4">
+                <div className="flex md:flex-row flex-col md:items-center justify-between">
                   <span>Modem Manufacturer</span>
                   <span className="font-semibold max-w-32 md:max-w-full truncate">
                     {isLoading ? (
@@ -45,7 +45,7 @@ const AboutPage = () => {
                     )}
                   </span>
                 </div>
-                <div className="flex items-center justify-between">
+                <div className="flex md:flex-row flex-col md:items-center justify-between">
                   <span>Modem Model</span>
                   <span className="font-semibold max-w-32 md:max-w-full truncate">
                     {isLoading ? (
@@ -55,7 +55,27 @@ const AboutPage = () => {
                     )}
                   </span>
                 </div>
-                <div className="flex items-center justify-between">
+                <div className="flex md:flex-row flex-col md:items-center justify-between">
+                  <span>LTE 3GPP Release Version</span>
+                  <span className="font-semibold max-w-32 md:max-w-full truncate">
+                    {isLoading ? (
+                      <Skeleton className="h-4 w-32" />
+                    ) : (
+                      <>Release {data?.LTE3GppRel || "N/A"}</>
+                    )}
+                  </span>
+                </div>
+                <div className="flex md:flex-row flex-col md:items-center justify-between">
+                  <span>NR5G 3GPP Release Version</span>
+                  <span className="font-semibold max-w-32 md:max-w-full truncate">
+                    {isLoading ? (
+                      <Skeleton className="h-4 w-32" />
+                    ) : (
+                      <>Release {data?.NR3GppRel || "N/A"}</>
+                    )}
+                  </span>
+                </div>
+                <div className="flex md:flex-row flex-col md:items-center justify-between">
                   <span>Firmware Revision</span>
                   <span className="font-semibold max-w-32 md:max-w-full truncate">
                     {isLoading ? (
@@ -65,7 +85,7 @@ const AboutPage = () => {
                     )}
                   </span>
                 </div>
-                <div className="flex items-center justify-between">
+                <div className="flex md:flex-row flex-col md:items-center justify-between">
                   <span>LTE Category</span>
                   <span className="font-semibold max-w-32 md:max-w-full truncate">
                     {isLoading ? (
@@ -75,7 +95,7 @@ const AboutPage = () => {
                     )}
                   </span>
                 </div>
-                <div className="flex items-center justify-between">
+                <div className="flex md:flex-row flex-col md:items-center justify-between">
                   <span>Active Phone Number</span>
                   <span className="font-semibold max-w-32 md:max-w-full truncate">
                     {isLoading ? (
@@ -85,7 +105,7 @@ const AboutPage = () => {
                     )}
                   </span>
                 </div>
-                <div className="flex items-center justify-between">
+                <div className="flex md:flex-row flex-col md:items-center justify-between">
                   <span>Active IMSI</span>
                   <span className="font-semibold max-w-32 md:max-w-full truncate">
                     {isLoading ? (
@@ -95,7 +115,7 @@ const AboutPage = () => {
                     )}
                   </span>
                 </div>
-                <div className="flex items-center justify-between">
+                <div className="flex md:flex-row flex-col md:items-center justify-between">
                   <span>Active ICCID</span>
                   <span className="font-semibold max-w-32 md:max-w-full truncate">
                     {isLoading ? (
@@ -105,7 +125,7 @@ const AboutPage = () => {
                     )}
                   </span>
                 </div>
-                <div className="flex items-center justify-between">
+                <div className="flex md:flex-row flex-col md:items-center justify-between">
                   <span>IMEI</span>
                   <span className="font-semibold max-w-32 md:max-w-full truncate">
                     {isLoading ? (
@@ -115,7 +135,7 @@ const AboutPage = () => {
                     )}
                   </span>
                 </div>
-                <div className="flex items-center justify-between">
+                <div className="flex md:flex-row flex-col md:items-center justify-between">
                   <span>Current Device IP</span>
                   <span className="font-semibold max-w-32 md:max-w-full truncate">
                     {isLoading ? (
@@ -125,7 +145,7 @@ const AboutPage = () => {
                     )}
                   </span>
                 </div>
-                <div className="flex items-center justify-between">
+                <div className="flex md:flex-row flex-col md:items-center justify-between">
                   <span>LAN Gateway</span>
                   <span className="font-semibold max-w-32 md:max-w-full truncate">
                     {isLoading ? (
@@ -135,7 +155,7 @@ const AboutPage = () => {
                     )}
                   </span>
                 </div>
-                <div className="flex items-center justify-between">
+                <div className="flex md:flex-row flex-col md:items-center justify-between">
                   <span>WWAN IPv4</span>
                   <span className="font-semibold max-w-32 md:max-w-full truncate">
                     {isLoading ? (
@@ -145,7 +165,7 @@ const AboutPage = () => {
                     )}
                   </span>
                 </div>
-                <div className="flex items-center justify-between">
+                <div className="flex md:flex-row flex-col md:items-center justify-between">
                   <span>WWAN IPv6</span>
                   <span className="font-semibold max-w-32 md:max-w-full truncate">
                     {isLoading ? (
@@ -156,7 +176,7 @@ const AboutPage = () => {
                   </span>
                 </div>
 
-                <div className="flex items-center justify-between">
+                <div className="flex md:flex-row flex-col md:items-center justify-between">
                   <span>Device Uptime</span>
                   <span className="font-semibold max-w-32 md:max-w-full truncate">
                     {isLoading ? (

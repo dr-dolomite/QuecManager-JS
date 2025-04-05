@@ -39,6 +39,7 @@ import GithubButtonToast from "@/components/github-button";
 
 import { atCommandSender } from "@/utils/at-command";
 import { PowerIcon } from "lucide-react";
+import EthernetCard from "@/components/home/ethernet-card";
 
 interface MacAddress {
   mac: string;
@@ -325,7 +326,7 @@ const ConnectivitySettingsPage = () => {
   }, []);
 
   return (
-    <>
+    <div className="grid gap-4">
       <Card>
         <CardHeader>
           <CardTitle>Connectivity Settings</CardTitle>
@@ -470,6 +471,8 @@ const ConnectivitySettingsPage = () => {
         </CardFooter>
       </Card>
 
+      <EthernetCard/>
+
       <AlertDialog open={showRebootDialog} onOpenChange={setShowRebootDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -488,7 +491,7 @@ const ConnectivitySettingsPage = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </>
+    </div>
   );
 };
 

@@ -88,7 +88,16 @@ const parseSignalOutput = (output: string): number => {
 };
 
 const SignalChart = () => {
-  const [chartData, setChartData] = useState<ChartDataPoint[]>([]);
+  // Initialize with 5 data points to show a graph right away
+  const [chartData, setChartData] = useState<ChartDataPoint[]>(() => {
+    const now = new Date();
+    return Array.from({ length: 5 }, (_, i) => ({
+      time: new Date(now.getTime() - (4 - i) * 3000).toISOString(),
+      rsrp: 0,
+      rsrq: 0,
+      sinr: 0,
+    }));
+  });
   const [activeChart, setActiveChart] =
     useState<keyof typeof chartConfig>("rsrp");
   const [isInitialLoading, setIsInitialLoading] = useState(true);
@@ -104,7 +113,13 @@ const SignalChart = () => {
         throw new Error("Failed to fetch signal metrics");
       }
 
-      const data: SignalResponse = await response.json();
+      let data: SignalResponse;
+      try {
+        data = await response.json();
+      } catch (jsonError) {
+        console.error("Error parsing JSON:", jsonError);
+        throw new Error("Failed to parse signal metrics data");
+      }
 
       // Ensure all arrays have the same length
       const length = Math.min(
@@ -112,6 +127,10 @@ const SignalChart = () => {
         data.rsrq.length,
         data.sinr.length
       );
+
+      if (length === 0) {
+        throw new Error("No signal metrics data available");
+      }
 
       const transformedData: ChartDataPoint[] = Array.from(
         { length },
@@ -127,10 +146,27 @@ const SignalChart = () => {
       setError(null);
     } catch (err) {
       console.error("Error fetching metrics:", err);
+      // Set error but don't clear chart data, so the graph remains visible
       setError(
         err instanceof Error ? err.message : "An unknown error occurred"
       );
-      setChartData([]);
+      
+      // Add a new data point with zeros rather than clearing the chart
+      const now = new Date().toISOString();
+      setChartData(prevData => {
+        // Keep last 20 points to prevent excessive memory usage
+        const newData = [...prevData];
+        if (newData.length >= 20) {
+          newData.shift();
+        }
+        newData.push({
+          time: now,
+          rsrp: 0,
+          rsrq: 0,
+          sinr: 0
+        });
+        return newData;
+      });
     } finally {
       setIsInitialLoading(false);
     }

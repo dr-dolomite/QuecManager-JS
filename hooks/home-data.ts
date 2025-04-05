@@ -110,6 +110,12 @@ const useHomeData = () => {
             cellularIPv6: "-",
             carrierPrimaryDNS: "-",
             carrierSecondaryDNS: "-",
+            rawCarrierPrimaryDNS: "-",
+            rawCarrierSecondaryDNS: "-",
+          },
+          timeAdvance: {
+            lteTimeAdvance: "-",
+            nrTimeAdvance: "-",
           },
         });
       }
@@ -298,37 +304,250 @@ const useHomeData = () => {
               ? ipv6Line.match(/"IPV6","([^"]+)"/)?.[1] || "-"
               : "-";
 
-            return ipv6Address === "0:0:0:0:0:0:0:0" ? "-" : ipv6Address;
+            // Parse the IPv6 address to show its shortened version
+            const parsedIPv6 = ipv6Address
+              ? ipv6Address.replace(/::/g, ":")
+              : "-";
+            // If the parsed IPv6 address is "::" or "0:0:0:0:0:0:0:0", return "-"
+            return parsedIPv6 === "::" || parsedIPv6 === "0:0:0:0:0:0:0:0"
+              ? "-"
+              : parsedIPv6;
           })(),
 
           // Extract DNS servers from CGCONTRDP response
           carrierPrimaryDNS: (() => {
-            const cgcontrdpLine = rawData[20].response
-              .split("\n")
-              .find((line: string | string[]) => line.includes("+CGCONTRDP:"));
+            try {
+              if (!rawData[15]?.response || !rawData[20]?.response) return "-";
 
-            if (cgcontrdpLine) {
-              const parts = cgcontrdpLine.split(",");
-              return parts.length >= 2
-                ? parts[parts.length - 2].replace(/"/g, "").trim()
-                : "-";
+              // Step 1: Get profile ID from QMAP="WWAN" response
+              const qmapLines = rawData[15].response
+                .split("\n")
+                .filter((line: string | string[]) =>
+                  line.includes('+QMAP: "WWAN"')
+                );
+
+              // Extract the profile ID from the first WWAN line
+              const profileIDMatch = qmapLines[0]?.match(
+                /\+QMAP: "WWAN",\d+,(\d+),/
+              );
+              const profileID = profileIDMatch ? profileIDMatch[1] : null;
+              // console.log("Profile ID:", profileID);
+
+              if (!profileID) return "-";
+
+              // Step 2: Find matching CID in CGCONTRDP
+              const cgcontrdpLines = rawData[20].response
+                .split("\n")
+                .filter((line: string | string[]) =>
+                  line.includes("+CGCONTRDP:")
+                );
+
+              // Find the line where CID matches our profile ID
+              const matchingLine = cgcontrdpLines.find((line: string) => {
+                const cid = line.match(/\+CGCONTRDP: (\d+),/);
+                return cid && cid[1] === profileID;
+              });
+
+              if (!matchingLine) return "-";
+
+              // Step 3: Extract primary DNS (second to last field)
+              const parts = matchingLine.split(",");
+              if (parts.length < 2) return "-";
+
+              // Primary DNS is the second to last element
+              const dnsAddress = parts[parts.length - 2]
+                .replace(/"/g, "")
+                .trim();
+
+              // Step 4: Format based on IP type
+              const isIPv4 = dnsAddress.match(
+                /^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/
+              );
+
+              // Detect dotted-decimal IPv6 format (long string with many dots)
+              const isDottedIPv6 = dnsAddress.split(".").length > 4;
+
+              if (isIPv4) {
+                return dnsAddress;
+              } else if (isDottedIPv6) {
+                // Convert dotted-decimal IPv6 to standard IPv6 notation
+                return formatDottedIPv6(dnsAddress);
+              } else {
+                // Handle regular colon-separated IPv6
+                return dnsAddress.replace(/:{3,}/g, "::");
+              }
+            } catch (error) {
+              console.error("Error extracting primary DNS:", error);
+              return "-";
             }
-            return "-";
           })(),
 
           carrierSecondaryDNS: (() => {
-            const cgcontrdpLine = rawData[20].response
-              .split("\n")
-              .find((line: string | string[]) => line.includes("+CGCONTRDP:"));
+            try {
+              if (!rawData[15]?.response || !rawData[20]?.response) return "-";
 
-            if (cgcontrdpLine) {
-              const parts = cgcontrdpLine.split(",");
-              return parts.length >= 1
-                ? parts[parts.length - 1].replace(/"/g, "").trim()
-                : "-";
+              // Step 1: Get profile ID from QMAP="WWAN" response
+              const qmapLines = rawData[15].response
+                .split("\n")
+                .filter((line: string | string[]) =>
+                  line.includes('+QMAP: "WWAN"')
+                );
+
+              const profileIDMatch = qmapLines[0]?.match(
+                /\+QMAP: "WWAN",\d+,(\d+),/
+              );
+              const profileID = profileIDMatch ? profileIDMatch[1] : null;
+
+              if (!profileID) return "-";
+
+              // Step 2: Find matching CID in CGCONTRDP
+              const cgcontrdpLines = rawData[20].response
+                .split("\n")
+                .filter((line: string | string[]) =>
+                  line.includes("+CGCONTRDP:")
+                );
+
+              const matchingLine = cgcontrdpLines.find((line: string) => {
+                const cid = line.match(/\+CGCONTRDP: (\d+),/);
+                return cid && cid[1] === profileID;
+              });
+
+              if (!matchingLine) return "-";
+
+              // Step 3: Extract primary DNS (second to last field)
+              const parts = matchingLine.split(",");
+              if (parts.length < 2) return "-";
+
+              // Primary DNS is the second to last element
+              const dnsAddress = parts[parts.length - 2]
+                .replace(/"/g, "")
+                .trim();
+
+              // Step 4: Format based on IP type
+              const isIPv4 = dnsAddress.match(
+                /^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/
+              );
+
+              // Detect dotted-decimal IPv6 format (long string with many dots)
+              const isDottedIPv6 = dnsAddress.split(".").length > 4;
+
+              if (isIPv4) {
+                return dnsAddress;
+              } else if (isDottedIPv6) {
+                // Convert dotted-decimal IPv6 to standard IPv6 notation
+                return formatDottedIPv6(dnsAddress);
+              } else {
+                // Handle regular colon-separated IPv6
+                return dnsAddress.replace(/:{3,}/g, "::");
+              }
+            } catch (error) {
+              console.error("Error extracting primary DNS:", error);
+              return "-";
             }
-            return "-";
           })(),
+          // Raw DNS addresses without formatting
+          rawCarrierPrimaryDNS: (() => {
+            try {
+              if (!rawData[15]?.response || !rawData[20]?.response) return "-";
+
+              // Step 1: Get profile ID from QMAP="WWAN" response
+              const qmapLines = rawData[15].response
+                .split("\n")
+                .filter((line: string | string[]) =>
+                  line.includes('+QMAP: "WWAN"')
+                );
+
+              const profileIDMatch = qmapLines[0]?.match(
+                /\+QMAP: "WWAN",\d+,(\d+),/
+              );
+              const profileID = profileIDMatch ? profileIDMatch[1] : null;
+
+              if (!profileID) return "-";
+
+              // Step 2: Find matching CID in CGCONTRDP
+              const cgcontrdpLines = rawData[20].response
+                .split("\n")
+                .filter((line: string | string[]) =>
+                  line.includes("+CGCONTRDP:")
+                );
+
+              const matchingLine = cgcontrdpLines.find((line: string) => {
+                const cid = line.match(/\+CGCONTRDP: (\d+),/);
+                return cid && cid[1] === profileID;
+              });
+
+              if (!matchingLine) return "-";
+
+              // Step 3: Extract primary DNS (second to last field) without formatting
+              const parts = matchingLine.split(",");
+              if (parts.length < 2) return "-";
+
+              // Return the raw DNS address without formatting
+              return parts[parts.length - 2].replace(/"/g, "").trim() || "-";
+            } catch (error) {
+              console.error("Error extracting raw primary DNS:", error);
+              return "-";
+            }
+          })(),
+
+          rawCarrierSecondaryDNS: (() => {
+            try {
+              if (!rawData[15]?.response || !rawData[20]?.response) return "-";
+
+              // Step 1: Get profile ID from QMAP="WWAN" response
+              const qmapLines = rawData[15].response
+                .split("\n")
+                .filter((line: string | string[]) =>
+                  line.includes('+QMAP: "WWAN"')
+                );
+
+              const profileIDMatch = qmapLines[0]?.match(
+                /\+QMAP: "WWAN",\d+,(\d+),/
+              );
+              const profileID = profileIDMatch ? profileIDMatch[1] : null;
+
+              if (!profileID) return "-";
+
+              // Step 2: Find matching CID in CGCONTRDP
+              const cgcontrdpLines = rawData[20].response
+                .split("\n")
+                .filter((line: string | string[]) =>
+                  line.includes("+CGCONTRDP:")
+                );
+
+              const matchingLine = cgcontrdpLines.find((line: string) => {
+                const cid = line.match(/\+CGCONTRDP: (\d+),/);
+                return cid && cid[1] === profileID;
+              });
+
+              if (!matchingLine) return "-";
+
+              // Step 3: Extract secondary DNS (last field) without formatting
+              const parts = matchingLine.split(",");
+              if (parts.length < 1) return "-";
+
+              // Return the raw DNS address without formatting
+              return parts[parts.length - 1].replace(/"/g, "").trim() || "-";
+            } catch (error) {
+              console.error("Error extracting raw secondary DNS:", error);
+              return "-";
+            }
+          })(),
+        },
+        timeAdvance: {
+          lteTimeAdvance:
+            rawData[21].response
+              .split("\n")[1]
+              ?.split(":")[1]
+              ?.split(",")[2]
+              .trim() || "Unknown",
+
+          nrTimeAdvance:
+            rawData[22].response
+              .split("\n")[1]
+              ?.split(":")[1]
+              ?.split(",")[2]
+              .trim() || "Unknown",
         },
       };
 
@@ -342,61 +561,6 @@ const useHomeData = () => {
       handleErrorWithRetry(
         error instanceof Error ? error : new Error(String(error))
       );
-      // // Make all values as "Unknown" if there is an error
-      // const errorData: HomeData = {
-      //   simCard: {
-      //     slot: "Not Inserted",
-      //     state: "Not Inserted",
-      //     provider: "Unknown",
-      //     phoneNumber: "Unknown",
-      //     imsi: "-",
-      //     iccid: "-",
-      //     imei: "-",
-      //   },
-      //   connection: {
-      //     apn: "No APN",
-      //     operatorState: "Unknown",
-      //     functionalityState: "Disabled",
-      //     networkType: "No Signal",
-      //     modemTemperature: "Unknown",
-      //     accessTechnology: "-",
-      //   },
-      //   dataTransmission: {
-      //     carrierAggregation: "Inactive",
-      //     connectedBands: "-",
-      //     signalStrength: "-%",
-      //     mimoLayers: "-",
-      //   },
-      //   cellularInfo: {
-      //     cellId: "-",
-      //     trackingAreaCode: "-",
-      //     physicalCellId: "-",
-      //     earfcn: "-",
-      //     mnc: "-",
-      //     signalQuality: "-%",
-      //   },
-      //   currentBands: {
-      //     // id is length of bandNumber
-      //     id: [1],
-      //     bandNumber: ["-"],
-      //     earfcn: ["-"],
-      //     bandwidth: ["-"],
-      //     pci: ["-"],
-      //     rsrp: ["-"],
-      //     rsrq: ["-"],
-      //     sinr: ["-"],
-      //   },
-      //   networkAddressing: {
-      //     publicIPv4: "-",
-      //     cellularIPv4: "-",
-      //     cellularIPv6: "-",
-      //     carrierPrimaryDNS: "-",
-      //     carrierSecondaryDNS: "-",
-      //   },
-      // };
-
-      // setData(errorData);
-      // setError(null);
     } finally {
       setIsLoading(false);
     }
@@ -1023,42 +1187,8 @@ const getCurrentBandsRSRP = (
     return rsrps.map((l) => l?.split(":")[1]?.split(",")[6]);
   }
 
-  // Process NR5G-NSA bands
-  if (networkType === "NR5G-NSA") {
-    // Map all LTE bands RSRP values
-    const lteRSRP = response
-      .split("\n")
-      .filter((l) => l.includes("LTE BAND"))
-      .map((l) => l?.split(":")[1]?.split(",")[6]);
-
-    // Handle the NR5G bands with different parsing based on position
-    const nr5gLines = response
-      .split("\n")
-      .filter((l) => l.includes("SCC") && l.includes("NR5G BAND"));
-
-    const nr5gRSRP = nr5gLines.map((line, index) => {
-      const parts = line.split(":")[1].split(",");
-
-      // First NR5G SCC uses index 5 for RSRP
-      if (index === 0) {
-        return parts.length > 5 ? parts[5] : "Unknown";
-      }
-      // Subsequent NR5G SCCs use index 9 for RSRP
-      return parts.length > 9 ? parts[9] : "Unknown";
-    });
-
-    // Combine results
-    if (lteRSRP.length && nr5gRSRP.length) {
-      return [...lteRSRP, ...nr5gRSRP];
-    } else if (lteRSRP.length) {
-      return lteRSRP;
-    } else if (nr5gRSRP.length) {
-      return nr5gRSRP;
-    }
-  }
-
   if (networkType === "NR5G-SA") {
-    // Get PCC RSRP from serving cell
+    // Existing NR5G-SA handling - no changes needed
     const pccRSRP = servingCell.split("\n").find((l) => l.includes("NR5G-SA"));
     const pccValue = pccRSRP
       ? pccRSRP?.split(":")[1]?.split(",")[9]
@@ -1085,6 +1215,68 @@ const getCurrentBandsRSRP = (
     return [pccValue, ...sccValues];
   }
 
+  // Process NR5G-NSA bands
+  if (networkType === "NR5G-NSA") {
+    // Map all LTE bands RSRP values
+    const lteRSRP = response
+      .split("\n")
+      .filter((l) => l.includes("LTE BAND"))
+      .map((l) => l?.split(":")[1]?.split(",")[6]);
+
+    // Handle NR5G bands differently
+    const nr5gLines = response
+      .split("\n")
+      .filter((l) => l.includes("SCC") && l.includes("NR5G BAND"));
+
+    let nr5gRSRP: string[] = [];
+
+    if (nr5gLines.length > 0) {
+      // For the first NR5G band, get RSRP from serving cell data
+      const nr5gServingData = servingCell
+        .split("\n")
+        .find((l) => l.includes("NR5G-NSA"));
+
+      if (nr5gServingData) {
+        // RSRP is the 5th field (index 4) in the NR5G-NSA serving cell line
+        const servingCellParts = nr5gServingData.split(",");
+        if (servingCellParts.length > 4) {
+          const rsrpValue = servingCellParts[4].trim();
+          nr5gRSRP.push(rsrpValue);
+        } else {
+          nr5gRSRP.push("Unknown");
+        }
+      } else {
+        nr5gRSRP.push("Unknown");
+      }
+
+      // For any additional NR5G bands (2nd onwards),
+      // continue using QCAINFO data at index 9
+      if (nr5gLines.length > 1) {
+        const additionalBands = nr5gLines.slice(1).map((line) => {
+          const parts = line.split(":")[1].split(",");
+          if (parts.length > 9) {
+            const rsrpValue = parts[9];
+            // Extract just the numeric value with negative sign if present
+            const match = rsrpValue.match(/-?\d+/);
+            return match ? match[0] : "Unknown";
+          }
+          return "Unknown";
+        });
+
+        nr5gRSRP = [...nr5gRSRP, ...additionalBands];
+      }
+    }
+
+    // Combine results
+    if (lteRSRP.length && nr5gRSRP.length) {
+      return [...lteRSRP, ...nr5gRSRP];
+    } else if (lteRSRP.length) {
+      return lteRSRP;
+    } else if (nr5gRSRP.length) {
+      return nr5gRSRP;
+    }
+  }
+
   return ["Unknown"];
 };
 
@@ -1100,7 +1292,7 @@ const getCurrentBandsRSRQ = (
   }
 
   if (networkType === "NR5G-SA") {
-    // Get PCC RSRQ from serving cell (should use index 10, not 9)
+    // Existing NR5G-SA handling - no changes needed
     const pccRSRQ = servingCell.split("\n").find((l) => l.includes("NR5G-SA"));
     const pccValue = pccRSRQ
       ? pccRSRQ?.split(":")[1]?.split(",")[10]
@@ -1135,21 +1327,49 @@ const getCurrentBandsRSRQ = (
       .filter((l) => l.includes("LTE BAND"))
       .map((l) => l?.split(":")[1]?.split(",")[7]);
 
-    // Handle the NR5G bands with different parsing based on position
+    // Handle NR5G bands differently
     const nr5gLines = response
       .split("\n")
       .filter((l) => l.includes("SCC") && l.includes("NR5G BAND"));
 
-    const nr5gRSRQ = nr5gLines.map((line, index) => {
-      const parts = line.split(":")[1].split(",");
+    let nr5gRSRQ: string[] = [];
 
-      // First NR5G SCC uses index 6 for RSRQ
-      if (index === 0) {
-        return parts.length > 6 ? parts[6] : "Unknown";
+    if (nr5gLines.length > 0) {
+      // For the first NR5G band, get RSRQ from serving cell data
+      const nr5gServingData = servingCell
+        .split("\n")
+        .find((l) => l.includes("NR5G-NSA"));
+
+      if (nr5gServingData) {
+        // RSRQ is the 7th field (index 6) in the NR5G-NSA serving cell line
+        const servingCellParts = nr5gServingData.split(",");
+        if (servingCellParts.length > 6) {
+          const rsrqValue = servingCellParts[6].trim();
+          nr5gRSRQ.push(rsrqValue);
+        } else {
+          nr5gRSRQ.push("Unknown");
+        }
+      } else {
+        nr5gRSRQ.push("Unknown");
       }
-      // Subsequent NR5G SCCs use index 10 for RSRQ
-      return parts.length > 10 ? parts[10] : "Unknown";
-    });
+
+      // For any additional NR5G bands (2nd onwards),
+      // continue using QCAINFO data at index 10
+      if (nr5gLines.length > 1) {
+        const additionalBands = nr5gLines.slice(1).map((line) => {
+          const parts = line.split(":")[1].split(",");
+          if (parts.length > 10) {
+            const rsrqValue = parts[10];
+            // Extract just the numeric value with negative sign if present
+            const match = rsrqValue.match(/-?\d+/);
+            return match ? match[0] : "Unknown";
+          }
+          return "Unknown";
+        });
+
+        nr5gRSRQ = [...nr5gRSRQ, ...additionalBands];
+      }
+    }
 
     // Combine results
     if (lteRSRQ.length && nr5gRSRQ.length) {
@@ -1340,6 +1560,80 @@ const getMimoLayers = (response: string) => {
     return `NR ${nr5gRSRPArr.length.toString()}`;
   } else {
     return "Unknown";
+  }
+};
+
+// Add this helper function in your file (outside the React component)
+const formatDottedIPv6 = (dottedIPv6: string): string => {
+  try {
+    // Split by dots
+    const parts = dottedIPv6.split(".");
+
+    // Only process if it looks like a dotted IPv6
+    if (parts.length < 8) return dottedIPv6;
+
+    // Convert each decimal to 2-digit hex
+    const hexParts = parts.map((part) => {
+      const num = parseInt(part, 10);
+      if (isNaN(num)) return "00";
+      return num.toString(16).padStart(2, "0");
+    });
+
+    // Group into 8 blocks of 2 bytes each
+    const ipv6Blocks = [];
+    for (let i = 0; i < hexParts.length; i += 2) {
+      if (i + 1 < hexParts.length) {
+        ipv6Blocks.push(hexParts[i] + hexParts[i + 1]);
+      } else {
+        ipv6Blocks.push(hexParts[i] + "00");
+      }
+    }
+
+    // Remove leading zeros from each block
+    const cleanedBlocks = ipv6Blocks.map(
+      (block) => block.replace(/^0+/, "") || "0"
+    );
+
+    // Find longest run of zeros for compression
+    let longestZeros: string | any[] = [];
+    let currentZeros = [];
+
+    for (let i = 0; i < cleanedBlocks.length; i++) {
+      if (cleanedBlocks[i] === "0") {
+        currentZeros.push(i);
+      } else if (currentZeros.length > 0) {
+        if (currentZeros.length > longestZeros.length) {
+          longestZeros = [...currentZeros];
+        }
+        currentZeros = [];
+      }
+    }
+
+    // Check final run of zeros
+    if (currentZeros.length > longestZeros.length) {
+      longestZeros = [...currentZeros];
+    }
+
+    // Apply zero compression if we have at least 2 consecutive zeros
+    if (longestZeros.length >= 2) {
+      const result = [];
+      for (let i = 0; i < cleanedBlocks.length; i++) {
+        if (i === longestZeros[0]) {
+          result.push(""); // Start of compressed section
+          i = longestZeros[longestZeros.length - 1]; // Skip to end of zeros
+        } else {
+          result.push(cleanedBlocks[i]);
+        }
+      }
+
+      return result.join(":").replace(/::+/g, "::");
+    }
+
+    // If no compression, just join the blocks
+    return cleanedBlocks.join(":");
+  } catch (err) {
+    console.error("Error formatting IPv6:", err);
+    return dottedIPv6;
   }
 };
 

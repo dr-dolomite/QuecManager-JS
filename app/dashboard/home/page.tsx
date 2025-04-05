@@ -43,6 +43,7 @@ import { BsSimSlashFill } from "react-icons/bs";
 import SpeedtestStream from "@/components/home/speedtest-card";
 import { atCommandSender } from "@/utils/at-command";
 import NetworkInfoCard from "@/components/home/network-info-card";
+import ApproxDistanceCard from "@/components/home/approx-distance-card";
 
 interface newBands {
   id: number;
@@ -371,7 +372,13 @@ const HomePage = () => {
             <SignalChart />
           </div>
           <div className="grid gap-2 lg:grid-cols-2 grid-cols-1 grid-flow-row">
-            <EthernetCard />
+            {/* <EthernetCard /> */}
+            <ApproxDistanceCard
+              lteTimeAdvance={homeData?.timeAdvance?.lteTimeAdvance}
+              nrTimeAdvance={homeData?.timeAdvance?.nrTimeAdvance}
+              isLoading={isLoading}
+              networkType={homeData?.connection?.networkType}
+            />
             <MemoryCard />
             <SpeedtestStream />
             <PingCard />
@@ -399,10 +406,10 @@ const HomePage = () => {
       <div className="grid gap-4 w-full">
         <h1 className="xl:text-3xl text-base font-bold">Active Addresses</h1>
         <div>
-          <NetworkInfoCard 
-          data={homeData} 
-          isLoading={isLoading} 
-          onRefresh={refreshData}
+          <NetworkInfoCard
+            data={homeData}
+            isLoading={isLoading}
+            // onRefresh={refreshData}
           />
         </div>
       </div>

@@ -60,6 +60,13 @@ export interface NetworkAddressingData {
   cellularIPv6: string;
   carrierPrimaryDNS: string;
   carrierSecondaryDNS: string;
+  rawCarrierPrimaryDNS: string;
+  rawCarrierSecondaryDNS: string;
+}
+
+export interface timeAdvanceData {
+  lteTimeAdvance: string;
+  nrTimeAdvance: string;
 }
 
 export interface HomeData {
@@ -69,6 +76,7 @@ export interface HomeData {
   cellularInfo: CellularInfoData;
   currentBands: CurrentBandsData;
   networkAddressing: NetworkAddressingData;
+  timeAdvance: timeAdvanceData;
 }
 
 export interface Band {
@@ -93,6 +101,8 @@ export interface CellSettingsData {
   selectedMbnProfile?: string; 
   mbnProfilesList: string[];
   dataProfileIndex: string;
+  lteAMBR: string[];
+  nr5gAMBR: string[];
 }
 
 export interface AboutData {
@@ -109,6 +119,8 @@ export interface AboutData {
   wwanIPv4?: string;
   wwanIPv6?: string;
   deviceUptime?: string;
+  LTE3GppRel?: string;
+  NR3GppRel?: string;
 }
 
 export interface DiagnosticsData {
