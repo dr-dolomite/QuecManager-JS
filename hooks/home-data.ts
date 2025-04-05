@@ -1563,6 +1563,10 @@ const getMimoLayers = (response: string) => {
   }
 };
 
+const filterField = (data: string, needle: string, delimiter: string, returnIndex:integer) => {
+  return data.split(delimiter).filter(x => x.includes(needle))[returnIndex];
+};
+
 // Add this helper function in your file (outside the React component)
 const formatDottedIPv6 = (dottedIPv6: string): string => {
   try {
