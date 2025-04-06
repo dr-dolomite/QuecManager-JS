@@ -88,11 +88,15 @@ const BandCard = ({
           <p className="text-sm font-bold">
             {bandNumber.includes("NR5G") ? "NR-SNR" : "SINR"}
           </p>
+          {/* Adjusted the coloring for SINR's minVal on the high to 14 for LTE,  middle range to >= -2 /* }
+          {/* Even thirds spread puts LTE high range to 14, and mid range to -2 for both /*}
+          {/* NR5G range is -23 to 40 */}
+          {/* LTE range is -20 to 30 */}
           <Badge
             className={
-              parseInt(sinr) >= 20
+              parseInt(sinr) >= (bandNumber.includes("NR5G") ? 20 : 14)
                 ? "bg-emerald-500 hover:bg-emerald-800"
-                : parseInt(sinr) >= 0
+                : parseInt(sinr) >= -2
                 ? "bg-orange-500 hover:bg-orange-800"
                 : "bg-rose-500 hover:bg-rose-800"
             }
