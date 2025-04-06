@@ -389,7 +389,7 @@ const useHomeData = () => {
 
               if (!matchingLine) return "-";
 
-              // Step 3: Extract primary DNS (second to last field)
+              // Step 3: Extract secondary DNS (last field)
               const parts = matchingLine.split(",");
               if (parts.length < 2) return "-";
 
@@ -1142,7 +1142,7 @@ const getCurrentBandsRSRP = (
     // Existing NR5G-SA handling - no changes needed
     const pccRSRP = servingCell.split("\n").find((l) => l.includes("NR5G-SA"));
     const pccValue = pccRSRP
-      ? pccRSRP?.split(":")[1]?.split(",")[9]
+      ? pccRSRP?.split(":")[1]?.split(",")[12]
       : "Unknown";
 
     // Get all SCC RSRP values
@@ -1246,7 +1246,7 @@ const getCurrentBandsRSRQ = (
     // Existing NR5G-SA handling - no changes needed
     const pccRSRQ = servingCell.split("\n").find((l) => l.includes("NR5G-SA"));
     const pccValue = pccRSRQ
-      ? pccRSRQ?.split(":")[1]?.split(",")[10]
+      ? pccRSRQ?.split(":")[1]?.split(",")[13]
       : "Unknown";
 
     // Get all SCC RSRQ values
@@ -1342,6 +1342,7 @@ const getCurrentBandsSINR = (
 ) => {
   // Loop through the response and extract the SINR
   if (networkType === "LTE") {
+    // if LTE mode the value may need to be calcuted to get actual SINR, Y = (1/5) × X × 10 - 20 (X is the <SINR> from QENG for only the PCC band)
     const sinrs = response.split("\n").filter((l) => l.includes("BAND"));
     return sinrs.map((l) => l?.split(":")[1]?.split(",")[9]);
   }
@@ -1352,16 +1353,16 @@ const getCurrentBandsSINR = (
     let pccValue = "Unknown";
 
     if (pccSINR) {
-      const rawSINR = pccSINR?.split(":")[1]?.split(",")[11];
+      const rawSINR = pccSINR?.split(":")[1]?.split(",")[14];
       // If value is -32768, use "-" instead of "Unknown"
       if (rawSINR === "-32768") {
         pccValue = "-";
       } else {
-        // Apply the SNR conversion formula: SNR = value / 100
+        // PCC SNR value from QENG is already calculated in the correct format, no need to value/100
         const sinrValue = parseInt(rawSINR);
         if (!isNaN(sinrValue)) {
-          // Return a whole number only and round up when necessary
-          pccValue = Math.round(sinrValue / 100).toString();
+          // PCC SINR value from QENG is already in correctly calcuated SINR db format
+          pccValue = sinrValue.toString();
         } else {
           pccValue = rawSINR || "Unknown";
         }
