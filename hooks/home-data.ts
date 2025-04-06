@@ -143,107 +143,48 @@ const useHomeData = () => {
       // Process the raw data into the HomeData format
       const processedData: HomeData = {
         simCard: {
-          slot: parseField(rawData[0].response, 1, 1),
+          slot: parseField(rawData[0].response, 1, 1, 0),
           state: rawData[6].response.includes("READY") ? "Inserted" : "Not Inserted",
-          provider: parseField(rawData[2].response, 1, 2),
-          phoneNumber: parseField(rawData[1].response, 1, 1),
-          imsi: parseField(rawData[3].response, 1, 0),
-          iccid: parseField(rawData[4].response, 1, 1),
-          imei: parseField(rawData[5].response, 1, 0),
+          provider: parseField(rawData[2].response, 1, 1, 2),
+          phoneNumber: parseField(rawData[1].response, 1, 1, 1),
+          imsi: parseField(rawData[3].response, 1, 0, 0),
+          iccid: parseField(rawData[4].response, 1, 1, 1, "Unknown", " "),
+          imei: parseField(rawData[5].response, 1, 0, 0),
         },
         connection: {
-          apn: parseField(rawData[7]?.response, 1,2, parseField(rawData[12]?.response, 1,2)),
-          operatorState:
-            getOperatorState(rawData[8]?.response, rawData[16]?.response) ||
-            "Unknown",
-          functionalityState:
-            rawData[9].response.split("\n")[1]?.split(":")[1].trim() === "1"
-              ? "Enabled"
-              : "Disabled",
+          apn: parseField(rawData[7]?.response, 1, 1, 2, parseField(rawData[12]?.response, 1, 1, 2)),
+          operatorState: getOperatorState(rawData[8]?.response, rawData[16]?.response) || "Unknown",
+          functionalityState: parseField(rawData[9]?.response, 1, 1, 0) === "1" ? "Enabled" : "Disabled",
           networkType: getNetworkType(rawData[13].response) || "No Signal",
-          modemTemperature:
-            getModemTemperature(rawData[11].response) || "Unknown",
-          accessTechnology:
-            getAccessTechnology(rawData[2].response) || "Unknown",
+          modemTemperature: getModemTemperature(rawData[11].response) || "Unknown",
+          accessTechnology: getAccessTechnology(rawData[2].response) || "Unknown",
         },
         dataTransmission: {
-          carrierAggregation:
-            rawData[13].response.match(/"LTE BAND \d+"|"NR5G BAND \d+"/g)
-              ?.length > 1
-              ? "Multi"
-              : "Inactive",
-          bandwidth:
-            getBandwidth(
-              rawData[13].response,
-              getNetworkType(rawData[13].response)
-            ) || "Unknown",
+          carrierAggregation: rawData[13].response.match(/"LTE BAND \d+"|"NR5G BAND \d+"/g) ?.length > 1 ? "Multi" : "Inactive",
+          bandwidth: getBandwidth(rawData[13].response, getNetworkType(rawData[13].response)) || "Unknown",
           connectedBands: getConnectedBands(rawData[13].response) || "Unknown",
           signalStrength: getSignalStrength(rawData[14].response) || "Unknown",
           mimoLayers: getMimoLayers(rawData[14].response) || "Unknown",
         },
         cellularInfo: {
-          cellId:
-            getCellID(
-              rawData[10].response,
-              getNetworkType(rawData[13].response)
-            ) || "Unknown",
-          trackingAreaCode:
-            getTAC(
-              rawData[10].response,
-              getNetworkType(rawData[13].response)
-            ) || "Unknown",
-          physicalCellId: getPhysicalCellIDs(
-            rawData[13].response,
-            getNetworkType(rawData[13].response)
-          ),
+          cellId: getCellID(rawData[10].response, getNetworkType(rawData[13].response)) || "Unknown",
+          trackingAreaCode: getTAC(rawData[10].response, getNetworkType(rawData[13].response)) || "Unknown",
+          physicalCellId: getPhysicalCellIDs(rawData[13].response, getNetworkType(rawData[13].response)),
           earfcn: getEARFCN(rawData[13].response),
-          mcc:
-            getMCC(
-              rawData[10].response,
-              getNetworkType(rawData[13].response)
-            ) || "Unknown",
-          mnc:
-            getMNC(
-              rawData[10].response,
-              getNetworkType(rawData[13].response)
-            ) || "Unknown",
+          mcc: getMCC(rawData[10].response, getNetworkType(rawData[13].response)) || "Unknown",
+          mnc: getMNC(rawData[10].response, getNetworkType(rawData[13].response)) || "Unknown",
           signalQuality: getSignalQuality(rawData[19].response) || "Unknown",
         },
         currentBands: {
           // id is length of bandNumber
-          id: Array.from(
-            {
-              length:
-                getCurrentBandsBandNumber(rawData[13].response)?.length ?? 0,
-            },
-            (_, i) => i + 1
-          ) || [1],
-          bandNumber: getCurrentBandsBandNumber(rawData[13].response) || [
-            "Unknown",
-          ],
+          id: Array.from({ length: getCurrentBandsBandNumber(rawData[13].response)?.length ?? 0, }, (_, i) => i + 1) || [1],
+          bandNumber: getCurrentBandsBandNumber(rawData[13].response) || ["Unknown",],
           earfcn: getCurrentBandsEARFCN(rawData[13].response),
-          bandwidth: getCurrentBandsBandwidth(rawData[13].response) || [
-            "Unknown",
-          ],
-          pci: getCurrentBandsPCI(
-            rawData[13].response,
-            getNetworkType(rawData[13].response)
-          ) || ["Unknown"],
-          rsrp: getCurrentBandsRSRP(
-            rawData[13].response,
-            getNetworkType(rawData[13].response),
-            rawData[10].response
-          ),
-          rsrq: getCurrentBandsRSRQ(
-            rawData[13].response,
-            getNetworkType(rawData[13].response),
-            rawData[10].response
-          ) || ["Unknown"],
-          sinr: getCurrentBandsSINR(
-            rawData[13].response,
-            getNetworkType(rawData[13].response),
-            rawData[10].response
-          ) || ["Unknown"],
+          bandwidth: getCurrentBandsBandwidth(rawData[13].response) || ["Unknown",],
+          pci: getCurrentBandsPCI(rawData[13].response, getNetworkType(rawData[13].response)) || ["Unknown"],
+          rsrp: getCurrentBandsRSRP(rawData[13].response, getNetworkType(rawData[13].response), rawData[10].response),
+          rsrq: getCurrentBandsRSRQ(rawData[13].response, getNetworkType(rawData[13].response), rawData[10].response) || ["Unknown"],
+          sinr: getCurrentBandsSINR(rawData[13].response, getNetworkType(rawData[13].response), rawData[10].response) || ["Unknown"],
         },
         networkAddressing: {
           publicIPv4: publicIPResponse.ok
@@ -511,8 +452,8 @@ const useHomeData = () => {
           })(),
         },
         timeAdvance: {
-          lteTimeAdvance: parseField(rawData[21]?.response, 1, 2),
-          nrTimeAdvance: parseField(rawData[22]?.response, 1, 2),
+          lteTimeAdvance: parseField(rawData[21]?.response, 1, 1, 2),
+          nrTimeAdvance: parseField(rawData[22]?.response, 1, 1, 2),
         },
       };
 
@@ -575,13 +516,14 @@ const useHomeData = () => {
 const parseField = (
   response: string,
   lineIndex: number,
+  firstField: number,
   fieldIndex: number,
   defaultValue = "Unknown",
   delimiter = ","
 ) => {
   try {
     return (
-      response.split("\n")[lineIndex]?.split(":")[1]?.split(delimiter)[
+      response.split("\n")[lineIndex]?.split(":")[firstField]?.split(delimiter)[
         fieldIndex
       ]?.replace(/"/g, "")
         .trim() || defaultValue
@@ -590,13 +532,13 @@ const parseField = (
     return defaultValue;
   }
 };
-const getProviderName = (response: string) => parseField(response, 1, 2);
-const getAccessTechnology = (response: string) => parseField(response, 1, 3);
+const getProviderName = (response: string) => parseField(response, 1, 1, 2);
+const getAccessTechnology = (response: string) => parseField(response, 1, 1, 3);
 
 
 const getOperatorState = (lteResponse: string, nr5gResponse: string) => {
   const state =
-    Number(parseField(lteResponse,1,1)) || Number(parseField(nr5gResponse,1,1))
+    Number(parseField(lteResponse,1,1,1)) || Number(parseField(nr5gResponse,1,1,1))
   switch (state) {
     case 1:
       return "Registered";
