@@ -459,7 +459,6 @@ const useHomeData = () => {
 
       setData(processedData);
       setRetryCount(0);
-      // setData(processedData);
       setError(null);
       console.log("Processed home data:", processedData);
     } catch (error) {
