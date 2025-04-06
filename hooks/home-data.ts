@@ -693,8 +693,6 @@ const getSignalStrength = (response: string) => {
       .map((v) => parseInt(v.trim()))
       .filter((v) => !invalidRSRPvalues.includes(v));
   }
-  console.log('rsrpNrArr', rsrpNrArr);
-
 
   // Calculate the average RSRP values average percentage where -75 is best and -125 is worst
   if (rsrpLteArr.length) {
