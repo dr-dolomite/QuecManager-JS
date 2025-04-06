@@ -394,7 +394,7 @@ const useHomeData = () => {
               if (parts.length < 2) return "-";
 
               // Primary DNS is the second to last element
-              const dnsAddress = parts[parts.length - 2]
+              const dnsAddress = parts[parts.length - 1]
                 .replace(/"/g, "")
                 .trim();
 
@@ -423,6 +423,7 @@ const useHomeData = () => {
           // Raw DNS addresses without formatting
           rawCarrierPrimaryDNS: (() => {
             try {
+              // [15] is the WWAN QMAP response, [20] is the CGCONTRDP response
               if (!rawData[15]?.response || !rawData[20]?.response) return "-";
 
               // Step 1: Get profile ID from QMAP="WWAN" response
