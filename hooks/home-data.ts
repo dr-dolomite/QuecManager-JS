@@ -143,43 +143,18 @@ const useHomeData = () => {
       // Process the raw data into the HomeData format
       const processedData: HomeData = {
         simCard: {
-          slot:
-            rawData[0].response.split("\n")[1]?.split(":")[1].trim() ||
-            "Unknown",
-          state: rawData[6].response.match("READY")
-            ? "Inserted"
-            : "Not Inserted",
-          provider: getProviderName(rawData[2].response) || "Unknown",
-          phoneNumber:
-            rawData[1].response
-              .split("\n")[1]
-              ?.split(":")[1]
-              ?.split(",")[1]
-              .replace(/"/g, "")
-              .trim() || "Unknown",
-          imsi: rawData[3].response.split("\n")[1].trim() || "Unknown",
-          iccid:
-            rawData[4].response.split("\n")[1]?.split(":")[1].trim() ||
-            "Unknown",
-          imei: rawData[5].response.split("\n")[1].trim() || "Unknown",
+          slot: parseField(rawData[0].response, 1, 1),
+          state: rawData[6].response.includes("READY") ? "Inserted" : "Not Inserted",
+          provider: parseField(rawData[2].response, 1, 2),
+          phoneNumber: parseField(rawData[1].response, 1, 1),
+          imsi: parseField(rawData[3].response, 1, 0),
+          iccid: parseField(rawData[4].response, 1, 1),
+          imei: parseField(rawData[5].response, 1, 0),
         },
         connection: {
-          apn:
-            rawData[7].response
-              .split("\n")[1]
-              ?.split(":")[1]
-              ?.split(",")[2]
-              .replace(/"/g, "")
-              .trim() ||
-            rawData[12].response
-              .split("\n")[1]
-              ?.split(":")[1]
-              ?.split(",")[2]
-              .replace(/"/g, "")
-              .trim() ||
-            "Unknown",
+          apn: parseField(rawData[7]?.response, 1,2, parseField(rawData[12]?.response, 1,2)),
           operatorState:
-            getOperatorState(rawData[8].response, rawData[16].response) ||
+            getOperatorState(rawData[8]?.response, rawData[16]?.response) ||
             "Unknown",
           functionalityState:
             rawData[9].response.split("\n")[1]?.split(":")[1].trim() === "1"
@@ -535,25 +510,14 @@ const useHomeData = () => {
           })(),
         },
         timeAdvance: {
-          lteTimeAdvance:
-            rawData[21].response
-              .split("\n")[1]
-              ?.split(":")[1]
-              ?.split(",")[2]
-              .trim() || "Unknown",
-
-          nrTimeAdvance:
-            rawData[22].response
-              .split("\n")[1]
-              ?.split(":")[1]
-              ?.split(",")[2]
-              .trim() || "Unknown",
+          lteTimeAdvance: parseField(rawData[21]?.response, 1, 2),
+          nrTimeAdvance: parseField(rawData[22]?.response, 1, 2),
         },
       };
 
       setData(processedData);
       setRetryCount(0);
-      setData(processedData);
+      // setData(processedData);
       setError(null);
       console.log("Processed home data:", processedData);
     } catch (error) {
@@ -607,41 +571,31 @@ const useHomeData = () => {
 };
 
 // Helper functions for data processing
-const getProviderName = (response: string) => {
-  //             rawData[2].response
-  // ?.split("\n")[1]
-  // ?.split(":")[1]
-  // ?.split(",")[2]
-  // .replace(/"/g, "")
-  // .trim() || "Unknown",
+const parseField = (
+  response: string,
+  lineIndex: number,
+  fieldIndex: number,
+  defaultValue = "Unknown",
+  delimiter = ","
+) => {
   try {
     return (
-      response
-        ?.split("\n")[1]
-        ?.split(":")[1]
-        ?.split(",")[2]
-        .replace(/"/g, "")
-        .trim() || "Unknown"
+      response.split("\n")[lineIndex]?.split(":")[1]?.split(delimiter)[
+        fieldIndex
+      ]?.replace(/"/g, "")
+        .trim() || defaultValue
     );
-  } catch (error) {
-    return "-";
+  } catch {
+    return defaultValue;
   }
 };
+const getProviderName = (response: string) => parseField(response, 1, 2);
+const getAccessTechnology = (response: string) => parseField(response, 1, 3);
 
-const getAccessTechnology = (response: string) => {
-  try {
-    return (
-      response?.split("\n")[1]?.split(":")[1]?.split(",")[3].trim() || "Unknown"
-    );
-  } catch (error) {
-    return "-";
-  }
-};
 
 const getOperatorState = (lteResponse: string, nr5gResponse: string) => {
   const state =
-    Number(lteResponse.split("\n")[1]?.split(":")[1]?.split(",")[1].trim()) ||
-    Number(nr5gResponse.split("\n")[1]?.split(":")[1]?.split(",")[1].trim());
+    Number(parseField(lteResponse,1,1)) || Number(parseField(nr5gResponse,1,1))
   switch (state) {
     case 1:
       return "Registered";
@@ -776,14 +730,15 @@ const getSignalStrength = (response: string) => {
   let rsrpNR5G = response.split("\n").find((l) => l.includes("NR5G"));
   let rsrpLteArr: any[] = [];
   let rsrpNrArr: any[] = [];
-
+  const invalidRSRPvalues = [-140, -37625, -32768];
   // if RSRP LTE exists
   if (rsrpLTE) {
     rsrpLteArr = rsrpLTE
       ?.split(":")[1]
       ?.split(",")
       .slice(0, 4)
-      .map((v) => parseInt(v.trim()));
+      .map((v) => parseInt(v.trim()))
+      .filter((v) => !invalidRSRPvalues.includes(v));
   }
 
   // If RSRP NR5G exists
@@ -792,16 +747,11 @@ const getSignalStrength = (response: string) => {
       ?.split(":")[1]
       ?.split(",")
       .slice(0, 4)
-      .map((v) => parseInt(v.trim()));
+      .map((v) => parseInt(v.trim()))
+      .filter((v) => !invalidRSRPvalues.includes(v));
   }
+  console.log('rsrpNrArr', rsrpNrArr);
 
-  // Filter out -140 and -37625 from the arrays
-  rsrpLteArr = rsrpLteArr.filter(
-    (v) => v !== -140 && v !== -37625 && v !== -32768
-  );
-  rsrpNrArr = rsrpNrArr.filter(
-    (v) => v !== -140 && v !== -37625 && v !== -32768
-  );
 
   // Calculate the average RSRP values average percentage where -75 is best and -125 is worst
   if (rsrpLteArr.length) {
@@ -1561,10 +1511,6 @@ const getMimoLayers = (response: string) => {
   } else {
     return "Unknown";
   }
-};
-
-const filterField = (data: string, needle: string, delimiter: string, returnIndex:integer) => {
-  return data.split(delimiter).filter(x => x.includes(needle))[returnIndex];
 };
 
 // Add this helper function in your file (outside the React component)
