@@ -1472,47 +1472,32 @@ const getCurrentBandsSINR = (
 const getMimoLayers = (response: string) => {
   // Constants for invalid signal values
   const INVALID_VALUES = [-32768, -140];
-  const lteRSRPExists = response.split("\n").find((l) => l.includes("LTE"));
-  const nr5gRSRPExists = response.split("\n").find((l) => l.includes("NR5G"));
-
-  // Get the RSRP values for LTE and NR5G
-  let lteRSRPArr: any[] = [];
-  let nr5gRSRPArr: any[] = [];
-
-  // If RSRP LTE exists
-  if (lteRSRPExists) {
-    lteRSRPArr = lteRSRPExists
+  
+  // Helper function to extract and filter RSRP values
+  const extractRSRP = (line: string | undefined): number[] =>
+    line
       ?.split(":")[1]
       ?.split(",")
       .slice(0, 4)
-      .map((v) => parseInt(v.trim()));
+      .map((v) => parseInt(v.trim()))
+      .filter((v) => !INVALID_VALUES.includes(v)) || [];
+
+  // Extract RSRP values for LTE and NR5G
+  const lteRSRPArr = extractRSRP(response.split("\n").find((l) => l.includes("LTE")));
+  const nr5gRSRPArr = extractRSRP(response.split("\n").find((l) => l.includes("NR5G")));
+
+
+  // Determine MIMO layers
+  if (lteRSRPArr.length && nr5gRSRPArr.length) {
+    return `LTE ${lteRSRPArr.length} / NR ${nr5gRSRPArr.length}`;
   }
-
-  // If RSRP NR5G exists
-  if (nr5gRSRPExists) {
-    nr5gRSRPArr = nr5gRSRPExists
-      ?.split(":")[1]
-      ?.split(",")
-      .slice(0, 4)
-      .map((v) => parseInt(v.trim()));
-  }
-
-  // Filter out invalid values
-  lteRSRPArr = lteRSRPArr.filter((v) => !INVALID_VALUES.includes(v));
-  nr5gRSRPArr = nr5gRSRPArr.filter((v) => !INVALID_VALUES.includes(v));
-
-  // Get the length of the arrays and return as MIMO layers
   if (lteRSRPArr.length) {
-    if (nr5gRSRPArr.length) {
-      return `LTE ${lteRSRPArr.length.toString()} / NR ${nr5gRSRPArr.length.toString()}`;
-    } else {
-      return `LTE ${lteRSRPArr.length.toString()}`;
-    }
-  } else if (nr5gRSRPArr.length) {
-    return `NR ${nr5gRSRPArr.length.toString()}`;
-  } else {
-    return "Unknown";
+    return `LTE ${lteRSRPArr.length}`;
   }
+  if (nr5gRSRPArr.length) {
+    return `NR ${nr5gRSRPArr.length}`;
+  }
+  return "Unknown";
 };
 
 // Add this helper function in your file (outside the React component)
