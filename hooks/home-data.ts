@@ -1319,12 +1319,11 @@ const getCurrentBandsSINR = (
   return ["Unknown"];
 };
 
-const getMimoLayers = (response: string) => {
-  // Constants for invalid signal values
+const getMimoLayers = (response: string): string => {
   const INVALID_VALUES = [-32768, -140];
-  
+
   // Helper function to extract and filter RSRP values
-  const extractRSRP = (line: string | undefined): number[] =>
+  const extractRSRP = (line?: string): number[] =>
     line
       ?.split(":")[1]
       ?.split(",")
@@ -1333,20 +1332,13 @@ const getMimoLayers = (response: string) => {
       .filter((v) => !INVALID_VALUES.includes(v)) || [];
 
   // Extract RSRP values for LTE and NR5G
-  const lteRSRPArr = extractRSRP(response.split("\n").find((l) => l.includes("LTE")));
-  const nr5gRSRPArr = extractRSRP(response.split("\n").find((l) => l.includes("NR5G")));
-
+  const lteRSRPCount = extractRSRP(response.split("\n").find((l) => l.includes("LTE"))).length;
+  const nr5gRSRPCount = extractRSRP(response.split("\n").find((l) => l.includes("NR5G"))).length;
 
   // Determine MIMO layers
-  if (lteRSRPArr.length && nr5gRSRPArr.length) {
-    return `LTE ${lteRSRPArr.length} / NR ${nr5gRSRPArr.length}`;
-  }
-  if (lteRSRPArr.length) {
-    return `LTE ${lteRSRPArr.length}`;
-  }
-  if (nr5gRSRPArr.length) {
-    return `NR ${nr5gRSRPArr.length}`;
-  }
+  if (lteRSRPCount && nr5gRSRPCount) return `LTE ${lteRSRPCount} / NR ${nr5gRSRPCount}`;
+  if (lteRSRPCount) return `LTE ${lteRSRPCount}`;
+  if (nr5gRSRPCount) return `NR ${nr5gRSRPCount}`;
   return "Unknown";
 };
 
