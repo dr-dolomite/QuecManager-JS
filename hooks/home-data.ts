@@ -167,8 +167,8 @@ const useHomeData = () => {
           mimoLayers: getMimoLayers(rawData[14].response) || "Unknown",
         },
         cellularInfo: {
-          cellId: getCellID(rawData[10].response, getNetworkType(rawData[13].response)) || "Unknown",
-          trackingAreaCode: getTAC(rawData[10].response, getNetworkType(rawData[13].response)) || "Unknown",
+          cellId: extractValueByNetworkType(rawData[10]?.response, getNetworkType(rawData[13]?.response), { "NR5G-SA": 1, "NR5G-NSA": 2, "LTE": 1 }, { "NR5G-SA": 6, "NR5G-NSA": 4, "LTE": 6 }),
+          trackingAreaCode: extractValueByNetworkType(rawData[10]?.response, getNetworkType(rawData[13]?.response), { "NR5G-SA": 1, "NR5G-NSA": 2, "LTE": 1 }, { "NR5G-SA": 8, "NR5G-NSA": 10, "LTE": 12 }),
           physicalCellId: getPhysicalCellIDs(rawData[13].response, getNetworkType(rawData[13].response)),
           earfcn: getEARFCN(rawData[13].response),
           mcc: getMCC(rawData[10].response, getNetworkType(rawData[13].response)) || "Unknown",
@@ -728,21 +728,14 @@ const getSignalStrength = (response: string) => {
     return "Unknown%";
   }
 };
-const getCellID = (response: string, networkType: string): string => {
-  const lineIndex = networkType === "NR5G-NSA" ? 2 : 1;
-  const fieldIndex = networkType === "NR5G-NSA" ? 4 : 6;
-  return parseInt(parseField(response, lineIndex, 1, fieldIndex), 16).toString();
-};
 
-const getTAC = (response: string, networkType: string): string => {
-  const lineIndex = { "NR5G-SA": 1, "NR5G-NSA": 2, "LTE": 1 }[networkType];
-  const fieldIndex = { "NR5G-SA": 8, "NR5G-NSA": 10, "LTE": 12 }[networkType];
-
+const extractValueByNetworkType = (response: string, networkType: string, lineIndexMap: Record<string, number>, fieldIndexMap: Record<string, number>): string => {
+  const lineIndex = lineIndexMap[networkType];
+  const fieldIndex = fieldIndexMap[networkType];
   return lineIndex !== undefined && fieldIndex !== undefined
-    ? parseInt(parseField(response, lineIndex, 1, fieldIndex), 16).toString()
+    ? parseInt(parseField(response, lineIndex, 1, fieldIndex), 16).toString().toUpperCase()
     : "Unknown";
 };
-
 const getPhysicalCellIDs = (response: string, networkType: string) => {
   // Get the physical cell IDs for LTE
   if (networkType === "LTE" || networkType === "NR5G-NSA") {
