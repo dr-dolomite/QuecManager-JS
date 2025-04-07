@@ -167,8 +167,8 @@ const useHomeData = () => {
           mimoLayers: getMimoLayers(rawData[14].response) || "Unknown",
         },
         cellularInfo: {
-          cellId: getCellID(rawData[10].response, getNetworkType(rawData[13].response)) || "Unknown",
-          trackingAreaCode: getTAC(rawData[10].response, getNetworkType(rawData[13].response)) || "Unknown",
+          cellId: extractValueByNetworkType(rawData[10]?.response, getNetworkType(rawData[13]?.response), { "NR5G-SA": 1, "NR5G-NSA": 2, "LTE": 1 }, { "NR5G-SA": 6, "NR5G-NSA": 4, "LTE": 6 }),
+          trackingAreaCode: extractValueByNetworkType(rawData[10]?.response, getNetworkType(rawData[13]?.response), { "NR5G-SA": 1, "NR5G-NSA": 2, "LTE": 1 }, { "NR5G-SA": 8, "NR5G-NSA": 10, "LTE": 12 }),
           physicalCellId: getPhysicalCellIDs(rawData[13].response, getNetworkType(rawData[13].response)),
           earfcn: getEARFCN(rawData[13].response),
           mcc: getMCC(rawData[10].response, getNetworkType(rawData[13].response)) || "Unknown",
@@ -700,32 +700,13 @@ const getSignalStrength = (response: string): string => {
   return "Unknown%";
 };
 
-const getCellID = (response: string, networkType: string) => {
-  if (networkType === "NR5G-SA" || networkType === "LTE") {
-    return response.split("\n")[1]?.split(":")[1]?.split(",")[6].trim();
-  }
-
-  if (networkType === "NR5G-NSA") {
-    return response.split("\n")[2]?.split(":")[1]?.split(",")[4].trim();
-  }
-
-  return "Unknown";
-};
-
-const getTAC = (response: string, networkType: string) => {
-  if (networkType === "NR5G-SA") {
-    return response.split("\n")[1]?.split(":")[1]?.split(",")[8].trim();
-  }
-
-  if (networkType === "NR5G-NSA") {
-    return response.split("\n")[2]?.split(":")[1]?.split(",")[10].trim();
-  }
-
-  if (networkType === "LTE") {
-    return response.split("\n")[1]?.split(":")[1]?.split(",")[12].trim();
-  }
-
-  return "Unknown";
+// Function to parse the TAC and CellID from the response and return the values from Hex to Decimal format based on the lineIndex and fieldIndex of the respective Index Maps
+const extractValueByNetworkType = (response: string, networkType: string, lineIndexMap: Record<string, number>, fieldIndexMap: Record<string, number>): string => {
+  const lineIndex = lineIndexMap[networkType];
+  const fieldIndex = fieldIndexMap[networkType];
+  return lineIndex !== undefined && fieldIndex !== undefined
+    ? parseInt(parseField(response, lineIndex, 1, fieldIndex), 16).toString().toUpperCase()
+    : "Unknown";
 };
 
 const getPhysicalCellIDs = (response: string, networkType: string): string => {

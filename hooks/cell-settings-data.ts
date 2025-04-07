@@ -122,8 +122,8 @@ const useCellSettingsData = () => {
             return "-";
           }
         })(),
-        lteAMBR: getLTEAMBRValue(rawData[9].response),
-        nr5gAMBR: getNR5GAMBRValue(rawData[10].response),
+        lteAMBR: getLTEAMBRValue(rawData[9]?.response),
+        nr5gAMBR: getNR5GAMBRValue(rawData[10]?.response),
       };
 
       console.log("Processed cell settings data:", processedData);
