@@ -143,132 +143,48 @@ const useHomeData = () => {
       // Process the raw data into the HomeData format
       const processedData: HomeData = {
         simCard: {
-          slot:
-            rawData[0].response.split("\n")[1]?.split(":")[1].trim() ||
-            "Unknown",
-          state: rawData[6].response.match("READY")
-            ? "Inserted"
-            : "Not Inserted",
-          provider: getProviderName(rawData[2].response) || "Unknown",
-          phoneNumber:
-            rawData[1].response
-              .split("\n")[1]
-              ?.split(":")[1]
-              ?.split(",")[1]
-              .replace(/"/g, "")
-              .trim() || "Unknown",
-          imsi: rawData[3].response.split("\n")[1].trim() || "Unknown",
-          iccid:
-            rawData[4].response.split("\n")[1]?.split(":")[1].trim() ||
-            "Unknown",
-          imei: rawData[5].response.split("\n")[1].trim() || "Unknown",
+          slot: parseField(rawData[0].response, 1, 1, 0),
+          state: rawData[6].response.includes("READY") ? "Inserted" : "Not Inserted",
+          provider: parseField(rawData[2].response, 1, 1, 2),
+          phoneNumber: parseField(rawData[1].response, 1, 1, 1),
+          imsi: parseField(rawData[3].response, 1, 0, 0),
+          iccid: parseField(rawData[4].response, 1, 1, 1, "Unknown", " "),
+          imei: parseField(rawData[5].response, 1, 0, 0),
         },
         connection: {
-          apn:
-            rawData[7].response
-              .split("\n")[1]
-              ?.split(":")[1]
-              ?.split(",")[2]
-              .replace(/"/g, "")
-              .trim() ||
-            rawData[12].response
-              .split("\n")[1]
-              ?.split(":")[1]
-              ?.split(",")[2]
-              .replace(/"/g, "")
-              .trim() ||
-            "Unknown",
-          operatorState:
-            getOperatorState(rawData[8].response, rawData[16].response) ||
-            "Unknown",
-          functionalityState:
-            rawData[9].response.split("\n")[1]?.split(":")[1].trim() === "1"
-              ? "Enabled"
-              : "Disabled",
+          apn: parseField(rawData[7]?.response, 1, 1, 2, parseField(rawData[12]?.response, 1, 1, 2)),
+          operatorState: getOperatorState(rawData[8]?.response, rawData[16]?.response) || "Unknown",
+          functionalityState: parseField(rawData[9]?.response, 1, 1, 0) === "1" ? "Enabled" : "Disabled",
           networkType: getNetworkType(rawData[13].response) || "No Signal",
-          modemTemperature:
-            getModemTemperature(rawData[11].response) || "Unknown",
-          accessTechnology:
-            getAccessTechnology(rawData[2].response) || "Unknown",
+          modemTemperature: getModemTemperature(rawData[11].response) || "Unknown",
+          accessTechnology: getAccessTechnology(rawData[2].response) || "Unknown",
         },
         dataTransmission: {
-          carrierAggregation:
-            rawData[13].response.match(/"LTE BAND \d+"|"NR5G BAND \d+"/g)
-              ?.length > 1
-              ? "Multi"
-              : "Inactive",
-          bandwidth:
-            getBandwidth(
-              rawData[13].response,
-              getNetworkType(rawData[13].response)
-            ) || "Unknown",
+          carrierAggregation: rawData[13].response.match(/"LTE BAND \d+"|"NR5G BAND \d+"/g) ?.length > 1 ? "Multi" : "Inactive",
+          bandwidth: getBandwidth(rawData[13].response, getNetworkType(rawData[13].response)) || "Unknown",
           connectedBands: getConnectedBands(rawData[13].response) || "Unknown",
           signalStrength: getSignalStrength(rawData[14].response) || "Unknown",
           mimoLayers: getMimoLayers(rawData[14].response) || "Unknown",
         },
         cellularInfo: {
-          cellId:
-            getCellID(
-              rawData[10].response,
-              getNetworkType(rawData[13].response)
-            ) || "Unknown",
-          trackingAreaCode:
-            getTAC(
-              rawData[10].response,
-              getNetworkType(rawData[13].response)
-            ) || "Unknown",
-          physicalCellId: getPhysicalCellIDs(
-            rawData[13].response,
-            getNetworkType(rawData[13].response)
-          ),
+          cellId: getCellID(rawData[10].response, getNetworkType(rawData[13].response)) || "Unknown",
+          trackingAreaCode: getTAC(rawData[10].response, getNetworkType(rawData[13].response)) || "Unknown",
+          physicalCellId: getPhysicalCellIDs(rawData[13].response, getNetworkType(rawData[13].response)),
           earfcn: getEARFCN(rawData[13].response),
-          mcc:
-            getMCC(
-              rawData[10].response,
-              getNetworkType(rawData[13].response)
-            ) || "Unknown",
-          mnc:
-            getMNC(
-              rawData[10].response,
-              getNetworkType(rawData[13].response)
-            ) || "Unknown",
+          mcc: getMCC(rawData[10].response, getNetworkType(rawData[13].response)) || "Unknown",
+          mnc: getMNC(rawData[10].response, getNetworkType(rawData[13].response)) || "Unknown",
           signalQuality: getSignalQuality(rawData[19].response) || "Unknown",
         },
         currentBands: {
           // id is length of bandNumber
-          id: Array.from(
-            {
-              length:
-                getCurrentBandsBandNumber(rawData[13].response)?.length ?? 0,
-            },
-            (_, i) => i + 1
-          ) || [1],
-          bandNumber: getCurrentBandsBandNumber(rawData[13].response) || [
-            "Unknown",
-          ],
+          id: Array.from({ length: getCurrentBandsBandNumber(rawData[13].response)?.length ?? 0, }, (_, i) => i + 1) || [1],
+          bandNumber: getCurrentBandsBandNumber(rawData[13].response) || ["Unknown",],
           earfcn: getCurrentBandsEARFCN(rawData[13].response),
-          bandwidth: getCurrentBandsBandwidth(rawData[13].response) || [
-            "Unknown",
-          ],
-          pci: getCurrentBandsPCI(
-            rawData[13].response,
-            getNetworkType(rawData[13].response)
-          ) || ["Unknown"],
-          rsrp: getCurrentBandsRSRP(
-            rawData[13].response,
-            getNetworkType(rawData[13].response),
-            rawData[10].response
-          ),
-          rsrq: getCurrentBandsRSRQ(
-            rawData[13].response,
-            getNetworkType(rawData[13].response),
-            rawData[10].response
-          ) || ["Unknown"],
-          sinr: getCurrentBandsSINR(
-            rawData[13].response,
-            getNetworkType(rawData[13].response),
-            rawData[10].response
-          ) || ["Unknown"],
+          bandwidth: getCurrentBandsBandwidth(rawData[13].response) || ["Unknown",],
+          pci: getCurrentBandsPCI(rawData[13].response, getNetworkType(rawData[13].response)) || ["Unknown"],
+          rsrp: getCurrentBandsRSRP(rawData[13].response, getNetworkType(rawData[13].response), rawData[10].response),
+          rsrq: getCurrentBandsRSRQ(rawData[13].response, getNetworkType(rawData[13].response), rawData[10].response) || ["Unknown"],
+          sinr: getCurrentBandsSINR(rawData[13].response, getNetworkType(rawData[13].response), rawData[10].response) || ["Unknown"],
         },
         networkAddressing: {
           publicIPv4: publicIPResponse.ok
@@ -414,12 +330,12 @@ const useHomeData = () => {
 
               if (!matchingLine) return "-";
 
-              // Step 3: Extract primary DNS (second to last field)
+              // Step 3: Extract secondary DNS (last field)
               const parts = matchingLine.split(",");
               if (parts.length < 2) return "-";
 
               // Primary DNS is the second to last element
-              const dnsAddress = parts[parts.length - 2]
+              const dnsAddress = parts[parts.length - 1]
                 .replace(/"/g, "")
                 .trim();
 
@@ -448,6 +364,7 @@ const useHomeData = () => {
           // Raw DNS addresses without formatting
           rawCarrierPrimaryDNS: (() => {
             try {
+              // [15] is the WWAN QMAP response, [20] is the CGCONTRDP response
               if (!rawData[15]?.response || !rawData[20]?.response) return "-";
 
               // Step 1: Get profile ID from QMAP="WWAN" response
@@ -535,25 +452,13 @@ const useHomeData = () => {
           })(),
         },
         timeAdvance: {
-          lteTimeAdvance:
-            rawData[21].response
-              .split("\n")[1]
-              ?.split(":")[1]
-              ?.split(",")[2]
-              .trim() || "Unknown",
-
-          nrTimeAdvance:
-            rawData[22].response
-              .split("\n")[1]
-              ?.split(":")[1]
-              ?.split(",")[2]
-              .trim() || "Unknown",
+          lteTimeAdvance: parseField(rawData[21]?.response, 1, 1, 2),
+          nrTimeAdvance: parseField(rawData[22]?.response, 1, 1, 2),
         },
       };
 
       setData(processedData);
       setRetryCount(0);
-      setData(processedData);
       setError(null);
       console.log("Processed home data:", processedData);
     } catch (error) {
@@ -607,41 +512,32 @@ const useHomeData = () => {
 };
 
 // Helper functions for data processing
-const getProviderName = (response: string) => {
-  //             rawData[2].response
-  // ?.split("\n")[1]
-  // ?.split(":")[1]
-  // ?.split(",")[2]
-  // .replace(/"/g, "")
-  // .trim() || "Unknown",
+const parseField = (
+  response: string,
+  lineIndex: number,
+  firstField: number,
+  fieldIndex: number,
+  defaultValue = "Unknown",
+  delimiter = ","
+) => {
   try {
     return (
-      response
-        ?.split("\n")[1]
-        ?.split(":")[1]
-        ?.split(",")[2]
-        .replace(/"/g, "")
-        .trim() || "Unknown"
+      response.split("\n")[lineIndex]?.split(":")[firstField]?.split(delimiter)[
+        fieldIndex
+      ]?.replace(/"/g, "")
+        .trim() || defaultValue
     );
-  } catch (error) {
-    return "-";
+  } catch {
+    return defaultValue;
   }
 };
+const getProviderName = (response: string) => parseField(response, 1, 1, 2);
+const getAccessTechnology = (response: string) => parseField(response, 1, 1, 3);
 
-const getAccessTechnology = (response: string) => {
-  try {
-    return (
-      response?.split("\n")[1]?.split(":")[1]?.split(",")[3].trim() || "Unknown"
-    );
-  } catch (error) {
-    return "-";
-  }
-};
 
 const getOperatorState = (lteResponse: string, nr5gResponse: string) => {
   const state =
-    Number(lteResponse.split("\n")[1]?.split(":")[1]?.split(",")[1].trim()) ||
-    Number(nr5gResponse.split("\n")[1]?.split(":")[1]?.split(",")[1].trim());
+    Number(parseField(lteResponse,1,1,1)) || Number(parseField(nr5gResponse,1,1,1))
   switch (state) {
     case 1:
       return "Registered";
@@ -776,14 +672,15 @@ const getSignalStrength = (response: string) => {
   let rsrpNR5G = response.split("\n").find((l) => l.includes("NR5G"));
   let rsrpLteArr: any[] = [];
   let rsrpNrArr: any[] = [];
-
+  const invalidRSRPvalues = [-140, -37625, -32768];
   // if RSRP LTE exists
   if (rsrpLTE) {
     rsrpLteArr = rsrpLTE
       ?.split(":")[1]
       ?.split(",")
       .slice(0, 4)
-      .map((v) => parseInt(v.trim()));
+      .map((v) => parseInt(v.trim()))
+      .filter((v) => !invalidRSRPvalues.includes(v));
   }
 
   // If RSRP NR5G exists
@@ -792,16 +689,9 @@ const getSignalStrength = (response: string) => {
       ?.split(":")[1]
       ?.split(",")
       .slice(0, 4)
-      .map((v) => parseInt(v.trim()));
+      .map((v) => parseInt(v.trim()))
+      .filter((v) => !invalidRSRPvalues.includes(v));
   }
-
-  // Filter out -140 and -37625 from the arrays
-  rsrpLteArr = rsrpLteArr.filter(
-    (v) => v !== -140 && v !== -37625 && v !== -32768
-  );
-  rsrpNrArr = rsrpNrArr.filter(
-    (v) => v !== -140 && v !== -37625 && v !== -32768
-  );
 
   // Calculate the average RSRP values average percentage where -75 is best and -125 is worst
   if (rsrpLteArr.length) {
@@ -1191,7 +1081,7 @@ const getCurrentBandsRSRP = (
     // Existing NR5G-SA handling - no changes needed
     const pccRSRP = servingCell.split("\n").find((l) => l.includes("NR5G-SA"));
     const pccValue = pccRSRP
-      ? pccRSRP?.split(":")[1]?.split(",")[9]
+      ? pccRSRP?.split(":")[1]?.split(",")[12]
       : "Unknown";
 
     // Get all SCC RSRP values
@@ -1295,7 +1185,7 @@ const getCurrentBandsRSRQ = (
     // Existing NR5G-SA handling - no changes needed
     const pccRSRQ = servingCell.split("\n").find((l) => l.includes("NR5G-SA"));
     const pccValue = pccRSRQ
-      ? pccRSRQ?.split(":")[1]?.split(",")[10]
+      ? pccRSRQ?.split(":")[1]?.split(",")[13]
       : "Unknown";
 
     // Get all SCC RSRQ values
@@ -1391,6 +1281,7 @@ const getCurrentBandsSINR = (
 ) => {
   // Loop through the response and extract the SINR
   if (networkType === "LTE") {
+    // if LTE mode the value may need to be calcuted to get actual SINR, Y = (1/5) × X × 10 - 20 (X is the <SINR> from QENG for only the PCC band)
     const sinrs = response.split("\n").filter((l) => l.includes("BAND"));
     return sinrs.map((l) => l?.split(":")[1]?.split(",")[9]);
   }
@@ -1401,16 +1292,16 @@ const getCurrentBandsSINR = (
     let pccValue = "Unknown";
 
     if (pccSINR) {
-      const rawSINR = pccSINR?.split(":")[1]?.split(",")[11];
+      const rawSINR = pccSINR?.split(":")[1]?.split(",")[14];
       // If value is -32768, use "-" instead of "Unknown"
       if (rawSINR === "-32768") {
         pccValue = "-";
       } else {
-        // Apply the SNR conversion formula: SNR = value / 100
+        // PCC SNR value from QENG is already calculated in the correct format, no need to value/100
         const sinrValue = parseInt(rawSINR);
         if (!isNaN(sinrValue)) {
-          // Return a whole number only and round up when necessary
-          pccValue = Math.round(sinrValue / 100).toString();
+          // PCC SINR value from QENG is already in correctly calcuated SINR db format
+          pccValue = sinrValue.toString();
         } else {
           pccValue = rawSINR || "Unknown";
         }
@@ -1520,47 +1411,32 @@ const getCurrentBandsSINR = (
 const getMimoLayers = (response: string) => {
   // Constants for invalid signal values
   const INVALID_VALUES = [-32768, -140];
-  const lteRSRPExists = response.split("\n").find((l) => l.includes("LTE"));
-  const nr5gRSRPExists = response.split("\n").find((l) => l.includes("NR5G"));
-
-  // Get the RSRP values for LTE and NR5G
-  let lteRSRPArr: any[] = [];
-  let nr5gRSRPArr: any[] = [];
-
-  // If RSRP LTE exists
-  if (lteRSRPExists) {
-    lteRSRPArr = lteRSRPExists
+  
+  // Helper function to extract and filter RSRP values
+  const extractRSRP = (line: string | undefined): number[] =>
+    line
       ?.split(":")[1]
       ?.split(",")
       .slice(0, 4)
-      .map((v) => parseInt(v.trim()));
+      .map((v) => parseInt(v.trim()))
+      .filter((v) => !INVALID_VALUES.includes(v)) || [];
+
+  // Extract RSRP values for LTE and NR5G
+  const lteRSRPArr = extractRSRP(response.split("\n").find((l) => l.includes("LTE")));
+  const nr5gRSRPArr = extractRSRP(response.split("\n").find((l) => l.includes("NR5G")));
+
+
+  // Determine MIMO layers
+  if (lteRSRPArr.length && nr5gRSRPArr.length) {
+    return `LTE ${lteRSRPArr.length} / NR ${nr5gRSRPArr.length}`;
   }
-
-  // If RSRP NR5G exists
-  if (nr5gRSRPExists) {
-    nr5gRSRPArr = nr5gRSRPExists
-      ?.split(":")[1]
-      ?.split(",")
-      .slice(0, 4)
-      .map((v) => parseInt(v.trim()));
-  }
-
-  // Filter out invalid values
-  lteRSRPArr = lteRSRPArr.filter((v) => !INVALID_VALUES.includes(v));
-  nr5gRSRPArr = nr5gRSRPArr.filter((v) => !INVALID_VALUES.includes(v));
-
-  // Get the length of the arrays and return as MIMO layers
   if (lteRSRPArr.length) {
-    if (nr5gRSRPArr.length) {
-      return `LTE ${lteRSRPArr.length.toString()} / NR ${nr5gRSRPArr.length.toString()}`;
-    } else {
-      return `LTE ${lteRSRPArr.length.toString()}`;
-    }
-  } else if (nr5gRSRPArr.length) {
-    return `NR ${nr5gRSRPArr.length.toString()}`;
-  } else {
-    return "Unknown";
+    return `LTE ${lteRSRPArr.length}`;
   }
+  if (nr5gRSRPArr.length) {
+    return `NR ${nr5gRSRPArr.length}`;
+  }
+  return "Unknown";
 };
 
 // Add this helper function in your file (outside the React component)
