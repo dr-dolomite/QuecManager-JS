@@ -728,10 +728,10 @@ const getSignalStrength = (response: string) => {
     return "Unknown%";
   }
 };
-const getCellID = (response: string, networkType: string): number => {
+const getCellID = (response: string, networkType: string): string => {
   const lineIndex = networkType === "NR5G-NSA" ? 2 : 1;
   const fieldIndex = networkType === "NR5G-NSA" ? 4 : 6;
-  return parseInt(parseField(response, lineIndex, 1, fieldIndex), 16);
+  return parseInt(parseField(response, lineIndex, 1, fieldIndex), 16).toString();
 };
 
 const getTAC = (response: string, networkType: string) => {
