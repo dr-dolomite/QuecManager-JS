@@ -531,9 +531,8 @@ const parseField = (
     return defaultValue;
   }
 };
-const getProviderName = (response: string) => parseField(response, 1, 1, 2);
-const getAccessTechnology = (response: string) => parseField(response, 1, 1, 3);
 
+const getAccessTechnology = (response: string) => parseField(response, 1, 1, 3);
 
 const getOperatorState = (lteResponse: string, nr5gResponse: string): "Unknown" | "Registered" | "Searching" | "Denied" | "Roaming" | "Not Registered" => {
   const state =
@@ -558,9 +557,7 @@ const getNetworkType = (response: string) => {
 const getModemTemperature = (response: string) => {
   const temps = ["cpuss-0", "cpuss-1", "cpuss-2", "cpuss-3"].map((cpu) => {
     const line = response.split("\n").find((l) => l.includes(cpu));
-    return parseInt(
-      line!?.split(":")[1]?.split(",")[1].replace(/"/g, "").trim()
-    );
+    return parseInt(line!?.split(":")[1]?.split(",")[1].replace(/"/g, "").trim());
   });
   const avgTemp = temps.reduce((acc, t) => acc + t, 0) / temps.length;
   return `${Math.round(avgTemp)}°C`;
