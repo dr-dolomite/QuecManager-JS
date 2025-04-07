@@ -734,20 +734,13 @@ const getCellID = (response: string, networkType: string): string => {
   return parseInt(parseField(response, lineIndex, 1, fieldIndex), 16).toString();
 };
 
-const getTAC = (response: string, networkType: string) => {
-  if (networkType === "NR5G-SA") {
-    return response.split("\n")[1]?.split(":")[1]?.split(",")[8].trim();
-  }
+const getTAC = (response: string, networkType: string): string => {
+  const lineIndex = { "NR5G-SA": 1, "NR5G-NSA": 2, "LTE": 1 }[networkType];
+  const fieldIndex = { "NR5G-SA": 8, "NR5G-NSA": 10, "LTE": 12 }[networkType];
 
-  if (networkType === "NR5G-NSA") {
-    return response.split("\n")[2]?.split(":")[1]?.split(",")[10].trim();
-  }
-
-  if (networkType === "LTE") {
-    return response.split("\n")[1]?.split(":")[1]?.split(",")[12].trim();
-  }
-
-  return "Unknown";
+  return lineIndex !== undefined && fieldIndex !== undefined
+    ? parseInt(parseField(response, lineIndex, 1, fieldIndex), 16).toString()
+    : "Unknown";
 };
 
 const getPhysicalCellIDs = (response: string, networkType: string) => {
