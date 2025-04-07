@@ -1,6 +1,13 @@
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { EthernetPortIcon } from "lucide-react";
 
 interface EthernetData {
   link_status: string;
@@ -87,44 +94,54 @@ const EthernetCard = () => {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="grid lg:grid-cols-3 grid-cols-2 grid-flow-row gap-4 col-span-3">
-          <div className="grid gap-1">
-            <span className="text-sm text-muted-foreground">Link Status</span>
-            <span className="text-base font-bold">
-              {isLoading ? (
-                <Skeleton className="h-8 w-full" />
-              ) : ethernetData.link_status === "yes" ? (
-                "Active"
-              ) : (
-                "Inactive"
-              )}
-            </span>
+        <div className="grid lg:grid-cols-3 grid-cols-1 grid-flow-row gap-4 place-items-center">
+          <div className="flex justify-center items-center rounded-full bg-gray-100 dark:bg-gray-800 w-36 h-36  lg:p-6 p-4">
+            {ethernetData.link_status === "yes" ? (
+              <EthernetPortIcon className="size-full text-emerald-500 animate-pulse" />
+            ) : (
+              <EthernetPortIcon className="size-full text-red-500 animate-pulse" />
+            )}
           </div>
 
-          <div className="grid gap-1">
-            <span className="text-sm text-muted-foreground">Link Speed</span>
-            <span className="text-base font-bold">
-              {isLoading ? (
-                <Skeleton className="h-8 w-full" />
-              ) : (
-                formatSpeed(ethernetData.link_speed)
-              )}
-            </span>
-          </div>
+          <div className="flex flex-row items-start justify-between gap-x-2 w-full lg:col-span-2 col-span-1 lg:px-4 px-1">
+            <div className="grid gap-1">
+              <span className="text-sm text-muted-foreground">Link Status</span>
+              <span className="text-base font-bold">
+                {isLoading ? (
+                  <Skeleton className="h-8 w-full" />
+                ) : ethernetData.link_status === "yes" ? (
+                  "Active"
+                ) : (
+                  "Inactive"
+                )}
+              </span>
+            </div>
 
-          <div className="grid gap-1">
-            <span className="text-sm text-muted-foreground">
-              Auto-negotiation
-            </span>
-            <span className="text-base font-bold">
-              {isLoading ? (
-                <Skeleton className="h-8 w-full" />
-              ) : ethernetData.auto_negotiation === "on" ? (
-                "Active"
-              ) : (
-                "Inactive"
-              )}
-            </span>
+            <div className="grid gap-1">
+              <span className="text-sm text-muted-foreground">Link Speed</span>
+              <span className="text-base font-bold">
+                {isLoading ? (
+                  <Skeleton className="h-8 w-full" />
+                ) : (
+                  formatSpeed(ethernetData.link_speed)
+                )}
+              </span>
+            </div>
+
+            <div className="grid gap-1">
+              <span className="text-sm text-muted-foreground">
+                Auto-negotiation
+              </span>
+              <span className="text-base font-bold">
+                {isLoading ? (
+                  <Skeleton className="h-8 w-full" />
+                ) : ethernetData.auto_negotiation === "on" ? (
+                  "Active"
+                ) : (
+                  "Inactive"
+                )}
+              </span>
+            </div>
           </div>
         </div>
       </CardContent>

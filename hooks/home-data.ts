@@ -1298,6 +1298,7 @@ const getCurrentBandsSINR = (
         pccValue = "-";
       } else {
         // PCC SNR value from QENG is already calculated in the correct format, no need to value/100
+        // Youre right. Thanks for pointing that out. - dr-dolomite
         const sinrValue = parseInt(rawSINR);
         if (!isNaN(sinrValue)) {
           // PCC SINR value from QENG is already in correctly calcuated SINR db format

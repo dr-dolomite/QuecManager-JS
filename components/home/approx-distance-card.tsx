@@ -98,6 +98,10 @@ const ApproxDistanceCard: React.FC<ApproxDistanceCardProps> = ({
   // Format distances for display
   const formatDistance = (distance: number): string => {
     if (distance === 0) return "-";
+    // If the distance is less than 1 km, show in meters
+    if (distance < 1) {
+      return `${(distance * 1000).toFixed(0)} m`;
+    }
     return `${distance.toFixed(2)} km`;
   };
 
