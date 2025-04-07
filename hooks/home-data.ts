@@ -666,67 +666,38 @@ const getConnectedBands = (response: string) => {
   );
 };
 
-const getSignalStrength = (response: string) => {
-  // const RSRP LTE line
-  let rsrpLTE = response.split("\n").find((l) => l.includes("LTE"));
-  let rsrpNR5G = response.split("\n").find((l) => l.includes("NR5G"));
-  let rsrpLteArr: any[] = [];
-  let rsrpNrArr: any[] = [];
-  const invalidRSRPvalues = [-140, -37625, -32768];
-  // if RSRP LTE exists
-  if (rsrpLTE) {
-    rsrpLteArr = rsrpLTE
-      ?.split(":")[1]
-      ?.split(",")
+const getSignalStrength = (response: string): string => {
+  const INVALID_RSRP_VALUES = [-140, -37625, -32768];
+  // Helper function to extract and filter RSRP values
+  const extractRSRP = (line?: string): number[] =>
+    line?.split(":")[1]?.split(",")
       .slice(0, 4)
       .map((v) => parseInt(v.trim()))
-      .filter((v) => !invalidRSRPvalues.includes(v));
+      .filter((v) => !INVALID_RSRP_VALUES.includes(v)) || [];
+
+  // Extract RSRP values for LTE and NR5G
+  const rsrpLteArr = extractRSRP(response.split("\n").find((l) => l.includes("LTE")));
+  const rsrpNrArr = extractRSRP(response.split("\n").find((l) => l.includes("NR5G")));
+
+  // Helper function to calculate percentage
+  const calculatePercentage = (values: number[]): number =>
+    Math.max(0, Math.min(100, ((values.reduce((acc, v) => acc + v, 0) / values.length + 125) / 50) * 100));
+
+  // Calculate signal strength percentages
+  const ltePercentage = rsrpLteArr.length ? calculatePercentage(rsrpLteArr) : null;
+  const nrPercentage = rsrpNrArr.length ? calculatePercentage(rsrpNrArr) : null;
+
+  // Determine final signal strength
+  if (ltePercentage !== null && nrPercentage !== null) {
+    return `${Math.round((ltePercentage + nrPercentage) / 2)}%`;
   }
-
-  // If RSRP NR5G exists
-  if (rsrpNR5G) {
-    rsrpNrArr = rsrpNR5G
-      ?.split(":")[1]
-      ?.split(",")
-      .slice(0, 4)
-      .map((v) => parseInt(v.trim()))
-      .filter((v) => !invalidRSRPvalues.includes(v));
+  if (ltePercentage !== null) {
+    return `${Math.round(ltePercentage)}%`;
   }
-
-  // Calculate the average RSRP values average percentage where -75 is best and -125 is worst
-  if (rsrpLteArr.length) {
-    if (rsrpNrArr.length) {
-      const lteAvg =
-        rsrpLteArr.reduce((acc, v) => acc + v, 0) / rsrpLteArr.length;
-      const nrAvg = rsrpNrArr.reduce((acc, v) => acc + v, 0) / rsrpNrArr.length;
-      const ltePercentage = Math.max(
-        0,
-        Math.min(100, ((lteAvg + 125) / 50) * 100)
-      );
-      const nrPercentage = Math.max(
-        0,
-        Math.min(100, ((nrAvg + 125) / 50) * 100)
-      );
-
-      // Get the final average percentage
-      const finalAverage = (ltePercentage + nrPercentage) / 2;
-      return `${Math.round(finalAverage)}%`;
-    } else {
-      const lteAvg =
-        rsrpLteArr.reduce((acc, v) => acc + v, 0) / rsrpLteArr.length;
-      const ltePercentage = Math.max(
-        0,
-        Math.min(100, ((lteAvg + 125) / 50) * 100)
-      );
-      return `${Math.round(ltePercentage)}%`;
-    }
-  } else if (rsrpNrArr.length) {
-    const nrAvg = rsrpNrArr.reduce((acc, v) => acc + v, 0) / rsrpNrArr.length;
-    const nrPercentage = Math.max(0, Math.min(100, ((nrAvg + 125) / 50) * 100));
+  if (nrPercentage !== null) {
     return `${Math.round(nrPercentage)}%`;
-  } else {
-    return "Unknown%";
   }
+  return "Unknown%";
 };
 
 const getCellID = (response: string, networkType: string) => {
