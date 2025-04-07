@@ -873,24 +873,17 @@ const getCurrentBandsBandNumber = (response: string) => {
   }
 };
 
-const getCurrentBandsEARFCN = (response: string) => {
-  // Loop through the response and extract the EARFCN
-  const earfcnsLte = response.split("\n").filter((l) => l.includes("LTE BAND"));
-  const earfcnsNr5g = response
-    .split("\n")
-    .filter((l) => l.includes("NR5G BAND"));
+const getCurrentBandsEARFCN = (response: string): string[] => {
+  const extractEARFCNs = (type: string) =>
+    response
+      .split("\n")
+      .filter((line) => line.includes(type))
+      .map((line) => line.split(":")[1]?.split(",")[1]?.trim() || "Unknown");
 
-  if (earfcnsLte.length && earfcnsNr5g.length) {
-    return [...earfcnsLte, ...earfcnsNr5g].map(
-      (l) => l?.split(":")[1]?.split(",")[1]
-    );
-  } else if (earfcnsLte.length) {
-    return earfcnsLte.map((l) => l?.split(":")[1]?.split(",")[1]);
-  } else if (earfcnsNr5g.length) {
-    return earfcnsNr5g.map((l) => l?.split(":")[1]?.split(",")[1]);
-  } else {
-    return ["Unknown"];
-  }
+  const earfcnsLte = extractEARFCNs("LTE BAND");
+  const earfcnsNr5g = extractEARFCNs("NR5G BAND");
+
+  return [...earfcnsLte, ...earfcnsNr5g].length ? [...earfcnsLte, ...earfcnsNr5g] : ["Unknown"];
 };
 
 const getCurrentBandsBandwidth = (response: string): string[] => {
