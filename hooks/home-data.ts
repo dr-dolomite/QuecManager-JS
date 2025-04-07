@@ -728,17 +728,10 @@ const getSignalStrength = (response: string) => {
     return "Unknown%";
   }
 };
-
-const getCellID = (response: string, networkType: string) => {
-  if (networkType === "NR5G-SA" || networkType === "LTE") {
-    return response.split("\n")[1]?.split(":")[1]?.split(",")[6].trim();
-  }
-
-  if (networkType === "NR5G-NSA") {
-    return response.split("\n")[2]?.split(":")[1]?.split(",")[4].trim();
-  }
-
-  return "Unknown";
+const getCellID = (response: string, networkType: string): number => {
+  const lineIndex = networkType === "NR5G-NSA" ? 2 : 1;
+  const fieldIndex = networkType === "NR5G-NSA" ? 4 : 6;
+  return parseInt(parseField(response, lineIndex, 1, fieldIndex), 16);
 };
 
 const getTAC = (response: string, networkType: string) => {
