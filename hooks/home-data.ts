@@ -555,13 +555,10 @@ const getOperatorState = (lteResponse: string, nr5gResponse: string) => {
 };
 
 const getNetworkType = (response: string) => {
-  const bands = response.match(/"LTE BAND \d+"|"NR5G BAND \d+"/g);
+  const bands = response.match(/"LTE BAND \d+"|"NR5G BAND \d+"/g) || [];
   const hasLTE = bands?.some((band) => band.includes("LTE"));
   const hasNR5G = bands?.some((band) => band.includes("NR5G"));
-  if (hasLTE && hasNR5G) return "NR5G-NSA";
-  if (hasLTE) return "LTE";
-  if (hasNR5G) return "NR5G-SA";
-  return "No Signal";
+  return hasLTE && hasNR5G ? "NR5G-NSA" : hasLTE ? "LTE" : hasNR5G ? "NR5G-SA" : "No Signal";
 };
 
 const getModemTemperature = (response: string) => {
