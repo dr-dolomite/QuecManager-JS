@@ -535,10 +535,10 @@ const getProviderName = (response: string) => parseField(response, 1, 1, 2);
 const getAccessTechnology = (response: string) => parseField(response, 1, 1, 3);
 
 
-const getOperatorState = (lteResponse: string, nr5gResponse: string) => {
+const getOperatorState = (lteResponse: string, nr5gResponse: string): "Unknown" | "Registered" | "Searching" | "Denied" | "Roaming" | "Not Registered" => {
   const state =
-  Number(parseField(lteResponse,1,1,1)) || Number(parseField(nr5gResponse,1,1,1))
-  const stateMap: Record<number, string> = {
+    Number(parseField(lteResponse, 1, 1, 1)) || Number(parseField(nr5gResponse, 1, 1, 1));
+  const stateMap: Record<number, "Unknown" | "Registered" | "Searching" | "Denied" | "Roaming" | "Not Registered"> = {
     1: "Registered",
     2: "Searching",
     3: "Denied",
