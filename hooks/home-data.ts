@@ -1353,71 +1353,44 @@ const getMimoLayers = (response: string) => {
 // Add this helper function in your file (outside the React component)
 const formatDottedIPv6 = (dottedIPv6: string): string => {
   try {
-    // Split by dots
     const parts = dottedIPv6.split(".");
-
-    // Only process if it looks like a dotted IPv6
-    if (parts.length < 8) return dottedIPv6;
+    if (parts.length < 8) return dottedIPv6; // Return as-is if not a valid dotted IPv6
 
     // Convert each decimal to 2-digit hex
-    const hexParts = parts.map((part) => {
-      const num = parseInt(part, 10);
-      if (isNaN(num)) return "00";
-      return num.toString(16).padStart(2, "0");
-    });
+    const hexParts = parts.map((part) => parseInt(part, 10).toString(16).padStart(2, "0"));
 
     // Group into 8 blocks of 2 bytes each
-    const ipv6Blocks = [];
-    for (let i = 0; i < hexParts.length; i += 2) {
-      if (i + 1 < hexParts.length) {
-        ipv6Blocks.push(hexParts[i] + hexParts[i + 1]);
-      } else {
-        ipv6Blocks.push(hexParts[i] + "00");
-      }
-    }
-
-    // Remove leading zeros from each block
-    const cleanedBlocks = ipv6Blocks.map(
-      (block) => block.replace(/^0+/, "") || "0"
+    const ipv6Blocks = Array.from({ length: 8 }, (_, i) =>
+      hexParts[i * 2] + (hexParts[i * 2 + 1] || "00")
     );
 
-    // Find longest run of zeros for compression
-    let longestZeros: string | any[] = [];
-    let currentZeros = [];
+    // Remove leading zeros from each block
+    const cleanedBlocks = ipv6Blocks.map((block) => block.replace(/^0+/, "") || "0");
 
-    for (let i = 0; i < cleanedBlocks.length; i++) {
-      if (cleanedBlocks[i] === "0") {
-        currentZeros.push(i);
-      } else if (currentZeros.length > 0) {
-        if (currentZeros.length > longestZeros.length) {
-          longestZeros = [...currentZeros];
-        }
-        currentZeros = [];
-      }
-    }
-
-    // Check final run of zeros
-    if (currentZeros.length > longestZeros.length) {
-      longestZeros = [...currentZeros];
-    }
-
-    // Apply zero compression if we have at least 2 consecutive zeros
-    if (longestZeros.length >= 2) {
-      const result = [];
-      for (let i = 0; i < cleanedBlocks.length; i++) {
-        if (i === longestZeros[0]) {
-          result.push(""); // Start of compressed section
-          i = longestZeros[longestZeros.length - 1]; // Skip to end of zeros
+    // Find the longest run of consecutive zeros for compression
+    const zeroRun = cleanedBlocks.reduce(
+      (acc, block, i) => {
+        if (block === "0") {
+          acc.current.push(i);
+          if (acc.current.length > acc.longest.length) acc.longest = [...acc.current];
         } else {
-          result.push(cleanedBlocks[i]);
+          acc.current = [];
         }
-      }
+        return acc;
+      },
+      { current: [] as number[], longest: [] as number[] }
+    ).longest;
 
-      return result.join(":").replace(/::+/g, "::");
+    // Apply zero compression if applicable
+    if (zeroRun.length >= 2) {
+      return cleanedBlocks
+        .map((block, i) => (i === zeroRun[0] ? "" : zeroRun.includes(i) ? null : block))
+        .filter((block) => block !== null)
+        .join(":")
+        .replace(/::+/g, "::");
     }
 
-    // If no compression, just join the blocks
-    return cleanedBlocks.join(":");
+    return cleanedBlocks.join(":"); // Return without compression if no zero run
   } catch (err) {
     console.error("Error formatting IPv6:", err);
     return dottedIPv6;
