@@ -725,44 +725,24 @@ const getPhysicalCellIDs = (response: string, networkType: string): string => {
   return sccPCIs.length ? [pccPCI, ...sccPCIs].join(", ") : pccPCI;
 };
 
-const getEARFCN = (response: string) => {
-  // Get the PCC EARFCN first
-  let pccEARFCN = response.split("\n").find((l) => l.includes("PCC"));
-  pccEARFCN = pccEARFCN?.split(":")[1]?.split(",")[1].trim();
+const getEARFCN = (response: string): string => {
+  const extractEARFCNs = (type: string) =>
+    response
+      .split("\n")
+      .filter((line) => line.includes("SCC") && line.includes(type))
+      .map((line) => line.split(":")[1]?.split(",")[1]?.trim() || "Unknown");
 
-  // Map the SCC EARFCN lines
-  let sccEARFCNsLTE = response
-    .split("\n")
-    .filter((l) => l.includes("SCC") && l.includes("LTE"));
-  sccEARFCNsLTE = sccEARFCNsLTE.map((l) =>
-    l?.split(":")[1]?.split(",")[1].trim()
-  );
+  const pccEARFCN = parseField(response, response.split("\n").findIndex((line) => line.includes("PCC")), 1, 1);
 
-  let sccEARFCNsNR5G = response
-    .split("\n")
-    .filter((l) => l.includes("SCC") && l.includes("NR5G"));
-  sccEARFCNsNR5G = sccEARFCNsNR5G.map((l) =>
-    l?.split(":")[1]?.split(",")[1].trim()
-  );
+  const sccEARFCNsLTE = extractEARFCNs("LTE");
+  const sccEARFCNsNR5G = extractEARFCNs("NR5G");
 
-  // Combine the EARFCNs into a single string separated by commas
-  // If only PCC EARFCN is present
-  if (pccEARFCN && !sccEARFCNsLTE.length && !sccEARFCNsNR5G.length) {
-    return pccEARFCN;
-  }
-
-  // If only LTE PCC and SCC EARFCNs are present
-  if (pccEARFCN && sccEARFCNsLTE.length && !sccEARFCNsNR5G.length) {
-    return [pccEARFCN, ...sccEARFCNsLTE].join(", ");
-  }
-
-  // If only NR5G PCC and SCC EARFCNs are present
-  if (pccEARFCN && !sccEARFCNsLTE.length && sccEARFCNsNR5G.length) {
-    return [pccEARFCN, ...sccEARFCNsNR5G].join(", ");
-  }
-
-  // If both LTE and NR5G EARFCNs are present
-  if (pccEARFCN && sccEARFCNsLTE.length && sccEARFCNsNR5G.length) {
+  if (pccEARFCN) {
+    if (!sccEARFCNsLTE.length && !sccEARFCNsNR5G.length) return pccEARFCN;
+    if (sccEARFCNsLTE.length && !sccEARFCNsNR5G.length)
+      return [pccEARFCN, ...sccEARFCNsLTE].join(", ");
+    if (!sccEARFCNsLTE.length && sccEARFCNsNR5G.length)
+      return [pccEARFCN, ...sccEARFCNsNR5G].join(", ");
     return [pccEARFCN, ...sccEARFCNsLTE, ...sccEARFCNsNR5G].join(", ");
   }
 
