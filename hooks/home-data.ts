@@ -728,62 +728,20 @@ const getTAC = (response: string, networkType: string) => {
   return "Unknown";
 };
 
-const getPhysicalCellIDs = (response: string, networkType: string) => {
-  // Get the physical cell IDs for LTE
-  if (networkType === "LTE" || networkType === "NR5G-NSA") {
-    // Get the PCC PCI first
-    let pccPCI = response.split("\n").find((l) => l.includes("PCC"));
-    pccPCI = pccPCI?.split(":")[1]?.split(",")[5].trim();
+const getPhysicalCellIDs = (response: string, networkType: string): string => {
+  const parsePCI = (lines: string[], fieldIndex: number) =>
+    lines.map((line) => line.split(":")[1]?.split(",")[fieldIndex]?.trim() || "Unknown");
 
-    // Map the SCC PCIs lines
-    let sccPCIsLTE = response
-      .split("\n")
-      .filter((l) => l.includes("SCC") && l.includes("LTE"));
-    sccPCIsLTE = sccPCIsLTE.map((l) => l?.split(":")[1]?.split(",")[5].trim());
+  const pccPCI = response.split("\n").find((line) => line.includes("PCC"))?.split(":")[1]?.split(",")[networkType === "NR5G-SA" ? 4 : 5]?.trim() || "Unknown";
 
-    // Map the SCC PCIs lines for NR5G
-    let sccPCIsNR5G = response
-      .split("\n")
-      .filter((l) => l.includes("SCC") && l.includes("NR5G"));
-    sccPCIsNR5G = sccPCIsNR5G.map((l) =>
-      l?.split(":")[1]?.split(",")[4].trim()
-    );
+  const sccPCIs = networkType === "NR5G-SA"
+    ? parsePCI(response.split("\n").filter((line) => line.includes("SCC") && line.includes("NR5G")), 5)
+    : [
+        ...parsePCI(response.split("\n").filter((line) => line.includes("SCC") && line.includes("LTE")), 5),
+        ...parsePCI(response.split("\n").filter((line) => line.includes("SCC") && line.includes("NR5G")), 4),
+      ];
 
-    // Combine the PCIs into a single string separated by commas
-    // If only PCC PCI is present
-    if (!sccPCIsLTE.length && !sccPCIsNR5G.length) {
-      return pccPCI;
-    }
-
-    // If only LTE PCC and SCC PCIs are present
-    if (networkType === "LTE") {
-      return [pccPCI, ...sccPCIsLTE].join(", ");
-    }
-
-    // If both LTE and NR5G PCIs are present
-    return [pccPCI, ...sccPCIsLTE, ...sccPCIsNR5G].join(", ");
-  }
-
-  // Get the physical cell IDs for NR5G
-  if (networkType === "NR5G-SA") {
-    // Get the PCC PCI first
-    let pccPCI = response.split("\n").find((l) => l.includes("PCC"));
-    pccPCI = pccPCI?.split(":")[1]?.split(",")[4].trim();
-
-    // Map the SCC PCIs lines
-    let sccPCIs = response
-      .split("\n")
-      .filter((l) => l.includes("SCC") && l.includes("NR5G"));
-    sccPCIs = sccPCIs.map((l) => l?.split(":")[1]?.split(",")[5].trim());
-
-    // If only PCC PCI is present
-    if (!sccPCIs.length) {
-      return pccPCI;
-    }
-
-    // Combine the PCIs into a single string separated by commas
-    return [pccPCI, ...sccPCIs].join(", ");
-  }
+  return sccPCIs.length ? [pccPCI, ...sccPCIs].join(", ") : pccPCI;
 };
 
 const getEARFCN = (response: string) => {
