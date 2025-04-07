@@ -729,6 +729,7 @@ const getSignalStrength = (response: string) => {
   }
 };
 
+// Function to parse the TAC and CellID from the response and return the values from Hex to Decimal format based on the lineIndex and fieldIndex of the respective Index Maps
 const extractValueByNetworkType = (response: string, networkType: string, lineIndexMap: Record<string, number>, fieldIndexMap: Record<string, number>): string => {
   const lineIndex = lineIndexMap[networkType];
   const fieldIndex = fieldIndexMap[networkType];
@@ -736,6 +737,7 @@ const extractValueByNetworkType = (response: string, networkType: string, lineIn
     ? parseInt(parseField(response, lineIndex, 1, fieldIndex), 16).toString().toUpperCase()
     : "Unknown";
 };
+
 const getPhysicalCellIDs = (response: string, networkType: string) => {
   // Get the physical cell IDs for LTE
   if (networkType === "LTE" || networkType === "NR5G-NSA") {
