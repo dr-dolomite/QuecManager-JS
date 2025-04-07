@@ -1084,101 +1084,49 @@ const getCurrentBandsRSRQ = (
   response: string,
   networkType: string,
   servingCell: string
-) => {
-  // Loop through the response and extract the RSRQ
+): string[] => {
+  const extractRSRQ = (lines: string[], index: number): string[] =>
+    lines.map((line) => {
+      const parts = line.split(":")[1]?.split(",");
+      const rsrqValue = parts?.[index]?.trim();
+      return rsrqValue?.match(/-?\d+/)?.[0] || "Unknown";
+    });
+
   if (networkType === "LTE") {
-    const rsrqs = response.split("\n").filter((l) => l.includes("BAND"));
-    return rsrqs.map((l) => l?.split(":")[1]?.split(",")[7]);
+    return extractRSRQ(response.split("\n").filter((l) => l.includes("LTE BAND")), 7);
   }
 
   if (networkType === "NR5G-SA") {
-    // Existing NR5G-SA handling - no changes needed
-    const pccRSRQ = servingCell.split("\n").find((l) => l.includes("NR5G-SA"));
-    const pccValue = pccRSRQ
-      ? pccRSRQ?.split(":")[1]?.split(",")[13]
-      : "Unknown";
-
-    // Get all SCC RSRQ values
-    const sccLines = response
+    const pccRSRQ = servingCell
       .split("\n")
-      .filter((l) => l.includes("SCC") && l.includes("NR5G BAND"));
+      .find((l) => l.includes("NR5G-SA"))
+      ?.split(":")[1]
+      ?.split(",")[13]
+      ?.trim() || "Unknown";
 
-    // Process each SCC line to extract RSRQ at index 10
-    const sccValues = sccLines.map((line) => {
-      const parts = line.split(":")[1].split(",");
-      if (parts.length > 10) {
-        const rsrqValue = parts[10];
-        // Extract just the numeric value with negative sign if present
-        const match = rsrqValue.match(/-?\d+/);
-        return match ? match[0] : "Unknown";
-      }
-      return "Unknown";
-    });
+    const sccRSRQs = extractRSRQ(
+      response.split("\n").filter((l) => l.includes("SCC") && l.includes("NR5G BAND")),
+      10
+    );
 
-    // Return PCC and all SCC values in a single array
-    return [pccValue, ...sccValues];
+    return [pccRSRQ, ...sccRSRQs];
   }
 
-  // Process NR5G-NSA bands
   if (networkType === "NR5G-NSA") {
-    // Map all LTE bands RSRQ values
-    const lteRSRQ = response
+    const lteRSRQs = extractRSRQ(response.split("\n").filter((l) => l.includes("LTE BAND")), 7);
+
+    const nr5gServingRSRQ = servingCell
       .split("\n")
-      .filter((l) => l.includes("LTE BAND"))
-      .map((l) => l?.split(":")[1]?.split(",")[7]);
+      .find((l) => l.includes("NR5G-NSA"))
+      ?.split(",")[6]
+      ?.trim() || "Unknown";
 
-    // Handle NR5G bands differently
-    const nr5gLines = response
-      .split("\n")
-      .filter((l) => l.includes("SCC") && l.includes("NR5G BAND"));
+    const nr5gSccRSRQs = extractRSRQ(
+      response.split("\n").filter((l) => l.includes("SCC") && l.includes("NR5G BAND")),
+      10
+    );
 
-    let nr5gRSRQ: string[] = [];
-
-    if (nr5gLines.length > 0) {
-      // For the first NR5G band, get RSRQ from serving cell data
-      const nr5gServingData = servingCell
-        .split("\n")
-        .find((l) => l.includes("NR5G-NSA"));
-
-      if (nr5gServingData) {
-        // RSRQ is the 7th field (index 6) in the NR5G-NSA serving cell line
-        const servingCellParts = nr5gServingData.split(",");
-        if (servingCellParts.length > 6) {
-          const rsrqValue = servingCellParts[6].trim();
-          nr5gRSRQ.push(rsrqValue);
-        } else {
-          nr5gRSRQ.push("Unknown");
-        }
-      } else {
-        nr5gRSRQ.push("Unknown");
-      }
-
-      // For any additional NR5G bands (2nd onwards),
-      // continue using QCAINFO data at index 10
-      if (nr5gLines.length > 1) {
-        const additionalBands = nr5gLines.slice(1).map((line) => {
-          const parts = line.split(":")[1].split(",");
-          if (parts.length > 10) {
-            const rsrqValue = parts[10];
-            // Extract just the numeric value with negative sign if present
-            const match = rsrqValue.match(/-?\d+/);
-            return match ? match[0] : "Unknown";
-          }
-          return "Unknown";
-        });
-
-        nr5gRSRQ = [...nr5gRSRQ, ...additionalBands];
-      }
-    }
-
-    // Combine results
-    if (lteRSRQ.length && nr5gRSRQ.length) {
-      return [...lteRSRQ, ...nr5gRSRQ];
-    } else if (lteRSRQ.length) {
-      return lteRSRQ;
-    } else if (nr5gRSRQ.length) {
-      return nr5gRSRQ;
-    }
+    return [...lteRSRQs, nr5gServingRSRQ, ...nr5gSccRSRQs].filter((rsrq) => rsrq !== "Unknown");
   }
 
   return ["Unknown"];
