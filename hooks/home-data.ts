@@ -1188,132 +1188,54 @@ const getCurrentBandsSINR = (
   response: string,
   networkType: string,
   servingCell: string
-) => {
-  // Loop through the response and extract the SINR
+): string[] => {
+  const extractSINR = (lines: string[], index: number): string[] =>
+    lines.map((line) => {
+      const parts = line.split(":")[1]?.split(",");
+      const rawSINR = parts?.[index]?.trim();
+      if (rawSINR === "-32768") return "-";
+      const sinrValue = parseInt(rawSINR || "Unknown");
+      return !isNaN(sinrValue) ? Math.round(sinrValue / 100).toString() : rawSINR || "Unknown";
+    });
+
   if (networkType === "LTE") {
-    // if LTE mode the value may need to be calcuted to get actual SINR, Y = (1/5) × X × 10 - 20 (X is the <SINR> from QENG for only the PCC band)
-    const sinrs = response.split("\n").filter((l) => l.includes("BAND"));
-    return sinrs.map((l) => l?.split(":")[1]?.split(",")[9]);
+    return extractSINR(response.split("\n").filter((l) => l.includes("BAND")), 9);
   }
 
   if (networkType === "NR5G-SA") {
-    // Get PCC SINR from serving cell
-    const pccSINR = servingCell.split("\n").find((l) => l.includes("NR5G-SA"));
-    let pccValue = "Unknown";
-
-    if (pccSINR) {
-      const rawSINR = pccSINR?.split(":")[1]?.split(",")[14];
-      // If value is -32768, use "-" instead of "Unknown"
-      if (rawSINR === "-32768") {
-        pccValue = "-";
-      } else {
-        // PCC SNR value from QENG is already calculated in the correct format, no need to value/100
-        // Youre right. Thanks for pointing that out. - dr-dolomite
-        const sinrValue = parseInt(rawSINR);
-        if (!isNaN(sinrValue)) {
-          // PCC SINR value from QENG is already in correctly calcuated SINR db format
-          pccValue = sinrValue.toString();
-        } else {
-          pccValue = rawSINR || "Unknown";
-        }
-      }
-    }
-
-    // Get all SCC SINR values
-    const sccLines = response
+    const pccSINR = servingCell
       .split("\n")
-      .filter((l) => l.includes("SCC") && l.includes("NR5G BAND"));
+      .find((l) => l.includes("NR5G-SA"))
+      ?.split(":")[1]
+      ?.split(",")[14]
+      ?.trim();
 
-    // Process each SCC line to extract SINR at index 11
-    const sccValues = sccLines.map((line) => {
-      const parts = line.split(":")[1].split(",");
-      if (parts.length > 11) {
-        const rawSINR = parts[11];
+      const pccValue = (() => {
+        if (pccSINR === "-32768") return "-";
+        const parsedSINR = parseInt(pccSINR || "Unknown");
+        return !isNaN(parsedSINR) ? parsedSINR.toString() : pccSINR || "Unknown";
+      })();
 
-        // Check for special -32768 value
-        if (rawSINR === "-32768") return "-";
+    const sccSINRs = extractSINR(
+      response.split("\n").filter((l) => l.includes("SCC") && l.includes("NR5G BAND")),
+      11
+    );
 
-        // Extract numeric value and apply conversion
-        const match = rawSINR.match(/-?\d+/);
-        if (match) {
-          const sinrValue = parseInt(match[0]);
-          if (!isNaN(sinrValue)) {
-            return Math.round(sinrValue / 100).toString();
-          }
-          return match[0];
-        }
-      }
-      return "Unknown";
-    });
-
-    // Return PCC and all SCC values in a single array
-    return [pccValue, ...sccValues];
+    return [pccValue, ...sccSINRs];
   }
 
-  // Process NR5G-NSA bands
   if (networkType === "NR5G-NSA") {
-    // Map all LTE bands SINR values
-    const lteSINR = response
+    const lteSINRs = extractSINR(response.split("\n").filter((l) => l.includes("LTE BAND")), 9);
+    const nr5gServingSINR = servingCell
       .split("\n")
-      .filter((l) => l.includes("LTE BAND"))
-      .map((l) => l?.split(":")[1]?.split(",")[9]);
+      .find((l) => l.includes("NR5G-NSA"))
+      ?.split(",")[5]
+      ?.trim() || "Unknown";
 
-    // Handle NR5G bands differently
-    const nr5gLines = response
-      .split("\n")
-      .filter((l) => l.includes("SCC") && l.includes("NR5G BAND"));
+    const nr5gSccSINRs = extractSINR(
+      response.split("\n").filter((l) => l.includes("SCC") && l.includes("NR5G BAND")), 11);
 
-    let nr5gSINR: string[] = [];
-
-    if (nr5gLines.length > 0) {
-      // For the first NR5G band, get SINR from serving cell data
-      const nr5gServingData = servingCell
-        .split("\n")
-        .find((l) => l.includes("NR5G-NSA"));
-
-      if (nr5gServingData) {
-        // SINR is the 6th field (index 5) in the NR5G-NSA serving cell line
-        const servingCellParts = nr5gServingData.split(",");
-        if (servingCellParts.length > 5) {
-          const sinrValue = servingCellParts[5].trim();
-          nr5gSINR.push(sinrValue);
-        } else {
-          nr5gSINR.push("Unknown");
-        }
-      } else {
-        nr5gSINR.push("Unknown");
-      }
-
-      // For any additional NR5G bands (2nd onwards),
-      // continue using QCAINFO data at index 11
-      if (nr5gLines.length > 1) {
-        const additionalBands = nr5gLines.slice(1).map((line) => {
-          const parts = line.split(":")[1].split(",");
-          const rawSINR = parts.length > 11 ? parts[11] : "Unknown";
-
-          // Apply the SNR conversion formula for NR: SNR = value / 100
-          if (rawSINR !== "Unknown" && rawSINR !== "-") {
-            if (rawSINR === "-32768") return "-";
-
-            const sinrValue = parseInt(rawSINR);
-            if (!isNaN(sinrValue)) {
-              return Math.round(sinrValue / 100).toString();
-            }
-          }
-          return rawSINR;
-        });
-
-        nr5gSINR = [...nr5gSINR, ...additionalBands];
-      }
-    }
-
-    if (lteSINR.length && nr5gSINR.length) {
-      return [...lteSINR, ...nr5gSINR];
-    } else if (lteSINR.length) {
-      return lteSINR;
-    } else if (nr5gSINR.length) {
-      return nr5gSINR;
-    }
+    return [...lteSINRs, nr5gServingSINR, ...nr5gSccSINRs].filter((sinr) => sinr !== "Unknown");
   }
 
   return ["Unknown"];
