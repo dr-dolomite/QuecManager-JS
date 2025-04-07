@@ -893,32 +893,19 @@ const getCurrentBandsEARFCN = (response: string) => {
   }
 };
 
-const getCurrentBandsBandwidth = (response: string) => {
-  // Loop through the response and extract the bandwidth
-  const bandwidthsLte = response
-    .split("\n")
-    .filter((l) => l.includes("LTE BAND"));
-  const bandwidthsNr5g = response
-    .split("\n")
-    .filter((l) => l.includes("NR5G BAND"));
+const getCurrentBandsBandwidth = (response: string): string[] => {
+  const extractBandwidths = (type: string, map: Record<string, string>) =>
+    response
+      .split("\n")
+      .filter((line) => line.includes(type))
+      .map((line) => map[line.split(":")[1]?.split(",")[2]] || "Unknown");
 
-  // Convert the bandwidths to their respective values
-  const parsedBandwidthsLte = bandwidthsLte.map(
-    (l) => BANDWIDTH_MAP[l?.split(":")[1]?.split(",")[2]]
-  );
-  const parsedBandwidthsNr5g = bandwidthsNr5g.map(
-    (l) => NR_BANDWIDTH_MAP[l?.split(":")[1]?.split(",")[2]]
-  );
+  const bandwidthsLte = extractBandwidths("LTE BAND", BANDWIDTH_MAP);
+  const bandwidthsNr5g = extractBandwidths("NR5G BAND", NR_BANDWIDTH_MAP);
 
-  if (parsedBandwidthsLte.length && parsedBandwidthsNr5g.length) {
-    return [...parsedBandwidthsLte, ...parsedBandwidthsNr5g];
-  } else if (parsedBandwidthsLte.length) {
-    return parsedBandwidthsLte;
-  } else if (parsedBandwidthsNr5g.length) {
-    return parsedBandwidthsNr5g;
-  } else {
-    return ["Unknown"];
-  }
+  return [...bandwidthsLte, ...bandwidthsNr5g].length
+    ? [...bandwidthsLte, ...bandwidthsNr5g]
+    : ["Unknown"];
 };
 
 const getCurrentBandsPCI = (response: string, networkType: string): string[] => {
