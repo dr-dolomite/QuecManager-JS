@@ -537,21 +537,15 @@ const getAccessTechnology = (response: string) => parseField(response, 1, 1, 3);
 
 const getOperatorState = (lteResponse: string, nr5gResponse: string) => {
   const state =
-    Number(parseField(lteResponse,1,1,1)) || Number(parseField(nr5gResponse,1,1,1))
-  switch (state) {
-    case 1:
-      return "Registered";
-    case 2:
-      return "Searching";
-    case 3:
-      return "Denied";
-    case 4:
-      return "Unknown";
-    case 5:
-      return "Roaming";
-    default:
-      return "Not Registered";
-  }
+  Number(parseField(lteResponse,1,1,1)) || Number(parseField(nr5gResponse,1,1,1))
+  const stateMap: Record<number, string> = {
+    1: "Registered",
+    2: "Searching",
+    3: "Denied",
+    4: "Unknown",
+    5: "Roaming",
+  };
+  return stateMap[state] || "Not Registered";
 };
 
 const getNetworkType = (response: string) => {
