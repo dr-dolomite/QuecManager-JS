@@ -921,56 +921,28 @@ const getCurrentBandsBandwidth = (response: string) => {
   }
 };
 
-const getCurrentBandsPCI = (response: string, networkType: string) => {
+const getCurrentBandsPCI = (response: string, networkType: string): string[] => {
+  const extractPCI = (lines: string[], fieldIndex: number): string[] =>
+    lines.map((line) => line.split(":")[1]?.split(",")[fieldIndex]?.trim() || "Unknown");
+
+  const lines = response.split("\n");
+
   if (networkType === "NR5G-SA") {
-    const lines = response.split("\n");
-    const result = [];
-
-    // Handle PCC - keep your existing code since it works
-    const pccLine = lines.find((l) => l.includes("PCC"));
-    if (pccLine) {
-      const pccPCI = pccLine.split(":")[1].split(",")[4].trim();
-      result.push(pccPCI || "Unknown");
-    }
-
-    // Handle SCCs - fix the index for NR5G-SA mode
-    const sccLines = lines.filter((l) => l.includes("SCC"));
-    for (const sccLine of sccLines) {
-      const parts = sccLine.split(":")[1].split(",");
-      // For NR5G-SA mode, SCC PCI is at index 5, not 4
-      result.push(parts.length > 5 ? parts[5].trim() : "Unknown");
-    }
-
-    return result.length > 0 ? result : ["Unknown"];
+    const pccPCI = extractPCI(lines.filter((l) => l.includes("PCC")), 4)[0];
+    const sccPCIs = extractPCI(lines.filter((l) => l.includes("SCC")), 5);
+    return [pccPCI, ...sccPCIs].filter((pci) => pci !== "Unknown");
   }
 
-  // Keep your existing code for LTE and NR5G-NSA
-  else if (networkType === "LTE") {
-    let PCCpci = response.split("\n").find((l) => l.includes("PCC"));
-    PCCpci = PCCpci ? PCCpci?.split(":")[1]?.split(",")[5].trim() : "Unknown";
-    const SCCpcis = response
-      .split("\n")
-      .filter((l) => l.includes("SCC") && l.includes("LTE BAND"));
-    if (!SCCpcis.length) {
-      return [PCCpci];
-    } else {
-      const pcis = SCCpcis.map(
-        (l) => l?.split(":")[1]?.split(",")[5] || "Unknown"
-      );
-      return [PCCpci, ...pcis];
-    }
-  } else if (networkType === "NR5G-NSA") {
-    const pcisLte = response.split("\n").filter((l) => l.includes("LTE BAND"));
-    const pcisNr5g = response
-      .split("\n")
-      .filter((l) => l.includes("NR5G BAND"));
-    const pcisLteValues = pcisLte.map(
-      (l) => l?.split(":")[1]?.split(",")[5] || "Unknown"
-    );
-    const pcisNr5gValues = pcisNr5g.map(
-      (l) => l?.split(":")[1]?.split(",")[4] || "Unknown"
-    );
-    return [...pcisLteValues, ...pcisNr5gValues];
+  if (networkType === "LTE") {
+    const pccPCI = extractPCI(lines.filter((l) => l.includes("PCC")), 5)[0];
+    const sccPCIs = extractPCI(lines.filter((l) => l.includes("SCC") && l.includes("LTE BAND")), 5);
+    return [pccPCI, ...sccPCIs].filter((pci) => pci !== "Unknown");
+  }
+
+  if (networkType === "NR5G-NSA") {
+    const ltePCIs = extractPCI(lines.filter((l) => l.includes("LTE BAND")), 5);
+    const nr5gPCIs = extractPCI(lines.filter((l) => l.includes("NR5G BAND")), 4);
+    return [...ltePCIs, ...nr5gPCIs].filter((pci) => pci !== "Unknown");
   }
 
   return ["Unknown"];
