@@ -769,26 +769,11 @@ const getEARFCN = (response: string) => {
   return "Unknown";
 };
 
-const getMCC = (response: string, networkType: string) => {
-  if (networkType === "LTE" || networkType === "NR5G-SA") {
-    return response.split("\n")[1]?.split(":")[1]?.split(",")[4].trim();
-  }
-
-  if (networkType === "NR5G-NSA") {
-    return response.split("\n")[2]?.split(":")[1]?.split(",")[2].trim();
-  }
-
-  return "Unknown";
-};
-
-const getMNC = (response: string, networkType: string) => {
-  if (networkType === "LTE" || networkType === "NR5G-SA") {
-    return response.split("\n")[1]?.split(":")[1]?.split(",")[5].trim();
-  }
-
-  if (networkType === "NR5G-NSA") {
-    return response.split("\n")[2]?.split(":")[1]?.split(",")[3].trim();
-  }
+// Function to get the MNC or MCC based on the network type and field index map
+const getNetworkCode = (response: string, networkType: string, fieldIndexMap: Record<string, number>): string => {
+  const lineIndex = networkType === "NR5G-NSA" ? 2 : 1;
+  const fieldIndex = fieldIndexMap[networkType];
+  return parseField(response, lineIndex, 1, fieldIndex) || "Unknown";
 };
 
 const getSignalQuality = (response: string): string => {
