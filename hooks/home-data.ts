@@ -980,101 +980,43 @@ const getCurrentBandsRSRP = (
   response: string,
   networkType: string,
   servingCell: string
-) => {
-  // Loop through the response and extract the RSRP
+): string[] => {
+  const extractRSRP = (lines: string[], index: number): string[] =>
+    lines.map((line) => {
+      const parts = line.split(":")[1]?.split(",");
+      const rsrpValue = parts?.[index]?.trim();
+      return rsrpValue?.match(/-?\d+/)?.[0] || "Unknown";
+    });
+
   if (networkType === "LTE") {
-    const rsrps = response.split("\n").filter((l) => l.includes("LTE BAND"));
-    return rsrps.map((l) => l?.split(":")[1]?.split(",")[6]);
+    return extractRSRP(response.split("\n").filter((l) => l.includes("LTE BAND")), 6);
   }
 
   if (networkType === "NR5G-SA") {
-    // Existing NR5G-SA handling - no changes needed
-    const pccRSRP = servingCell.split("\n").find((l) => l.includes("NR5G-SA"));
-    const pccValue = pccRSRP
-      ? pccRSRP?.split(":")[1]?.split(",")[12]
-      : "Unknown";
-
-    // Get all SCC RSRP values
-    const sccLines = response
+    const pccRSRP = servingCell
       .split("\n")
-      .filter((l) => l.includes("SCC") && l.includes("NR5G BAND"));
+      .find((l) => l.includes("NR5G-SA"))
+      ?.split(":")[1]
+      ?.split(",")[12]
+      ?.trim() || "Unknown";
 
-    // Process each SCC line to extract RSRP at index 9
-    const sccValues = sccLines.map((line) => {
-      const parts = line.split(":")[1].split(",");
-      if (parts.length > 9) {
-        const rsrpValue = parts[9];
-        // Extract just the numeric value with negative sign if present
-        const match = rsrpValue.match(/-?\d+/);
-        return match ? match[0] : "Unknown";
-      }
-      return "Unknown";
-    });
+    const sccRSRPs = extractRSRP(
+      response.split("\n").filter((l) => l.includes("SCC") && l.includes("NR5G BAND")), 9);
 
-    // Return PCC and all SCC values in a single array
-    return [pccValue, ...sccValues];
+    return [pccRSRP, ...sccRSRPs];
   }
 
-  // Process NR5G-NSA bands
   if (networkType === "NR5G-NSA") {
-    // Map all LTE bands RSRP values
-    const lteRSRP = response
+    const lteRSRPs = extractRSRP(response.split("\n").filter((l) => l.includes("LTE BAND")), 6);
+    const nr5gServingRSRP = servingCell
       .split("\n")
-      .filter((l) => l.includes("LTE BAND"))
-      .map((l) => l?.split(":")[1]?.split(",")[6]);
+      .find((l) => l.includes("NR5G-NSA"))
+      ?.split(",")[4]
+      ?.trim() || "Unknown";
 
-    // Handle NR5G bands differently
-    const nr5gLines = response
-      .split("\n")
-      .filter((l) => l.includes("SCC") && l.includes("NR5G BAND"));
-
-    let nr5gRSRP: string[] = [];
-
-    if (nr5gLines.length > 0) {
-      // For the first NR5G band, get RSRP from serving cell data
-      const nr5gServingData = servingCell
-        .split("\n")
-        .find((l) => l.includes("NR5G-NSA"));
-
-      if (nr5gServingData) {
-        // RSRP is the 5th field (index 4) in the NR5G-NSA serving cell line
-        const servingCellParts = nr5gServingData.split(",");
-        if (servingCellParts.length > 4) {
-          const rsrpValue = servingCellParts[4].trim();
-          nr5gRSRP.push(rsrpValue);
-        } else {
-          nr5gRSRP.push("Unknown");
-        }
-      } else {
-        nr5gRSRP.push("Unknown");
-      }
-
-      // For any additional NR5G bands (2nd onwards),
-      // continue using QCAINFO data at index 9
-      if (nr5gLines.length > 1) {
-        const additionalBands = nr5gLines.slice(1).map((line) => {
-          const parts = line.split(":")[1].split(",");
-          if (parts.length > 9) {
-            const rsrpValue = parts[9];
-            // Extract just the numeric value with negative sign if present
-            const match = rsrpValue.match(/-?\d+/);
-            return match ? match[0] : "Unknown";
-          }
-          return "Unknown";
-        });
-
-        nr5gRSRP = [...nr5gRSRP, ...additionalBands];
-      }
-    }
-
-    // Combine results
-    if (lteRSRP.length && nr5gRSRP.length) {
-      return [...lteRSRP, ...nr5gRSRP];
-    } else if (lteRSRP.length) {
-      return lteRSRP;
-    } else if (nr5gRSRP.length) {
-      return nr5gRSRP;
-    }
+    const nr5gSccRSRPs = extractRSRP(
+      response.split("\n").filter((l) => l.includes("SCC") && l.includes("NR5G BAND")), 9);
+    return [...lteRSRPs, nr5gServingRSRP, ...nr5gSccRSRPs].filter((rsrp) => rsrp !== "Unknown");
   }
 
   return ["Unknown"];
