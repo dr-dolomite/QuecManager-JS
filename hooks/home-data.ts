@@ -575,79 +575,56 @@ const getModemTemperature = (response: string) => {
   return `${Math.round(avgTemp)}°C`;
 };
 
-const getBandwidth = (response: string, networkType: string) => {
-  // Get PCC bandwidth line
-  let pccBandwidth = response.split("\n").find((l) => l.includes("PCC"));
-  pccBandwidth = pccBandwidth?.split(":")[1]?.split(",")[2].trim();
+const getBandwidth = (response: string, networkType: string): string => {
+  const extractBandwidths = (lines: string[], map: Record<string, string>): string[] =>
+    lines.map((line) => map[line.split(":")[1]?.split(",")[2]?.trim()] || "Unknown");
 
-  // Get LTE SCC bandwidth lines and append it to an array
-  let sccBandwidthLTE = response
+  const pccBandwidth = response
     .split("\n")
-    .filter((l) => l.includes("SCC") && l.includes("LTE"));
-  sccBandwidthLTE = sccBandwidthLTE.map((l) =>
-    l?.split(":")[1]?.split(",")[2].trim()
+    .find((line) => line.includes("PCC"))
+    ?.split(":")[1]
+    ?.split(",")[2]
+    ?.trim();
+
+  const sccBandwidthLTE = extractBandwidths(
+    response.split("\n").filter((line) => line.includes("SCC") && line.includes("LTE")),
+    BANDWIDTH_MAP
   );
 
-  // Get NR5G SCC bandwidth lines and append it to an array
-  let sccBandwidthNR5G = response
-    .split("\n")
-    .filter((l) => l.includes("SCC") && l.includes("NR5G"));
-  sccBandwidthNR5G = sccBandwidthNR5G.map((l) =>
-    l?.split(":")[1]?.split(",")[2].trim()
+  const sccBandwidthNR5G = extractBandwidths(
+    response.split("\n").filter((line) => line.includes("SCC") && line.includes("NR5G")),
+    NR_BANDWIDTH_MAP
   );
 
-  // Return as a string in the format "PCC, SCC1, SCC2, ..."
+  const parseBandwidth = (bandwidth: string | undefined, map: Record<string, string>): string =>
+    map[bandwidth || ""] || "Unknown";
+
   if (networkType === "LTE") {
-    // If there is only PCC
     if (!sccBandwidthLTE.length && pccBandwidth) {
-      return BANDWIDTH_MAP[pccBandwidth] || "Unknown";
+      return parseBandwidth(pccBandwidth, BANDWIDTH_MAP);
     }
-
-    // If there are both PCC and SCC
-    // Map the bandwidths to their respective values and join them with a comma
-    const parsedPCC = pccBandwidth ? BANDWIDTH_MAP[pccBandwidth] : "";
-    const parsedSCCs = sccBandwidthLTE.map((bw) => BANDWIDTH_MAP[bw]);
-
-    // Combine the PCC and SCC bandwidths into a single string separated by commas
-    return [parsedPCC, ...parsedSCCs].join(", ");
+    return [parseBandwidth(pccBandwidth, BANDWIDTH_MAP), ...sccBandwidthLTE].join(", ");
   }
 
   if (networkType === "NR5G-SA" && pccBandwidth) {
-    // If there is only PCC
     if (!sccBandwidthNR5G.length) {
-      return NR_BANDWIDTH_MAP[pccBandwidth] || "Unknown";
+      return parseBandwidth(pccBandwidth, NR_BANDWIDTH_MAP);
     }
-
-    // If there are both PCC and SCC
-    const parsedPCC = NR_BANDWIDTH_MAP[pccBandwidth];
-    const parsedSCCs = sccBandwidthNR5G.map((bw) => NR_BANDWIDTH_MAP[bw]);
-
-    // Combine the PCC and SCC bandwidths into a single string separated by commas
-    return [parsedPCC, ...parsedSCCs].join(", ");
+    return [parseBandwidth(pccBandwidth, NR_BANDWIDTH_MAP), ...sccBandwidthNR5G].join(", ");
   }
 
   if (networkType === "NR5G-NSA" && pccBandwidth) {
-    // If there is only PCC
     if (!sccBandwidthLTE.length && !sccBandwidthNR5G.length) {
-      return BANDWIDTH_MAP[pccBandwidth] || "Unknown";
+      return parseBandwidth(pccBandwidth, BANDWIDTH_MAP);
     }
-
-    // If there are only PCC and LTE SCC
     if (sccBandwidthLTE.length && !sccBandwidthNR5G.length) {
-      const parsedPCC = BANDWIDTH_MAP[pccBandwidth];
-      const parsedSCCs = sccBandwidthLTE.map((bw) => BANDWIDTH_MAP[bw]);
-
-      // Combine the PCC and SCC bandwidths into a single string separated by commas
-      return [parsedPCC, ...parsedSCCs].join(", ");
+      return [parseBandwidth(pccBandwidth, BANDWIDTH_MAP), ...sccBandwidthLTE].join(", ");
     }
-
-    // If there are LTE PCC, LTE SCC, and NR5G SCC
-    const parsedPCC = BANDWIDTH_MAP[pccBandwidth];
-    const parsedSCCsLTE = sccBandwidthLTE.map((bw) => BANDWIDTH_MAP[bw]);
-    const parsedSCCsNR5G = sccBandwidthNR5G.map((bw) => NR_BANDWIDTH_MAP[bw]);
-
-    // Combine the PCC and SCC bandwidths into a single string separated by commas
-    return [parsedPCC, ...parsedSCCsLTE, ...parsedSCCsNR5G].join(", ");
+    return [
+      parseBandwidth(pccBandwidth, BANDWIDTH_MAP),
+      ...sccBandwidthLTE,
+      ...sccBandwidthNR5G,
+    ].join(", ");
   }
 
   return "Unknown";
