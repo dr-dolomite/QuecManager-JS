@@ -171,8 +171,8 @@ const useHomeData = () => {
           trackingAreaCode: extractValueByNetworkType(rawData[10]?.response, getNetworkType(rawData[13]?.response), { "NR5G-SA": 1, "NR5G-NSA": 2, "LTE": 1 }, { "NR5G-SA": 8, "NR5G-NSA": 10, "LTE": 12 }),
           physicalCellId: getPhysicalCellIDs(rawData[13].response, getNetworkType(rawData[13].response)),
           earfcn: getEARFCN(rawData[13].response),
-          mcc: getMCC(rawData[10].response, getNetworkType(rawData[13].response)) || "Unknown",
-          mnc: getMNC(rawData[10].response, getNetworkType(rawData[13].response)) || "Unknown",
+          mcc: getNetworkCode(rawData[10]?.response, getNetworkType(rawData[13]?.response), { "NR5G-NSA": 2, "LTE": 4, "NR5G-SA": 4 }),
+          mnc: getNetworkCode(rawData[10]?.response, getNetworkType(rawData[13]?.response), { "NR5G-NSA": 3, "LTE": 5, "NR5G-SA": 5 }),
           signalQuality: getSignalQuality(rawData[19].response) || "Unknown",
         },
         currentBands: {
