@@ -783,27 +783,15 @@ const getSignalQuality = (response: string): string => {
     : "Unknown%";
 };
 
-// Get current band information
-const getCurrentBandsBandNumber = (response: string) => {
-  // Loop through the response and extract the band number
-  const bandsLte = response.split("\n").filter((l) => l.includes("LTE BAND"));
-  const bandsNr5g = response.split("\n").filter((l) => l.includes("NR5G BAND"));
+const getCurrentBandsBandNumber = (response: string): string[] => {
+  const extractBands = (lines: string[]): string[] =>
+    lines.map((line) => line.split(":")[1]?.split(",")[3]?.replace(/"/g, "") || "Unknown");
 
-  if (bandsLte.length && bandsNr5g.length) {
-    return [...bandsLte, ...bandsNr5g].map((l) =>
-      l?.split(":")[1]?.split(",")[3].replace(/"/g, "")
-    );
-  } else if (bandsLte.length) {
-    return bandsLte.map((l) =>
-      l?.split(":")[1]?.split(",")[3].replace(/"/g, "")
-    );
-  } else if (bandsNr5g.length) {
-    return bandsNr5g.map((l) =>
-      l?.split(":")[1]?.split(",")[3].replace(/"/g, "")
-    );
-  } else {
-    return ["Unknown"];
-  }
+  const bandsLte = extractBands(response.split("\n").filter((line) => line.includes("LTE BAND")));
+  const bandsNr5g = extractBands(response.split("\n").filter((line) => line.includes("NR5G BAND")));
+
+  const allBands = [...bandsLte, ...bandsNr5g];
+  return allBands.length ? allBands : ["Unknown"];
 };
 
 const getCurrentBandsEARFCN = (response: string): string[] => {
