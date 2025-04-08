@@ -373,7 +373,6 @@ const getModemTemperature = (response: string) => {
   return `${Math.round(avgTemp)}°C`;
 };
 
-
 const getSignalStrength = (response: string): string => {
   const INVALID_RSRP_VALUES = [-140, -37625, -32768];
   // Helper function to extract and filter RSRP values
@@ -409,7 +408,6 @@ const extractValueByNetworkType = (response: string, networkType: string, lineIn
     ? parseField(response, lineIndex, 1, fieldIndex).toUpperCase()
     : "Unknown";
 };
-
 
 // Function to get the MNC or MCC based on the network type and field index map
 const getNetworkCode = (response: string, networkType: string, fieldIndexMap: Record<string, number>): string => {
@@ -532,7 +530,6 @@ const getCurrentBandsRSRP = (
   const pccRSRP = extractRSRP(lines.filter((l)=> l.includes("PCC")))[0];
   const sccRSRPs = extractRSRP(lines.filter((l) => l.includes("SCC")));
   return [pccRSRP, ...sccRSRPs].filter((pci) => pci !== "Unknown");
-
 };
 
 const getCurrentBandsRSRQ = (
@@ -569,7 +566,6 @@ const getCurrentBandsSINR = (
   response: string,
   networkType: string,
 ): string[] => {
-
   const getSINRFromParts = (parts: string[] | undefined): string => {
     if (!parts) return "Unknown";
     const pciIndex: 7 | 9 | 11 = (() => {

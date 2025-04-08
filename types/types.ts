@@ -37,6 +37,8 @@ export interface CellularInfoData {
   cellId?: string;
   trackingAreaCode?: string;
   physicalCellId?: string;
+  cellIdRaw: string, 
+  trackingAreaCodeRaw: string,
   earfcn?: string;
   mcc?: string;
   mnc?: string;
