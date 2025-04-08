@@ -83,6 +83,8 @@ const useHomeData = () => {
           cellularInfo: {
             cellId: "-",
             trackingAreaCode: "-",
+            cellIdRaw: "-",
+            trackingAreaCodeRaw: "-",
             physicalCellId: "-",
             earfcn: "-",
             mcc: "-",
@@ -156,16 +158,19 @@ const useHomeData = () => {
         },
         dataTransmission: {
           carrierAggregation: rawData[13].response.match(/"LTE BAND \d+"|"NR5G BAND \d+"/g) ?.length > 1 ? "Multi" : "Inactive",
-          bandwidth: getBandwidth(rawData[13].response, getNetworkType(rawData[13].response)) || "Unknown",
-          connectedBands: getConnectedBands(rawData[13].response) || "Unknown",
+          bandwidth: getCurrentBandsBandwidth(rawData[13].response).join(", ") || "Unknown",
+          connectedBands: getCurrentBandsBandNumber(rawData[13].response).join(", ").replaceAll("LTE BAND ", "B").replaceAll("NR5G BAND ", "N") || "Unknown",
           signalStrength: getSignalStrength(rawData[14].response) || "Unknown",
           mimoLayers: getMimoLayers(rawData[14].response) || "Unknown",
         },
         cellularInfo: {
-          cellId: extractValueByNetworkType(rawData[10]?.response, getNetworkType(rawData[13]?.response), { "NR5G-SA": 1, "NR5G-NSA": 2, "LTE": 1 }, { "NR5G-SA": 6, "NR5G-NSA": 4, "LTE": 6 }),
-          trackingAreaCode: extractValueByNetworkType(rawData[10]?.response, getNetworkType(rawData[13]?.response), { "NR5G-SA": 1, "NR5G-NSA": 2, "LTE": 1 }, { "NR5G-SA": 8, "NR5G-NSA": 10, "LTE": 12 }),
-          physicalCellId: getPhysicalCellIDs(rawData[13].response, getNetworkType(rawData[13].response)),
-          earfcn: getEARFCN(rawData[13].response),
+          // The TAC and CellID are providing a data map for the network type to correlate to which index to use for the parsing
+          cellId: extractValueByNetworkType(rawData[10]?.response, getNetworkType(rawData[13]?.response), { "NR5G-SA": 1, "NR5G-NSA": 2, "LTE": 1 }, { "NR5G-SA": 6, "NR5G-NSA": 4, "LTE": 6 }, false),
+          trackingAreaCode: extractValueByNetworkType(rawData[10]?.response, getNetworkType(rawData[13]?.response), { "NR5G-SA": 1, "NR5G-NSA": 2, "LTE": 1 }, { "NR5G-SA": 8, "NR5G-NSA": 10, "LTE": 12 }, false),
+          cellIdRaw: extractValueByNetworkType(rawData[10]?.response, getNetworkType(rawData[13]?.response), { "NR5G-SA": 1, "NR5G-NSA": 2, "LTE": 1 }, { "NR5G-SA": 6, "NR5G-NSA": 4, "LTE": 6 }, true), 
+          trackingAreaCodeRaw: extractValueByNetworkType(rawData[10]?.response, getNetworkType(rawData[13]?.response), { "NR5G-SA": 1, "NR5G-NSA": 2, "LTE": 1 }, { "NR5G-SA": 8, "NR5G-NSA": 10, "LTE": 12 }, true),
+          physicalCellId: getCurrentBandsPCI(rawData[13].response, getNetworkType(rawData[13].response)).join(", ") || "Unknown",
+          earfcn: getCurrentBandsEARFCN(rawData[13].response).join(", "),
           mcc: getNetworkCode(rawData[10]?.response, getNetworkType(rawData[13]?.response), { "NR5G-NSA": 2, "LTE": 4, "NR5G-SA": 4 }),
           mnc: getNetworkCode(rawData[10]?.response, getNetworkType(rawData[13]?.response), { "NR5G-NSA": 3, "LTE": 5, "NR5G-SA": 5 }),
           signalQuality: getSignalQuality(rawData[19].response) || "Unknown",
@@ -177,9 +182,9 @@ const useHomeData = () => {
           earfcn: getCurrentBandsEARFCN(rawData[13].response),
           bandwidth: getCurrentBandsBandwidth(rawData[13].response) || ["Unknown",],
           pci: getCurrentBandsPCI(rawData[13].response, getNetworkType(rawData[13].response)) || ["Unknown"],
-          rsrp: getCurrentBandsRSRP(rawData[13].response, getNetworkType(rawData[13].response), rawData[10].response),
-          rsrq: getCurrentBandsRSRQ(rawData[13].response, getNetworkType(rawData[13].response), rawData[10].response) || ["Unknown"],
-          sinr: getCurrentBandsSINR(rawData[13].response, getNetworkType(rawData[13].response), rawData[10].response) || ["Unknown"],
+          rsrp: getCurrentBandsRSRP(rawData[13].response),
+          rsrq: getCurrentBandsRSRQ(rawData[13].response) || ["Unknown"],
+          sinr: getCurrentBandsSINR(rawData[13].response, getNetworkType(rawData[13].response)) || ["Unknown"],
         },
         networkAddressing: {
           publicIPv4: publicIPResponse.ok? (await publicIPResponse.json()).public_ip || "-" : "Can't fetch public IP",
@@ -368,73 +373,6 @@ const getModemTemperature = (response: string) => {
   return `${Math.round(avgTemp)}°C`;
 };
 
-const getBandwidth = (response: string, networkType: string): string => {
-  const extractBandwidths = (lines: string[], map: Record<string, string>): string[] =>
-    lines.map((line) => map[line.split(":")[1]?.split(",")[2]?.trim()] || "Unknown");
-
-  const pccBandwidth = response
-    .split("\n")
-    .find((line) => line.includes("PCC"))
-    ?.split(":")[1]
-    ?.split(",")[2]
-    ?.trim();
-
-  const sccBandwidthLTE = extractBandwidths(
-    response.split("\n").filter((line) => line.includes("SCC") && line.includes("LTE")),
-    BANDWIDTH_MAP
-  );
-
-  const sccBandwidthNR5G = extractBandwidths(
-    response.split("\n").filter((line) => line.includes("SCC") && line.includes("NR5G")),
-    NR_BANDWIDTH_MAP
-  );
-
-  const parseBandwidth = (bandwidth: string | undefined, map: Record<string, string>): string =>
-    map[bandwidth || ""] || "Unknown";
-
-  if (networkType === "LTE") {
-    if (!sccBandwidthLTE.length && pccBandwidth) {
-      return parseBandwidth(pccBandwidth, BANDWIDTH_MAP);
-    }
-    return [parseBandwidth(pccBandwidth, BANDWIDTH_MAP), ...sccBandwidthLTE].join(", ");
-  }
-
-  if (networkType === "NR5G-SA" && pccBandwidth) {
-    if (!sccBandwidthNR5G.length) {
-      return parseBandwidth(pccBandwidth, NR_BANDWIDTH_MAP);
-    }
-    return [parseBandwidth(pccBandwidth, NR_BANDWIDTH_MAP), ...sccBandwidthNR5G].join(", ");
-  }
-
-  if (networkType === "NR5G-NSA" && pccBandwidth) {
-    if (!sccBandwidthLTE.length && !sccBandwidthNR5G.length) {
-      return parseBandwidth(pccBandwidth, BANDWIDTH_MAP);
-    }
-    if (sccBandwidthLTE.length && !sccBandwidthNR5G.length) {
-      return [parseBandwidth(pccBandwidth, BANDWIDTH_MAP), ...sccBandwidthLTE].join(", ");
-    }
-    return [
-      parseBandwidth(pccBandwidth, BANDWIDTH_MAP),
-      ...sccBandwidthLTE,
-      ...sccBandwidthNR5G,
-    ].join(", ");
-  }
-
-  return "Unknown";
-};
-
-const getConnectedBands = (response: string) => {
-  const bands = response.match(/"LTE BAND \d+"|"NR5G BAND \d+"/g);
-  return (
-    bands
-      ?.map((band) => {
-        if (band.includes("LTE")) return `B${band.match(/\d+/)}`;
-        if (band.includes("NR5G"))
-          return `N${band?.split(" ")[2].replace(/"/g, "").trim()}`;
-      })
-      .join(", ") || "Unknown"
-  );
-};
 
 const getSignalStrength = (response: string): string => {
   const INVALID_RSRP_VALUES = [-140, -37625, -32768];
@@ -458,65 +396,20 @@ const getSignalStrength = (response: string): string => {
   const nrPercentage = rsrpNrArr.length ? calculatePercentage(rsrpNrArr) : null;
 
   // Determine final signal strength
-  if (ltePercentage !== null && nrPercentage !== null) {
-    return `${Math.round((ltePercentage + nrPercentage) / 2)}%`;
-  }
-  if (ltePercentage !== null) {
-    return `${Math.round(ltePercentage)}%`;
-  }
-  if (nrPercentage !== null) {
-    return `${Math.round(nrPercentage)}%`;
-  }
-  return "Unknown%";
+  return ltePercentage !== null && nrPercentage !== null ? `${Math.round((ltePercentage + nrPercentage) / 2)}%` : ltePercentage !== null ? `${Math.round(ltePercentage)}%` : nrPercentage !== null ? `${Math.round(nrPercentage)}%` : "Unknown%";
 };
 
 // Function to parse the TAC and CellID from the response and return the values from Hex to Decimal format based on the lineIndex and fieldIndex of the respective Index Maps
-const extractValueByNetworkType = (response: string, networkType: string, lineIndexMap: Record<string, number>, fieldIndexMap: Record<string, number>): string => {
+const extractValueByNetworkType = (response: string, networkType: string, lineIndexMap: Record<string, number>, fieldIndexMap: Record<string, number>, raw = false): string => {
   const lineIndex = lineIndexMap[networkType];
   const fieldIndex = fieldIndexMap[networkType];
-  return lineIndex !== undefined && fieldIndex !== undefined
+  return lineIndex !== undefined && fieldIndex !== undefined && !raw
     ? parseInt(parseField(response, lineIndex, 1, fieldIndex), 16).toString().toUpperCase()
+    : lineIndex !== undefined && fieldIndex !== undefined && raw
+    ? parseField(response, lineIndex, 1, fieldIndex).toUpperCase()
     : "Unknown";
 };
 
-const getPhysicalCellIDs = (response: string, networkType: string): string => {
-  const parsePCI = (lines: string[], fieldIndex: number) =>
-    lines.map((line) => line.split(":")[1]?.split(",")[fieldIndex]?.trim() || "Unknown");
-
-  const pccPCI = response.split("\n").find((line) => line.includes("PCC"))?.split(":")[1]?.split(",")[networkType === "NR5G-SA" ? 4 : 5]?.trim() || "Unknown";
-
-  const sccPCIs = networkType === "NR5G-SA"
-    ? parsePCI(response.split("\n").filter((line) => line.includes("SCC") && line.includes("NR5G")), 5)
-    : [
-        ...parsePCI(response.split("\n").filter((line) => line.includes("SCC") && line.includes("LTE")), 5),
-        ...parsePCI(response.split("\n").filter((line) => line.includes("SCC") && line.includes("NR5G")), 4),
-      ];
-
-  return sccPCIs.length ? [pccPCI, ...sccPCIs].join(", ") : pccPCI;
-};
-
-const getEARFCN = (response: string): string => {
-  const extractEARFCNs = (type: string) =>
-    response
-      .split("\n")
-      .filter((line) => line.includes("SCC") && line.includes(type))
-      .map((line) => line.split(":")[1]?.split(",")[1]?.trim() || "Unknown");
-
-  const pccEARFCN = parseField(response, response.split("\n").findIndex((line) => line.includes("PCC")), 1, 1);
-  const sccEARFCNsLTE = extractEARFCNs("LTE");
-  const sccEARFCNsNR5G = extractEARFCNs("NR5G");
-
-  if (pccEARFCN) {
-    if (!sccEARFCNsLTE.length && !sccEARFCNsNR5G.length) return pccEARFCN;
-    if (sccEARFCNsLTE.length && !sccEARFCNsNR5G.length)
-      return [pccEARFCN, ...sccEARFCNsLTE].join(", ");
-    if (!sccEARFCNsLTE.length && sccEARFCNsNR5G.length)
-      return [pccEARFCN, ...sccEARFCNsNR5G].join(", ");
-    return [pccEARFCN, ...sccEARFCNsLTE, ...sccEARFCNsNR5G].join(", ");
-  }
-
-  return "Unknown";
-};
 
 // Function to get the MNC or MCC based on the network type and field index map
 const getNetworkCode = (response: string, networkType: string, fieldIndexMap: Record<string, number>): string => {
@@ -586,141 +479,126 @@ const getCurrentBandsBandwidth = (response: string): string[] => {
 };
 
 const getCurrentBandsPCI = (response: string, networkType: string): string[] => {
-  const extractPCI = (lines: string[], fieldIndex: number): string[] =>
-    lines.map((line) => line.split(":")[1]?.split(",")[fieldIndex]?.trim() || "Unknown");
+  const getPCIFromParts = (parts: string[] | undefined): string => {
+    if (!parts) return "Unknown";
+    const pciIndex: 4 | 5 = (() => {
+      switch (parts.length) {
+        case 8: // length 8, PCI is at index 4, NR5G PCC and NR5G SCC Band when NR5G-NSA
+          return 4;
+        case 13: // length 13, PCI is at index 5, LTE SCC Band
+        case 12: // length 12, PCI is at index 5, NR5G SCC Band
+        case 10: // length 10, PCI is at index 5, LTE PCC Band
+        default:
+          return 5;
+      }
+    })();
+    return parts[pciIndex]?.trim() || "Unknown";
+  };
+  const extractPCI = (lines: string[]): string[] =>  lines
+      .map((line) => getPCIFromParts(line.split(":")[1]?.split(",")));
 
   const lines = response.split("\n");
+  const pccPCI = extractPCI(lines.filter((l)=> l.includes("PCC")))[0];
+  const sccPCIs = extractPCI(lines.filter((l) => l.includes("SCC")));
+  return [pccPCI, ...sccPCIs].filter((pci) => pci !== "Unknown");
 
-  if (networkType === "NR5G-SA") {
-    const pccPCI = extractPCI(lines.filter((l) => l.includes("PCC")), 4)[0];
-    const sccPCIs = extractPCI(lines.filter((l) => l.includes("SCC")), 5);
-    return [pccPCI, ...sccPCIs].filter((pci) => pci !== "Unknown");
-  }
-
-  if (networkType === "LTE") {
-    const pccPCI = extractPCI(lines.filter((l) => l.includes("PCC")), 5)[0];
-    const sccPCIs = extractPCI(lines.filter((l) => l.includes("SCC") && l.includes("LTE BAND")), 5);
-    return [pccPCI, ...sccPCIs].filter((pci) => pci !== "Unknown");
-  }
-
-  if (networkType === "NR5G-NSA") {
-    const ltePCIs = extractPCI(lines.filter((l) => l.includes("LTE BAND")), 5);
-    const nr5gPCIs = extractPCI(lines.filter((l) => l.includes("NR5G BAND")), 4);
-    return [...ltePCIs, ...nr5gPCIs].filter((pci) => pci !== "Unknown");
-  }
-
-  return ["Unknown"];
 };
 
 const getCurrentBandsRSRP = (
   response: string,
-  networkType: string,
-  servingCell: string
 ): string[] => {
-  const extractRSRP = (lines: string[], index: number): string[] =>
-    lines.map((line) => {
-      const parts = line.split(":")[1]?.split(",");
-      const rsrpValue = parts?.[index]?.trim();
-      return rsrpValue?.match(/-?\d+/)?.[0] || "Unknown";
-    });
+  const getRSRPFromParts = (parts: string[] | undefined): string => {
+    if (!parts) return "Unknown";
+    const pciIndex: 5 | 6 |9 = (() => {
+      switch (parts.length) {
+        case 8: // length 8, PCI is at index 4, NR SA PCC and NR NSA SCC Band when NR5G-NSA
+          return 5;
+        case 12: // length 12, PCI is at index 5, NR NSA/SA SCC Band X
+          return 9;
+        case 13: // length 13, PCI is at index 5, LTE SCC Band X
+        case 10: // length 10, PCI is at index 5, LTE/NR NSA PCC Band X
+        default:
+          return 6;
+      }
+    })();
+    return parts[pciIndex]?.trim() || "Unknown";
+  };
 
-  if (networkType === "LTE") {
-    return extractRSRP(response.split("\n").filter((l) => l.includes("LTE BAND")), 6);
-  }
+  const extractRSRP = (lines: string[]): string[] => {
+    return lines
+      .map((line) => getRSRPFromParts(line.split(":")[1]?.split(",")));
+  };
+  const lines = response.split("\n");
+  const pccRSRP = extractRSRP(lines.filter((l)=> l.includes("PCC")))[0];
+  const sccRSRPs = extractRSRP(lines.filter((l) => l.includes("SCC")));
+  return [pccRSRP, ...sccRSRPs].filter((pci) => pci !== "Unknown");
 
-  if (networkType === "NR5G-SA") {
-    const pccRSRP = parseField(servingCell, servingCell.split("\n").findIndex((l) => l.includes("NR5G-SA")), 1, 12);
-    const sccRSRPs = extractRSRP(
-      response.split("\n").filter((l) => l.includes("SCC") && l.includes("NR5G BAND")), 9);
-
-    return [pccRSRP, ...sccRSRPs];
-  }
-
-  if (networkType === "NR5G-NSA") {
-    const lteRSRPs = extractRSRP(response.split("\n").filter((l) => l.includes("LTE BAND")), 6);
-    const nr5gServingRSRP = parseField(servingCell, servingCell.split("\n").findIndex((l) => l.includes("NR5G-NSA")), 0, 4);
-    const nr5gSccRSRPs = extractRSRP(
-      response.split("\n").filter((l) => l.includes("SCC") && l.includes("NR5G BAND")), 9);
-    return [...lteRSRPs, nr5gServingRSRP, ...nr5gSccRSRPs].filter((rsrp) => rsrp !== "Unknown");
-  }
-
-  return ["Unknown"];
 };
 
 const getCurrentBandsRSRQ = (
   response: string,
-  networkType: string,
-  servingCell: string
 ): string[] => {
-  const extractRSRQ = (lines: string[], index: number): string[] =>
-    lines.map((line) => {
-      const parts = line.split(":")[1]?.split(",");
-      const rsrqValue = parts?.[index]?.trim();
-      return rsrqValue?.match(/-?\d+/)?.[0] || "Unknown";
-    });
+  const getRSRQFromParts = (parts: string[] | undefined): string => {
+    if (!parts) return "Unknown";
+    const pciIndex: 6 | 7 | 10 = (() => {
+      switch (parts.length) {
+        case 8: // length 8, PCI is at index 4, NR SA PCC and NR NSA SCC Band when NR5G-NSA
+          return 6;
+        case 12: // length 12, PCI is at index 5, NR NSA/SA SCC Band X
+          return 10;
+        case 13: // length 13, PCI is at index 5, LTE SCC Band X
+        case 10: // length 10, PCI is at index 5, LTE/NR NSA PCC Band X
+        default:
+          return 7;
+      }
+    })();
+    return parts[pciIndex]?.trim() || "Unknown";
+  };
 
-  if (networkType === "LTE") {
-    return extractRSRQ(response.split("\n").filter((l) => l.includes("LTE BAND")), 7);
-  }
-
-  if (networkType === "NR5G-SA") {
-    const pccRSRQ = parseField(servingCell, servingCell.split("\n").findIndex((l) => l.includes("NR5G-SA")), 1, 13);
-    const sccRSRQs = extractRSRQ(response.split("\n").filter((l) => l.includes("SCC") && l.includes("NR5G BAND")), 10);
-    return [pccRSRQ, ...sccRSRQs];
-  }
-
-  if (networkType === "NR5G-NSA") {
-    const lteRSRQs = extractRSRQ(response.split("\n").filter((l) => l.includes("LTE BAND")), 7);
-    const nr5gServingRSRQ = parseField(servingCell, servingCell.split("\n").findIndex((l) => l.includes("NR5G-NSA")), 0, 6);
-    const nr5gSccRSRQs = extractRSRQ(
-      response.split("\n").filter((l) => l.includes("SCC") && l.includes("NR5G BAND")),
-      10
-    );
-
-    return [...lteRSRQs, nr5gServingRSRQ, ...nr5gSccRSRQs].filter((rsrq) => rsrq !== "Unknown");
-  }
-
-  return ["Unknown"];
+  const extractRSRQ = (lines: string[]): string[] => {
+    return lines
+      .map((line) => getRSRQFromParts(line.split(":")[1]?.split(",")));
+  };
+  const lines = response.split("\n");
+  const pccRSRQ = extractRSRQ(lines.filter((l)=> l.includes("PCC")))[0];
+  const sccRSRQs = extractRSRQ(lines.filter((l) => l.includes("SCC")));
+  return [pccRSRQ, ...sccRSRQs].filter((pci) => pci !== "Unknown");
 };
 
 const getCurrentBandsSINR = (
   response: string,
   networkType: string,
-  servingCell: string
 ): string[] => {
-  const extractSINR = (lines: string[], index: number): string[] =>
-    lines.map((line) => {
-      const rawSINR = line.split(":")[1]?.split(",")[index]?.trim();
-      if (rawSINR === "-32768") return "-";
-      return !isNaN(parseInt(rawSINR)) ? Math.round(parseInt(rawSINR) / 100).toString() : rawSINR || "Unknown";
-    });
 
-  if (networkType === "LTE") {
-    return extractSINR(response.split("\n").filter((l) => l.includes("BAND")), 9);
-  }
+  const getSINRFromParts = (parts: string[] | undefined): string => {
+    if (!parts) return "Unknown";
+    const pciIndex: 7 | 9 | 11 = (() => {
+      switch (parts.length) {
+        case 8: // length 8, NR SA PCC and NR NSA SCC Band when NR5G-NSA
+          return 7;
+        case 12: // length 12, NR NSA/SA SCC Band X
+          return 11;
+        case 13: // length 13, LTE SCC Band X
+        case 10: // length 10, LTE/NR NSA PCC Band X
+        default:
+          return 9;
+      }
+    })();
+    return parts[pciIndex]?.trim() || "Unknown";
+  };
 
-  if (networkType === "NR5G-SA") {
-      const pccSINR = parseField(servingCell, servingCell.split("\n").findIndex((l) => l.includes("NR5G-SA")), 1, 14);
-      const pccValue = (() => {
-        if (pccSINR === "-32768") return "-";
-        return !isNaN(parseInt(pccSINR)) ? parseInt(pccSINR).toString() : pccSINR || "Unknown";
-      })();
-    const sccSINRs = extractSINR(response.split("\n").filter((l) => l.includes("SCC") && l.includes("NR5G BAND")), 11);
-    return [pccValue, ...sccSINRs];
-  }
+  const extractSINR = (lines: string[], networkType: string): string[] => 
+    lines
+      .map((line) => {
+        const rawSINR = getSINRFromParts(line.split(":")[1]?.split(","));
+        if (rawSINR === "-32768") return "-";
+        return !isNaN(parseInt(rawSINR)) && !line.includes("LTE")  ? Math.round(parseInt(rawSINR) / 100).toString() : rawSINR || "Unknown";
+      });
 
-  if (networkType === "NR5G-NSA") {
-    const lteSINRs = extractSINR(response.split("\n").filter((l) => l.includes("LTE BAND")), 9);
-    const nr5gServingSINR = parseField(
-      servingCell, servingCell.split("\n").findIndex((line) => line.includes("NR5G-NSA")), 0, 5);
-
-    const nr5gSccSINRs = extractSINR(
-      response.split("\n").filter((l) => l.includes("SCC") && l.includes("NR5G BAND")), 11);
-
-    return [...lteSINRs, nr5gServingSINR, ...nr5gSccSINRs].filter((sinr) => sinr !== "Unknown");
-  }
-
-  return ["Unknown"];
+  const lines = response.split("\n");
+  const pccSINR = extractSINR(lines.filter((l)=> l.includes("PCC")), networkType)[0];
+  const sccSINRs = extractSINR(lines.filter((l) => l.includes("SCC")),networkType);
+  return [pccSINR, ...sccSINRs].filter((c) => c !== "Unknown");
 };
 
 const getMimoLayers = (response: string): string => {
@@ -733,12 +611,8 @@ const getMimoLayers = (response: string): string => {
   // Extract RSRP values for LTE and NR5G
   const lteRSRPCount = extractRSRP(response.split("\n").find((l) => l.includes("LTE"))).length;
   const nr5gRSRPCount = extractRSRP(response.split("\n").find((l) => l.includes("NR5G"))).length;
-
   // Determine MIMO layers
-  if (lteRSRPCount && nr5gRSRPCount) return `LTE ${lteRSRPCount} / NR ${nr5gRSRPCount}`;
-  if (lteRSRPCount) return `LTE ${lteRSRPCount}`;
-  if (nr5gRSRPCount) return `NR ${nr5gRSRPCount}`;
-  return "Unknown";
+  return lteRSRPCount && nr5gRSRPCount ? `LTE ${lteRSRPCount} /  NR ${nr5gRSRPCount}` : lteRSRPCount ? ` LTE ${lteRSRPCount}` : nr5gRSRPCount ? `NR ${nr5gRSRPCount}` : "Unknown";
 };
 
 // Add this helper function in your file (outside the React component)
