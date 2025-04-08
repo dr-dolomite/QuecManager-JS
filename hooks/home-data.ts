@@ -191,12 +191,11 @@ const useHomeData = () => {
           // Extract IPv4 address from QMAP="WWAN" response
           cellularIPv4: extractIPAddress(rawData, "IPV4"),
           cellularIPv6: extractIPAddress(rawData, "IPV6"),
-
           // Extract DNS servers from CGCONTRDP response
-          carrierPrimaryDNS: formatDNSAddress(parseDNSAddress(rawData, 15, 5, 20)),
-          carrierSecondaryDNS: formatDNSAddress(parseDNSAddress(rawData, 15, 6, 20)),
-          rawCarrierPrimaryDNS: parseDNSAddress(rawData, 15, 5, 20),
-          rawCarrierSecondaryDNS: parseDNSAddress(rawData, 15, 6, 20),
+          carrierPrimaryDNS: formatDNSAddress(parseDNSAddress(rawData, getNetworkType(rawData[13]?.response), 15, { "NR5G-SA": 5, "NR5G-NSA": 6, "LTE": 6 }, 20)),
+          carrierSecondaryDNS: formatDNSAddress(parseDNSAddress(rawData, getNetworkType(rawData[13]?.response), 15, { "NR5G-SA": 6, "NR5G-NSA": 7, "LTE": 7 }, 20)),
+          rawCarrierPrimaryDNS: parseDNSAddress(rawData, getNetworkType(rawData[13]?.response), 15, { "NR5G-SA": 5, "NR5G-NSA": 6, "LTE": 6 }, 20),
+          rawCarrierSecondaryDNS: parseDNSAddress(rawData, getNetworkType(rawData[13]?.response), 15, { "NR5G-SA": 6, "NR5G-NSA": 7, "LTE": 7 }, 20),
         },
         timeAdvance: {
           lteTimeAdvance: parseField(rawData[21]?.response, 1, 1, 2),
@@ -288,8 +287,9 @@ const extractIPAddress = (rawData: any, type: "IPV4" | "IPV6", defaultValue = "-
 // Helper function to parse DNS addresses
 const parseDNSAddress = (
   rawData: any,
+  networkType: string,
   profileIndex: number,
-  dnsFieldIndex: number,
+  dnsFieldIndex: Record<string, number>,
   cdgcontIndex: number,
   defaultValue = "-"
 ): string => {
@@ -320,8 +320,8 @@ const parseDNSAddress = (
 
     // Step 3: Extract DNS field
     const parts = matchingLine.split(",");
-    if (parts.length <= dnsFieldIndex) return defaultValue;
-    return parts[dnsFieldIndex].replace(/"/g, "").trim() || defaultValue;
+    if (parts.length <= dnsFieldIndex[networkType]) return defaultValue;
+    return parts[dnsFieldIndex[networkType]].replace(/"/g, "").trim() || defaultValue;
   } catch (error) {
     console.error("Error parsing DNS address:", error);
     return defaultValue;
