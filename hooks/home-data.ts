@@ -44,15 +44,10 @@ const useHomeData = () => {
 
       if (retryCount < 2) {
         // Limit to 2 retry attempts
-        console.log(
-          `Attempting automatic recovery (attempt ${retryCount + 1}/2)...`
-        );
-
-        // Wait 3 seconds before retrying
-        await new Promise((resolve) => setTimeout(resolve, 2000));
-
+        console.log(`Attempting automatic recovery (attempt ${retryCount + 1}/2)...`);
         // Increment retry count and attempt refetch
         setRetryCount((prev) => prev + 1);
+        await new Promise((resolve) => setTimeout(resolve, 2000)); // Wait 2 seconds before retry
         fetchHomeData();
       } else {
         // After max retries, show error state and fallback data
@@ -133,7 +128,7 @@ const useHomeData = () => {
       }
 
       const rawData = await response.json();
-      console.log(rawData);
+      console.log(rawData); //
 
       // fetch public ip from /cgi-bin/quecmanager/home/fetch_public_ip.sh
       const publicIPResponse = await fetch(
@@ -148,7 +143,7 @@ const useHomeData = () => {
           provider: parseField(rawData[2].response, 1, 1, 2),
           phoneNumber: parseField(rawData[1].response, 1, 1, 1),
           imsi: parseField(rawData[3].response, 1, 0, 0),
-          iccid: parseField(rawData[4].response, 1, 1, 1, "Unknown", " "),
+          iccid: parseField(rawData[4].response, 1, 1, 1, "Unknown", ":", " "),
           imei: parseField(rawData[5].response, 1, 0, 0),
         },
         connection: {
@@ -187,280 +182,26 @@ const useHomeData = () => {
           sinr: getCurrentBandsSINR(rawData[13].response, getNetworkType(rawData[13].response), rawData[10].response) || ["Unknown"],
         },
         networkAddressing: {
-          publicIPv4: publicIPResponse.ok
-            ? (await publicIPResponse.json()).public_ip || "-"
-            : "Can't fetch public IP",
-
+          publicIPv4: publicIPResponse.ok? (await publicIPResponse.json()).public_ip || "-" : "Can't fetch public IP",
           // Extract IPv4 address from QMAP="WWAN" response
-          cellularIPv4: (() => {
-            const ipv4Line = rawData[15].response
-              .split("\n")
-              .find(
-                (l: string | string[]) =>
-                  l.includes('QMAP: "WWAN"') && l.includes('"IPV4"')
-              );
-
-            const ipv4Address = ipv4Line
-              ? ipv4Line.match(/"IPV4","([^"]+)"/)?.[1] || "-"
-              : "-";
-
-            return ipv4Address === "0.0.0.0" ? "-" : ipv4Address;
-          })(),
-
-          // Extract IPv6 address from QMAP="WWAN" response
-          cellularIPv6: (() => {
-            const ipv6Line = rawData[15].response
-              .split("\n")
-              .find(
-                (l: string | string[]) =>
-                  l.includes('QMAP: "WWAN"') && l.includes('"IPV6"')
-              );
-
-            const ipv6Address = ipv6Line
-              ? ipv6Line.match(/"IPV6","([^"]+)"/)?.[1] || "-"
-              : "-";
-
-            // Parse the IPv6 address to show its shortened version
-            const parsedIPv6 = ipv6Address
-              ? ipv6Address.replace(/::/g, ":")
-              : "-";
-            // If the parsed IPv6 address is "::" or "0:0:0:0:0:0:0:0", return "-"
-            return parsedIPv6 === "::" || parsedIPv6 === "0:0:0:0:0:0:0:0"
-              ? "-"
-              : parsedIPv6;
-          })(),
+          cellularIPv4: extractIPAddress(rawData, "IPV4"),
+          cellularIPv6: extractIPAddress(rawData, "IPV6"),
 
           // Extract DNS servers from CGCONTRDP response
-          carrierPrimaryDNS: (() => {
-            try {
-              if (!rawData[15]?.response || !rawData[20]?.response) return "-";
-
-              // Step 1: Get profile ID from QMAP="WWAN" response
-              const qmapLines = rawData[15].response
-                .split("\n")
-                .filter((line: string | string[]) =>
-                  line.includes('+QMAP: "WWAN"')
-                );
-
-              // Extract the profile ID from the first WWAN line
-              const profileIDMatch = qmapLines[0]?.match(
-                /\+QMAP: "WWAN",\d+,(\d+),/
-              );
-              const profileID = profileIDMatch ? profileIDMatch[1] : null;
-              // console.log("Profile ID:", profileID);
-
-              if (!profileID) return "-";
-
-              // Step 2: Find matching CID in CGCONTRDP
-              const cgcontrdpLines = rawData[20].response
-                .split("\n")
-                .filter((line: string | string[]) =>
-                  line.includes("+CGCONTRDP:")
-                );
-
-              // Find the line where CID matches our profile ID
-              const matchingLine = cgcontrdpLines.find((line: string) => {
-                const cid = line.match(/\+CGCONTRDP: (\d+),/);
-                return cid && cid[1] === profileID;
-              });
-
-              if (!matchingLine) return "-";
-
-              // Step 3: Extract primary DNS (second to last field)
-              const parts = matchingLine.split(",");
-              if (parts.length < 2) return "-";
-
-              // Primary DNS is the second to last element
-              const dnsAddress = parts[parts.length - 2]
-                .replace(/"/g, "")
-                .trim();
-
-              // Step 4: Format based on IP type
-              const isIPv4 = dnsAddress.match(
-                /^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/
-              );
-
-              // Detect dotted-decimal IPv6 format (long string with many dots)
-              const isDottedIPv6 = dnsAddress.split(".").length > 4;
-
-              if (isIPv4) {
-                return dnsAddress;
-              } else if (isDottedIPv6) {
-                // Convert dotted-decimal IPv6 to standard IPv6 notation
-                return formatDottedIPv6(dnsAddress);
-              } else {
-                // Handle regular colon-separated IPv6
-                return dnsAddress.replace(/:{3,}/g, "::");
-              }
-            } catch (error) {
-              console.error("Error extracting primary DNS:", error);
-              return "-";
-            }
-          })(),
-
-          carrierSecondaryDNS: (() => {
-            try {
-              if (!rawData[15]?.response || !rawData[20]?.response) return "-";
-
-              // Step 1: Get profile ID from QMAP="WWAN" response
-              const qmapLines = rawData[15].response
-                .split("\n")
-                .filter((line: string | string[]) =>
-                  line.includes('+QMAP: "WWAN"')
-                );
-
-              const profileIDMatch = qmapLines[0]?.match(
-                /\+QMAP: "WWAN",\d+,(\d+),/
-              );
-              const profileID = profileIDMatch ? profileIDMatch[1] : null;
-
-              if (!profileID) return "-";
-
-              // Step 2: Find matching CID in CGCONTRDP
-              const cgcontrdpLines = rawData[20].response
-                .split("\n")
-                .filter((line: string | string[]) =>
-                  line.includes("+CGCONTRDP:")
-                );
-
-              const matchingLine = cgcontrdpLines.find((line: string) => {
-                const cid = line.match(/\+CGCONTRDP: (\d+),/);
-                return cid && cid[1] === profileID;
-              });
-
-              if (!matchingLine) return "-";
-
-              // Step 3: Extract secondary DNS (last field)
-              const parts = matchingLine.split(",");
-              if (parts.length < 2) return "-";
-
-              // Primary DNS is the second to last element
-              const dnsAddress = parts[parts.length - 1]
-                .replace(/"/g, "")
-                .trim();
-
-              // Step 4: Format based on IP type
-              const isIPv4 = dnsAddress.match(
-                /^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/
-              );
-
-              // Detect dotted-decimal IPv6 format (long string with many dots)
-              const isDottedIPv6 = dnsAddress.split(".").length > 4;
-
-              if (isIPv4) {
-                return dnsAddress;
-              } else if (isDottedIPv6) {
-                // Convert dotted-decimal IPv6 to standard IPv6 notation
-                return formatDottedIPv6(dnsAddress);
-              } else {
-                // Handle regular colon-separated IPv6
-                return dnsAddress.replace(/:{3,}/g, "::");
-              }
-            } catch (error) {
-              console.error("Error extracting primary DNS:", error);
-              return "-";
-            }
-          })(),
-          // Raw DNS addresses without formatting
-          rawCarrierPrimaryDNS: (() => {
-            try {
-              // [15] is the WWAN QMAP response, [20] is the CGCONTRDP response
-              if (!rawData[15]?.response || !rawData[20]?.response) return "-";
-
-              // Step 1: Get profile ID from QMAP="WWAN" response
-              const qmapLines = rawData[15].response
-                .split("\n")
-                .filter((line: string | string[]) =>
-                  line.includes('+QMAP: "WWAN"')
-                );
-
-              const profileIDMatch = qmapLines[0]?.match(
-                /\+QMAP: "WWAN",\d+,(\d+),/
-              );
-              const profileID = profileIDMatch ? profileIDMatch[1] : null;
-
-              if (!profileID) return "-";
-
-              // Step 2: Find matching CID in CGCONTRDP
-              const cgcontrdpLines = rawData[20].response
-                .split("\n")
-                .filter((line: string | string[]) =>
-                  line.includes("+CGCONTRDP:")
-                );
-
-              const matchingLine = cgcontrdpLines.find((line: string) => {
-                const cid = line.match(/\+CGCONTRDP: (\d+),/);
-                return cid && cid[1] === profileID;
-              });
-
-              if (!matchingLine) return "-";
-
-              // Step 3: Extract primary DNS (second to last field) without formatting
-              const parts = matchingLine.split(",");
-              if (parts.length < 2) return "-";
-
-              // Return the raw DNS address without formatting
-              return parts[parts.length - 2].replace(/"/g, "").trim() || "-";
-            } catch (error) {
-              console.error("Error extracting raw primary DNS:", error);
-              return "-";
-            }
-          })(),
-
-          rawCarrierSecondaryDNS: (() => {
-            try {
-              if (!rawData[15]?.response || !rawData[20]?.response) return "-";
-
-              // Step 1: Get profile ID from QMAP="WWAN" response
-              const qmapLines = rawData[15].response
-                .split("\n")
-                .filter((line: string | string[]) =>
-                  line.includes('+QMAP: "WWAN"')
-                );
-
-              const profileIDMatch = qmapLines[0]?.match(
-                /\+QMAP: "WWAN",\d+,(\d+),/
-              );
-              const profileID = profileIDMatch ? profileIDMatch[1] : null;
-
-              if (!profileID) return "-";
-
-              // Step 2: Find matching CID in CGCONTRDP
-              const cgcontrdpLines = rawData[20].response
-                .split("\n")
-                .filter((line: string | string[]) =>
-                  line.includes("+CGCONTRDP:")
-                );
-
-              const matchingLine = cgcontrdpLines.find((line: string) => {
-                const cid = line.match(/\+CGCONTRDP: (\d+),/);
-                return cid && cid[1] === profileID;
-              });
-
-              if (!matchingLine) return "-";
-
-              // Step 3: Extract secondary DNS (last field) without formatting
-              const parts = matchingLine.split(",");
-              if (parts.length < 1) return "-";
-
-              // Return the raw DNS address without formatting
-              return parts[parts.length - 1].replace(/"/g, "").trim() || "-";
-            } catch (error) {
-              console.error("Error extracting raw secondary DNS:", error);
-              return "-";
-            }
-          })(),
+          carrierPrimaryDNS: formatDNSAddress(parseDNSAddress(rawData, 15, 5, 20)),
+          carrierSecondaryDNS: formatDNSAddress(parseDNSAddress(rawData, 15, 6, 20)),
+          rawCarrierPrimaryDNS: parseDNSAddress(rawData, 15, 5, 20),
+          rawCarrierSecondaryDNS: parseDNSAddress(rawData, 15, 6, 20),
         },
         timeAdvance: {
           lteTimeAdvance: parseField(rawData[21]?.response, 1, 1, 2),
           nrTimeAdvance: parseField(rawData[22]?.response, 1, 1, 2),
         },
       };
-
       setData(processedData);
       setRetryCount(0);
       setError(null);
-      console.log("Processed home data:", processedData);
+      console.log("Processed home data:", processedData);// 
     } catch (error) {
       console.error("Error fetching home data:", error);
       handleErrorWithRetry(
@@ -477,16 +218,12 @@ const useHomeData = () => {
 
     const loadData = async () => {
       if (!isMounted) return;
-
       try {
         await fetchHomeData();
       } finally {
-        if (isMounted) {
-          setIsLoading(false);
-        }
+        if (isMounted) setIsLoading(false);
       }
     };
-
     // Initial load
     loadData();
 
@@ -518,17 +255,85 @@ const parseField = (
   firstField: number,
   fieldIndex: number,
   defaultValue = "Unknown",
-  delimiter = ","
+  firstDelimiter = ":",
+  secondDelimiter = ",",
 ) => {
   try {
     return (
-      response.split("\n")[lineIndex]?.split(":")[firstField]?.split(delimiter)[
+      response.split("\n")[lineIndex]?.split(firstDelimiter)[firstField]?.split(secondDelimiter)[
         fieldIndex
       ]?.replace(/"/g, "")
         .trim() || defaultValue
     );
   } catch {
     return defaultValue;
+  }
+};
+
+// Helper function to extract and process IPv4 and IPv6 addresses
+const extractIPAddress = (rawData: any, type: "IPV4" | "IPV6", defaultValue = "-"): string => {
+  const line = rawData[15]?.response?.split("\n")
+    .find((line: string) => line.includes('QMAP: "WWAN"') && line.includes(`"${type}"`));
+  const ipAddress = parseField(line || "", 0, 1, 4, defaultValue, " ", ",");
+  const parsedIP = type == "IPV6" ? ipAddress.replace(/::/g, ":") : ipAddress;
+  const invalid_values = ["0.0.0.0", "::", "::0", "::0:0:0:0:0:0:0:0", "0:0:0:0:0:0:0:0"];
+  return invalid_values.includes(parsedIP) ? defaultValue : parsedIP;
+};
+
+// Helper function to parse DNS addresses
+const parseDNSAddress = (
+  rawData: any,
+  profileIndex: number,
+  dnsFieldIndex: number,
+  cdgcontIndex: number,
+  defaultValue = "-"
+): string => {
+  try {
+    if (!rawData[profileIndex]?.response || !rawData[cdgcontIndex]?.response) return defaultValue;
+
+    // Step 1: Get profile ID from QMAP="WWAN" response
+    const qmapLines = rawData[profileIndex].response
+      .split("\n")
+      .filter((line: string) => line.includes('+QMAP: "WWAN"'));
+
+    const profileIDMatch = qmapLines[0]?.match(/\+QMAP: "WWAN",\d+,(\d+),/);
+    const profileID = profileIDMatch ? profileIDMatch[1] : null;
+
+    if (!profileID) return defaultValue;
+
+    // Step 2: Find matching CID in CGCONTRDP
+    const cgcontrdpLines = rawData[cdgcontIndex].response
+      .split("\n")
+      .filter((line: string) => line.includes("+CGCONTRDP:"));
+
+    const matchingLine = cgcontrdpLines.find((line: string) => {
+      const cid = line.match(/\+CGCONTRDP: (\d+),/);
+      return cid && cid[1] === profileID;
+    });
+
+    if (!matchingLine) return defaultValue;
+
+    // Step 3: Extract DNS field
+    const parts = matchingLine.split(",");
+    if (parts.length <= dnsFieldIndex) return defaultValue;
+    return parts[dnsFieldIndex].replace(/"/g, "").trim() || defaultValue;
+  } catch (error) {
+    console.error("Error parsing DNS address:", error);
+    return defaultValue;
+  }
+};
+
+// Helper function to format DNS addresses
+const formatDNSAddress = (dnsAddress: string): string => {
+  try {
+    const isIPv4 = dnsAddress.match(
+      /^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/
+    );
+    const isDottedIPv6 = dnsAddress.split(".").length > 4;
+    return isIPv4 ? dnsAddress : isDottedIPv6 ? formatDottedIPv6(dnsAddress) : dnsAddress.replace(/:{3,}/g, "::");
+  } catch (error) {
+    console.error("Error formatting DNS address:", error);
+    return dnsAddress;
   }
 };
 
@@ -698,7 +503,6 @@ const getEARFCN = (response: string): string => {
       .map((line) => line.split(":")[1]?.split(",")[1]?.trim() || "Unknown");
 
   const pccEARFCN = parseField(response, response.split("\n").findIndex((line) => line.includes("PCC")), 1, 1);
-
   const sccEARFCNsLTE = extractEARFCNs("LTE");
   const sccEARFCNsNR5G = extractEARFCNs("NR5G");
 
@@ -718,7 +522,7 @@ const getEARFCN = (response: string): string => {
 const getNetworkCode = (response: string, networkType: string, fieldIndexMap: Record<string, number>): string => {
   const lineIndex = networkType === "NR5G-NSA" ? 2 : 1;
   const fieldIndex = fieldIndexMap[networkType];
-  return parseField(response, lineIndex, 1, fieldIndex) || "Unknown";
+  return parseField(response, lineIndex, 1, fieldIndex);
 };
 
 const getSignalQuality = (response: string): string => {
@@ -931,12 +735,7 @@ const getCurrentBandsSINR = (
   }
 
   if (networkType === "NR5G-SA") {
-    const pccSINR = servingCell
-      .split("\n")
-      .find((l) => l.includes("NR5G-SA"))
-      ?.split(":")[1]
-      ?.split(",")[14]
-      ?.trim();
+      const pccSINR = parseField(servingCell, servingCell.split("\n").findIndex((l) => l.includes("NR5G-SA")), 1, 14);
 
       const pccValue = (() => {
         if (pccSINR === "-32768") return "-";
@@ -954,11 +753,8 @@ const getCurrentBandsSINR = (
 
   if (networkType === "NR5G-NSA") {
     const lteSINRs = extractSINR(response.split("\n").filter((l) => l.includes("LTE BAND")), 9);
-    const nr5gServingSINR = servingCell
-      .split("\n")
-      .find((l) => l.includes("NR5G-NSA"))
-      ?.split(",")[5]
-      ?.trim() || "Unknown";
+    const nr5gServingSINR = parseField(
+      servingCell, servingCell.split("\n").findIndex((line) => line.includes("NR5G-NSA")), 0, 5);
 
     const nr5gSccSINRs = extractSINR(
       response.split("\n").filter((l) => l.includes("SCC") && l.includes("NR5G BAND")), 11);
