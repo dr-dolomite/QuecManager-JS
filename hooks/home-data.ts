@@ -526,14 +526,9 @@ const getNetworkCode = (response: string, networkType: string, fieldIndexMap: Re
 };
 
 const getSignalQuality = (response: string): string => {
+  const INVALID_VALUES = [-140, -32768, -37625];
   const parseSignalValues = (line?: string): number[] =>
-    line
-      ?.split(":")[1]
-      ?.split(",")
-      .slice(0, 4)
-      .map((v) => parseInt(v.trim()))
-      .filter((v) => v !== -140 && v !== -32768) || [];
-
+    parseField(line || "", 0, 1, 1, "Unknown", ":", " ").split(",").slice(0,4).map((v) => parseInt(v.trim())).filter((v) => !INVALID_VALUES.includes(v)) || [];
   const calculatePercentage = (values: number[]): number =>
     values.length
       ? Math.max(0, Math.min(100, ((values.reduce((acc, v) => acc + v, 0) / values.length - -10) / 40) * 100))
@@ -542,7 +537,6 @@ const getSignalQuality = (response: string): string => {
   const lines = response.split("\n");
   const ltePercentage = calculatePercentage(parseSignalValues(lines.find((l) => l.includes("LTE"))));
   const nrPercentage = calculatePercentage(parseSignalValues(lines.find((l) => l.includes("NR5G"))));
-
   return ltePercentage && nrPercentage
     ? `${Math.round((ltePercentage + nrPercentage) / 2)}%`
     : ltePercentage
@@ -554,7 +548,7 @@ const getSignalQuality = (response: string): string => {
 
 const getCurrentBandsBandNumber = (response: string): string[] => {
   const extractBands = (lines: string[]): string[] =>
-    lines.map((line) => line.split(":")[1]?.split(",")[3]?.replace(/"/g, "") || "Unknown");
+    lines.map((line) => parseField(line, 0, 1, 3, "Unknown", ":", ","));
 
   const bandsLte = extractBands(response.split("\n").filter((line) => line.includes("LTE BAND")));
   const bandsNr5g = extractBands(response.split("\n").filter((line) => line.includes("NR5G BAND")));
@@ -635,13 +629,7 @@ const getCurrentBandsRSRP = (
   }
 
   if (networkType === "NR5G-SA") {
-    const pccRSRP = servingCell
-      .split("\n")
-      .find((l) => l.includes("NR5G-SA"))
-      ?.split(":")[1]
-      ?.split(",")[12]
-      ?.trim() || "Unknown";
-
+    const pccRSRP = parseField(servingCell, servingCell.split("\n").findIndex((l) => l.includes("NR5G-SA")), 1, 12);
     const sccRSRPs = extractRSRP(
       response.split("\n").filter((l) => l.includes("SCC") && l.includes("NR5G BAND")), 9);
 
@@ -650,12 +638,7 @@ const getCurrentBandsRSRP = (
 
   if (networkType === "NR5G-NSA") {
     const lteRSRPs = extractRSRP(response.split("\n").filter((l) => l.includes("LTE BAND")), 6);
-    const nr5gServingRSRP = servingCell
-      .split("\n")
-      .find((l) => l.includes("NR5G-NSA"))
-      ?.split(",")[4]
-      ?.trim() || "Unknown";
-
+    const nr5gServingRSRP = parseField(servingCell, servingCell.split("\n").findIndex((l) => l.includes("NR5G-NSA")), 0, 4);
     const nr5gSccRSRPs = extractRSRP(
       response.split("\n").filter((l) => l.includes("SCC") && l.includes("NR5G BAND")), 9);
     return [...lteRSRPs, nr5gServingRSRP, ...nr5gSccRSRPs].filter((rsrp) => rsrp !== "Unknown");
@@ -681,30 +664,14 @@ const getCurrentBandsRSRQ = (
   }
 
   if (networkType === "NR5G-SA") {
-    const pccRSRQ = servingCell
-      .split("\n")
-      .find((l) => l.includes("NR5G-SA"))
-      ?.split(":")[1]
-      ?.split(",")[13]
-      ?.trim() || "Unknown";
-
-    const sccRSRQs = extractRSRQ(
-      response.split("\n").filter((l) => l.includes("SCC") && l.includes("NR5G BAND")),
-      10
-    );
-
+    const pccRSRQ = parseField(servingCell, servingCell.split("\n").findIndex((l) => l.includes("NR5G-SA")), 1, 13);
+    const sccRSRQs = extractRSRQ(response.split("\n").filter((l) => l.includes("SCC") && l.includes("NR5G BAND")), 10);
     return [pccRSRQ, ...sccRSRQs];
   }
 
   if (networkType === "NR5G-NSA") {
     const lteRSRQs = extractRSRQ(response.split("\n").filter((l) => l.includes("LTE BAND")), 7);
-
-    const nr5gServingRSRQ = servingCell
-      .split("\n")
-      .find((l) => l.includes("NR5G-NSA"))
-      ?.split(",")[6]
-      ?.trim() || "Unknown";
-
+    const nr5gServingRSRQ = parseField(servingCell, servingCell.split("\n").findIndex((l) => l.includes("NR5G-NSA")), 0, 6);
     const nr5gSccRSRQs = extractRSRQ(
       response.split("\n").filter((l) => l.includes("SCC") && l.includes("NR5G BAND")),
       10
@@ -723,11 +690,9 @@ const getCurrentBandsSINR = (
 ): string[] => {
   const extractSINR = (lines: string[], index: number): string[] =>
     lines.map((line) => {
-      const parts = line.split(":")[1]?.split(",");
-      const rawSINR = parts?.[index]?.trim();
+      const rawSINR = line.split(":")[1]?.split(",")[index]?.trim();
       if (rawSINR === "-32768") return "-";
-      const sinrValue = parseInt(rawSINR || "Unknown");
-      return !isNaN(sinrValue) ? Math.round(sinrValue / 100).toString() : rawSINR || "Unknown";
+      return !isNaN(parseInt(rawSINR)) ? Math.round(parseInt(rawSINR) / 100).toString() : rawSINR || "Unknown";
     });
 
   if (networkType === "LTE") {
@@ -736,18 +701,11 @@ const getCurrentBandsSINR = (
 
   if (networkType === "NR5G-SA") {
       const pccSINR = parseField(servingCell, servingCell.split("\n").findIndex((l) => l.includes("NR5G-SA")), 1, 14);
-
       const pccValue = (() => {
         if (pccSINR === "-32768") return "-";
-        const parsedSINR = parseInt(pccSINR || "Unknown");
-        return !isNaN(parsedSINR) ? parsedSINR.toString() : pccSINR || "Unknown";
+        return !isNaN(parseInt(pccSINR)) ? parseInt(pccSINR).toString() : pccSINR || "Unknown";
       })();
-
-    const sccSINRs = extractSINR(
-      response.split("\n").filter((l) => l.includes("SCC") && l.includes("NR5G BAND")),
-      11
-    );
-
+    const sccSINRs = extractSINR(response.split("\n").filter((l) => l.includes("SCC") && l.includes("NR5G BAND")), 11);
     return [pccValue, ...sccSINRs];
   }
 
@@ -770,12 +728,7 @@ const getMimoLayers = (response: string): string => {
 
   // Helper function to extract and filter RSRP values
   const extractRSRP = (line?: string): number[] =>
-    line
-      ?.split(":")[1]
-      ?.split(",")
-      .slice(0, 4)
-      .map((v) => parseInt(v.trim()))
-      .filter((v) => !INVALID_VALUES.includes(v)) || [];
+    parseField(line || "", 0, 1, 1, "-32768", ":", " ").split(",").slice(0, 4).map((v) => parseInt(v.trim())).filter((v) => !INVALID_VALUES.includes(v)) || [];
 
   // Extract RSRP values for LTE and NR5G
   const lteRSRPCount = extractRSRP(response.split("\n").find((l) => l.includes("LTE"))).length;
