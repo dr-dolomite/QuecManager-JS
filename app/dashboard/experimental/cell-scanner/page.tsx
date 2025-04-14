@@ -302,9 +302,9 @@ const CellScannerPage = () => {
           } as LTECellInfo;
         } else if (type === "NR5G") {
           const [
+            scs,
             cellId,
             tac,
-            scs,
             carrierBandwidth,
             band,
             offsetToPointA,
@@ -782,10 +782,10 @@ const CellScannerPage = () => {
                             <TableCell>
                               {cell.type === "LTE"
                                 ? (cell as LTECellInfo).bandwidthMHz
-                                : "-"}
+                                : (cell as NR5GCellInfo).carrierBandwidth + "MHz"}
                             </TableCell>
-                            <TableCell>{cell.cellId}</TableCell>
-                            <TableCell>{cell.tac}</TableCell>
+                            <TableCell>{parseInt(cell.cellId,16)}</TableCell>
+                            <TableCell>{parseInt(cell.tac,16)}</TableCell>
                             <TableCell>
                               <TooltipProvider>
                                 <Tooltip>
