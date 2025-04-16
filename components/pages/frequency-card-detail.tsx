@@ -175,9 +175,9 @@ const FrequencyDetailCard = ({
               <h4 className="text-sm font-semibold mb-1">Signal Parameters</h4>
               <div className="grid grid-cols-2 gap-y-1 text-sm">
                 <div className="text-muted-foreground">RSRP:</div>
-                <div className="font-medium">{cell.rsrp} dBm</div>
+                <div className="font-medium">{cell.rsrp || "-"} dBm</div>
                 <div className="text-muted-foreground">RSRQ:</div>
-                <div className="font-medium">{cell.rsrq} dB</div>
+                <div className="font-medium">{cell.rsrq || "-"} dB</div>
                 {isLTE ? (
                   <>
                     <div className="text-muted-foreground">SQUAL:</div>
@@ -196,17 +196,17 @@ const FrequencyDetailCard = ({
                       Subcarrier Spacing:
                     </div>
                     <div className="font-medium">
-                      {(cell as NR5GCellInfo).scs} kHz
+                      {(cell as NR5GCellInfo).scs || "-"} kHz
                     </div>
                     <div className="text-muted-foreground">
                       Carrier Bandwidth:
                     </div>
                     <div className="font-medium">
-                      {(cell as NR5GCellInfo).carrierBandwidth} RB
+                      {(cell as NR5GCellInfo).carrierBandwidth ||"-"} RB
                     </div>
                     <div className="text-muted-foreground">SSB SCS:</div>
                     <div className="font-medium">
-                      {(cell as NR5GCellInfo).ssbScs} kHz
+                      {(cell as NR5GCellInfo).ssbScs || "-"} kHz
                     </div>
                   </>
                 )}
