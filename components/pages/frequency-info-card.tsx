@@ -40,7 +40,7 @@ interface NR5GCellInfo extends BaseCellInfo {
   carrierBandwidth: number;
   offsetToPointA: number;
   ssbSubcarrierOffset: number;
-  ssbScs: number;
+  ssbScs: number | "-";
 }
 
 type CellInfo = LTECellInfo | NR5GCellInfo;
@@ -418,9 +418,9 @@ const FrequencyInfoCard = ({
           } as LTECellInfo;
         } else if (type === "NR5G") {
           const [
+            scs,
             cellId,
             tac,
-            scs,
             carrierBandwidth,
             band,
             offsetToPointA,
@@ -438,7 +438,7 @@ const FrequencyInfoCard = ({
             band: parseInt(band),
             offsetToPointA: parseInt(offsetToPointA),
             ssbSubcarrierOffset: parseInt(ssbSubcarrierOffset),
-            ssbScs: parseInt(ssbScs),
+            ssbScs: ssbScs,
           } as NR5GCellInfo;
         }
 
