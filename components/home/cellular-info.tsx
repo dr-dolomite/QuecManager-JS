@@ -9,6 +9,12 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { HomeData } from "@/types/types";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface CellularInformationProps {
   data: HomeData | null;
@@ -33,7 +39,18 @@ const CellularInformation = ({ data, isLoading }: CellularInformationProps) => {
         </div>
 
         <div className="flex flex-row justify-between text-md">
-          <p>TAC</p>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger>
+              TAC
+              </TooltipTrigger>
+              <TooltipContent>
+                <div className="grid grid-cols-1 gap-1">
+                  <span className="font-medium">Region / Tracking Area Code</span>
+                </div>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
           {isLoading ? (
             <Skeleton className="h-4 w-[80px]" />
           ) : (
