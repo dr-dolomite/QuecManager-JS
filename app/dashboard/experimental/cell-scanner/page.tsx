@@ -784,8 +784,8 @@ const CellScannerPage = () => {
                                 ? (cell as LTECellInfo).bandwidthMHz
                                 : (cell as NR5GCellInfo).carrierBandwidth + "MHz"}
                             </TableCell>
-                            <TableCell>{parseInt(cell.cellId,16)}</TableCell>
-                            <TableCell>{parseInt(cell.tac,16)}</TableCell>
+                            <TableCell>{parseInt(cell.cellId,16) || "-"}</TableCell>
+                            <TableCell>{parseInt(cell.tac,16) || "-"}</TableCell>
                             <TableCell>
                               <TooltipProvider>
                                 <Tooltip>
