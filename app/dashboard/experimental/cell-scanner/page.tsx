@@ -604,10 +604,27 @@ const CellScannerPage = () => {
   }, [checkInitialResults, fetchQuecwatchStatus]);
 
   // Clear results
-  const clearResults = useCallback(() => {
+  const clearResults = useCallback(async () => {
     setScanResult(null);
     setLastScanTime(null);
     setScanState({ status: "idle", progress: 0, message: "" });
+    const response = await fetch(
+      "/cgi-bin/quecmanager/experimental/cell_scanner/clear_scan.sh",
+      { headers: { "Cache-Control": "no-cache, no-store" } }
+    );
+
+    if (!response.ok) return;
+    const result: ScanResult = await response.json();
+    // If we have successful results, display them
+    if (result.status !== "success" && result.status !== "idle") {
+      // Show Error toast
+      toast({
+        title: "Error",
+        description: "Failed to remove scan results. Please try again.",
+        variant: "destructive",
+      });
+
+    }
   }, []);
 
   // Export to CSV
