@@ -59,6 +59,20 @@ export default function ChartPreviewSignal() {
   const previousData = useRef<SignalData | null>(null);
 
   useEffect(() => {
+    const fetchCapabilities = async () => {
+      try {
+        const response = await fetch("/cgi-bin/quecmanager/get-capabilities.sh");
+        const data: ModemResponse[] = await response.json();
+        sessionStorage.setItem("modemCapabilities", JSON.stringify(data));
+        return JSON.stringify(data);
+      } catch (error) {
+        console.error("Error fetching capabilities:", error);
+      }
+    };
+    fetchCapabilities();
+  }, []);
+
+  useEffect(() => {
     const fetchStats = async () => {
       try {
         const response = await fetch("/cgi-bin/quecmanager/at_cmd/fetch_data.sh?set=5");

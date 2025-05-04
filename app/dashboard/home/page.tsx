@@ -74,7 +74,9 @@ const HomePage = () => {
     bytesReceived,
     refresh: refreshTrafficStats,
   } = useTrafficStats();
-
+  const capabilties = sessionStorage.getItem("modemCapabilities");
+  const capabilities = capabilties ? JSON.parse(capabilties) : null;
+  console.log('capabilities', capabilities);
   const sendChangeSimSlot = async () => {
     try {
       // Get the current SIM slot through AT+QUIMSLOT? command
@@ -380,7 +382,7 @@ const HomePage = () => {
               networkType={homeData?.connection?.networkType}
             />
             <MemoryCard />
-            <SpeedtestStream />
+            { capabilities?.speedtest && <SpeedtestStream />}
             <PingCard />
           </div>
         </div>
