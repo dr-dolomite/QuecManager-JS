@@ -159,6 +159,8 @@ const SpeedtestStream = () => {
   }, []);
 
   useEffect(() => {
+  const storedData = sessionStorage.getItem("speedtestData");
+  if (storedData) setSpeedtestData(JSON.parse(storedData));
     if (showResults && !isTestRunning) {
       setIsCooldown(true);
       const timer = setTimeout(() => {
@@ -228,6 +230,7 @@ const SpeedtestStream = () => {
                 setShowResults(true);
                 setIsTestRunning(false);
 
+                sessionStorage.setItem("speedtestData", JSON.stringify(data));
                 if (pollInterval.current) {
                   clearInterval(pollInterval.current);
                   pollInterval.current = null;
