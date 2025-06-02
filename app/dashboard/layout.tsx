@@ -356,7 +356,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
               <DropdownMenuItem asChild>
                 {/* a tag that redirects to a new tab */}
                 <a
-                  href="https://github.com/iamromulan/quectel-rgmii-toolkit/discussions/new/choose"
+                  href="https://github.com/iamromulan/cellular-modem-wiki/discussions/new/choose"
                   target="_blank"
                 >
                   Support
