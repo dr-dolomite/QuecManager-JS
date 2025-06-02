@@ -93,7 +93,7 @@ const useCellSettingsData = () => {
             return match ? match[1] : null; // Return just the name or null if pattern doesn't match
           })
           .filter(Boolean),
-        selectedMbnProfile: "",
+        selectedMbnProfile: rawData[7].response.split("\n").filter((line: string) => line.includes('QMBNCFG: "List"')).findIndex((line: any) => line.split(",")[3] == 1).toString(),
         // Look for QMAP="WWAN",<active state>,< profile index> and get the profile index
         // This is the profile that is currently selected for data connection
         // Extract the profile ID from QMAP="WWAN" response
