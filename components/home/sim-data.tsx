@@ -13,9 +13,10 @@ import { HomeData } from "@/types/types";
 interface SimDataProps {
   data: HomeData | null;
   isLoading: boolean;
+  hideSensitiveData: boolean;
 }
 
-const SimData = ({ data, isLoading } : SimDataProps ) => {
+const SimData = ({ data, isLoading, hideSensitiveData } : SimDataProps ) => {
   return (
     <Card>
       <CardHeader>
@@ -58,7 +59,7 @@ const SimData = ({ data, isLoading } : SimDataProps ) => {
 
         <div className="flex flex-row justify-between text-md">
           <p>Phone Number</p>
-          {isLoading ? (
+          {isLoading || hideSensitiveData ? (
             <Skeleton className="h-4 w-[140px]" />
           ) : (
             <p className="font-bold">{data?.simCard.phoneNumber}</p>
@@ -67,7 +68,7 @@ const SimData = ({ data, isLoading } : SimDataProps ) => {
 
         <div className="flex flex-row justify-between text-md">
           <p>IMSI</p>
-          {isLoading ? (
+          {isLoading || hideSensitiveData ? (
             <Skeleton className="h-4 w-[140px]" />
           ) : (
             <p className="font-bold">{data?.simCard.imsi}</p>
@@ -76,7 +77,7 @@ const SimData = ({ data, isLoading } : SimDataProps ) => {
 
         <div className="flex flex-row justify-between text-md">
           <p>ICCID</p>
-          {isLoading ? (
+          {isLoading || hideSensitiveData ? (
             <Skeleton className="h-4 w-[140px]" />
           ) : (
             <p className="font-bold">{data?.simCard.iccid}</p>
@@ -85,7 +86,7 @@ const SimData = ({ data, isLoading } : SimDataProps ) => {
 
         <div className="flex flex-row justify-between text-md">
           <p>IMEI</p>
-          {isLoading ? (
+          {isLoading || hideSensitiveData ? (
             <Skeleton className="h-4 w-[140px]" />
           ) : (
             <p className="font-bold">{data?.simCard.imei}</p>

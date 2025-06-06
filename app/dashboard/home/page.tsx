@@ -29,6 +29,8 @@ import {
   CheckCircle2,
   CirclePlay,
   RefreshCcw,
+  Eye,
+  EyeOff
 } from "lucide-react";
 
 import PropagateLoader from "react-spinners/PropagateLoader";
@@ -59,6 +61,7 @@ interface newBands {
 const HomePage = () => {
   const { toast } = useToast();
   const [noSimDialogOpen, setNoSimDialogOpen] = useState(false);
+  const [hideSensitiveData, setHideSensitiveData] = useState(false);
   const { data: homeData, isLoading, refresh: refreshHomeData } = useHomeData();
   const {
     dataConnectionState,
@@ -262,6 +265,10 @@ const HomePage = () => {
                 </DialogContent>
               </Dialog>
             )}
+            <Button onClick={() => setHideSensitiveData((prev) => !prev)}>
+              { hideSensitiveData ? <Eye className="xl:size-6 size-5" /> : <EyeOff className="xl:size-6 size-5" /> }
+                <span className="hidden md:block">{hideSensitiveData ? 'Show' : 'Hide' } Sensitive Data</span>
+            </Button>
             <Dialog>
               <DialogTrigger>
                 <Button onClick={runDiagnostics}>
@@ -386,7 +393,7 @@ const HomePage = () => {
         </div>
 
         <div className="grid 2xl:grid-cols-4 lg:grid-cols-2 grid-cols-1 gap-4">
-          <SimCard data={homeData} isLoading={isLoading} />
+          <SimCard data={homeData} isLoading={isLoading} hideSensitiveData={hideSensitiveData} />
           <Connection
             data={homeData}
             isLoading={isLoading}
