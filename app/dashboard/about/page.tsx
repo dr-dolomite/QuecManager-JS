@@ -12,16 +12,34 @@ import useAboutData from "@/hooks/about-data";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 // import PropagateLoader from "react-spinners/PropagateLoader";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
+import { Eye, EyeOff } from "lucide-react";
 
 const AboutPage = () => {
   const { data, isLoading } = useAboutData();
+  const [hideSensitiveData, setHideSensitiveData] = React.useState(false);
 
   return (
     <Card>
       <CardHeader>
         <CardTitle>QuecManager</CardTitle>
         <CardDescription>
-          What is QuecManager and how it can help you.
+
+          <div className="grid xl:gap-y-10 gap-y-8 gap-4">
+            <div className="grid gap-4">
+              <div className="flex flex-row justify-between items-center">
+                <div className="flex flex-row items-center gap-x-2">
+                  What is QuecManager and how it can help you.
+                </div>
+                <div className="flex flex-row items-center gap-x-2">
+                  <Button onClick={() => setHideSensitiveData((prev) => !prev)}>
+                    { hideSensitiveData ? <Eye className="xl:size-6 size-5" /> : <EyeOff className="xl:size-6 size-5" /> }
+                      <span className="hidden md:block">{hideSensitiveData ? 'Show' : 'Hide' } Sensitive Data</span>
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
         </CardDescription>
       </CardHeader>
       <CardContent className="grid lg:grid-cols-2 grid-cols-1 grid-flow-row gap-8">
@@ -100,6 +118,8 @@ const AboutPage = () => {
                   <span className="font-semibold max-w-32 md:max-w-full truncate">
                     {isLoading ? (
                       <Skeleton className="h-4 w-32" />
+                    ) : hideSensitiveData ? (
+                      <i>{data?.phoneNum?.replace(/[0-9]/g,'0')} (Masked)</i>
                     ) : (
                       <>{data?.phoneNum || "N/A"}</>
                     )}
@@ -110,6 +130,8 @@ const AboutPage = () => {
                   <span className="font-semibold max-w-32 md:max-w-full truncate">
                     {isLoading ? (
                       <Skeleton className="h-4 w-32" />
+                    ) : hideSensitiveData ? (
+                      <i>{data?.imsi?.replace(/[0-9a-zA-Z]/g,'X')} (Masked)</i>
                     ) : (
                       <>{data?.imsi || "N/A"}</>
                     )}
@@ -120,6 +142,8 @@ const AboutPage = () => {
                   <span className="font-semibold max-w-32 md:max-w-full truncate">
                     {isLoading ? (
                       <Skeleton className="h-4 w-32" />
+                    ) : hideSensitiveData ? (
+                      <i>{data?.iccid?.replace(/[0-9a-zA-Z]/g,'X')} (Masked)</i>
                     ) : (
                       <>{data?.iccid || "N/A"}</>
                     )}
@@ -130,6 +154,8 @@ const AboutPage = () => {
                   <span className="font-semibold max-w-32 md:max-w-full truncate">
                     {isLoading ? (
                       <Skeleton className="h-4 w-32" />
+                    ) : hideSensitiveData ? (
+                      <i>{data?.imei?.replace(/[0-9a-zA-Z]/g,'X')} (Masked)</i>
                     ) : (
                       <>{data?.imei || "N/A"}</>
                     )}
@@ -160,6 +186,8 @@ const AboutPage = () => {
                   <span className="font-semibold max-w-32 md:max-w-full truncate">
                     {isLoading ? (
                       <Skeleton className="h-4 w-32" />
+                    ) : hideSensitiveData ? (
+                        <i>127.0.0.1 (Masked)</i>
                     ) : (
                       <>{data?.wwanIPv4 || "N/A"}</>
                     )}
@@ -170,6 +198,8 @@ const AboutPage = () => {
                   <span className="font-semibold max-w-32 md:max-w-full truncate">
                     {isLoading ? (
                       <Skeleton className="h-4 w-32" />
+                    ) : hideSensitiveData ? (
+                      <i>::1  (Masked)</i>
                     ) : (
                       <>{data?.wwanIPv6 || "N/A"}</>
                     )}

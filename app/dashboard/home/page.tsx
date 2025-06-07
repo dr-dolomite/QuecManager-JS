@@ -226,6 +226,10 @@ const HomePage = () => {
             </Button>
           </div>
           <div className="flex flex-row items-center gap-x-2">
+            <Button onClick={() => setHideSensitiveData((prev) => !prev)}>
+              { hideSensitiveData ? <Eye className="xl:size-6 size-5" /> : <EyeOff className="xl:size-6 size-5" /> }
+                <span className="hidden md:block">{hideSensitiveData ? 'Show' : 'Hide' } Sensitive Data</span>
+            </Button>
             {homeData?.simCard.state === "Not Inserted" && (
               <Dialog open={noSimDialogOpen} onOpenChange={setNoSimDialogOpen}>
                 <DialogTrigger asChild>
@@ -265,10 +269,7 @@ const HomePage = () => {
                 </DialogContent>
               </Dialog>
             )}
-            <Button onClick={() => setHideSensitiveData((prev) => !prev)}>
-              { hideSensitiveData ? <Eye className="xl:size-6 size-5" /> : <EyeOff className="xl:size-6 size-5" /> }
-                <span className="hidden md:block">{hideSensitiveData ? 'Show' : 'Hide' } Sensitive Data</span>
-            </Button>
+
             <Dialog>
               <DialogTrigger>
                 <Button onClick={runDiagnostics}>
@@ -416,6 +417,7 @@ const HomePage = () => {
           <NetworkInfoCard
             data={homeData}
             isLoading={isLoading}
+            hideSensitiveData={hideSensitiveData}
             // onRefresh={refreshData}
           />
         </div>

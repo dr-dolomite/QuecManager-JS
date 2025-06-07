@@ -59,8 +59,10 @@ const SimData = ({ data, isLoading, hideSensitiveData } : SimDataProps ) => {
 
         <div className="flex flex-row justify-between text-md">
           <p>Phone Number</p>
-          {isLoading || hideSensitiveData ? (
+          {isLoading ? (
             <Skeleton className="h-4 w-[140px]" />
+          ) : hideSensitiveData ? (
+            <i>{data?.simCard?.phoneNumber?.replace(/[0-9a-zA-Z]/g,'0')} (Masked)</i>
           ) : (
             <p className="font-bold">{data?.simCard.phoneNumber}</p>
           )}
@@ -68,8 +70,10 @@ const SimData = ({ data, isLoading, hideSensitiveData } : SimDataProps ) => {
 
         <div className="flex flex-row justify-between text-md">
           <p>IMSI</p>
-          {isLoading || hideSensitiveData ? (
+          {isLoading ? (
             <Skeleton className="h-4 w-[140px]" />
+          ) : hideSensitiveData ? (
+            <i>{data?.simCard?.imsi?.replace(/[0-9a-zA-Z]/g,'X')} (Masked)</i>
           ) : (
             <p className="font-bold">{data?.simCard.imsi}</p>
           )}
@@ -77,8 +81,10 @@ const SimData = ({ data, isLoading, hideSensitiveData } : SimDataProps ) => {
 
         <div className="flex flex-row justify-between text-md">
           <p>ICCID</p>
-          {isLoading || hideSensitiveData ? (
+          {isLoading ? (
             <Skeleton className="h-4 w-[140px]" />
+          ) : hideSensitiveData ? (
+            <i>{data?.simCard?.iccid?.replace(/[0-9a-zA-Z]/g,'X')} (Masked)</i>
           ) : (
             <p className="font-bold">{data?.simCard.iccid}</p>
           )}
@@ -86,8 +92,10 @@ const SimData = ({ data, isLoading, hideSensitiveData } : SimDataProps ) => {
 
         <div className="flex flex-row justify-between text-md">
           <p>IMEI</p>
-          {isLoading || hideSensitiveData ? (
+          {isLoading ? (
             <Skeleton className="h-4 w-[140px]" />
+          ) : hideSensitiveData ? (
+            <i>{data?.simCard?.imei?.replace(/[0-9a-zA-Z]/g,'X')} (Masked)</i>
           ) : (
             <p className="font-bold">{data?.simCard.imei}</p>
           )}

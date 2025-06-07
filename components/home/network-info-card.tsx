@@ -18,12 +18,14 @@ import {
 interface NetworkInfoCardProps {
   data: HomeData | null;
   isLoading: boolean;
+  hideSensitiveData: boolean;
   // onRefresh?: () => void;
 }
 
 const NetworkInfoCard = ({
   data,
   isLoading,
+  hideSensitiveData
   // onRefresh,
 }: NetworkInfoCardProps) => {
   // const { toast } = useToast();
@@ -80,6 +82,8 @@ const NetworkInfoCard = ({
           <p>
             {isLoading ? (
               <Skeleton className="h-4 w-[100px]" />
+            ) : hideSensitiveData ? (
+              <i>127.0.0.1 (Masked)</i>
             ) : (
               data?.networkAddressing.publicIPv4
             )}
@@ -92,6 +96,8 @@ const NetworkInfoCard = ({
             <p>
               {isLoading ? (
                 <Skeleton className="h-4 w-[100px]" />
+              ) : hideSensitiveData ? (
+                <i>127.0.0.1 (Masked)</i>
               ) : (
                 data?.networkAddressing.cellularIPv4
               )}
@@ -119,6 +125,8 @@ const NetworkInfoCard = ({
           <p>
             {isLoading ? (
               <Skeleton className="h-4 w-[100px]" />
+            ) : hideSensitiveData ? (
+              <i>::1 (Masked)</i>
             ) : (
               data?.networkAddressing.cellularIPv6
             )}
