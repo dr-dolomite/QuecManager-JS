@@ -109,7 +109,7 @@ const BasicSettings = () => {
     simSlot: "",
     cfunState: "",
     autoSelState: "",
-    selectedMbnProfile: "",
+    selectedMbnProfile: "0",
     mbnProfilesList: [],
     // New fields for APN profiles
     apnProfiles: [],
@@ -134,7 +134,7 @@ const BasicSettings = () => {
         simSlot: String(initialData.simSlot || ""),
         cfunState: String(initialData.cfunState || ""),
         autoSelState: String(initialData.autoSelState || ""),
-        selectedMbnProfile: initialData.selectedMbnProfile || "",
+        selectedMbnProfile: initialData.selectedMbnProfile || "0",
         mbnProfilesList: (initialData.mbnProfilesList || []) as string[],
         // Initialize APN profiles array
         apnProfiles: Array.isArray(initialData.APNProfiles)
@@ -774,7 +774,7 @@ const BasicSettings = () => {
                     <Tooltip>
                       <TooltipTrigger>
                         <Select
-                          value={formData.selectedMbnProfile || ""}
+                          value={formData.selectedMbnProfile || "0"}
                           onValueChange={(value) =>
                             handleFieldChange("selectedMbnProfile", value)
                           }
