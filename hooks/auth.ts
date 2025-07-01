@@ -52,53 +52,53 @@ interface SessionData {
 
 export function useAuth() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
-  const [isServerAlive, setIsServerAlive] = useState<boolean>(true);
+  // const [isServerAlive, setIsServerAlive] = useState<boolean>(true);
   const router = useRouter();
 
   useEffect(() => {
     checkAuth();
 
-    // Start heartbeat check
-    const heartbeatInterval = setInterval(
-      checkServerStatus,
-      HEARTBEAT_INTERVAL
-    );
+    // // Start heartbeat check
+    // const heartbeatInterval = setInterval(
+    //   checkServerStatus,
+    //   HEARTBEAT_INTERVAL
+    // );
 
-    return () => {
-      clearInterval(heartbeatInterval);
-    };
+    // return () => {
+    //   clearInterval(heartbeatInterval);
+    // };
   }, []);
 
   // New function to check server status
-  async function checkServerStatus() {
-    try {
-      const response = await fetch("/cgi-bin/quecmanager/heartbeat.sh", {
-        method: "GET",
-        headers: {
-          "Cache-Control": "no-cache",
-        },
-      });
+  // async function checkServerStatus() {
+  //   try {
+  //     const response = await fetch("/cgi-bin/quecmanager/heartbeat.sh", {
+  //       method: "GET",
+  //       headers: {
+  //         "Cache-Control": "no-cache",
+  //       },
+  //     });
 
-      if (!response.ok) {
-        handleServerDown();
-        return;
-      }
+  //     if (!response.ok) {
+  //       handleServerDown();
+  //       return;
+  //     }
 
-      const result = await response.json();
-      if (!result.alive) {
-        handleServerDown();
-      } else {
-        setIsServerAlive(true);
-      }
-    } catch (error) {
-      handleServerDown();
-    }
-  }
+  //     const result = await response.json();
+  //     if (!result.alive) {
+  //       handleServerDown();
+  //     } else {
+  //       setIsServerAlive(true);
+  //     }
+  //   } catch (error) {
+  //     handleServerDown();
+  //   }
+  // }
 
-  function handleServerDown() {
-    setIsServerAlive(false);
-    logout();
-  }
+  // function handleServerDown() {
+  //   setIsServerAlive(false);
+  //   logout();
+  // }
 
   // Your existing functions
   function generateAuthToken(length = 32) {
@@ -190,5 +190,6 @@ export function useAuth() {
     }
   }
 
-  return { isAuthenticated, isServerAlive, login, logout, checkAuth };
+  // return { isAuthenticated, isServerAlive, login, logout, checkAuth };
+  return { isAuthenticated, login, logout, checkAuth };
 }

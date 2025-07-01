@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/auth";
 
 import Image from "next/image";
@@ -9,12 +9,20 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import GithubButtonToast from "@/components/github-button";
+import heartbeat from "@/hooks/heartbeat";
 
 const LoginPage = () => {
   const { toast } = useToast();
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const { login } = useAuth();
+  const { login, logout } = useAuth();
+
+  const { isServerAlive } = heartbeat();
+  useEffect(() => {
+    if (!isServerAlive) {
+      logout();
+    }
+  }, [isServerAlive, logout]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
