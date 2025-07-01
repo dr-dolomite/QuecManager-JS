@@ -13,9 +13,10 @@ import { HomeData } from "@/types/types";
 interface SimDataProps {
   data: HomeData | null;
   isLoading: boolean;
+  hideSensitiveData: boolean;
 }
 
-const SimData = ({ data, isLoading } : SimDataProps ) => {
+const SimData = ({ data, isLoading, hideSensitiveData } : SimDataProps ) => {
   return (
     <Card>
       <CardHeader>
@@ -60,6 +61,8 @@ const SimData = ({ data, isLoading } : SimDataProps ) => {
           <p>Phone Number</p>
           {isLoading ? (
             <Skeleton className="h-4 w-[140px]" />
+          ) : hideSensitiveData ? (
+            <i>{data?.simCard?.phoneNumber?.replace(/[0-9a-zA-Z]/g,'0')} (Masked)</i>
           ) : (
             <p className="font-bold">{data?.simCard.phoneNumber}</p>
           )}
@@ -69,6 +72,8 @@ const SimData = ({ data, isLoading } : SimDataProps ) => {
           <p>IMSI</p>
           {isLoading ? (
             <Skeleton className="h-4 w-[140px]" />
+          ) : hideSensitiveData ? (
+            <i>{data?.simCard?.imsi?.replace(/[0-9a-zA-Z]/g,'X')} (Masked)</i>
           ) : (
             <p className="font-bold">{data?.simCard.imsi}</p>
           )}
@@ -78,6 +83,8 @@ const SimData = ({ data, isLoading } : SimDataProps ) => {
           <p>ICCID</p>
           {isLoading ? (
             <Skeleton className="h-4 w-[140px]" />
+          ) : hideSensitiveData ? (
+            <i>{data?.simCard?.iccid?.replace(/[0-9a-zA-Z]/g,'X')} (Masked)</i>
           ) : (
             <p className="font-bold">{data?.simCard.iccid}</p>
           )}
@@ -87,6 +94,8 @@ const SimData = ({ data, isLoading } : SimDataProps ) => {
           <p>IMEI</p>
           {isLoading ? (
             <Skeleton className="h-4 w-[140px]" />
+          ) : hideSensitiveData ? (
+            <i>{data?.simCard?.imei?.replace(/[0-9a-zA-Z]/g,'X')} (Masked)</i>
           ) : (
             <p className="font-bold">{data?.simCard.imei}</p>
           )}
