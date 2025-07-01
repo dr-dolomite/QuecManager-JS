@@ -441,8 +441,8 @@ const getCurrentBandsBandNumber = (response: string): string[] => {
   const extractBands = (lines: string[]): string[] =>
     lines.map((line) => parseField(line, 0, 1, 3, "Unknown", ":", ","));
 
-  const bandsLte = extractBands(response.split("\n").filter((line) => line.includes("LTE BAND")));
-  const bandsNr5g = extractBands(response.split("\n").filter((line) => line.includes("NR5G BAND")));
+  const bandsLte = extractBands(response.split("+QCAINFO").filter((line) => line.includes("LTE BAND")));
+  const bandsNr5g = extractBands(response.split("+QCAINFO").filter((line) => line.includes("NR5G BAND")));
 
   const allBands = [...bandsLte, ...bandsNr5g];
   return allBands.length ? allBands : ["Unknown"];
@@ -451,7 +451,7 @@ const getCurrentBandsBandNumber = (response: string): string[] => {
 const getCurrentBandsEARFCN = (response: string): string[] => {
   const extractEARFCNs = (type: string) =>
     response
-      .split("\n")
+      .split("+QCAINFO")
       .filter((line) => line.includes(type))
       .map((line) => line.split(":")[1]?.split(",")[1]?.trim() || "Unknown");
 
@@ -464,7 +464,7 @@ const getCurrentBandsEARFCN = (response: string): string[] => {
 const getCurrentBandsBandwidth = (response: string): string[] => {
   const extractBandwidths = (type: string, map: Record<string, string>) =>
     response
-      .split("\n")
+      .split("+QCAINFO")
       .filter((line) => line.includes(type))
       .map((line) => map[line.split(":")[1]?.split(",")[2]] || "Unknown");
 
@@ -495,7 +495,7 @@ const getCurrentBandsPCI = (response: string, networkType: string): string[] => 
   const extractPCI = (lines: string[]): string[] =>  lines
       .map((line) => getPCIFromParts(line.split(":")[1]?.split(",")));
 
-  const lines = response.split("\n");
+  const lines = response.split("+QCAINFO");
   const pccPCI = extractPCI(lines.filter((l)=> l.includes("PCC")))[0];
   const sccPCIs = extractPCI(lines.filter((l) => l.includes("SCC")));
   return [pccPCI, ...sccPCIs].filter((pci) => pci !== "Unknown");
@@ -509,12 +509,12 @@ const getCurrentBandsRSRP = (
     if (!parts) return "Unknown";
     const pciIndex: 5 | 6 |9 = (() => {
       switch (parts.length) {
-        case 8: // length 8, PCI is at index 4, NR SA PCC and NR NSA SCC Band when NR5G-NSA
+        case 8: // length 8, RSRP is at index 4, NR SA PCC and NR NSA SCC Band when NR5G-NSA
           return 5;
-        case 12: // length 12, PCI is at index 5, NR NSA/SA SCC Band X
+        case 12: // length 12, RSRP is at index 5, NR NSA/SA SCC Band X
           return 9;
-        case 13: // length 13, PCI is at index 5, LTE SCC Band X
-        case 10: // length 10, PCI is at index 5, LTE/NR NSA PCC Band X
+        case 13: // length 13, RSRP is at index 5, LTE SCC Band X
+        case 10: // length 10, RSRP is at index 5, LTE/NR NSA PCC Band X
         default:
           return 6;
       }
@@ -526,7 +526,7 @@ const getCurrentBandsRSRP = (
     return lines
       .map((line) => getRSRPFromParts(line.split(":")[1]?.split(",")));
   };
-  const lines = response.split("\n");
+  const lines = response.split("+QCAINFO");
   const pccRSRP = extractRSRP(lines.filter((l)=> l.includes("PCC")))[0];
   const sccRSRPs = extractRSRP(lines.filter((l) => l.includes("SCC")));
   return [pccRSRP, ...sccRSRPs].filter((pci) => pci !== "Unknown");
@@ -539,12 +539,12 @@ const getCurrentBandsRSRQ = (
     if (!parts) return "Unknown";
     const pciIndex: 6 | 7 | 10 = (() => {
       switch (parts.length) {
-        case 8: // length 8, PCI is at index 4, NR SA PCC and NR NSA SCC Band when NR5G-NSA
+        case 8: // length 8, RSRQ is at index 4, NR SA PCC and NR NSA SCC Band when NR5G-NSA
           return 6;
-        case 12: // length 12, PCI is at index 5, NR NSA/SA SCC Band X
+        case 12: // length 12, RSRQ is at index 5, NR NSA/SA SCC Band X
           return 10;
-        case 13: // length 13, PCI is at index 5, LTE SCC Band X
-        case 10: // length 10, PCI is at index 5, LTE/NR NSA PCC Band X
+        case 13: // length 13, RSRQ is at index 5, LTE SCC Band X
+        case 10: // length 10, RSRQ is at index 5, LTE/NR NSA PCC Band X
         default:
           return 7;
       }
@@ -556,11 +556,16 @@ const getCurrentBandsRSRQ = (
     return lines
       .map((line) => getRSRQFromParts(line.split(":")[1]?.split(",")));
   };
-  const lines = response.split("\n");
+  const lines = response.split("+QCAINFO");
   const pccRSRQ = extractRSRQ(lines.filter((l)=> l.includes("PCC")))[0];
   const sccRSRQs = extractRSRQ(lines.filter((l) => l.includes("SCC")));
   return [pccRSRQ, ...sccRSRQs].filter((pci) => pci !== "Unknown");
 };
+// AT+QCAINFO=1;+QCAINFO;+QCAINFO=0
+// +QCAINFO: "PCC",501390,12,"NR5G BAND 41",147,-11,-11,2463
+// +QCAINFO: "SCC",393850,3,"NR5G BAND 25",1,354,1,3,378000
+// +QCAINFO: "SCC",398410,0,"NR5G BAND 25",1,354,0,-,-
+// +QCAINFO: "SCC",521310,11,"NR5G BAND 41",1,147,0,-,-,-11,-11,2463
 
 const getCurrentBandsSINR = (
   response: string,
@@ -568,8 +573,10 @@ const getCurrentBandsSINR = (
 ): string[] => {
   const getSINRFromParts = (parts: string[] | undefined): string => {
     if (!parts) return "Unknown";
-    const pciIndex: 7 | 9 | 11 = (() => {
+    const pciIndex: 7 | 8 | 9 | 11 = (() => {
       switch (parts.length) {
+        case 9: // length 8, NR SA PCC and NR NSA SCC Band when NR5G-NSA
+          return 8;
         case 8: // length 8, NR SA PCC and NR NSA SCC Band when NR5G-NSA
           return 7;
         case 12: // length 12, NR NSA/SA SCC Band X
@@ -588,10 +595,11 @@ const getCurrentBandsSINR = (
       .map((line) => {
         const rawSINR = getSINRFromParts(line.split(":")[1]?.split(","));
         if (rawSINR === "-32768") return "-";
-        return !isNaN(parseInt(rawSINR)) && !line.includes("LTE")  ? Math.round(parseInt(rawSINR) / 100).toString() : rawSINR || "Unknown";
+        const calculatedSINR = parseInt(rawSINR) >= 4000 ? "4000" : parseInt(rawSINR) < -3000 ? "-" : rawSINR;
+        return !isNaN(parseInt(calculatedSINR)) && !line.includes("LTE")  ? Math.round(parseInt(calculatedSINR) / 100).toString() : calculatedSINR || "Unknown";
       });
 
-  const lines = response.split("\n");
+  const lines = response.split("+QCAINFO");
   const pccSINR = extractSINR(lines.filter((l)=> l.includes("PCC")), networkType)[0];
   const sccSINRs = extractSINR(lines.filter((l) => l.includes("SCC")),networkType);
   return [pccSINR, ...sccSINRs].filter((c) => c !== "Unknown");
