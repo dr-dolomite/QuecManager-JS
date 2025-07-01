@@ -159,6 +159,8 @@ const SpeedtestStream = () => {
   }, []);
 
   useEffect(() => {
+  const storedData = sessionStorage.getItem("speedtestData");
+  if (storedData) setSpeedtestData(JSON.parse(storedData));
     if (showResults && !isTestRunning) {
       setIsCooldown(true);
       const timer = setTimeout(() => {
@@ -228,6 +230,7 @@ const SpeedtestStream = () => {
                 setShowResults(true);
                 setIsTestRunning(false);
 
+                sessionStorage.setItem("speedtestData", JSON.stringify(data));
                 if (pollInterval.current) {
                   clearInterval(pollInterval.current);
                   pollInterval.current = null;
@@ -703,9 +706,48 @@ const SpeedtestStream = () => {
           </DialogContent>
         </Dialog>
         <CardDescription>
-          {isCooldown
-            ? "Please wait 10 seconds before starting another test."
-            : "Run a speed test to check your internet connection."}
+          <div className="relative flex flex-col items-center justify-center">
+            {isCooldown
+              ? "Please wait 10 seconds before starting another test."
+              : isTestRunning ? "Test in progress..."
+              : "Run a speed test to check your internet connection."}
+          </div>
+          { speedtestData ? (
+            <div className="mt-4">
+              <div className="relative flex flex-col items-center justify-center">
+                <div className="grid lg:grid-cols-3 grid-cols-1 grid-flow-row">
+                  <div className="grid place-items-center mx-2">
+                    <ArrowDownCircle className="text-green-500 lg:size-6 size-4 mr-1" />
+                    { speedtestData?.download ? `${formatSpeed(speedtestData?.download?.bandwidth)}` : 'N/A'}
+                  </div>
+                  <div className="grid place-items-center mx-2">
+                  <ArrowUpCircle className="text-violet-500 lg:size-6 size-4 mr-1" />
+                  { speedtestData?.upload ? `${formatSpeed(speedtestData?.upload?.bandwidth)}` : 'N/A'}
+                  </div>
+                  <div className="grid place-items-center mx-2">
+                    <Clock className="text-gray-600 lg:size-6 animate-pulse" />
+                    {speedtestData?.ping ? `${speedtestData?.ping?.latency} ms` : 'N/A'}
+                  </div>
+                </div>
+              </div>
+              <div className="relative flex flex-col items-center justify-center mt-2">
+                <div className="grid grid-cols-1 grid-flow-row">
+                  <div className="grid place-items-center ">
+                    { !isTestRunning && speedtestData.timestamp ? `Latest Test: ${speedtestData?.timestamp}` : ''}
+                  </div>
+                </div>
+              </div>
+            </div>
+            ) : isTestRunning ? (
+              <p className="text-sm text-gray-500 text-center">
+              "Test in progress..."
+              </p>
+            ) : (
+              <p className="text-sm text-gray-500 text-center">
+                "Previous data not available."
+              </p>
+            )
+          }
         </CardDescription>
       </CardContent>
     </Card>
