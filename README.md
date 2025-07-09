@@ -28,7 +28,7 @@
 
 ### Installation
 
-To install QuecManager, refer to [this wiki](https://github.com/iamromulan/quectel-rgmii-toolkit/tree/SDXPINN).
+To install QuecManager, refer to [this wiki](https://github.com/iamromulan/cellular-modem-wiki/discussions/116).
 
 ---
 
