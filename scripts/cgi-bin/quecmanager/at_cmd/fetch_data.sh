@@ -53,7 +53,7 @@ acquire_token() {
             log_message "info" "current_time: ${current_time}"
             # Check for expired token (> 30 seconds old)
             if [ $((current_time - timestamp)) -gt 30 ] || [ -z "$current_holder" ]; then
-                # Remove expired tokeni
+                # Remove expired token
                 log_message "debug" "Removing token, cur time minus timestamp gt 30 or current-holder not set"
                 rm -f "$TOKEN_FILE" 2>/dev/null
             elif [ $priority -lt $current_priority ]; then
