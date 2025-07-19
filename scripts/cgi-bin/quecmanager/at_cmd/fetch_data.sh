@@ -1,8 +1,8 @@
-#!/bin/sh
+#!/bin/bash
 
 # Set content-type for JSON response
-echo "Content-type: application/json"
-echo ""
+printf "Content-type: application/json\r\n"
+printf "\r\n"
 
 # Define paths and constants to match queue system
 QUEUE_DIR="/tmp/at_queue"
@@ -13,11 +13,11 @@ TOKEN_FILE="$QUEUE_DIR/token"
 # Logging function (minimized)
 log_message() {
     # Only log errors and critical info
-    if [ "$1" = "error" ] || [ "$1" = "crit" ]; then
+   if [ "$1" = "error" ] || [ "$1" = "crit" ]; then
         logger -t at_queue -p "daemon.$1" "$2"
-    fi
+   fi
 }
-
+mkdir -m755 -p ${QUEUE_DIR}
 # Enhanced JSON string escaping function
 escape_json() {
     printf '%s' "$1" | awk '
@@ -36,39 +36,46 @@ escape_json() {
 
 # Acquire token directly (avoid CGI overhead)
 acquire_token() {
-    local priority="${1:-10}"
-    local max_attempts=10
-    local attempt=0
-
+    priority="${1:-10}"
+    max_attempts=10
+    attempt=0
+    log_message "debug" "Acquiring token"
     while [ $attempt -lt $max_attempts ]; do
         # Check if token file exists
         if [ -f "$TOKEN_FILE" ]; then
-            local current_holder=$(cat "$TOKEN_FILE" | jsonfilter -e '@.id' 2>/dev/null)
-            local current_priority=$(cat "$TOKEN_FILE" | jsonfilter -e '@.priority' 2>/dev/null)
-            local timestamp=$(cat "$TOKEN_FILE" | jsonfilter -e '@.timestamp' 2>/dev/null)
-            local current_time=$(date +%s)
-
+            current_holder=$(cat "$TOKEN_FILE" | jsonfilter -e '@.id' 2>/dev/null)
+            current_priority=$(cat "$TOKEN_FILE" | jsonfilter -e '@.priority' 2>/dev/null)
+            timestamp=$(cat "$TOKEN_FILE" | jsonfilter -e '@.timestamp' 2>/dev/null)
+            current_time=$(date +%s)
+            log_message "info" "current_holder: ${current_holder}"
+            log_message "info" "current_priority: ${current_priority}"
+            log_message "info" "timestamp: ${timestamp}"
+            log_message "info" "current_time: ${current_time}"
             # Check for expired token (> 30 seconds old)
             if [ $((current_time - timestamp)) -gt 30 ] || [ -z "$current_holder" ]; then
-                # Remove expired token
+                # Remove expired tokeni
+                log_message "debug" "Removing token, cur time minus timestamp gt 30 or current-holder not set"
                 rm -f "$TOKEN_FILE" 2>/dev/null
             elif [ $priority -lt $current_priority ]; then
                 # Preempt lower priority token
+                log_message "debug" "Current priority lower priority than other task"
                 rm -f "$TOKEN_FILE" 2>/dev/null
             else
                 # Try again
                 sleep 0.1
                 attempt=$((attempt + 1))
+                log_message "debug" "Trying again $attempt"
                 continue
             fi
+        else
+                log_message "debug" "No token file"
         fi
-
         # Try to create token file
-        echo "{\"id\":\"$LOCK_ID\",\"priority\":$priority,\"timestamp\":$(date +%s)}" >"$TOKEN_FILE" 2>/dev/null
+        printf "{\"id\":\"$LOCK_ID\",\"priority\":$priority,\"timestamp\":$(date +%s)}" >"$TOKEN_FILE" 2>/dev/null
         chmod 644 "$TOKEN_FILE" 2>/dev/null
 
         # Verify we got the token
-        local holder=$(cat "$TOKEN_FILE" 2>/dev/null | jsonfilter -e '@.id' 2>/dev/null)
+        holder=$(cat "$TOKEN_FILE" 2>/dev/null | jsonfilter -e '@.id' 2>/dev/null)
         if [ "$holder" = "$LOCK_ID" ]; then
             return 0
         fi
@@ -79,13 +86,16 @@ acquire_token() {
 
     return 1
 }
-
 # Release token directly
 release_token() {
+    log_message "debug" "Release Token"
     # Only remove if it's our token
     if [ -f "$TOKEN_FILE" ]; then
-        local current_holder=$(cat "$TOKEN_FILE" | jsonfilter -e '@.id' 2>/dev/null)
+        log_message "debug" "Has Token file"
+        current_holder=$(cat "$TOKEN_FILE" | jsonfilter -e '@.id' 2>/dev/null)
+        log_message "debug" "Release Token, Current Holder: ${current_holder}"
         if [ "$current_holder" = "$LOCK_ID" ]; then
+            log_message "debug" "Release Token, Current Holder: ${current_holder}, remvoing token"
             rm -f "$TOKEN_FILE" 2>/dev/null
         fi
     fi
@@ -93,18 +103,21 @@ release_token() {
 
 # Direct AT command execution with minimal overhead
 execute_at_command() {
-    local CMD="$1"
-    sms_tool at "$CMD" -t 3 2>/dev/null
+    CMD="$1"
+    sms_tool at "$CMD" -t 3 -d /dev/ttyOUT2 2>/dev/null
 }
 
 # Batch process all commands with a single token
 process_all_commands() {
-    local commands="$1"
-    local priority="${2:-10}"
-    local first=1
-
+    commands="$1"
+    priority="${2:-10}"
+    first=1
+    log_message "info" "Before acquire_token check"
+    acquire_token "$priority"
+    trying=$?
+    log_message "debug" "trying: ${trying}"
     # Acquire a single token for all commands
-    if ! acquire_token "$priority"; then
+    if [ $trying -ne 0 ]; then
         log_message "error" "Failed to acquire token for batch processing"
         # Return all failed responses
         printf '['
@@ -115,7 +128,7 @@ process_all_commands() {
             ESCAPED_CMD=$(escape_json "$cmd")
             printf '{"command":"%s","response":"Failed to acquire token","status":"error"}' "${ESCAPED_CMD}"
         done
-        printf ']\n'
+        printf ']\r\n'
         return 1
     fi
 
@@ -124,10 +137,9 @@ process_all_commands() {
     for cmd in $commands; do
         [ $first -eq 0 ] && printf ','
         first=0
-
         OUTPUT=$(execute_at_command "$cmd")
-        local CMD_STATUS=$?
-
+        CMD_STATUS=$?
+        log_message "debug" "CMD: ${cmd}, OUTPUT: ${OUTPUT}, CMD_STAT: ${CMD_STATUS}"
         ESCAPED_CMD=$(escape_json "$cmd")
         ESCAPED_OUTPUT=$(escape_json "$OUTPUT")
 
@@ -140,8 +152,7 @@ process_all_commands() {
                 "${ESCAPED_CMD}"
         fi
     done
-    printf ']\n'
-
+    printf ']\r\n'
     # Release token after all commands are done
     release_token
     return 0
@@ -184,15 +195,14 @@ if echo "$COMMANDS" | grep -qi "AT+QSCAN"; then
     PRIORITY=1
 fi
 
-# Process commands with timeout protection
-(
-    sleep 60
-    kill -TERM $$ 2>/dev/null
-) &
-TIMEOUT_PID=$!
+#    (
+#        sleep 60
+#        kill -TERM $$
+#    ) &
+#    TIMEOUT_PID=$!
 
-process_all_commands "$COMMANDS" "$PRIORITY"
+    process_all_commands "$COMMANDS" "$PRIORITY"
 
-# Clean up
-kill $TIMEOUT_PID 2>/dev/null
-release_token
+#    kill $TIMEOUT_PID 2>/dev/null
+    release_token
+
