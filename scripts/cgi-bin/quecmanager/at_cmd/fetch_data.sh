@@ -95,7 +95,7 @@ release_token() {
         current_holder=$(cat "$TOKEN_FILE" | jsonfilter -e '@.id' 2>/dev/null)
         log_message "debug" "Release Token, Current Holder: ${current_holder}"
         if [ "$current_holder" = "$LOCK_ID" ]; then
-            log_message "debug" "Release Token, Current Holder: ${current_holder}, remvoing token"
+            log_message "debug" "Release Token, Current Holder: ${current_holder}, removing token"
             rm -f "$TOKEN_FILE" 2>/dev/null
         fi
     fi
