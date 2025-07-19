@@ -104,7 +104,7 @@ release_token() {
 # Direct AT command execution with minimal overhead
 execute_at_command() {
     CMD="$1"
-    sms_tool at "$CMD" -t 3 -d /dev/ttyOUT2 2>/dev/null
+    sms_tool at "$CMD" -t 3 2>/dev/null
 }
 
 # Batch process all commands with a single token
