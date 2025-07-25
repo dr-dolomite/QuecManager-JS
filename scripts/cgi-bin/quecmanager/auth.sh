@@ -64,7 +64,9 @@ if [ "$GENERATED_HASH" = "$USER_HASH" ]; then
     echo "{\"state\":\"success\",\"token\":\"${TOKEN}\"}"
 else
     # Remove token from file
-    sed -i -e "s/.*${TOKEN}.*//g" /tmp/auth_success 2>/dev/null
+    if [ -n ${TOKEN} ]; then
+        sed -i -e "s/.*${TOKEN}.*//g" /tmp/auth_success 2>/dev/null
+    fi
     # Remove extra empty lines
     sed -i -e ":a;N;$!ba;s/\n//g" /tmp/auth_success 2>/dev/null
     echo '{"state":"failed", "message":"Authentication failed"}'
