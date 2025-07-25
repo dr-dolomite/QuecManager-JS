@@ -120,6 +120,7 @@ export function useAuth() {
         "Authorization": `${localStorage.getItem("authToken")}`,
       },
     })
+    localStorage.removeItem("authToken");
     router.push("/login");
   }
 
