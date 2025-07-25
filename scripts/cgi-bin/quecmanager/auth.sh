@@ -57,6 +57,8 @@ printf "Generated hash: %s\n" "$GENERATED_HASH" >> "$DEBUG_LOG"
 # Compare the generated hash with the one in the shadow file
 if [ "$GENERATED_HASH" = "$USER_HASH" ]; then
     echo '{"state":"success"}'
+    touch /tmp/auth_success
 else
+    rm -f /tmp/auth_success 2>/dev/null
     echo '{"state":"failed", "message":"Authentication failed"}'
 fi
