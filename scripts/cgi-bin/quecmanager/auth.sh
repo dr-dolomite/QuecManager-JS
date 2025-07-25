@@ -9,7 +9,7 @@ read -r POST_DATA
 
 # Debug log for generated hash
 DEBUG_LOG="/tmp/auth.log"
-
+AUTH_FILE="/tmp/auth_success"
 # Extract the password from POST data (URL encoded)
 USER="root"
 INPUT_PASSWORD=$(echo "$POST_DATA" | grep -o 'password=[^&]*' | cut -d= -f2-)
@@ -58,17 +58,17 @@ printf "Generated hash: %s\n" "$GENERATED_HASH" >> "$DEBUG_LOG"
 if [ "$GENERATED_HASH" = "$USER_HASH" ]; then
     TOKEN=$(head -c 16 /dev/urandom | hexdump -v -e '/1 "%02x"')
     CREATED_DATE=$(date +"%Y-%m-%dT%H:%M:%S")
-    touch /tmp/auth_success
-    echo "${CREATED_DATE} ${TOKEN}" >> /tmp/auth_success
-    echo "" >> /tmp/auth_success
+    touch ${AUTH_FILE}
+    echo "${CREATED_DATE} ${TOKEN}" >> ${AUTH_FILE}
+    echo "" >> ${AUTH_FILE}
     echo "{\"state\":\"success\",\"token\":\"${TOKEN}\"}"
 else
     # Remove token from file
     if [ -n ${TOKEN} ]; then
-        sed -i -e "s/.*${TOKEN}.*//g" /tmp/auth_success 2>/dev/null
+        sed -i -e "s/.*${TOKEN}.*//g" ${AUTH_FILE} 2>/dev/null
     fi
     # Remove extra empty lines
-    sed -i -e ":a;N;$!ba;s/\n//g" /tmp/auth_success 2>/dev/null
+    sed -i -e ":a;N;$!ba;s/\n//g" ${AUTH_FILE} 2>/dev/null
     echo '{"state":"failed", "message":"Authentication failed"}'
 fi
 
