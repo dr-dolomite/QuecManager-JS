@@ -2,6 +2,25 @@
 # AT Queue Client for OpenWRT
 # Located in /www/cgi-bin/services/at_queue_client
 
+
+AUTH_FILE="/tmp/auth_success"
+AGE_SECONDS=7200  # 2 hours in seconds (2 * 60 * 60)
+
+if [ -f "$AUTH_FILE" ]; then
+    # Get file modification time (in seconds since epoch)
+    FILE_MTIME=$(stat -c %Y "$AUTH_FILE")
+    NOW=$(date +%s)
+    AGE=$((NOW - FILE_MTIME))
+    if [ "$AGE" -ge "$AGE_SECONDS" ]; then
+        rm -f "$AUTH_FILE" 2>/dev/null
+    fi
+fi
+
+if [ ! -f  ]; then
+    output_json "{\"error\":\"Unauthenticated Request\"}" "0"
+    exit 1
+fi
+
 QUEUE_DIR="/tmp/at_queue"
 RESULTS_DIR="$QUEUE_DIR/results"
 QUEUE_MANAGER="/www/cgi-bin/services/at_queue_manager.sh"
