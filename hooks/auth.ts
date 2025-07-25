@@ -117,6 +117,7 @@ export function useAuth() {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        "Authorization": `${localStorage.getItem("authToken")}`,
       },
     })
     router.push("/login");
@@ -141,6 +142,10 @@ export function useAuth() {
       const result = await response.json();
       console.log(result);
       if (result.state === "success") {
+        if (result?.token) {
+          // Store the token in localStorage
+          localStorage.setItem("authToken", result.token);
+        }
         const newToken = generateAuthToken();
         setSessionData(newToken);
         setIsAuthenticated(true);

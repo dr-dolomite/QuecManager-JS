@@ -56,9 +56,15 @@ printf "Generated hash: %s\n" "$GENERATED_HASH" >> "$DEBUG_LOG"
 
 # Compare the generated hash with the one in the shadow file
 if [ "$GENERATED_HASH" = "$USER_HASH" ]; then
-    echo '{"state":"success"}'
+    TOKEN=$(head -c 16 /dev/urandom | hexdump -v -e '/1 "%02x"')
     touch /tmp/auth_success
+    echo "$TOKEN" >> /tmp/auth_success
+    echo "" >> /tmp/auth_success
+    echo "{\"state\":\"success\",\"token\":\"${TOKEN}\"}"
 else
-    rm -f /tmp/auth_success 2>/dev/null
+    # Remove token from file
+    sed -i -e "s/.*${TOKEN}.*//g" /tmp/auth_success 2>/dev/null
+    # Remove extra empty lines
+    sed -i -e ":a;N;$!ba;s/\n//g" /tmp/auth_success 2>/dev/null
     echo '{"state":"failed", "message":"Authentication failed"}'
 fi

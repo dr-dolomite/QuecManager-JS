@@ -2,25 +2,7 @@
 # AT Queue Client for OpenWRT
 # Located in /www/cgi-bin/services/at_queue_client
 
-
 AUTH_FILE="/tmp/auth_success"
-AGE_SECONDS=7200  # 2 hours in seconds (2 * 60 * 60)
-
-if [ -f "$AUTH_FILE" ]; then
-    # Get file modification time (in seconds since epoch)
-    FILE_MTIME=$(stat -c %Y "$AUTH_FILE")
-    NOW=$(date +%s)
-    AGE=$((NOW - FILE_MTIME))
-    if [ "$AGE" -ge "$AGE_SECONDS" ]; then
-        rm -f "$AUTH_FILE" 2>/dev/null
-    fi
-fi
-
-if [ ! -f  ]; then
-    output_json "{\"error\":\"Unauthenticated Request\"}" "0"
-    exit 1
-fi
-
 QUEUE_DIR="/tmp/at_queue"
 RESULTS_DIR="$QUEUE_DIR/results"
 QUEUE_MANAGER="/www/cgi-bin/services/at_queue_manager.sh"
@@ -203,10 +185,21 @@ if [ "${SCRIPT_NAME}" != "" ]; then
     # Output headers only once at the beginning
     echo "Content-Type: application/json"
     echo ""
-    
+    # Get Token from Authorization Header
+    TOKEN="${HTTP_AUTHORIZATION}"
+    if [ ! -f $AUTH_FILE  ]; then
+        output_json "{\"error\":\"Unauthenticated Request\"}" "0"
+        exit 1
+    fi
+
+    if [ -z "$TOKEN" ] || "${TOKEN}" == "" || [ $(grep "${TOKEN}" "${AUTH_FILE}" | wc -l) -eq 0 ]; then
+        output_json "{\"error\":\"Not Authorized\"}" "0"
+        exit 1
+    fi
+
     # Parse query string
     eval $(echo "$QUERY_STRING" | sed 's/&/;/g')
-    
+
     # Handle different actions
     if [ -n "$command_id" ]; then
         # Get result for specific command ID
@@ -215,13 +208,13 @@ if [ "${SCRIPT_NAME}" != "" ]; then
         # URL decode and normalize the command
         command=$(urldecode "$command")
         command=$(normalize_at_command "$command")
-        
+
         # Check if it's a valid AT command
         if echo "$command" | grep -qi "^AT"; then
             # Submit command and get response
             response=$(submit_command "$command")
             cmd_id=$(get_command_id "$response")
-            
+
             if [ "$wait" = "1" ]; then
                 if [ -n "$cmd_id" ]; then
                     wait_for_completion "$cmd_id" "${timeout:-180}" "0"  # Don't show headers
