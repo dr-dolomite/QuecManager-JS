@@ -192,7 +192,7 @@ if [ "${SCRIPT_NAME}" != "" ]; then
         exit 1
     fi
 
-    if [ -z "$TOKEN" ] || "${TOKEN}" == "" || [ $(grep "${TOKEN}" "${AUTH_FILE}" | wc -l) -eq 0 ]; then
+    if [ -z "$TOKEN" ] || "${TOKEN}" = "" || [ $(grep "${TOKEN}" "${AUTH_FILE}" | wc -l) -eq 0 ]; then
         output_json "{\"error\":\"Not Authorized\"}" "0"
         exit 1
     fi
@@ -208,10 +208,6 @@ if [ "${SCRIPT_NAME}" != "" ]; then
         output_json "{\"error\":\"Token expired\"}" "0"
         # Cleanup/Remove token from file
         sed -i -e "s/.*${TOKEN}.*//g" /tmp/auth_success 2>/dev/null
-        # Cleanup/Remove extra empty lines
-        for i in $(seq 1 4); do
-            sed -i -e ":a;N;$!ba;s/\n//g" /tmp/auth_success 2>/dev/null
-        done
         exit 1
     fi
 

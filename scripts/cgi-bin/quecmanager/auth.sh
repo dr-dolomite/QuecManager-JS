@@ -67,8 +67,6 @@ else
     if [ -n ${TOKEN} ]; then
         sed -i -e "s/.*${TOKEN}.*//g" ${AUTH_FILE} 2>/dev/null
     fi
-    # Remove extra empty lines
-    sed -i -e ":a;N;$!ba;s/\n//g" ${AUTH_FILE} 2>/dev/null
     echo '{"state":"failed", "message":"Authentication failed"}'
 fi
 
