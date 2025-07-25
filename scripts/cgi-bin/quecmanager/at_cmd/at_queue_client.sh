@@ -197,6 +197,24 @@ if [ "${SCRIPT_NAME}" != "" ]; then
         exit 1
     fi
 
+    # Check if token is within 2 hours
+    TOKEN_LINE=$(grep "${TOKEN}" "${AUTH_FILE}")
+    TOKEN_DATE=$(echo "$TOKEN_LINE" | awk '{print $1}' | sed 's/T/ /')
+    TOKEN_TIME=$(date -d "$TOKEN_DATE" +%s 2>/dev/null)
+    NOW_TIME=$(date +%s)
+    MAX_AGE=$((2 * 3600)) # 2 hours in seconds
+
+    if [ -z "$TOKEN_TIME" ] || [ $((NOW_TIME - TOKEN_TIME)) -gt $MAX_AGE ]; then
+        output_json "{\"error\":\"Token expired\"}" "0"
+        # Cleanup/Remove token from file
+        sed -i -e "s/.*${TOKEN}.*//g" /tmp/auth_success 2>/dev/null
+        # Cleanup/Remove extra empty lines
+        for i in $(seq 1 4); do
+            sed -i -e ":a;N;$!ba;s/\n//g" /tmp/auth_success 2>/dev/null
+        done
+        exit 1
+    fi
+
     # Parse query string
     eval $(echo "$QUERY_STRING" | sed 's/&/;/g')
 
