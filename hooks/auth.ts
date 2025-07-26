@@ -52,53 +52,12 @@ interface SessionData {
 
 export function useAuth() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
-  // const [isServerAlive, setIsServerAlive] = useState<boolean>(true);
   const router = useRouter();
 
   useEffect(() => {
     checkAuth();
 
-    // // Start heartbeat check
-    // const heartbeatInterval = setInterval(
-    //   checkServerStatus,
-    //   HEARTBEAT_INTERVAL
-    // );
-
-    // return () => {
-    //   clearInterval(heartbeatInterval);
-    // };
   }, []);
-
-  // New function to check server status
-  // async function checkServerStatus() {
-  //   try {
-  //     const response = await fetch("/cgi-bin/quecmanager/heartbeat.sh", {
-  //       method: "GET",
-  //       headers: {
-  //         "Cache-Control": "no-cache",
-  //       },
-  //     });
-
-  //     if (!response.ok) {
-  //       handleServerDown();
-  //       return;
-  //     }
-
-  //     const result = await response.json();
-  //     if (!result.alive) {
-  //       handleServerDown();
-  //     } else {
-  //       setIsServerAlive(true);
-  //     }
-  //   } catch (error) {
-  //     handleServerDown();
-  //   }
-  // }
-
-  // function handleServerDown() {
-  //   setIsServerAlive(false);
-  //   logout();
-  // }
 
   // Your existing functions
   function generateAuthToken(length = 32) {
@@ -151,9 +110,17 @@ export function useAuth() {
     return true;
   }
 
-  function logout() {
+  async function logout() {
     localStorage.removeItem("session");
     setIsAuthenticated(false);
+    fetch("/cgi-bin/quecmanager/logout.sh", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `${localStorage.getItem("authToken")}`,
+      },
+    })
+    localStorage.removeItem("authToken");
     router.push("/login");
   }
 
@@ -176,6 +143,10 @@ export function useAuth() {
       const result = await response.json();
       console.log(result);
       if (result.state === "success") {
+        if (result?.token) {
+          // Store the token in localStorage
+          localStorage.setItem("authToken", result.token);
+        }
         const newToken = generateAuthToken();
         setSessionData(newToken);
         setIsAuthenticated(true);

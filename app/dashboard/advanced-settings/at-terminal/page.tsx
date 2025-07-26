@@ -84,6 +84,8 @@ const ATTerminalPage = () => {
   const inputRef = useRef<HTMLInputElement>(null);
   const suggestionsRef = useRef<HTMLDivElement>(null);
 
+  const authToken = localStorage.getItem("authToken");
+
   // Add click outside handler
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -224,13 +226,19 @@ const ATTerminalPage = () => {
           try {
             const encodedCommand = encodeURIComponent(previousCommand);
             const response = await fetch(
-              `/cgi-bin/quecmanager/at_cmd/at_queue_client.sh?command=${encodedCommand}&wait=1`
+              `/cgi-bin/quecmanager/at_cmd/at_queue_client.sh?command=${encodedCommand}&wait=1`,
+              {
+                method: "GET",
+                headers: {
+                  Authorization: `${authToken}`,
+                }
+              }
             );
             const data: QueueResponse = await response.json();
 
             // Format output
             let outputText = `> ${previousCommand}\n`;
-            if (data.response.raw_output) {
+            if (data.response?.raw_output) {
               outputText += data.response.raw_output;
             }
             setOutput(outputText);
@@ -309,7 +317,13 @@ const ATTerminalPage = () => {
       // Send command to queue client with wait flag
       const encodedCommand = encodeURIComponent(command);
       const response = await fetch(
-        `/cgi-bin/quecmanager/at_cmd/at_queue_client.sh?command=${encodedCommand}&wait=1`
+        `/cgi-bin/quecmanager/at_cmd/at_queue_client.sh?command=${encodedCommand}&wait=1`,
+              {
+                method: "GET",
+                headers: {
+                  Authorization: `${authToken}`,
+                }
+              }
       );
       const data: QueueResponse = await response.json();
 
