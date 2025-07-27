@@ -1,5 +1,6 @@
-#!/bin/bash
-
+#!/bin/sh
+# On SDXPINN and (assumed) SDXLEMUR with OpenWRT Overlay, the environment NEEDS to be /bin/sh,
+# whereas QTI environment on SDXLEMUR uses /bin/bash. This assumption requires verification.
 # Set content-type for JSON response
 printf "Content-type: application/json\r\n"
 printf "\r\n"
