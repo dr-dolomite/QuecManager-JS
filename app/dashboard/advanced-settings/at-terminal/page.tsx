@@ -340,7 +340,7 @@ const ATTerminalPage = () => {
         response: data?.response?.raw_output || "No output",
         timestamp: data.command.timestamp,
         status: data?.response?.status,
-        duration: data.response.duration_ms,
+        duration: data?.response?.duration_ms,
         commandId: data.command.id,
       };
 
