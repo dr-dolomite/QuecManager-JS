@@ -258,15 +258,15 @@ const ATTerminalPage = () => {
 
             // Show toast for errors
             if (
-              data.response.status === "error" ||
-              data.response.status === "timeout"
+              data?.response?.status === "error" ||
+              data?.response?.status === "timeout"
             ) {
               toast({
                 title: `Command ${
-                  data.response.status === "timeout" ? "Timeout" : "Error"
+                  data?.response?.status === "timeout" ? "Timeout" : "Error"
                 }`,
                 description:
-                  data.response.raw_output ||
+                  data?.response?.raw_output ||
                   `Command execution ${data.response.status}`,
                 variant: "destructive",
               });
@@ -274,7 +274,7 @@ const ATTerminalPage = () => {
           } catch (error) {
             const errorMessage =
               error instanceof Error
-                ? error.message
+                ? error?.message
                 : "An unknown error occurred";
             setOutput(`> ${previousCommand}\nError: ${errorMessage}`);
 
@@ -329,15 +329,15 @@ const ATTerminalPage = () => {
 
       // Format output
       let outputText = `> ${command}\n`;
-      if (data.response.raw_output) {
-        outputText += data.response.raw_output;
+      if (data?.response?.raw_output) {
+        outputText += data?.response?.raw_output;
       }
       setOutput(outputText);
 
       // Create new history item
       const newHistoryItem: CommandHistoryItem = {
         command: command,
-        response: data.response.raw_output || "No output",
+        response: data?.response?.raw_output || "No output",
         timestamp: data.command.timestamp,
         status: data.response.status,
         duration: data.response.duration_ms,
@@ -357,16 +357,16 @@ const ATTerminalPage = () => {
 
       // Show toast for errors
       if (
-        data.response.status === "error" ||
-        data.response.status === "timeout"
+        data?.response?.status === "error" ||
+        data?.response?.status === "timeout"
       ) {
         toast({
           title: `Command ${
-            data.response.status === "timeout" ? "Timeout" : "Error"
+            data?.response?.status === "timeout" ? "Timeout" : "Error"
           }`,
           description:
-            data.response.raw_output ||
-            `Command execution ${data.response.status}`,
+            data?.response?.raw_output ||
+            `Command execution ${data?.response?.status}`,
           variant: "destructive",
         });
       }
