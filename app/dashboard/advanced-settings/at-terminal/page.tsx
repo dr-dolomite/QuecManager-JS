@@ -267,7 +267,7 @@ const ATTerminalPage = () => {
                 }`,
                 description:
                   data?.response?.raw_output ||
-                  `Command execution ${data.response.status}`,
+                  `Command execution ${data?.response?.status}`,
                 variant: "destructive",
               });
             }
