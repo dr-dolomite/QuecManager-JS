@@ -193,7 +193,8 @@ if [ "${SCRIPT_NAME}" != "" ]; then
     fi
 
     if [ -z "$TOKEN" ] || "${TOKEN}" = "" || [ $(grep "${TOKEN}" "${AUTH_FILE}" | wc -l) -eq 0 ]; then
-        output_json "{\"error\":\"Not Authorized\"}" "0"
+        output_json "{\"response\": { \"status\": \"error\", \"raw_output\": \"Not Authorized\" }, \"command\": {\"timestamp\": \"$(date +%Y%m%d'T'%H%M%S)\"}, \"error\":\"Not Authorized\"}" "0"
+
         exit 1
     fi
 
@@ -205,7 +206,7 @@ if [ "${SCRIPT_NAME}" != "" ]; then
     MAX_AGE=$((2 * 3600)) # 2 hours in seconds
 
     if [ -z "$TOKEN_TIME" ] || [ $((NOW_TIME - TOKEN_TIME)) -gt $MAX_AGE ]; then
-        output_json "{\"error\":\"Token expired\"}" "0"
+        output_json "{ \"response\": { \"status\": \"error\", \"raw_output\": \"Token expired. Reauthenticate to get new token.\" }, \"command\": {\"timestamp\": \"$(date +%Y%m%d'T'%H%M%S)\"}, \"error\":\"Token expired\"}" "0"
         # Cleanup/Remove token from file
         sed -i -e "s/.*${TOKEN}.*//g" /tmp/auth_success 2>/dev/null
         exit 1
