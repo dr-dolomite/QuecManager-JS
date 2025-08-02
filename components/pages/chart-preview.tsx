@@ -129,7 +129,6 @@ export default function ChartPreviewSignal() {
       }
     };
 
-    fetchStats();
     const intervalId = setInterval(fetchStats, 2000);
     return () => clearInterval(intervalId);
   }, [initialLoading, isServerAlive, logout]);
