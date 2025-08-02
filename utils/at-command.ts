@@ -54,6 +54,7 @@ export const atCommandSender = async (
       method: "GET",
       headers: {
         Accept: "application/json",
+        Authorization: `${localStorage.getItem("authToken")}`, // Use auth token from local storage
       },
       // Set timeout for the fetch request itself
       signal: AbortSignal.timeout(timeout * 1000 + 5000), // Add 5s buffer
@@ -114,6 +115,7 @@ export const getCommandResult = async (
         method: "GET",
         headers: {
           Accept: "application/json",
+          Authorization: `${localStorage.getItem("authToken")}`, // Use auth token from local storage
         },
       }
     );
