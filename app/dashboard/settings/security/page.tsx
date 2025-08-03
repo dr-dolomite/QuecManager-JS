@@ -35,10 +35,11 @@ const SecurityPage = () => {
 
   const validatePassword = async (password: string): Promise<boolean> => {
     try {
-      const response = await fetch("/cgi-bin/auth.sh", {
+      const response = await fetch("/cgi-bin/quecmanager/auth.sh", {
         method: "POST",
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",
+          "Authorization": `${localStorage.getItem("authToken") || ""}`,
         },
         body: `password=${encodeURIComponent(password)}`,
       });
@@ -94,10 +95,11 @@ const SecurityPage = () => {
       }
 
       // Change password
-      const response = await fetch("/cgi-bin/settings/change-password.sh", {
+      const response = await fetch("/cgi-bin/quecmanager/settings/change-password.sh", {
         method: "POST",
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",
+          "Authorization": `${localStorage.getItem("authToken") || ""}`,
         },
         body: `oldPassword=${encodeURIComponent(
           formData.oldPassword
