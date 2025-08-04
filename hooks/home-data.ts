@@ -135,7 +135,7 @@ const useHomeData = () => {
       console.log(rawData); //
       // Add type annotation for rawData
       if (rawData.some((x: {response: string}) => x.response.toLowerCase().includes("failed"))) {
-        console.error("something broke");
+        console.error("SMS tool failure detected in modem response. Attempting service restart via reset-at-bridge.sh.");
         await fetch("/cgi-bin/quecmanager/reset-at-bridge.sh")
       }
       // fetch public ip from /cgi-bin/quecmanager/home/fetch_public_ip.sh
