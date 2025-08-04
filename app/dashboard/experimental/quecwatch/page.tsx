@@ -371,7 +371,7 @@ const QuecWatchPage = () => {
                 {(status === "active" || status === "maxRetries") && (
                   <TooltipProvider>
                     <Tooltip>
-                      <TooltipTrigger>
+                      <TooltipTrigger asChild>
                         <Button
                           variant="outline"
                           size="icon"

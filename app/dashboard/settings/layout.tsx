@@ -22,6 +22,16 @@ const SettingsPageLayout = ({ children }: SettingsPageLayoutProps) => {
           x-chunk="dashboard-04-chunk-0"
         >
           <Link
+            href="/dashboard/settings/personalization"
+            className={`${
+              currentPathName === "/dashboard/settings/personalization/"
+                ? "font-semibold text-primary"
+                : "text-sm"
+            }`}
+          >
+            Personalization
+          </Link>
+          <Link
             href="/dashboard/settings/security"
             className={`${
               currentPathName === "/dashboard/settings/security/"

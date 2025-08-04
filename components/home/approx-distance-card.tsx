@@ -1,4 +1,6 @@
-import React from "react";
+"use client";
+
+import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { RadioTower, InfoIcon } from "lucide-react";
 import {
@@ -16,12 +18,48 @@ interface ApproxDistanceCardProps {
   networkType?: string;
 }
 
+interface MeasurementUnitResponse {
+  status: string;
+  message: string;
+  data?: {
+    unit: "km" | "mi";
+    isDefault: boolean;
+  };
+}
+
 const ApproxDistanceCard: React.FC<ApproxDistanceCardProps> = ({
   lteTimeAdvance = "0",
   nrTimeAdvance = "0",
   isLoading = false,
   networkType = "Unknown",
 }) => {
+  const [measurementUnit, setMeasurementUnit] = useState<"km" | "mi">("km");
+  const [isUnitLoading, setIsUnitLoading] = useState<boolean>(true);
+
+  // Fetch measurement unit preference on component mount
+  useEffect(() => {
+    const fetchMeasurementUnit = async () => {
+      try {
+        setIsUnitLoading(true);
+        const response = await fetch(
+          "/cgi-bin/quecmanager/settings/measurement_units.sh"
+        );
+        const data: MeasurementUnitResponse = await response.json();
+
+        if (data.status === "success" && data.data) {
+          setMeasurementUnit(data.data.unit);
+        }
+      } catch (error) {
+        console.error("Error fetching measurement unit:", error);
+        // Default to km if fetch fails
+        setMeasurementUnit("km");
+      } finally {
+        setIsUnitLoading(false);
+      }
+    };
+
+    fetchMeasurementUnit();
+  }, []);
   // Calculate distance for LTE (TA input is the index value)
   const calculateLteDistance = (ta: number): number => {
     // Validate TA range for LTE (0-1282)
@@ -95,14 +133,33 @@ const ApproxDistanceCard: React.FC<ApproxDistanceCardProps> = ({
   const lteDistance = lteTa > 0 ? calculateLteDistance(lteTa) : 0;
   const nrDistance = nrTa > 0 ? calculateNrDistance(nrTa) : 0;
 
-  // Format distances for display
-  const formatDistance = (distance: number): string => {
-    if (distance === 0) return "-";
-    // If the distance is less than 1 km, show in meters
-    if (distance < 1) {
-      return `${(distance * 1000).toFixed(0)} m`;
+  // Convert kilometers to miles
+  const kmToMiles = (km: number): number => {
+    return km * 0.621371;
+  };
+
+  // Format distances for display based on preferred unit
+  const formatDistance = (distanceInKm: number): string => {
+    if (distanceInKm === 0) return "-";
+
+    if (measurementUnit === "mi") {
+      // Convert to miles
+      const distanceInMiles = kmToMiles(distanceInKm);
+
+      // If the distance is less than 1 mile, show in feet
+      if (distanceInMiles < 1) {
+        const distanceInFeet = distanceInMiles * 5280;
+        return `${distanceInFeet.toFixed(0)} ft`;
+      }
+      return `${distanceInMiles.toFixed(2)} mi`;
+    } else {
+      // Display in kilometers/meters
+      // If the distance is less than 1 km, show in meters
+      if (distanceInKm < 1) {
+        return `${(distanceInKm * 1000).toFixed(0)} m`;
+      }
+      return `${distanceInKm.toFixed(2)} km`;
     }
-    return `${distance.toFixed(2)} km`;
   };
 
   return (
@@ -111,7 +168,7 @@ const ApproxDistanceCard: React.FC<ApproxDistanceCardProps> = ({
         <CardTitle>Distance to Cell Tower</CardTitle>
       </CardHeader>
       <CardContent>
-        {isLoading ? (
+        {isLoading || isUnitLoading ? (
           <div className="space-y-3">
             <div className="flex items-center justify-between mb-1">
               <div className="flex items-center">

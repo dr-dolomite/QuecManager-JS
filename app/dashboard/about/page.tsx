@@ -23,12 +23,14 @@ const AboutPage = () => {
     <Card>
       <CardHeader>
         <CardTitle>QuecManager</CardTitle>
-        <CardDescription>
+        <div>
           <div className="grid xl:gap-y-10 gap-y-8 gap-4">
             <div className="grid gap-4">
               <div className="flex flex-row justify-between items-center">
                 <div className="flex flex-row items-center gap-x-2">
-                  What is QuecManager and how it can help you.
+                  <CardDescription>
+                    What is QuecManager and how it can help you.
+                  </CardDescription>
                 </div>
                 <div className="flex flex-row items-center gap-x-2">
                   <Button onClick={() => setHideSensitiveData((prev) => !prev)}>
@@ -45,7 +47,7 @@ const AboutPage = () => {
               </div>
             </div>
           </div>
-        </CardDescription>
+        </div>
       </CardHeader>
       <CardContent className="grid lg:grid-cols-2 grid-cols-1 grid-flow-row gap-8">
         <Card>
