@@ -16,7 +16,7 @@ interface SimDataProps {
   hideSensitiveData: boolean;
 }
 
-const SimData = ({ data, isLoading, hideSensitiveData } : SimDataProps ) => {
+const SimData = ({ data, isLoading, hideSensitiveData }: SimDataProps) => {
   return (
     <Card>
       <CardHeader>
@@ -40,7 +40,9 @@ const SimData = ({ data, isLoading, hideSensitiveData } : SimDataProps ) => {
           ) : (
             <Badge
               className={`font-bold ${
-                data?.simCard.state === "Inserted" ? "bg-emerald-500 hover:bg-emerald-800" : "bg-rose-500 hover:bg-rose-800"
+                data?.simCard.state === "Inserted"
+                  ? "bg-emerald-500 hover:bg-emerald-800"
+                  : "bg-rose-500 hover:bg-rose-800"
               }`}
             >
               {data?.simCard.state}
@@ -62,7 +64,7 @@ const SimData = ({ data, isLoading, hideSensitiveData } : SimDataProps ) => {
           {isLoading ? (
             <Skeleton className="h-4 w-[140px]" />
           ) : hideSensitiveData ? (
-            <i>{data?.simCard?.phoneNumber?.replace(/[0-9a-zA-Z]/g,'0')} (Masked)</i>
+            <div className="border-none bg-gray-600 rounded-md h-5 md:w-36 w-24" />
           ) : (
             <p className="font-bold">{data?.simCard.phoneNumber}</p>
           )}
@@ -73,7 +75,7 @@ const SimData = ({ data, isLoading, hideSensitiveData } : SimDataProps ) => {
           {isLoading ? (
             <Skeleton className="h-4 w-[140px]" />
           ) : hideSensitiveData ? (
-            <i>{data?.simCard?.imsi?.replace(/[0-9a-zA-Z]/g,'X')} (Masked)</i>
+            <div className="border-none bg-gray-600 rounded-md h-5 md:w-36 w-24" />
           ) : (
             <p className="font-bold">{data?.simCard.imsi}</p>
           )}
@@ -84,7 +86,7 @@ const SimData = ({ data, isLoading, hideSensitiveData } : SimDataProps ) => {
           {isLoading ? (
             <Skeleton className="h-4 w-[140px]" />
           ) : hideSensitiveData ? (
-            <i>{data?.simCard?.iccid?.replace(/[0-9a-zA-Z]/g,'X')} (Masked)</i>
+            <div className="border-none bg-gray-600 rounded-md h-5 md:w-36 w-24" />
           ) : (
             <p className="font-bold">{data?.simCard.iccid}</p>
           )}
@@ -95,7 +97,7 @@ const SimData = ({ data, isLoading, hideSensitiveData } : SimDataProps ) => {
           {isLoading ? (
             <Skeleton className="h-4 w-[140px]" />
           ) : hideSensitiveData ? (
-            <i>{data?.simCard?.imei?.replace(/[0-9a-zA-Z]/g,'X')} (Masked)</i>
+            <div className="border-none bg-gray-600 rounded-md h-5 md:w-36 w-24" />
           ) : (
             <p className="font-bold">{data?.simCard.imei}</p>
           )}

@@ -24,7 +24,6 @@ const AboutPage = () => {
       <CardHeader>
         <CardTitle>QuecManager</CardTitle>
         <CardDescription>
-
           <div className="grid xl:gap-y-10 gap-y-8 gap-4">
             <div className="grid gap-4">
               <div className="flex flex-row justify-between items-center">
@@ -33,8 +32,14 @@ const AboutPage = () => {
                 </div>
                 <div className="flex flex-row items-center gap-x-2">
                   <Button onClick={() => setHideSensitiveData((prev) => !prev)}>
-                    { hideSensitiveData ? <Eye className="xl:size-6 size-5" /> : <EyeOff className="xl:size-6 size-5" /> }
-                      <span className="hidden md:block">{hideSensitiveData ? 'Show' : 'Hide' } Sensitive Data</span>
+                    {hideSensitiveData ? (
+                      <Eye className="xl:size-6 size-5" />
+                    ) : (
+                      <EyeOff className="xl:size-6 size-5" />
+                    )}
+                    <span className="hidden md:block">
+                      {hideSensitiveData ? "Show" : "Hide"} Sensitive Data
+                    </span>
                   </Button>
                 </div>
               </div>
@@ -119,7 +124,7 @@ const AboutPage = () => {
                     {isLoading ? (
                       <Skeleton className="h-4 w-32" />
                     ) : hideSensitiveData ? (
-                      <i>{data?.phoneNum?.replace(/[0-9]/g,'0')} (Masked)</i>
+                      <div className="border-none bg-gray-600 rounded-md h-5 md:w-36 w-24" />
                     ) : (
                       <>{data?.phoneNum || "N/A"}</>
                     )}
@@ -131,7 +136,7 @@ const AboutPage = () => {
                     {isLoading ? (
                       <Skeleton className="h-4 w-32" />
                     ) : hideSensitiveData ? (
-                      <i>{data?.imsi?.replace(/[0-9a-zA-Z]/g,'X')} (Masked)</i>
+                      <div className="border-none bg-gray-600 rounded-md h-5 md:w-36 w-24" />
                     ) : (
                       <>{data?.imsi || "N/A"}</>
                     )}
@@ -143,7 +148,7 @@ const AboutPage = () => {
                     {isLoading ? (
                       <Skeleton className="h-4 w-32" />
                     ) : hideSensitiveData ? (
-                      <i>{data?.iccid?.replace(/[0-9a-zA-Z]/g,'X')} (Masked)</i>
+                      <div className="border-none bg-gray-600 rounded-md h-5 md:w-36 w-24" />
                     ) : (
                       <>{data?.iccid || "N/A"}</>
                     )}
@@ -155,7 +160,7 @@ const AboutPage = () => {
                     {isLoading ? (
                       <Skeleton className="h-4 w-32" />
                     ) : hideSensitiveData ? (
-                      <i>{data?.imei?.replace(/[0-9a-zA-Z]/g,'X')} (Masked)</i>
+                      <div className="border-none bg-gray-600 rounded-md h-5 md:w-36 w-24" />
                     ) : (
                       <>{data?.imei || "N/A"}</>
                     )}
@@ -187,7 +192,7 @@ const AboutPage = () => {
                     {isLoading ? (
                       <Skeleton className="h-4 w-32" />
                     ) : hideSensitiveData ? (
-                        <i>127.0.0.1 (Masked)</i>
+                      <div className="border-none bg-gray-600 rounded-md h-5 md:w-36 w-24" />
                     ) : (
                       <>{data?.wwanIPv4 || "N/A"}</>
                     )}
@@ -199,7 +204,7 @@ const AboutPage = () => {
                     {isLoading ? (
                       <Skeleton className="h-4 w-32" />
                     ) : hideSensitiveData ? (
-                      <i>::1  (Masked)</i>
+                      <div className="border-none bg-gray-600 rounded-md h-5 md:w-36 w-24" />
                     ) : (
                       <>{data?.wwanIPv6 || "N/A"}</>
                     )}
