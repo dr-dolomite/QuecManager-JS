@@ -16,6 +16,15 @@ interface PingData {
   index: number;
 }
 
+interface PingSettingsResponse {
+  status: string;
+  message: string;
+  data?: {
+    enabled: boolean;
+    isDefault: boolean;
+  };
+}
+
 const chartConfig = {
   ms: {
     label: "ms",
@@ -65,12 +74,144 @@ const PingCard = () => {
   });
 
   const [hasFreshData, setHasFreshData] = useState(false);
+  const [isPingEnabled, setIsPingEnabled] = useState<boolean>(true);
+  const [isCheckingSettings, setIsCheckingSettings] = useState<boolean>(true);
+
+  // Animate number changes for smooth transitions
+  const animateNumber = (
+    start: number,
+    end: number,
+    callback: (val: number) => void
+  ) => {
+    // Increase duration from 1000ms to 1500ms for smoother animation
+    const duration = 1500;
+    const startTime = performance.now();
+    const difference = end - start;
+
+    const step = (currentTime: number) => {
+      const elapsed = currentTime - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+
+      // Use a gentler cubic ease-in-out function
+      const easeProgress =
+        progress < 0.5
+          ? 4 * progress * progress * progress
+          : 1 - Math.pow(-2 * progress + 2, 3) / 2;
+
+      const current = Math.round(start + difference * easeProgress);
+
+      callback(current);
+
+      if (progress < 1) {
+        requestAnimationFrame(step);
+      }
+    };
+
+    requestAnimationFrame(step);
+  };
+
+  const fetchPingLatency = async () => {
+    // Don't fetch if ping is disabled
+    if (!isPingEnabled) {
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        "/cgi-bin/quecmanager/home/ping_latency.sh",
+        {
+          method: "GET",
+          cache: "no-store",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Network response was not ok");
+      }
+
+      const data: { latency: number } = await response.json();
+
+      // Update latency value with animation
+      setCurrentLatency((prev) => {
+        // If this is fresh data and we had a previous value, animate
+        if (prev !== null && !hasFreshData) {
+          animateNumber(prev, data.latency, (val) => setCurrentLatency(val));
+          return prev; // Return previous value initially for smooth animation
+        }
+        return data.latency;
+      });
+
+      // Format time
+      const time = formatTime();
+
+      // Get current data for index calculation
+      const currentData = chartDataRef.current;
+
+      // Create new data point
+      const newDataPoint: PingData = {
+        time: time,
+        ms: data.latency,
+        index: currentData.length > 0 ? 5 : 1, // Always use consistent indices
+      };
+
+      setChartData((prevData) => {
+        let updatedData: PingData[];
+
+        if (prevData.length === 0) {
+          // First data point - create 5 identical points for animation
+          updatedData = Array(5)
+            .fill(null)
+            .map((_, i) => ({
+              ...newDataPoint,
+              index: i + 1,
+              time: i === 4 ? time : formatTime(),
+            }));
+        } else if (prevData.length < 5) {
+          // Fill remaining slots with the new point
+          const newPoints = Array(5 - prevData.length)
+            .fill(null)
+            .map((_, i) => ({
+              ...newDataPoint,
+              index: prevData.length + i + 1,
+            }));
+          updatedData = [...prevData, ...newPoints];
+        } else {
+          // Shift data points left and add new one
+          updatedData = [...prevData.slice(1), newDataPoint].map(
+            (point, idx) => ({
+              ...point,
+              index: idx + 1,
+            })
+          );
+        }
+
+        localStorage.setItem("pingData", JSON.stringify(updatedData));
+        return updatedData;
+      });
+
+      setHasFreshData(true);
+
+      if (isLoading) {
+        setIsLoading(false);
+      }
+    } catch (err) {
+      console.error("Failed to fetch ping latency", err);
+
+      if (isLoading && chartData.length > 0) {
+        setIsLoading(false);
+      }
+    }
+  };
 
   useEffect(() => {
-    const fetchPingLatency = async () => {
+    const checkPingSettings = async () => {
       try {
+        setIsCheckingSettings(true);
         const response = await fetch(
-          "/cgi-bin/quecmanager/home/ping_latency.sh",
+          "/cgi-bin/quecmanager/settings/ping_settings.sh",
           {
             method: "GET",
             cache: "no-store",
@@ -80,121 +221,49 @@ const PingCard = () => {
           }
         );
 
-        if (!response.ok) {
-          throw new Error("Network response was not ok");
-        }
-
-        const data: { latency: number } = await response.json();
-
-        // Update latency value with animation
-        setCurrentLatency((prev) => {
-          // If this is fresh data and we had a previous value, animate
-          if (prev !== null && !hasFreshData) {
-            animateNumber(prev, data.latency, (val) => setCurrentLatency(val));
-            return prev; // Return previous value initially for smooth animation
+        if (response.ok) {
+          const data: PingSettingsResponse = await response.json();
+          if (data.status === "success" && data.data) {
+            setIsPingEnabled(data.data.enabled);
           }
-          return data.latency;
-        });
-
-        // Format time
-        const time = formatTime();
-
-        // Get current data for index calculation
-        const currentData = chartDataRef.current;
-
-        // Create new data point
-        const newDataPoint: PingData = {
-          time: time,
-          ms: data.latency,
-          index: currentData.length > 0 ? 5 : 1, // Always use consistent indices
-        };
-
-        setChartData((prevData) => {
-          let updatedData: PingData[];
-
-          if (prevData.length === 0) {
-            // First data point - create 5 identical points for animation
-            updatedData = Array(5)
-              .fill(null)
-              .map((_, i) => ({
-                ...newDataPoint,
-                index: i + 1,
-                time: i === 4 ? time : formatTime(),
-              }));
-          } else if (prevData.length < 5) {
-            // Fill remaining slots with the new point
-            const newPoints = Array(5 - prevData.length)
-              .fill(null)
-              .map((_, i) => ({
-                ...newDataPoint,
-                index: prevData.length + i + 1,
-              }));
-            updatedData = [...prevData, ...newPoints];
-          } else {
-            // Shift data points left and add new one
-            updatedData = [...prevData.slice(1), newDataPoint].map(
-              (point, idx) => ({
-                ...point,
-                index: idx + 1,
-              })
-            );
-          }
-
-          localStorage.setItem("pingData", JSON.stringify(updatedData));
-          return updatedData;
-        });
-
-        setHasFreshData(true);
-
-        if (isLoading) {
-          setIsLoading(false);
         }
-      } catch (err) {
-        console.error("Failed to fetch ping latency", err);
-
-        if (isLoading && chartData.length > 0) {
-          setIsLoading(false);
-        }
+      } catch (error) {
+        console.error("Error checking ping settings:", error);
+        // Default to enabled if we can't check settings
+        setIsPingEnabled(true);
+      } finally {
+        setIsCheckingSettings(false);
       }
     };
 
-    // Animate number changes for smooth transitions
-    const animateNumber = (
-      start: number,
-      end: number,
-      callback: (val: number) => void
-    ) => {
-      // Increase duration from 1000ms to 1500ms for smoother animation
-      const duration = 1500;
-      const startTime = performance.now();
-      const difference = end - start;
+    // Check ping settings first
+    checkPingSettings();
 
-      const step = (currentTime: number) => {
-        const elapsed = currentTime - startTime;
-        const progress = Math.min(elapsed / duration, 1);
-
-        // Use a gentler cubic ease-in-out function
-        const easeProgress =
-          progress < 0.5
-            ? 4 * progress * progress * progress
-            : 1 - Math.pow(-2 * progress + 2, 3) / 2;
-
-        const current = Math.round(start + difference * easeProgress);
-
-        callback(current);
-
-        if (progress < 1) {
-          requestAnimationFrame(step);
-        }
-      };
-
-      requestAnimationFrame(step);
+    // Listen for ping settings changes
+    const handlePingSettingsChange = () => {
+      checkPingSettings();
     };
+
+    window.addEventListener("pingSettingsUpdated", handlePingSettingsChange);
+
+    return () => {
+      window.removeEventListener(
+        "pingSettingsUpdated",
+        handlePingSettingsChange
+      );
+    };
+  }, []);
+
+  // Separate effect to handle interval when ping is enabled/disabled
+  useEffect(() => {
+    if (!isPingEnabled || isCheckingSettings) {
+      return;
+    }
 
     fetchPingLatency();
     const interval = setInterval(fetchPingLatency, 5000);
     return () => clearInterval(interval);
-  }, []);
+  }, [isPingEnabled, isCheckingSettings]);
 
   const getYAxisDomain = (): [number, number] => {
     if (chartData.length === 0) return [0, 100];
@@ -210,7 +279,11 @@ const PingCard = () => {
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle>Ping Latency</CardTitle>
-        {currentLatency !== null && (
+        {!isPingEnabled ? (
+          <Badge variant="secondary" className="text-normal font-bold">
+            Ping Disabled
+          </Badge>
+        ) : currentLatency !== null ? (
           <Badge
             className={`text-normal font-bold transition-opacity duration-200 ${
               !hasFreshData ? "opacity-70" : ""
@@ -218,10 +291,10 @@ const PingCard = () => {
           >
             {currentLatency} ms {!hasFreshData && "(cached)"}
           </Badge>
-        )}
+        ) : null}
       </CardHeader>
       <CardContent>
-        {isLoading ? (
+        {isLoading || isCheckingSettings ? (
           <Skeleton className="h-[200px] w-full" />
         ) : (
           <ChartContainer config={chartConfig}>

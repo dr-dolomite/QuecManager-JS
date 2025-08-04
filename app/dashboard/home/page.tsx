@@ -37,7 +37,7 @@ import {
   CirclePlay,
   RefreshCcw,
   Eye,
-  EyeOff
+  EyeOff,
 } from "lucide-react";
 
 import PropagateLoader from "react-spinners/PropagateLoader";
@@ -246,8 +246,14 @@ const HomePage = () => {
           </div>
           <div className="flex flex-row items-center gap-x-2">
             <Button onClick={() => setHideSensitiveData((prev) => !prev)}>
-              { hideSensitiveData ? <Eye className="xl:size-6 size-5" /> : <EyeOff className="xl:size-6 size-5" /> }
-                <span className="hidden md:block">{hideSensitiveData ? 'Show' : 'Hide' } Sensitive Data</span>
+              {hideSensitiveData ? (
+                <Eye className="xl:size-6 size-5" />
+              ) : (
+                <EyeOff className="xl:size-6 size-5" />
+              )}
+              <span className="hidden md:block">
+                {hideSensitiveData ? "Show" : "Hide"} Sensitive Data
+              </span>
             </Button>
             {homeData?.simCard.state === "Not Inserted" && (
               <Dialog open={noSimDialogOpen} onOpenChange={setNoSimDialogOpen}>
@@ -290,12 +296,13 @@ const HomePage = () => {
             )}
 
             <Dialog>
-              <DialogTrigger>
+              <DialogTrigger asChild>
                 <Button onClick={runDiagnostics}>
                   <CirclePlay className="xl:size-6 size-5" />
                   <span className="hidden md:block">Run Diagnostics</span>
                 </Button>
               </DialogTrigger>
+
               {!isRunningDiagnostics && (
                 <DialogContent className="max-w-xs md:max-w-lg">
                   <DialogHeader>
@@ -413,7 +420,11 @@ const HomePage = () => {
         </div>
 
         <div className="grid 2xl:grid-cols-4 lg:grid-cols-2 grid-cols-1 gap-4">
-          <SimCard data={homeData} isLoading={isLoading} hideSensitiveData={hideSensitiveData} />
+          <SimCard
+            data={homeData}
+            isLoading={isLoading}
+            hideSensitiveData={hideSensitiveData}
+          />
           <Connection
             data={homeData}
             isLoading={isLoading}

@@ -9,9 +9,20 @@ import { RadioTower, User2Icon, Menu, Power } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import heartbeat from "@/hooks/heartbeat";
 
-import {
-  atCommandSender,
-} from "@/utils/at-command";
+interface ProfilePictureResponse {
+  status: string;
+  code?: string;
+  message: string;
+  data?: {
+    exists: boolean;
+    size: number;
+    modified: number;
+    type: string;
+    data: string;
+  };
+}
+
+import { atCommandSender } from "@/utils/at-command";
 
 import {
   DropdownMenu,
@@ -33,6 +44,8 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 import { Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
@@ -61,7 +74,156 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const { setTheme } = useTheme();
   const [isRebooting, setIsRebooting] = useState(false);
   const [isReconnecting, setIsReconnecting] = useState(false);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [profileImage, setProfileImage] = useState<string | null>(null);
+  const [hasProfileImage, setHasProfileImage] = useState<boolean>(false);
   const toast = useToast();
+
+  // Cache keys for localStorage
+  const CACHE_KEY = "profile_picture_data";
+  const CACHE_METADATA_KEY = "profile_picture_metadata";
+
+  // Load cached image immediately on component mount
+  const loadCachedImage = () => {
+    try {
+      const cachedData = localStorage.getItem(CACHE_KEY);
+      if (cachedData) {
+        setProfileImage(cachedData);
+        setHasProfileImage(true);
+      }
+    } catch (error) {
+      console.error("Error loading cached image:", error);
+    }
+  };
+
+  const updateCache = (
+    imageData: string,
+    metadata: { size: number; modified: number; type: string }
+  ) => {
+    try {
+      localStorage.setItem(CACHE_KEY, imageData);
+      localStorage.setItem(CACHE_METADATA_KEY, JSON.stringify(metadata));
+    } catch (error) {
+      console.error("Error updating cache:", error);
+      // If localStorage is full, clear the cache and try again
+      if (error instanceof Error && error.name === "QuotaExceededError") {
+        clearCache();
+        try {
+          localStorage.setItem(CACHE_KEY, imageData);
+          localStorage.setItem(CACHE_METADATA_KEY, JSON.stringify(metadata));
+        } catch (retryError) {
+          console.error(
+            "Failed to cache image even after clearing:",
+            retryError
+          );
+        }
+      }
+    }
+  };
+
+  const clearCache = () => {
+    try {
+      localStorage.removeItem(CACHE_KEY);
+      localStorage.removeItem(CACHE_METADATA_KEY);
+    } catch (error) {
+      console.error("Error clearing cache:", error);
+    }
+  };
+
+  const getCachedMetadata = () => {
+    try {
+      const metadata = localStorage.getItem(CACHE_METADATA_KEY);
+      return metadata ? JSON.parse(metadata) : null;
+    } catch (error) {
+      console.error("Error getting cached metadata:", error);
+      return null;
+    }
+  };
+
+  const fetchProfilePicture = async () => {
+    try {
+      setIsLoading(true);
+      const response = await fetch(
+        "/cgi-bin/quecmanager/settings/profile_picture.sh"
+      );
+      const data: ProfilePictureResponse = await response.json();
+
+      if (data.status === "success" && data.data?.exists) {
+        const serverMetadata = {
+          size: data.data.size,
+          modified: data.data.modified,
+          type: data.data.type,
+        };
+
+        // Check if cached version is still valid
+        const cachedMetadata = getCachedMetadata();
+        const isValidCache =
+          cachedMetadata &&
+          cachedMetadata.size === serverMetadata.size &&
+          cachedMetadata.modified === serverMetadata.modified &&
+          cachedMetadata.type === serverMetadata.type;
+
+        if (!isValidCache) {
+          // Cache is invalid or doesn't exist, update with server data
+          if (data.data.data) {
+            setProfileImage(data.data.data);
+            setHasProfileImage(true);
+            updateCache(data.data.data, serverMetadata);
+          }
+        } else {
+          // Cache is valid, ensure UI state is correct
+          setHasProfileImage(true);
+        }
+      } else {
+        // No profile picture on server, clear cache and UI
+        setProfileImage(null);
+        setHasProfileImage(false);
+        clearCache();
+      }
+    } catch (error) {
+      console.error("Error fetching profile picture:", error);
+      // On error, keep cached image if available, otherwise show fallback
+      const cachedData = localStorage.getItem(CACHE_KEY);
+      if (!cachedData) {
+        setProfileImage(null);
+        setHasProfileImage(false);
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Fetch profile picture on component mount
+  useEffect(() => {
+    loadCachedImage();
+    fetchProfilePicture();
+  }, []);
+
+  // Listen for profile picture updates from other components
+  useEffect(() => {
+    const handleProfilePictureUpdate = () => {
+      loadCachedImage();
+      fetchProfilePicture();
+    };
+
+    // Listen for custom events from PersonalizationPage
+    window.addEventListener('profilePictureUpdated', handleProfilePictureUpdate);
+    window.addEventListener('profilePictureDeleted', handleProfilePictureUpdate);
+
+    // Listen for localStorage changes (cross-tab synchronization)
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === CACHE_KEY || e.key === CACHE_METADATA_KEY) {
+        loadCachedImage();
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+
+    return () => {
+      window.removeEventListener('profilePictureUpdated', handleProfilePictureUpdate);
+      window.removeEventListener('profilePictureDeleted', handleProfilePictureUpdate);
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, []);
 
   const { isServerAlive } = heartbeat();
   useEffect(() => {
@@ -304,7 +466,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
 
               <SheetClose asChild>
                 <Link
-                  href="/dashboard/settings/security"
+                  href="/dashboard/settings/personalization"
                   className={`${
                     currentPathName.includes("/dashboard/settings")
                       ? "text-foreground"
@@ -343,7 +505,16 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="secondary" size="icon" className="rounded-full">
-                <User2Icon className="h-5 w-5" />
+                {profileImage ? (
+                  <Avatar>
+                    <AvatarImage src={profileImage} alt="Profile Picture" />
+                    <AvatarFallback>
+                      <User2Icon className="h-5 w-5" />
+                    </AvatarFallback>
+                  </Avatar>
+                ) : (
+                  <User2Icon className="h-5 w-5" />
+                )}
                 <span className="sr-only">Toggle user menu</span>
               </Button>
             </DropdownMenuTrigger>
@@ -351,7 +522,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
               <DropdownMenuLabel>Options</DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem asChild>
-                <Link href="/dashboard/settings/security">Settings</Link>
+                <Link href="/dashboard/settings/personalization">Settings</Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
                 <a

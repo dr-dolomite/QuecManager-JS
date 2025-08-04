@@ -4,6 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
+    "build-package-linux": "rm -rf out && rm -fr root && mkdir out && mkdir root && next build && mv out/index.html out/login.html && mv out www && mv www root/ && cp -a scripts/cgi-bin root/www/",
+    "build-package-win": "rm -rf out && rm -fr root && mkdir out && mkdir root && next build && mv out\\index.html out\\login.html && ren out www && mv www root\\ && cp -a scripts\\cgi-bin root\\www\\",
     "build": "next build",
     "start": "next start",
     "lint": "next lint"
@@ -15,6 +17,7 @@
     "@hookform/resolvers": "^3.9.1",
     "@radix-ui/react-accordion": "^1.2.1",
     "@radix-ui/react-alert-dialog": "^1.1.2",
+    "@radix-ui/react-avatar": "^1.1.10",
     "@radix-ui/react-checkbox": "^1.1.2",
     "@radix-ui/react-dialog": "^1.1.2",
     "@radix-ui/react-dropdown-menu": "^2.1.2",

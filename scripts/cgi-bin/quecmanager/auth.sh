@@ -54,13 +54,20 @@ GENERATED_HASH=$(printf '%s' "$INPUT_PASSWORD" | openssl passwd -1 -salt "$SALT"
 # Log generated hash for debugging
 printf "Generated hash: %s\n" "$GENERATED_HASH" >> "$DEBUG_LOG"
 
+# Check if the request for AUTH contains the Authorization Header so as to assure we're not at an initial login
+SUPPLIED_TOKEN="${HTTP_AUTHORIZATION}"
 # Compare the generated hash with the one in the shadow file
 if [ "$GENERATED_HASH" = "$USER_HASH" ]; then
-    TOKEN=$(head -c 16 /dev/urandom | hexdump -v -e '/1 "%02x"')
-    CREATED_DATE=$(date +"%Y-%m-%dT%H:%M:%S")
-    touch ${AUTH_FILE}
-    echo "${CREATED_DATE} ${TOKEN}" >> ${AUTH_FILE}
-    echo "" >> ${AUTH_FILE}
+    # If the token is supplied, use it; otherwise, generate a new one and store it in the auth file
+    if [ "$SUPPLIED_TOKEN" != "" ]; then
+        TOKEN="$SUPPLIED_TOKEN"
+    else
+        TOKEN=$(head -c 16 /dev/urandom | hexdump -v -e '/1 "%02x"')
+        CREATED_DATE=$(date +"%Y-%m-%dT%H:%M:%S")
+        touch ${AUTH_FILE}
+        echo "${CREATED_DATE} ${TOKEN}" >> ${AUTH_FILE}
+        echo "" >> ${AUTH_FILE}
+    fi
     echo "{\"state\":\"success\",\"token\":\"${TOKEN}\"}"
 else
     # Remove token from file
