@@ -277,6 +277,16 @@ const AboutPage = () => {
                   </a>
                 </li>
                 <li>
+                  QuecManager Scripts & GUI Improvements
+                  <a
+                    href="https://github.com/clndwhr"
+                    target="_blank"
+                    className="text-primary font-semibold ml-2"
+                  >
+                    clndwhr
+                  </a>
+                </li>
+                <li>
                   Original Simple Admin
                   <a
                     href="https://github.com/aesthernr"
@@ -298,6 +308,29 @@ const AboutPage = () => {
                 </li>
                 <li>Wutang Clan</li>
               </ul>
+
+              <div className="mt-2 gap-y-1">
+                <p>
+                  Check the Quecmanager project
+                  <a
+                    href="https://github.com/dr-dolomite/QuecManager-JS"
+                    target="_blank"
+                    className="text-primary font-semibold ml-1"
+                  >
+                    here
+                  </a>
+                </p>
+                <p>
+                  Check the toolkit project
+                  <a
+                    href="https://github.com/iamromulan/quectel-rgmii-toolkit"
+                    target="_blank"
+                    className="text-primary font-semibold ml-1"
+                  >
+                    here
+                  </a>
+                </p>
+              </div>
             </div>
           </CardContent>
         </Card>

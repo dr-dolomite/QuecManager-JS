@@ -65,16 +65,26 @@ ensure_config_directory() {
 
 # Check if the country uses imperial or metric system based on timezone
 get_default_unit() {
-    # Get timezone from OpenWrt config system
+    # Get timezone from OpenWrt system - use uci as primary method
     local timezone=""
-    if [ -f "/etc/config/system" ]; then
-        # Extract zonename from OpenWrt system config
+    
+    # Primary method: Use uci command (standard OpenWrt way)
+    if command -v uci >/dev/null 2>&1; then
+        timezone=$(uci -q get system.@system[0].zonename)
+        if [ -z "$timezone" ]; then
+            timezone=$(uci -q get system.@system[0].timezone)
+        fi
+        log_message "Detected timezone using uci command: $timezone"
+    fi
+    
+    # Fallback method: Parse OpenWrt config file directly
+    if [ -z "$timezone" ] && [ -f "/etc/config/system" ]; then
         timezone=$(grep -o "option zonename '[^']*'" /etc/config/system | sed "s/option zonename '//;s/'//")
         
-        # If zonename not found, try the timezone option as fallback
         if [ -z "$timezone" ]; then
             timezone=$(grep -o "option timezone '[^']*'" /etc/config/system | sed "s/option timezone '//;s/'//")
         fi
+        log_message "Detected timezone from OpenWrt config file: $timezone"
     fi
     
     # Additional fallback methods
@@ -82,15 +92,11 @@ get_default_unit() {
         # Try TZ environment variable
         if [ -n "$TZ" ]; then
             timezone="$TZ"
+            log_message "Detected timezone from TZ environment variable: $timezone"
         # Try /etc/TZ file
         elif [ -f "/etc/TZ" ]; then
             timezone=$(cat /etc/TZ)
-        # Check if uci command exists and try to use it
-        elif command -v uci >/dev/null 2>&1; then
-            timezone=$(uci -q get system.@system[0].zonename)
-            if [ -z "$timezone" ]; then
-                timezone=$(uci -q get system.@system[0].timezone)
-            fi
+            log_message "Detected timezone from /etc/TZ file: $timezone"
         fi
     fi
     
@@ -100,40 +106,70 @@ get_default_unit() {
         log_message "Warning: Could not detect timezone, using default (km)"
     fi
     
-    # Log the timezone detection source and result
-    if [ -f "/etc/config/system" ] && grep -q "option zonename" /etc/config/system; then
-        log_message "Detected timezone from OpenWrt config (zonename): $timezone"
-    elif [ -f "/etc/config/system" ] && grep -q "option timezone" /etc/config/system; then
-        log_message "Detected timezone from OpenWrt config (timezone): $timezone"
-    elif [ -n "$TZ" ]; then
-        log_message "Detected timezone from TZ environment variable: $timezone"
-    elif [ -f "/etc/TZ" ]; then
-        log_message "Detected timezone from /etc/TZ file: $timezone"
-    elif command -v uci >/dev/null 2>&1; then
-        log_message "Detected timezone using uci command: $timezone"
-    else
-        log_message "Could not reliably detect timezone, using: $timezone"
-    fi
-    
-    # Countries that primarily use imperial system (miles)
-    # US, Liberia, Myanmar and areas under US influence
+    # Countries and territories that primarily use imperial system (miles)
+    # Based on current usage as of 2025:
+    # - United States (including territories)
+    # - Liberia 
+    # - Myanmar/Burma (mixed usage, but officially imperial for distances)
+    # - UK uses miles for road distances (though metric for most other measurements)
+    # - Some British territories and dependencies
     case "$timezone" in
-        # US timezones - various formats
-        *America/*|*US/*|*EST*|*CST*|*MST*|*PST*|*Alaska*|*Hawaii*|*New_York*|*Chicago*|*Denver*|*Los_Angeles*|*Phoenix*|*Anchorage*)
+        # United States and territories - comprehensive timezone coverage
+        *America/New_York*|*America/Chicago*|*America/Denver*|*America/Los_Angeles*|*America/Phoenix*|*America/Anchorage*|*America/Honolulu*)
             echo "mi"
-            log_message "Default unit based on timezone ($timezone): miles (US-based)"
+            log_message "Default unit based on timezone ($timezone): miles (US major cities)"
             ;;
-        # Other imperial countries
-        *Liberia*|*Myanmar*|*Burma*)
+        # All Americas timezones that are US-based
+        *America/Adak*|*America/Juneau*|*America/Metlakatla*|*America/Nome*|*America/Sitka*|*America/Yakutat*)
             echo "mi"
-            log_message "Default unit based on timezone ($timezone): miles (non-metric country)"
+            log_message "Default unit based on timezone ($timezone): miles (US Alaska)"
             ;;
-        # Check for specific timezone entries with spaces (from OpenWrt config)
-        "America/New York"|"America/Los Angeles"|"America/Chicago"|"America/Denver")
+        # US territories in Pacific
+        *Pacific/Honolulu*|*Pacific/Johnston*|*Pacific/Midway*|*Pacific/Wake*|*HST*|*Pacific/Samoa*)
             echo "mi"
-            log_message "Default unit based on timezone ($timezone): miles (US city)"
+            log_message "Default unit based on timezone ($timezone): miles (US Pacific territories)"
             ;;
-        # Default to metric for all other countries
+        # US territories in other regions
+        *America/Puerto_Rico*|*America/Virgin*|*Atlantic/Bermuda*)
+            echo "mi"
+            log_message "Default unit based on timezone ($timezone): miles (US territories)"
+            ;;
+        # General US timezone patterns
+        *America/*EDT*|*America/*EST*|*America/*CDT*|*America/*CST*|*America/*MDT*|*America/*MST*|*America/*PDT*|*America/*PST*)
+            echo "mi"
+            log_message "Default unit based on timezone ($timezone): miles (US timezone abbreviations)"
+            ;;
+        # Simple timezone abbreviations commonly used in US systems
+        *EST*|*CST*|*MST*|*PST*|*EDT*|*CDT*|*MDT*|*PDT*|*AKST*|*AKDT*|*HST*)
+            echo "mi"
+            log_message "Default unit based on timezone ($timezone): miles (US timezone codes)"
+            ;;
+        # United Kingdom - uses miles for road distances
+        *Europe/London*|*GMT*|*BST*|*Europe/Belfast*|*Europe/Edinburgh*|*Europe/Cardiff*)
+            echo "mi"
+            log_message "Default unit based on timezone ($timezone): miles (UK)"
+            ;;
+        # British territories and dependencies that use miles
+        *Atlantic/Stanley*|*Indian/Chagos*|*Europe/Gibraltar*|*Atlantic/South_Georgia*)
+            echo "mi"
+            log_message "Default unit based on timezone ($timezone): miles (British territories)"
+            ;;
+        # Liberia
+        *Africa/Monrovia*)
+            echo "mi"
+            log_message "Default unit based on timezone ($timezone): miles (Liberia)"
+            ;;
+        # Myanmar/Burma (mixed usage but officially uses imperial for some measurements)
+        *Asia/Yangon*|*Asia/Rangoon*)
+            echo "mi"
+            log_message "Default unit based on timezone ($timezone): miles (Myanmar)"
+            ;;
+        # OpenWrt config format with spaces (common in some router configurations)
+        "America/New York"|"America/Los Angeles"|"America/Chicago"|"America/Denver"|"America/Phoenix"|"America/Anchorage"|"Europe/London")
+            echo "mi"
+            log_message "Default unit based on timezone ($timezone): miles (space-separated format)"
+            ;;
+        # Default to metric for all other countries/territories
         *)
             echo "km" 
             log_message "Default unit based on timezone ($timezone): kilometers (metric country)"
@@ -205,6 +241,13 @@ handle_get() {
         # Return diagnostic information
         local timezone_info=""
         
+        if command -v uci >/dev/null 2>&1; then
+            timezone_info="$timezone_info\"uci_system_zonename\": \"$(uci -q get system.@system[0].zonename || echo 'Not found')\","
+            timezone_info="$timezone_info\"uci_system_timezone\": \"$(uci -q get system.@system[0].timezone || echo 'Not found')\","
+        else
+            timezone_info="$timezone_info\"uci\": \"Command not found\","
+        fi
+        
         if [ -f "/etc/config/system" ]; then
             timezone_info="$timezone_info\"openwrt_config\": \"$(cat /etc/config/system | grep -E 'zonename|timezone' | tr '\n' ' ' | sed 's/"/\\"/g')\","
         else
@@ -221,13 +264,6 @@ handle_get() {
             timezone_info="$timezone_info\"etc_TZ\": \"$(cat /etc/TZ)\","
         else
             timezone_info="$timezone_info\"etc_TZ\": \"Not found\","
-        fi
-        
-        if command -v uci >/dev/null 2>&1; then
-            timezone_info="$timezone_info\"uci_system_zonename\": \"$(uci -q get system.@system[0].zonename || echo 'Not found')\","
-            timezone_info="$timezone_info\"uci_system_timezone\": \"$(uci -q get system.@system[0].timezone || echo 'Not found')\","
-        else
-            timezone_info="$timezone_info\"uci\": \"Command not found\","
         fi
         
         # Get default unit

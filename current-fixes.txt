@@ -1,2 +1,7 @@
 - improved masking design
 - fixed hydration errors
+- added profile image upload feature
+- added preferred distance unit
+- new scripts
+a. /quecmanager/settings/measurement_units.sh
+b. /quecmanager/settings/profile_picture.sh
