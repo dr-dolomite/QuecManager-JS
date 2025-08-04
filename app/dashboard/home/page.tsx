@@ -221,7 +221,7 @@ const HomePage = () => {
               <div className="flex flex-row items-center gap-6 justify-between w-full">
                   <h2 className="text-md font-bold">Modem Processing Error</h2>
                   <p className="text-sm font-bold">
-                    SMS_Tool failed to acquire token. Likely 'Bus Error'. Attempt to logout and log back in.
+                    SMS_Tool failed to acquire token. Likely 'Bus Error'. The system will attempt to recover automatically. If the issue persists, please logout and log back in.
                   </p>
               </div>
             </Card>
