@@ -68,6 +68,15 @@ interface MeasurementUnitResponse {
   };
 }
 
+interface PingSettingsResponse {
+  status: string;
+  message: string;
+  data?: {
+    enabled: boolean;
+    isDefault: boolean;
+  };
+}
+
 const PersonalizationPage = () => {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -78,6 +87,8 @@ const PersonalizationPage = () => {
   const [measurementUnit, setMeasurementUnit] = useState<"km" | "mi">("km");
   const [isUnitLoading, setIsUnitLoading] = useState<boolean>(false);
   const [isUnitDefault, setIsUnitDefault] = useState<boolean>(true);
+  const [pingEnabled, setPingEnabled] = useState<boolean>(true);
+  const [isPingLoading, setIsPingLoading] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Cache keys for localStorage
@@ -89,6 +100,7 @@ const PersonalizationPage = () => {
     loadCachedImage();
     fetchProfilePicture();
     fetchMeasurementUnit();
+    fetchPingSettings();
   }, []);
 
   const loadCachedImage = () => {
@@ -571,6 +583,108 @@ const PersonalizationPage = () => {
     }
   };
 
+  // Ping settings functions
+  const fetchPingSettings = async () => {
+    try {
+      setIsPingLoading(true);
+      const response = await fetch(
+        "/cgi-bin/quecmanager/settings/ping_settings.sh"
+      );
+      const data: PingSettingsResponse = await response.json();
+
+      if (data.status === "success" && data.data) {
+        setPingEnabled(data.data.enabled);
+      }
+    } catch (error) {
+      console.error("Error fetching ping settings:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load ping settings.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsPingLoading(false);
+    }
+  };
+
+  const updatePingSettings = async (enabled: boolean) => {
+    try {
+      setIsPingLoading(true);
+      const response = await fetch(
+        "/cgi-bin/quecmanager/settings/ping_settings.sh",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ enabled }),
+        }
+      );
+      const data: PingSettingsResponse = await response.json();
+
+      if (data.status === "success") {
+        setPingEnabled(enabled);
+        toast({
+          title: "Ping Settings Updated",
+          description: `Ping functionality ${
+            enabled ? "enabled" : "disabled"
+          }.`,
+        });
+
+        // Dispatch custom event to notify ping card of the change
+        window.dispatchEvent(new CustomEvent("pingSettingsUpdated"));
+      } else {
+        throw new Error(data.message || "Failed to update ping settings");
+      }
+    } catch (error) {
+      console.error("Error updating ping settings:", error);
+      toast({
+        title: "Update Failed",
+        description: error instanceof Error ? error.message : "Unknown error",
+        variant: "destructive",
+      });
+    } finally {
+      setIsPingLoading(false);
+    }
+  };
+
+  const resetPingSettings = async () => {
+    try {
+      setIsPingLoading(true);
+      const response = await fetch(
+        "/cgi-bin/quecmanager/settings/ping_settings.sh",
+        {
+          method: "DELETE",
+        }
+      );
+      const data: PingSettingsResponse = await response.json();
+
+      if (data.status === "success" && data.data) {
+        setPingEnabled(data.data.enabled);
+        toast({
+          title: "Ping Settings Reset",
+          description: `Ping settings reset to system default (${
+            data.data.enabled ? "enabled" : "disabled"
+          }).`,
+        });
+
+        // Dispatch custom event to notify ping card of the change
+        window.dispatchEvent(new CustomEvent("pingSettingsUpdated"));
+      } else {
+        throw new Error(data.message || "Failed to reset ping settings");
+      }
+    } catch (error) {
+      console.error("Error resetting ping settings:", error);
+      toast({
+        title: "Reset Failed",
+        description: error instanceof Error ? error.message : "Unknown error",
+        variant: "destructive",
+      });
+    } finally {
+      setIsPingLoading(false);
+    }
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -658,7 +772,7 @@ const PersonalizationPage = () => {
 
           <Separator className="w-full my-2" />
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 grid-flow-row gap-6">
+          <div className="grid gap-6">
             <div className="grid w-full max-w-sm items-center gap-2">
               <Label htmlFor="MeasurementUnits">
                 Distance Measurement Unit
@@ -708,6 +822,48 @@ const PersonalizationPage = () => {
                 <p className="text-sm text-muted-foreground">
                   This is a custom unit setting.
                 </p>
+              )}
+            </div>
+
+            <div className="grid w-full max-w-sm items-center gap-2">
+              <Label htmlFor="PingSettings">Network Latency Testing</Label>
+              {isPingLoading ? (
+                <Skeleton className="h-8" />
+              ) : (
+                <div className="flex flex-row gap-2 items-center">
+                  <Select
+                    disabled={isPingLoading}
+                    value={pingEnabled ? "enabled" : "disabled"}
+                    onValueChange={(value: string) =>
+                      updatePingSettings(value === "enabled")
+                    }
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue>
+                        {pingEnabled ? "Enabled" : "Disabled"}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        <SelectLabel>Latency Testing</SelectLabel>
+                        <SelectItem value="enabled">
+                          Enable latency testing
+                        </SelectItem>
+                        <SelectItem value="disabled">
+                          Disable latency testing
+                        </SelectItem>
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    disabled={isPingLoading}
+                    onClick={resetPingSettings}
+                  >
+                    <Undo2Icon className="h-4 w-4" />
+                  </Button>
+                </div>
               )}
             </div>
           </div>
