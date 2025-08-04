@@ -15,6 +15,13 @@ import PingCard from "@/components/home/ping-card";
 
 import { Button } from "@/components/ui/button";
 import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -208,6 +215,18 @@ const HomePage = () => {
   return (
     <div className="grid xl:gap-y-10 gap-y-8 gap-4">
       <div className="grid gap-4">
+        { homeData?.simCard?.state?.toLowerCase().includes("failed") && (
+            <div className="grid lg:grid-cols-1 grid-cols-1 grid-flow-row gap-4">
+            <Card className="p-4 bg-red-500">
+              <div className="flex flex-row items-center gap-6 justify-between w-full">
+                  <h2 className="text-md font-bold">Modem Processing Error</h2>
+                  <p className="text-sm font-bold">
+                    SMS_Tool failed to acquire token. Likely 'Bus Error'. Attempt to logout and log back in.
+                  </p>
+              </div>
+            </Card>
+          </div>
+        )}
         <div className="flex flex-row justify-between items-center">
           <div className="flex flex-row gap-2 items-center">
             <h1 className="xl:text-3xl text-base font-bold">

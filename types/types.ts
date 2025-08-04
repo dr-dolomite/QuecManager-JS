@@ -2,7 +2,7 @@
 
 export interface SimCardData {
   slot: string;
-  state: "Inserted" | "Not Inserted";
+  state: "Inserted" | "Not Inserted" | "Unknown" | "Waiting for Password" | "Waiting for PIN" | "SMS-Tool Failed Token";
   provider: string;
   phoneNumber: string;
   imsi: string;
