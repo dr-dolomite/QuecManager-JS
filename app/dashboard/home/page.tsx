@@ -207,6 +207,13 @@ const HomePage = () => {
   }, [homeData]);
 
   useEffect(() => {
+    if (homeData?.simCard?.state?.toLowerCase().includes("failed")) {
+      toast({
+        title: "SMS_Tool failed to acquire token",
+        description: "The system will attempt to recover automatically. If this issue persists, please logout and log back in or restart the device.",
+        variant: "destructive",
+      });
+    }
     if (!isLoading && homeData?.simCard.state === "Not Inserted") {
       setNoSimDialogOpen(true);
     }
@@ -215,18 +222,6 @@ const HomePage = () => {
   return (
     <div className="grid xl:gap-y-10 gap-y-8 gap-4">
       <div className="grid gap-4">
-        { homeData?.simCard?.state?.toLowerCase().includes("failed") && (
-            <div className="grid lg:grid-cols-1 grid-cols-1 grid-flow-row gap-4">
-            <Card className="p-4 bg-red-500">
-              <div className="flex flex-row items-center gap-6 justify-between w-full">
-                  <h2 className="text-md font-bold">Modem Processing Error</h2>
-                  <p className="text-sm font-bold">
-                    SMS_Tool failed to acquire token. Likely 'Bus Error'. The system will attempt to recover automatically. If the issue persists, please logout and log back in.
-                  </p>
-              </div>
-            </Card>
-          </div>
-        )}
         <div className="flex flex-row justify-between items-center">
           <div className="flex flex-row gap-2 items-center">
             <h1 className="xl:text-3xl text-base font-bold">
