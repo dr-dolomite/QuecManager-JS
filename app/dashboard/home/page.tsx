@@ -182,11 +182,11 @@ const HomePage = () => {
     }
   };
 
-  useEffect(() => {
-    if (runDiagnosticsData) {
-      console.log("Diagnostics data updated:", runDiagnosticsData);
-    }
-  }, [runDiagnosticsData]);
+  // useEffect(() => {
+  //   if (runDiagnosticsData) {
+  //     console.log("Diagnostics data updated:", runDiagnosticsData);
+  //   }
+  // }, [runDiagnosticsData]);
 
   useEffect(() => {
     if (homeData && homeData.currentBands) {
@@ -210,7 +210,8 @@ const HomePage = () => {
     if (homeData?.simCard?.state?.toLowerCase().includes("failed")) {
       toast({
         title: "SMS_Tool failed to acquire token",
-        description: "The system will attempt to recover automatically. If this issue persists, please logout and log back in or restart the device.",
+        description:
+          "The system will attempt to recover automatically. If this issue persists, please logout and log back in or restart the device.",
         variant: "destructive",
       });
     }
@@ -363,18 +364,57 @@ const HomePage = () => {
                     </div>
 
                     <div className="flex items-center justify-between mt-6">
-                      <h3 className="font-semibold">Net Reject Cause</h3>
-                      {runDiagnosticsData?.netReject === "None" ? (
-                        <div className="flex space-x-2 items-center">
-                          <CheckCircle2 className="text-green-500" />
-                          <span>None</span>
-                        </div>
-                      ) : (
-                        <div className="flex space-x-2 items-center">
-                          <AlertCircle className="text-red-500" />
-                          <span>{runDiagnosticsData?.netReject}</span>
-                        </div>
-                      )}
+                      <h3 className="font-semibold">Network Reject Causes</h3>
+                      <div className="flex flex-col items-end space-y-1">
+                        {runDiagnosticsData?.rejectCauses ? (
+                          <>
+                            {runDiagnosticsData.rejectCauses.emm && (
+                              <div className="flex items-center space-x-2">
+                                <AlertCircle className="text-red-500 w-4 h-4" />
+                                <span className="text-sm">
+                                  EMM (
+                                  {runDiagnosticsData.rejectCauses.emm.code}):{" "}
+                                  {
+                                    runDiagnosticsData.rejectCauses.emm
+                                      .description
+                                  }
+                                </span>
+                              </div>
+                            )}
+                            {runDiagnosticsData.rejectCauses.esm && (
+                              <div className="flex items-center space-x-2">
+                                <AlertCircle className="text-red-500 w-4 h-4" />
+                                <span className="text-sm">
+                                  ESM (
+                                  {runDiagnosticsData.rejectCauses.esm.code}):{" "}
+                                  {
+                                    runDiagnosticsData.rejectCauses.esm
+                                      .description
+                                  }
+                                </span>
+                              </div>
+                            )}
+                            {runDiagnosticsData.rejectCauses.nrmm && (
+                              <div className="flex items-center space-x-2">
+                                <AlertCircle className="text-red-500 w-4 h-4" />
+                                <span className="text-sm">
+                                  NRMM (
+                                  {runDiagnosticsData.rejectCauses.nrmm.code}):{" "}
+                                  {
+                                    runDiagnosticsData.rejectCauses.nrmm
+                                      .description
+                                  }
+                                </span>
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          <div className="flex items-center space-x-2">
+                            <CheckCircle2 className="text-green-500" />
+                            <span>None</span>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </DialogContent>

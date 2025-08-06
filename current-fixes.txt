@@ -5,3 +5,4 @@
 - new scripts
 a. /quecmanager/settings/measurement_units.sh
 b. /quecmanager/settings/profile_picture.sh
+- added fix for no sim detected error when sms tool crashes

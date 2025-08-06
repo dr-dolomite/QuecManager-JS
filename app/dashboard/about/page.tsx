@@ -23,27 +23,25 @@ const AboutPage = () => {
     <Card>
       <CardHeader>
         <CardTitle>QuecManager</CardTitle>
-        <div>
-          <div className="grid xl:gap-y-10 gap-y-8 gap-4">
-            <div className="grid gap-4">
-              <div className="flex flex-row justify-between items-center">
-                <div className="flex flex-row items-center gap-x-2">
-                  <CardDescription>
-                    What is QuecManager and how it can help you.
-                  </CardDescription>
-                </div>
-                <div className="flex flex-row items-center gap-x-2">
-                  <Button onClick={() => setHideSensitiveData((prev) => !prev)}>
-                    {hideSensitiveData ? (
-                      <Eye className="xl:size-6 size-5" />
-                    ) : (
-                      <EyeOff className="xl:size-6 size-5" />
-                    )}
-                    <span className="hidden md:block">
-                      {hideSensitiveData ? "Show" : "Hide"} Sensitive Data
-                    </span>
-                  </Button>
-                </div>
+        <div className="grid xl:gap-y-10 gap-y-8 gap-4">
+          <div className="grid gap-4">
+            <div className="flex flex-row justify-between items-center">
+              <div className="flex flex-row items-center gap-x-2">
+                <CardDescription>
+                  What is QuecManager and how it can help you.
+                </CardDescription>
+              </div>
+              <div className="flex flex-row items-center gap-x-2">
+                <Button onClick={() => setHideSensitiveData((prev) => !prev)}>
+                  {hideSensitiveData ? (
+                    <Eye className="xl:size-6 size-5" />
+                  ) : (
+                    <EyeOff className="xl:size-6 size-5" />
+                  )}
+                  <span className="hidden md:block">
+                    {hideSensitiveData ? "Show" : "Hide"} Sensitive Data
+                  </span>
+                </Button>
               </div>
             </div>
           </div>

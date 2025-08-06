@@ -126,6 +126,8 @@ export interface AboutData {
 }
 
 export interface DiagnosticsData {
+  id?: string;
+  timestamp?: string;
   netRegistration?: string;
   simState?: string;
   manualAPN?: string;
@@ -133,6 +135,22 @@ export interface DiagnosticsData {
   cellSignal?: string;
   modemTemp?: string;
   netReject?: string;
+  rawData?: any[];
+  // Add detailed reject causes
+  rejectCauses?: {
+    emm?: {
+      code: string;
+      description: string;
+    };
+    esm?: {
+      code: string;
+      description: string;
+    };
+    nrmm?: {
+      code: string;
+      description: string;
+    };
+  };
 }
 
 // You might also want to define some utility types for the bandwidth maps and access tech map
@@ -224,3 +242,143 @@ export const LTE_RB_BANDWIDTH_MAP: BandwidthMap = {
   "-" : "-" 
 };
 
+export const EMM_REJECT_CAUSE_MAP = {
+  "0": "No cause",
+  "2": "IMSI unknown in HSS",
+  "3": "Illegal UE",
+  "5": "IMEI not accepted",
+  "6": "Illegal ME",
+  "7": "EPS services not allowed",
+  "8": "EPS services and non-EPS services not allowed",
+  "9": "UE identity cannot be derived by the network",
+  "10": "Implicitly detached",
+  "11": "PLMN not allowed",
+  "12": "Tracking Area not allowed",
+  "13": "Roaming not allowed in this tracking area",
+  "14": "EPS services not allowed in this PLMN",
+  "15": "No Suitable Cells in tracking area",
+  "16": "MSC temporarily not reachable",
+  "17": "Network failure",
+  "18": "CS domain not available",
+  "19": "ESM failure",
+  "20": "MAC failure",
+  "21": "Synch failure",
+  "22": "Congestion",
+  "23": "UE security capabilities mismatch",
+  "24": "Security mode rejected, unspecified",
+  "25": "Not authorized for this CSG",
+  "26": "Non-EPS authentication unacceptable",
+  "31": "Redirection to 5GCN required",
+  "35": "Requested service option not authorized in this PLMN",
+  "39": "CS service temporarily not available",
+  "40": "No EPS bearer context activated",
+  "42": "Severe network failure",
+  "95": "Semantically incorrect message",
+  "96": "Invalid mandatory information",
+  "97": "Message type non-existent or not implemented",
+  "98": "Message type not compatible with the protocol state",
+  "99": "Information element non-existent or not implemented",
+  "100": "Conditional IE error",
+  "101": "Message not compatible with the protocol state",
+  "111": "Protocol error, unspecified",
+};
+
+export const ESM_REJECT_CAUSE_MAP = {
+  "0": "No cause",
+  "8": "Operator Determined Barring",
+  "26": "Insufficient resources",
+  "27": "Missing or unknown APN",
+  "28": "Unknown PDN type",
+  "29": "User authentication failed",
+  "30": "Request rejected by Serving GW or PDN GW",
+  "31": "Request rejected, unspecified",
+  "32": "Service option not supported",
+  "33": "Requested service option not subscribed",
+  "34": "Service option temporarily out of order",
+  "35": "PTI already in use",
+  "36": "Regular deactivation",
+  "37": "EPS QoS not accepted",
+  "38": "Network failure",
+  "39": "Reactivation requested",
+  "41": "Semantic error in the TFT operation",
+  "42": "Syntactical error in the TFT operation",
+  "43": "Invalid EPS bearer identity",
+  "44": "Semantic errors in packet filter(s)",
+  "45": "Syntactical errors in packet filter(s)",
+  "46": "Unused (see NOTE 2)",
+  "47": "PTI mismatch",
+  "49": "Last PDN disconnection not allowed",
+  "50": "PDN type IPv4 only allowed",
+  "51": "PDN type IPv6 only allowed",
+  "52": "Single address bearers only allowed",
+  "53": "ESM information not received",
+  "54": "PDN connection does not exist",
+  "55": "Multiple PDN connections for a given APN not allowed",
+  "56": "Collision with network initiated request",
+  "57": "PDN type IPv4v6 only allowed",
+  "58": "PDN type non IP only allowed",
+  "59": "Unsupported QCI value",
+  "60": "Bearer handling not supported",
+  "61": "PDN type Ethernet only allowed",
+  "65": "Maximum number of EPS bearers reached",
+  "66": "Requested APN not supported in current RAT and PLMN combination",
+  "81": "Invalid PTI value",
+  "95": "Semantically incorrect message",
+  "96": "Invalid mandatory information",
+  "97": "Message type non-existent or not implemented",
+  "98": "Message type not compatible with the protocol state",
+  "99": "Information element non-existent or not implemented",
+  "100": "Conditional IE error",
+  "101": "Message not compatible with the protocol state",
+  "111": "Protocol error, unspecified",
+  "112": "APN restriction value incompatible with active EPS bearer context",
+  "113": "Multiple accesses to a PDN connection not allowed",
+};
+
+export const NRMM_REJECT_CAUSE_MAP = {
+  "0": "No cause",
+  "3": "Illegal UE",
+  "5": "PEI not accepted",
+  "6": "Illegal ME",
+  "7": "5GS services not allowed",
+  "9": "UE identity cannot be derived by the network",
+  "10": "Implicitly de-registered",
+  "11": "PLMN not allowed",
+  "12": "Tracking area not allowed",
+  "13": "Roaming not allowed in this tracking area",
+  "15": "No suitable cells in tracking area",
+  "20": "MAC failure",
+  "21": "Synch failure",
+  "22": "Congestion",
+  "23": "UE security capabilities mismatch",
+  "24": "Security mode rejected, unspecified",
+  "26": "Non-5G authentication unacceptable",
+  "27": "N1 mode not allowed",
+  "28": "Restricted service area",
+  "31": "Redirection to EPC required",
+  "43": "LADN not available",
+  "62": "No network slices available",
+  "65": "Maximum number of PDU sessions reached",
+  "67": "Insufficient resources for specific slice and DNN",
+  "69": "Insufficient resources for specific slice",
+  "71": "ngKSI already in use",
+  "72": "Non-3GPP access to 5GCN not allowed",
+  "73": "Serving network not authorized",
+  "74": "Temporarily not authorized for this SNPN",
+  "75": "Permanently not authorized for this SNPN",
+  "76": "Not authorized for this CAG or authorized for CAG cells only",
+  "77": "Wireline access area not allowed",
+  "78": "PLMN not allowed to operate at the present UE location",
+  "79": "UAS services not allowed",
+  "90": "Payload was not forwarded",
+  "91": "DNN not supported or not subscribed in the slice",
+  "92": "Insufficient user-plane resources for the PDU session",
+  "95": "Semantically incorrect message",
+  "96": "Invalid mandatory information",
+  "97": "Message type non-existent or not implemented",
+  "98": "Message type not compatible with the protocol state",
+  "99": "Information element non-existent or not implemented",
+  "100": "Conditional IE error",
+  "101": "Message not compatible with the protocol state",
+  "111": "Protocol error, unspecified",
+}
