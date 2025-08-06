@@ -73,7 +73,7 @@ perform_keep_alive() {
     
     # Wait 3 seconds then delete the file
     sleep 3
-    rm -f "$TEMP_FILE"
+    #rm -f "$TEMP_FILE"
     
     # Log the activity
     echo "$(date): Keep-alive test performed" >> /tmp/keep_alive.log
