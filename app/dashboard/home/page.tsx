@@ -15,6 +15,13 @@ import PingCard from "@/components/home/ping-card";
 
 import { Button } from "@/components/ui/button";
 import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -200,6 +207,13 @@ const HomePage = () => {
   }, [homeData]);
 
   useEffect(() => {
+    if (homeData?.simCard?.state?.toLowerCase().includes("failed")) {
+      toast({
+        title: "SMS_Tool failed to acquire token",
+        description: "The system will attempt to recover automatically. If this issue persists, please logout and log back in or restart the device.",
+        variant: "destructive",
+      });
+    }
     if (!isLoading && homeData?.simCard.state === "Not Inserted") {
       setNoSimDialogOpen(true);
     }
