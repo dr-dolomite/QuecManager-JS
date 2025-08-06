@@ -1,9 +1,16 @@
 #!/bin/sh
 
+# Keep-Alive Scheduling Script
+# This script allows scheduling of keep-alive requests to prevent the connection from being closed.
+# It supports setting a time interval during which the keep-alive requests will be made.
+# It uses a worker script to perform the actual keep-alive requests by downloading a test file.
+
 # Configuration
 CONFIG_FILE="/etc/keep_alive_schedule.conf"
 STATUS_FILE="/tmp/keep_alive_status"
-SPEEDTEST_SCRIPT="/www/cgi-bin/home/speedtest/speedtest.sh"
+KEEP_ALIVE_SCRIPT="/www/cgi-bin/quecmanager/experimental/keep_alive_worker.sh"
+TEST_URL="https://ash-speed.hetzner.com/100MB.bin"
+TEMP_FILE="/tmp/keep_alive_test.bin"
 
 # Function to convert HH:MM to minutes since midnight
 time_to_minutes() {
@@ -35,6 +42,49 @@ validate_interval() {
     return 0
 }
 
+# Function to create the keep-alive worker script
+create_worker_script() {
+    cat > "$KEEP_ALIVE_SCRIPT" << 'EOF'
+#!/bin/sh
+
+TEST_URL="https://ash-speed.hetzner.com/100MB.bin"
+TEMP_FILE="/tmp/keep_alive_test.bin"
+
+# Function to perform keep-alive test
+perform_keep_alive() {
+    # Download the test file in background
+    wget -q -O "$TEMP_FILE" "$TEST_URL" &
+    WGET_PID=$!
+    
+    # Wait for download to complete or timeout after 30 seconds
+    COUNTER=0
+    while [ $COUNTER -lt 30 ]; do
+        if ! kill -0 $WGET_PID 2>/dev/null; then
+            break
+        fi
+        sleep 1
+        COUNTER=$((COUNTER + 1))
+    done
+    
+    # If download is still running, kill it
+    if kill -0 $WGET_PID 2>/dev/null; then
+        kill $WGET_PID 2>/dev/null
+    fi
+    
+    # Wait 3 seconds then delete the file
+    sleep 3
+    rm -f "$TEMP_FILE"
+    
+    # Log the activity
+    echo "$(date): Keep-alive test performed" >> /tmp/keep_alive.log
+}
+
+# Execute the keep-alive test
+perform_keep_alive
+EOF
+    chmod +x "$KEEP_ALIVE_SCRIPT"
+}
+
 # Function to generate cron time expression
 generate_cron_time() {
     START_TIME=$1
@@ -49,10 +99,10 @@ generate_cron_time() {
     # If end time is less than start time, it means we cross midnight
     if [ $(time_to_minutes "$END_TIME") -lt $(time_to_minutes "$START_TIME") ]; then
         # Create two cron entries for before and after midnight
-        echo "*/$INTERVAL $START_HOUR-23 * * * $SPEEDTEST_SCRIPT"
-        echo "*/$INTERVAL 0-$((END_HOUR - 1)) * * * $SPEEDTEST_SCRIPT"
+        echo "*/$INTERVAL $START_HOUR-23 * * * $KEEP_ALIVE_SCRIPT"
+        echo "*/$INTERVAL 0-$((END_HOUR - 1)) * * * $KEEP_ALIVE_SCRIPT"
     else
-        echo "*/$INTERVAL $START_HOUR-$((END_HOUR - 1)) * * * $SPEEDTEST_SCRIPT"
+        echo "*/$INTERVAL $START_HOUR-$((END_HOUR - 1)) * * * $KEEP_ALIVE_SCRIPT"
     fi
 }
 
@@ -75,7 +125,10 @@ disable_scheduling() {
         sed -i 's/ENABLED=1/ENABLED=0/' "$CONFIG_FILE"
     fi
     # Remove any existing cron jobs
-    crontab -l | grep -v "$SPEEDTEST_SCRIPT" | crontab -
+    crontab -l | grep -v "$KEEP_ALIVE_SCRIPT" | crontab -
+    # Clean up temporary files
+    rm -f "$TEMP_FILE"
+    rm -f "$KEEP_ALIVE_SCRIPT"
 }
 
 # Function to get current status
@@ -86,15 +139,21 @@ get_status() {
         END_TIME=$(grep "END_TIME=" "$CONFIG_FILE" | cut -d'=' -f2)
         INTERVAL=$(grep "INTERVAL=" "$CONFIG_FILE" | cut -d'=' -f2)
 
+        # Check if log file exists and get last activity
+        LAST_ACTIVITY=""
+        if [ -f "/tmp/keep_alive.log" ]; then
+            LAST_ACTIVITY=$(tail -n 1 /tmp/keep_alive.log | cut -d: -f1-3)
+        fi
+
         echo "Status: 200 OK"
         echo "Content-Type: application/json"
         echo ""
-        echo "{\"enabled\":$ENABLED,\"start_time\":\"$START_TIME\",\"end_time\":\"$END_TIME\",\"interval\":$INTERVAL}"
+        echo "{\"enabled\":$ENABLED,\"start_time\":\"$START_TIME\",\"end_time\":\"$END_TIME\",\"interval\":$INTERVAL,\"last_activity\":\"$LAST_ACTIVITY\"}"
     else
         echo "Status: 200 OK"
         echo "Content-Type: application/json"
         echo ""
-        echo "{\"enabled\":0,\"start_time\":\"\",\"end_time\":\"\",\"interval\":0}"
+        echo "{\"enabled\":0,\"start_time\":\"\",\"end_time\":\"\",\"interval\":0,\"last_activity\":\"\"}"
     fi
 }
 
@@ -110,7 +169,7 @@ if [ "$REQUEST_METHOD" = "POST" ]; then
         echo "Status: 200 OK"
         echo "Content-Type: application/json"
         echo ""
-        echo "{\"status\":\"success\",\"message\":\"Scheduling disabled\"}"
+        echo "{\"status\":\"success\",\"message\":\"Keep-alive scheduling disabled\"}"
         exit 0
     fi
 
@@ -142,6 +201,15 @@ if [ "$REQUEST_METHOD" = "POST" ]; then
         exit 1
     fi
 
+    # Validate interval (minimum 5 minutes to avoid too frequent requests)
+    if [ "$INTERVAL" -lt 5 ]; then
+        echo "Status: 400 Bad Request"
+        echo "Content-Type: application/json"
+        echo ""
+        echo "{\"error\":\"Interval must be at least 5 minutes\"}"
+        exit 1
+    fi
+
     # Validate interval
     if ! validate_interval "$START_TIME" "$END_TIME" "$INTERVAL"; then
         echo "Status: 400 Bad Request"
@@ -151,11 +219,14 @@ if [ "$REQUEST_METHOD" = "POST" ]; then
         exit 1
     fi
 
+    # Create the worker script
+    create_worker_script
+
     # Create temporary file for new crontab
     TEMP_CRON=$(mktemp)
 
     # Get existing crontab entries (excluding our script)
-    crontab -l 2>/dev/null | grep -v "$SPEEDTEST_SCRIPT" >"$TEMP_CRON"
+    crontab -l 2>/dev/null | grep -v "$KEEP_ALIVE_SCRIPT" >"$TEMP_CRON"
 
     # Generate and add cron entries
     generate_cron_time "$START_TIME" "$END_TIME" "$INTERVAL" >>"$TEMP_CRON"
@@ -167,10 +238,13 @@ if [ "$REQUEST_METHOD" = "POST" ]; then
     # Save configuration
     save_config "$START_TIME" "$END_TIME" "$INTERVAL"
 
+    # Initialize log file
+    echo "$(date): Keep-alive scheduling enabled" > /tmp/keep_alive.log
+
     echo "Status: 200 OK"
     echo "Content-Type: application/json"
     echo ""
-    echo "{\"status\":\"success\",\"message\":\"Keep-alive scheduling enabled\"}"
+    echo "{\"status\":\"success\",\"message\":\"Keep-alive scheduling enabled with download method\"}"
     exit 0
 fi
 

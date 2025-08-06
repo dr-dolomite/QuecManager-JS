@@ -11,7 +11,8 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Clock1, DiscIcon, TriangleAlert } from "lucide-react";
+import { TriangleAlert } from "lucide-react";
+import { FaRunning } from "react-icons/fa";
 import { Toggle } from "@/components/ui/toggle";
 import { useToast } from "@/hooks/use-toast";
 
@@ -20,6 +21,7 @@ interface KeepAliveStatus {
   start_time: string;
   end_time: string;
   interval: number;
+  last_activity?: string;
 }
 
 interface KeepAliveResponse {
@@ -33,6 +35,7 @@ const KeepAliveCard = () => {
   const [endTime, setEndTime] = useState<string>("");
   const [interval, setInterval] = useState<string>("");
   const [enabled, setEnabled] = useState<boolean>(false);
+  const [loading, setLoading] = useState<boolean>(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -42,15 +45,21 @@ const KeepAliveCard = () => {
   const fetchStatus = async (): Promise<void> => {
     try {
       const response = await fetch(
-        "/cgi-bin/quecmanager/experimental/keep_alive.sh?status=true"
+        "/cgi-bin/quecmanager/experimental/keep_alive_reworked.sh?status=true"
       );
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
       const data: KeepAliveStatus = await response.json();
 
-      setStartTime(data.start_time);
-      setEndTime(data.end_time);
-      setInterval(data.interval.toString());
+      setStartTime(data.start_time || "");
+      setEndTime(data.end_time || "");
+      setInterval(data.interval ? data.interval.toString() : "");
       setEnabled(data.enabled === 1);
     } catch (error) {
+      console.error("Failed to fetch status:", error);
       toast({
         title: "Error",
         description: "Failed to fetch current status",
@@ -60,29 +69,36 @@ const KeepAliveCard = () => {
   };
 
   const handleToggle = async (pressed: boolean): Promise<void> => {
+    if (loading) return;
+
+    setLoading(true);
+
     try {
       if (pressed) {
+        // Validate inputs before enabling
         if (!startTime || !endTime || !interval) {
           toast({
             title: "Error",
             description: "Please fill in all fields",
             variant: "destructive",
           });
+          setLoading(false);
           return;
         }
 
         const intervalNum = parseInt(interval, 10);
-        if (isNaN(intervalNum) || intervalNum <= 0) {
+        if (isNaN(intervalNum) || intervalNum < 5) {
           toast({
             title: "Error",
-            description: "Interval must be a positive number",
+            description: "Interval must be at least 5 minutes",
             variant: "destructive",
           });
+          setLoading(false);
           return;
         }
 
         const response = await fetch(
-          "/cgi-bin/quecmanager/experimental/keep_alive.sh",
+          "/cgi-bin/quecmanager/experimental/keep_alive_reworked.sh",
           {
             method: "POST",
             headers: {
@@ -96,6 +112,10 @@ const KeepAliveCard = () => {
           }
         );
 
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
         const data: KeepAliveResponse = await response.json();
 
         if (data.error) {
@@ -104,16 +124,19 @@ const KeepAliveCard = () => {
             description: data.error,
             variant: "destructive",
           });
+          setLoading(false);
           return;
         }
 
         toast({
           title: "Success",
-          description: "Keep-alive scheduling enabled",
+          description: "Keep-alive scheduling enabled with download method",
         });
+        setEnabled(true);
       } else {
+        // Disable keep-alive
         const response = await fetch(
-          "/cgi-bin/quecmanager/experimental/keep_alive.sh",
+          "/cgi-bin/quecmanager/experimental/keep_alive_reworked.sh",
           {
             method: "POST",
             headers: {
@@ -123,28 +146,45 @@ const KeepAliveCard = () => {
           }
         );
 
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
         const data: KeepAliveResponse = await response.json();
+
+        if (data.error) {
+          toast({
+            title: "Error",
+            description: data.error,
+            variant: "destructive",
+          });
+          setLoading(false);
+          return;
+        }
 
         toast({
           title: "Success",
           description: "Keep-alive scheduling disabled",
         });
+        setEnabled(false);
       }
-
-      setEnabled(pressed);
     } catch (error) {
+      console.error("Failed to update keep-alive settings:", error);
       toast({
         title: "Error",
-        description: "Failed to update keep-alive settings",
+        description:
+          "Failed to update keep-alive settings. Please check your connection.",
         variant: "destructive",
       });
+      // Don't change the enabled state on error
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleIntervalChange = (
     e: React.ChangeEvent<HTMLInputElement>
   ): void => {
-    // Remove any non-numeric characters and leading zeros
     const value = e.target.value.replace(/[^0-9]/g, "").replace(/^0+/, "");
     setInterval(value);
   };
@@ -154,8 +194,9 @@ const KeepAliveCard = () => {
       <CardHeader>
         <CardTitle>Keep Alive</CardTitle>
         <CardDescription>
-          Ensure uninterrupted connectivity by preventing modem idle times with
-          scheduled speed tests to keep your connection alive.
+          Ensure uninterrupted connectivity by downloading test files at
+          scheduled intervals to keep your connection alive. Uses minimal data
+          compared to speed tests.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -169,7 +210,7 @@ const KeepAliveCard = () => {
               onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                 setStartTime(e.target.value)
               }
-              disabled={enabled}
+              disabled={enabled || loading}
             />
           </div>
           <div className="grid w-full max-w-sm items-center gap-2">
@@ -181,7 +222,7 @@ const KeepAliveCard = () => {
               onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                 setEndTime(e.target.value)
               }
-              disabled={enabled}
+              disabled={enabled || loading}
             />
           </div>
           <div className="grid w-full max-w-sm items-center gap-2">
@@ -189,18 +230,28 @@ const KeepAliveCard = () => {
             <Input
               type="number"
               id="interval"
-              min={1}
+              min={5}
               value={interval}
               onChange={handleIntervalChange}
-              placeholder="Enter minutes"
-              disabled={enabled}
+              placeholder="Enter minutes (minimum 5)"
+              disabled={enabled || loading}
               className="[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
             />
           </div>
           <div className="lg:col-span-2 col-span-1 flex items-center gap-2">
-            <TriangleAlert className="h-4 w-4 text-red-600" />
+            <TriangleAlert className="h-4 w-4 text-orange-500" />
             <p className="text-sm text-gray-500">
-              Please consider your data usage limits when setting the interval.
+              Downloads a
+              <a
+                href="https://ash-speed.hetzner.com/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-500 hover:underline mx-1"
+              >
+                100MB test file
+              </a>
+              at each interval. Please consider your data usage limits. The
+              minimum interval is 5 minutes.
             </p>
           </div>
         </div>
@@ -209,11 +260,14 @@ const KeepAliveCard = () => {
         <Toggle
           pressed={enabled}
           onPressedChange={handleToggle}
-          // disabled={!startTime || !endTime || !interval}
-          disabled
+          disabled={loading || !startTime || !endTime || !interval}
         >
-          <DiscIcon className="h-4 w-4 mr-2" />
-          Keep Alive is Under Consideration
+          <FaRunning className="h-4 w-4 mr-2" />
+          {loading
+            ? "Processing..."
+            : enabled
+            ? "Disable Keep Alive"
+            : "Enable Keep Alive"}
         </Toggle>
       </CardFooter>
     </Card>
