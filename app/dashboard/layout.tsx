@@ -207,8 +207,14 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     };
 
     // Listen for custom events from PersonalizationPage
-    window.addEventListener('profilePictureUpdated', handleProfilePictureUpdate);
-    window.addEventListener('profilePictureDeleted', handleProfilePictureUpdate);
+    window.addEventListener(
+      "profilePictureUpdated",
+      handleProfilePictureUpdate
+    );
+    window.addEventListener(
+      "profilePictureDeleted",
+      handleProfilePictureUpdate
+    );
 
     // Listen for localStorage changes (cross-tab synchronization)
     const handleStorageChange = (e: StorageEvent) => {
@@ -216,12 +222,18 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
         loadCachedImage();
       }
     };
-    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener("storage", handleStorageChange);
 
     return () => {
-      window.removeEventListener('profilePictureUpdated', handleProfilePictureUpdate);
-      window.removeEventListener('profilePictureDeleted', handleProfilePictureUpdate);
-      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener(
+        "profilePictureUpdated",
+        handleProfilePictureUpdate
+      );
+      window.removeEventListener(
+        "profilePictureDeleted",
+        handleProfilePictureUpdate
+      );
+      window.removeEventListener("storage", handleStorageChange);
     };
   }, []);
 
@@ -238,6 +250,46 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       setIsRebooting(true);
       // Use the updated AT command sender with wait=true to ensure command completes
       await atCommandSender("AT+QPOWD=1", true, 60);
+
+      // Use constants for timeout values
+      const REBOOT_TIMEOUT = 90000;
+      const RELOAD_DELAY = 2000;
+
+      toast.toast({
+        title: "Rebooting device",
+        description: `Please wait for the device to restart. This may take up to ${
+          REBOOT_TIMEOUT / 1000
+        } seconds.`,
+        duration: REBOOT_TIMEOUT,
+      });
+
+      setTimeout(() => {
+        toast.toast({
+          title: "Device is now active",
+          description: "The device has been rebooted successfully.",
+        });
+      }, REBOOT_TIMEOUT);
+
+      setTimeout(() => {
+        window.location.reload();
+      }, REBOOT_TIMEOUT + RELOAD_DELAY);
+    } catch (error) {
+      console.error("Reboot error:", error);
+      toast.toast({
+        title: "Failed to reboot device",
+        description: "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsRebooting(false);
+    }
+  };
+
+  const handleForceReboot = async () => {
+    try {
+      setIsRebooting(true);
+      // Use force reboot script from the server
+      await fetch("/cgi-bin/quecmanager/settings/force-reboot.sh");
 
       // Use constants for timeout values
       const REBOOT_TIMEOUT = 90000;
@@ -569,6 +621,34 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                       >
                         <Power className="size-4" />
                         Reboot Now
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <button className="relative flex w-full cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors hover:bg-accent hover:text-accent-foreground">
+                      Force Reboot
+                    </button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This will force reboot your device. The connection will
+                        be lost temporarily. Please wait for the page to reload.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={handleForceReboot}
+                        disabled={isRebooting}
+                      >
+                        <Power className="size-4" />
+                        Force Reboot Now
                       </AlertDialogAction>
                     </AlertDialogFooter>
                   </AlertDialogContent>

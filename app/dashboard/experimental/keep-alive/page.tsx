@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { TriangleAlert } from "lucide-react";
+import { CircleCheck, TriangleAlert } from "lucide-react";
 import { FaRunning } from "react-icons/fa";
 import { Toggle } from "@/components/ui/toggle";
 import { useToast } from "@/hooks/use-toast";
@@ -192,11 +192,13 @@ const KeepAliveCard = () => {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Keep Alive</CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle>Keep Alive</CardTitle>
+        </div>
+
         <CardDescription>
           Ensure uninterrupted connectivity by downloading test files at
-          scheduled intervals to keep your connection alive. Uses minimal data
-          compared to speed tests.
+          scheduled intervals to keep your connection alive.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -238,22 +240,31 @@ const KeepAliveCard = () => {
               className="[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
             />
           </div>
-          <div className="lg:col-span-2 col-span-1 flex items-center gap-2">
-            <TriangleAlert className="h-4 w-4 text-orange-500" />
-            <p className="text-sm text-gray-500">
-              Downloads a
-              <a
-                href="https://ash-speed.hetzner.com/"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-blue-500 hover:underline mx-1"
-              >
-                100MB test file
-              </a>
-              at each interval. Please consider your data usage limits. The
-              minimum interval is 5 minutes.
-            </p>
-          </div>
+          {enabled ? (
+            <div className="lg:col-span-2 col-span-1 flex items-center gap-2">
+              <CircleCheck className="h-4 w-4 text-green-500 hidden md:block" />
+              <p className="text-sm text-gray-500">
+                Keep-alive scheduling is enabled.
+              </p>
+            </div>
+          ) : (
+            <div className="lg:col-span-2 col-span-1 flex items-center gap-2">
+              <TriangleAlert className="h-4 w-4 text-orange-500 hidden md:block" />
+              <p className="text-sm text-gray-500">
+                Downloads a
+                <a
+                  href="https://ash-speed.hetzner.com/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-500 hover:underline mx-1"
+                >
+                  100MB test file
+                </a>
+                at each interval. Please consider your data usage limits. The
+                minimum interval is 5 minutes.
+              </p>
+            </div>
+          )}
         </div>
       </CardContent>
       <CardFooter className="border-t py-4">

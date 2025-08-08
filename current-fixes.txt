@@ -6,3 +6,8 @@
 a. /quecmanager/settings/measurement_units.sh
 b. /quecmanager/settings/profile_picture.sh
 - added fix for no sim detected error when sms tool crashes
+- reworked Keep Alive feature
+a. renamed keep_alive.sh to keep_alive_reworked.sh
+- improved net reject cause from diagnostics to include the equivalent reject cause message
+- improved diagnostics function to show toast for error and removed optional useEffect for successful scan
+- improved speedtest card "last speedtest data" a bit

@@ -178,15 +178,13 @@ const HomePage = () => {
     try {
       await startDiagnostics();
     } catch (error) {
-      console.error("Error running diagnostics:", error);
+      toast({
+        variant: "destructive",
+        title: "Diagnostics Failed",
+        description: "Failed to run diagnostics",
+      });
     }
   };
-
-  // useEffect(() => {
-  //   if (runDiagnosticsData) {
-  //     console.log("Diagnostics data updated:", runDiagnosticsData);
-  //   }
-  // }, [runDiagnosticsData]);
 
   useEffect(() => {
     if (homeData && homeData.currentBands) {
