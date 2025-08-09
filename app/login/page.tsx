@@ -107,57 +107,63 @@ const LoginPage = () => {
     <div className="bg-background flex min-h-svh flex-col items-center justify-center gap-6 p-6 md:p-10">
       <div className="w-full max-w-sm">
         <div className="flex flex-col gap-6">
-          <form
-            onSubmit={handleSubmit}
-          >
-            <div className="flex flex-col gap-6">
-              <div className="flex flex-col items-center gap-2">
-                <a
-                  href="/"
-                  className="flex flex-col items-center gap-2 font-medium"
+          <div className="flex flex-col gap-6">
+            <div className="flex flex-col items-center gap-2">
+              <a
+                href="/"
+                className="flex flex-col items-center gap-2 font-medium"
+              >
+                <img
+                  src="/login-logo.svg"
+                  alt="QuecManager Logo"
+                  className="size-36 aspect-square object-cover"
+                />
+              </a>
+              <h1 className="text-xl font-bold">Welcome to QuecManager</h1>
+              <div className="text-center text-sm">
+                Forgot your password?{" "}
+                <Button
+                  variant="link"
+                  type="button"
+                  className="p-0 underline"
+                  onClick={() => {
+                    toast({
+                      variant: "destructive",
+                      title: "Forgot your password?",
+                      description:
+                        "Use the toolkit script to create a new password.",
+                      action: <GithubButtonToast />,
+                    });
+                  }}
                 >
-                  <img
-                    src="/login-logo.svg"
-                    alt="QuecManager Logo"
-                    className="size-36 aspect-square object-cover"
-                  />
-                </a>
-                <h1 className="text-xl font-bold">Welcome to QuecManager</h1>
-                <div className="text-center text-sm">
-                  Don&apos;t know the password?{" "}
-                  <Button
-                    variant="link"
-                    className="p-0 underline"
-                    onClick={() => {
-                      toast({
-                        variant: "destructive",
-                        title: "Forgot your password?",
-                        description:
-                          "Use the toolkit script to create a new password.",
-                        action: <GithubButtonToast />,
-                      });
-                    }}
-                  >
-                    Reset it
-                  </Button>
-                </div>
+                  Reset it
+                </Button>
               </div>
+            </div>
+            <form onSubmit={handleSubmit}>
               <div className="flex flex-col gap-6">
                 <div className="grid gap-3">
                   <Label htmlFor="email">Password</Label>
                   <Input
                     id="password"
                     type="password"
-                    placeholder="Enter your password"
                     required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
                   />
                 </div>
                 <Button type="submit" className="w-full">
                   Login
                 </Button>
+                {error && (
+                  <div className="bg-rose-500 p-1 rounded-md flex text-center justify-center items-center">
+                    <p>{error}</p>
+                  </div>
+                )}
               </div>
-            </div>
-          </form>
+            </form>
+          </div>
+
           <div className="text-muted-foreground *:[a]:hover:text-primary text-center text-xs text-balance *:[a]:underline *:[a]:underline-offset-4">
             By clicking continue, you agree to our{" "}
             <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a>.

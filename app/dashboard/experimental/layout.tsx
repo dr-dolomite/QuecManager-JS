@@ -73,6 +73,16 @@ const CellSettingsLayout = ({ children }: CellSettingsLayoutProps) => {
           >
             Frequency Calculator
           </Link>
+          <Link
+            href="/dashboard/experimental/network-insights"
+            className={`${
+              currentPathName === "/dashboard/experimental/network-insights/"
+                ? "font-semibold text-primary"
+                : "text-sm"
+            }`}
+          >
+            Network Insights
+          </Link>
         </nav>
         {children}
       </div>

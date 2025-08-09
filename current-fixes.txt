@@ -1,13 +1,7 @@
-- improved masking design
-- fixed hydration errors
-- added profile image upload feature
-- added preferred distance unit
-- new scripts
-a. /quecmanager/settings/measurement_units.sh
-b. /quecmanager/settings/profile_picture.sh
-- added fix for no sim detected error when sms tool crashes
-- reworked Keep Alive feature
-a. renamed keep_alive.sh to keep_alive_reworked.sh
-- improved net reject cause from diagnostics to include the equivalent reject cause message
-- improved diagnostics function to show toast for error and removed optional useEffect for successful scan
-- improved speedtest card "last speedtest data" a bit
+- changed login page design
+- added Network Insights feature
+a. updated log_signal_metrics.sh to include qcainfo command
+b. added interpret_qcainfo.sh for interpreting qcainfo Results
+c. added fetch_interpretations.sh to fetch the interpreted Results
+d. updated quecmanager_services to include interpret_qcainfo.sh service
+e. added use-network-interpretation hook
