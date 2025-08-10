@@ -6,6 +6,8 @@ c. added fetch_interpretations.sh to fetch the interpreted Results
 d. updated quecmanager_services to include interpret_qcainfo.sh service
 e. added use-network-interpretation hook
 f. Network Insights script still under testing and improvements
+- added Scheduled reboot
+a. added scheduled_reboot.sh
 - Added Custom Features section
 - Moved some old "experimental" features to Custom Features section
 - Removed About from navigation

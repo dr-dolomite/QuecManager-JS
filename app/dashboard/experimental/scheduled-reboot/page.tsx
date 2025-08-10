@@ -228,16 +228,6 @@ const ScheduledRebootPage = () => {
     fetchConfig();
   }, []);
 
-  if (loading) {
-    return (
-      <Card>
-        <CardContent className="flex items-center justify-center h-[400px]">
-          <Loader2 className="h-8 w-8 animate-spin" />
-        </CardContent>
-      </Card>
-    );
-  }
-
   return (
     <Card>
       <CardHeader>
@@ -252,7 +242,7 @@ const ScheduledRebootPage = () => {
             id="scheduled-reboot"
             checked={config.enabled}
             onCheckedChange={handleEnableChange}
-            disabled={saving}
+            disabled={saving || loading}
           />
           <Label htmlFor="scheduled-reboot">Enable Scheduled Reboot</Label>
         </div>
@@ -319,7 +309,7 @@ const ScheduledRebootPage = () => {
         </div>
       </CardContent>
       <CardFooter className="flex border-t py-4">
-        <Button variant="secondary" onClick={resetConfig} disabled={saving}>
+        <Button variant="secondary" onClick={resetConfig} disabled={saving || loading}>
           <Undo2Icon className="h-4 w-4" />
           Reset to Default
         </Button>
