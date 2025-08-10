@@ -5,3 +5,9 @@ b. added interpret_qcainfo.sh for interpreting qcainfo Results
 c. added fetch_interpretations.sh to fetch the interpreted Results
 d. updated quecmanager_services to include interpret_qcainfo.sh service
 e. added use-network-interpretation hook
+f. Network Insights script still under testing and improvements
+- Added Custom Features section
+- Moved some old "experimental" features to Custom Features section
+- Removed About from navigation
+- Moved About section to User Options instead
+- Improved QuecProfiles list view design

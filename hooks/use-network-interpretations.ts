@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from "react";
 
 export interface NetworkInterpretation {
   datetime: string;
@@ -6,7 +6,9 @@ export interface NetworkInterpretation {
 }
 
 export const useNetworkInterpretations = (autoRefreshInterval = 30000) => {
-  const [interpretations, setInterpretations] = useState<NetworkInterpretation[]>([]);
+  const [interpretations, setInterpretations] = useState<
+    NetworkInterpretation[]
+  >([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
@@ -14,26 +16,32 @@ export const useNetworkInterpretations = (autoRefreshInterval = 30000) => {
   const fetchInterpretations = useCallback(async () => {
     try {
       setError(null);
-      const response = await fetch('/cgi-bin/quecmanager/experimental/fetch_interpretations.sh', {
-        cache: 'no-cache',
-        headers: {
-          'Cache-Control': 'no-cache',
-          'Pragma': 'no-cache'
+      const response = await fetch(
+        "/cgi-bin/quecmanager/experimental/fetch_interpretations.sh",
+        {
+          cache: "no-cache",
+          headers: {
+            "Cache-Control": "no-cache",
+            Pragma: "no-cache",
+          },
         }
-      });
-      
+      );
+
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: Failed to fetch interpretations`);
+        throw new Error(
+          `HTTP ${response.status}: Failed to fetch interpretations`
+        );
       }
-      
+
       const data = await response.json();
+
       const interpretationArray = Array.isArray(data) ? data : [];
-      
+
       setInterpretations(interpretationArray);
       setLastUpdate(new Date());
     } catch (err) {
-      console.error('Failed to fetch interpretations:', err);
-      setError(err instanceof Error ? err.message : 'Unknown error occurred');
+      console.error("Failed to fetch interpretations:", err);
+      setError(err instanceof Error ? err.message : "Unknown error occurred");
     } finally {
       setLoading(false);
     }
@@ -41,7 +49,7 @@ export const useNetworkInterpretations = (autoRefreshInterval = 30000) => {
 
   useEffect(() => {
     fetchInterpretations();
-    
+
     if (autoRefreshInterval > 0) {
       const interval = setInterval(fetchInterpretations, autoRefreshInterval);
       return () => clearInterval(interval);
@@ -58,6 +66,6 @@ export const useNetworkInterpretations = (autoRefreshInterval = 30000) => {
     loading,
     error,
     lastUpdate,
-    refresh
+    refresh,
   };
 };

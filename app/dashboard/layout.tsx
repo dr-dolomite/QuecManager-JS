@@ -408,7 +408,17 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
             Advance
           </Link>
           <Link
-            href="/dashboard/experimental/quecwatch"
+            href="/dashboard/custom-features/quecwatch"
+            className={`${
+              currentPathName.includes("/dashboard/custom-features/")
+                ? "text-foreground"
+                : "text-muted-foreground"
+            } transition-colors hover:text-foreground whitespace-nowrap`}
+          >
+            Custom Features
+          </Link>
+          <Link
+            href="/dashboard/experimental/network-insights"
             className={`${
               currentPathName.includes("/dashboard/experimental/")
                 ? "text-foreground"
@@ -417,7 +427,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
           >
             Experimental
           </Link>
-          <Link
+          {/* <Link
             href="/dashboard/about/"
             className={`${
               currentPathName.includes("/dashboard/about/")
@@ -426,7 +436,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
             } transition-colors hover:text-foreground`}
           >
             About
-          </Link>
+          </Link> */}
         </nav>
         <Sheet>
           <SheetTrigger asChild>
@@ -586,13 +596,15 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                 </a>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
-                {/* a tag that redirects to a new tab */}
                 <a
                   href="https://github.com/iamromulan/cellular-modem-wiki/discussions/new/choose"
                   target="_blank"
                 >
                   Support
                 </a>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/dashboard/about">About</Link>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleReconnect}>
