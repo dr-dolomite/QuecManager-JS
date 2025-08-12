@@ -34,35 +34,35 @@ fi
 # Function to extract profiles from UCI config
 get_profiles() {
     log_message "Fetching profiles from UCI config"
-    
+
     # Check if UCI config exists
     if [ ! -f /etc/config/quecprofiles ]; then
         log_message "No profiles config found" "warn"
         echo "{\"status\":\"success\",\"profiles\":[]}"
         return 0
     fi
-    
+
     # Start JSON output
     local json_output=""
     local first=1
     local count=0
-    
+
     # Get all profile indices - make sure this succeeds
     local indices=$(uci -q show quecprofiles | grep -o '@profile\[[0-9]*\]' | sort -u)
-    
+
     # Debug output
     echo "Found indices: $indices" >>/tmp/list_profiles_error.log
-    
+
     if [ -z "$indices" ]; then
         log_message "No profile indices found" "warn"
         echo "{\"status\":\"success\",\"profiles\":[]}"
         return 0
     fi
-    
+
     # Process each profile
     for idx in $indices; do
         log_message "Processing profile index: $idx"
-        
+
         # Try different UCI get approaches
         local name
         name=$(uci -q get "quecprofiles.$idx.name" 2>/dev/null)
@@ -72,7 +72,7 @@ get_profiles() {
             section=${section%]}
             name=$(uci -q get "quecprofiles.@profile[$section].name" 2>/dev/null)
         fi
-        
+
         # Get profile details
         local iccid=$(uci -q get "quecprofiles.$idx.iccid" 2>/dev/null)
         local imei=$(uci -q get "quecprofiles.$idx.imei" 2>/dev/null)
@@ -83,8 +83,9 @@ get_profiles() {
         local nsa_nr5g_bands=$(uci -q get "quecprofiles.$idx.nsa_nr5g_bands" 2>/dev/null)
         local network_type=$(uci -q get "quecprofiles.$idx.network_type" 2>/dev/null)
         local ttl=$(uci -q get "quecprofiles.$idx.ttl" 2>/dev/null)
+        local at_commands=$(uci -q get "quecprofiles.$idx.at_commands" 2>/dev/null)
         local paused=$(uci -q get "quecprofiles.$idx.paused" 2>/dev/null)
-        
+
         # Debug output
         log_message "Retrieved for $idx: name=$name, iccid=$iccid, apn=$apn, paused=$paused"
 
@@ -93,7 +94,7 @@ get_profiles() {
             log_message "Skipping invalid profile: $idx (missing required fields)" "warn"
             continue
         fi
-        
+
         # Sanitize all values to ensure valid JSON
         name=$(sanitize_for_json "$name")
         iccid=$(sanitize_for_json "$iccid")
@@ -105,8 +106,9 @@ get_profiles() {
         nsa_nr5g_bands=$(sanitize_for_json "${nsa_nr5g_bands:-""}")
         network_type=$(sanitize_for_json "${network_type:-"LTE"}")
         ttl=$(sanitize_for_json "${ttl:-0}")
+        at_commands="${at_commands:-""}" # Already "sanitized"
         paused=$(sanitize_for_json "${paused:-0}")
-        
+
         # Create profile JSON
         local profile_json="{"
         profile_json="${profile_json}\"name\":\"${name}\","
@@ -119,27 +121,28 @@ get_profiles() {
         profile_json="${profile_json}\"nsa_nr5g_bands\":\"${nsa_nr5g_bands}\","
         profile_json="${profile_json}\"network_type\":\"${network_type}\","
         profile_json="${profile_json}\"ttl\":\"${ttl}\","
+        profile_json="${profile_json}\"at_commands\":\"${at_commands}\","
         profile_json="${profile_json}\"paused\":\"${paused}\""
         profile_json="${profile_json}}"
-        
+
         # Add comma if not first
         if [ $first -eq 0 ]; then
             json_output="${json_output},"
         else
             first=0
         fi
-        
+
         # Add profile to output
         json_output="${json_output}${profile_json}"
         count=$((count+1))
     done
-    
+
     # Complete the JSON response
     local response="{\"status\":\"success\",\"profiles\":[${json_output}]}"
-    
+
     # Save the response for debugging
     echo "$response" > /tmp/list_profiles_response.json
-    
+
     echo "$response"
     log_message "Found and returned $count profiles"
     return 0
