@@ -118,6 +118,17 @@ validate_ttl() {
     return 0
 }
 
+json_escape() {
+    # Escapes a string for safe JSON output
+    # Usage: escaped=$(json_escape "$your_string")
+    echo "$1" | sed \
+        -e 's/\\/\\\\/g' \
+        -e 's/"/\\"/g' \
+        -e 's/\n/\\n/g' \
+        -e 's/\r/\\r/g' \
+        -e 's/\t/\\t/g'
+}
+
 # Function to check if a profile with given ICCID exists
 find_profile_by_iccid() {
     local iccid="$1"
@@ -171,6 +182,7 @@ update_profile() {
     local nsa_nr5g_bands="$8"
     local network_type="$9"
     local ttl="${10}"
+    local at_commands="${11}"
 
     # Update the profile in UCI config
     uci -q batch <<EOF
@@ -183,6 +195,7 @@ set quecprofiles.$profile_index.sa_nr5g_bands='$sa_nr5g_bands'
 set quecprofiles.$profile_index.nsa_nr5g_bands='$nsa_nr5g_bands'
 set quecprofiles.$profile_index.network_type='$network_type'
 set quecprofiles.$profile_index.ttl='$ttl'
+set quecprofiles.$profile_index.at_commands='$at_commands'
 commit quecprofiles
 EOF
 
@@ -237,6 +250,7 @@ if [ "$REQUEST_METHOD" = "POST" ]; then
             nsa_nr5g_bands=$(echo "$POST_DATA" | jsonfilter -e '@.nsa_nr5g_bands' 2>/dev/null)
             network_type=$(echo "$POST_DATA" | jsonfilter -e '@.network_type' 2>/dev/null)
             ttl=$(echo "$POST_DATA" | jsonfilter -e '@.ttl' 2>/dev/null)
+            at_commands=$(echo "$POST_DATA" | jsonfilter -e '@.at_commands' 2>/dev/null)
 
             log_message "Parsed JSON data for profile: $name" "debug"
         else
@@ -252,6 +266,7 @@ if [ "$REQUEST_METHOD" = "POST" ]; then
             nsa_nr5g_bands=$(echo "$POST_DATA" | grep -o '"nsa_nr5g_bands":"[^"]*"' | head -1 | cut -d':' -f2 | tr -d '"')
             network_type=$(echo "$POST_DATA" | grep -o '"network_type":"[^"]*"' | head -1 | cut -d':' -f2 | tr -d '"')
             ttl=$(echo "$POST_DATA" | grep -o '"ttl":"[^"]*"' | head -1 | cut -d':' -f2 | tr -d '"')
+            at_commands=$(echo "$POST_DATA" | grep -o '"at_commands":"[^"]*"' | head -1 | cut -d':' -f2 | tr -d '"')
 
             log_message "Basic parsing for profile: $name" "warn"
         fi
@@ -271,6 +286,7 @@ else
     nsa_nr5g_bands=$(echo "$QUERY_STRING" | grep -o 'nsa_nr5g_bands=[^&]*' | cut -d'=' -f2)
     network_type=$(echo "$QUERY_STRING" | grep -o 'network_type=[^&]*' | cut -d'=' -f2)
     ttl=$(echo "$QUERY_STRING" | grep -o 'ttl=[^&]*' | cut -d'=' -f2)
+    at_commands=$(echo "$QUERY_STRING" | grep -o 'at_commands=[^&]*' | cut -d'=' -f2)
 
     # URL decode values
     iccid=$(echo "$iccid" | sed 's/+/ /g;s/%\(..\)/\\x\1/g;' | xargs -0 printf "%b")
@@ -283,6 +299,7 @@ else
     nsa_nr5g_bands=$(echo "$nsa_nr5g_bands" | sed 's/+/ /g;s/%\(..\)/\\x\1/g;' | xargs -0 printf "%b")
     network_type=$(echo "$network_type" | sed 's/+/ /g;s/%\(..\)/\\x\1/g;' | xargs -0 printf "%b")
     ttl=$(echo "$ttl" | sed 's/+/ /g;s/%\(..\)/\\x\1/g;' | xargs -0 printf "%b")
+    at_commands=$(echo "$at_commands" | sed 's/+/ /g;s/%\(..\)/\\x\1/g;' | xargs -0 printf "%b"))
 
     log_message "Using URL parameters" "warn"
 fi
@@ -298,6 +315,7 @@ sa_nr5g_bands=$(sanitize "${sa_nr5g_bands:-}")
 nsa_nr5g_bands=$(sanitize "${nsa_nr5g_bands:-}")
 network_type=$(sanitize "${network_type:-LTE}")
 ttl=$(sanitize "${ttl:-0}") # Default to 0 (disabled)
+at_commands=$(json_escape "${at_commands:-}") 
 
 # Output debug info
 log_message "Editing profile: $name, ICCID: $iccid, IMEI: $imei, APN: $apn" "debug"
@@ -373,18 +391,18 @@ if check_duplicate_name "$name" "$iccid"; then
 fi
 
 # Update profile
-if update_profile "$profile_index" "$name" "$imei" "$apn" "$pdp_type" "$lte_bands" "$nr5g_bands" "$network_type"; then
+if update_profile "$profile_index" "$name" "$imei" "$apn" "$pdp_type" "$lte_bands" "$nr5g_bands" "$network_type" "$at_commands"; then
     # Trigger immediate profile application
     touch "/tmp/quecprofiles_check"
     chmod 644 "/tmp/quecprofiles_check"
     log_message "Triggered immediate profile check after update" "info"
-    
+
     # Create a clean JSON response with properly escaped quotes
     printf '{"status":"success","message":"Profile updated successfully","data":{"name":"%s","iccid":"%s","imei":"%s","apn":"%s","pdp_type":"%s","lte_bands":"%s","nr5g_bands":"%s","network_type":"%s"}}' \
         "$name" "$iccid" "$imei" "$apn" "$pdp_type" "$lte_bands" "$nr5g_bands" "$network_type"
-    
+
     log_message "Profile updated successfully: $name" "info"
-    
+
     # Note: The conditional trigger is replaced with the direct trigger above
 else
     printf '{"status":"error","message":"Failed to update profile. Please check system logs."}'
