@@ -607,6 +607,7 @@ apply_profile_settings() {
     local current_nsa_nr5g_bands="${14}"
     local current_imei="${15}"
     local iccid="${16}"
+    local at_commands="${17}"
 
     # Set TTL to 0 (disabled) if not specified
     ttl="${ttl:-0}"
@@ -619,6 +620,7 @@ apply_profile_settings() {
     log_message "- APN: $apn ($pdp_type)" "info"
     log_message "- IMEI: $imei" "info"
     log_message "- TTL: $ttl" "info"
+    log_message "- AT Commands: $at_commands" "info"
 
     # Check if any changes are needed using improved comparison
     local needs_apn_change=0
@@ -813,6 +815,30 @@ apply_profile_settings() {
         fi
     fi
 
+    # Apply custom AT commands if specified
+    if [ $apply_success -eq 1 ] && [ -n "$at_commands" ]; then
+        log_message "Applying custom AT commands" "info"
+        IFS=';' read -ra cmds <<<"$at_commands"
+        for cmd in "${cmds[@]}"; do
+            cmd_trimmed=$(echo "$cmd" | xargs) # Trim whitespace
+            case "$cmd_trimmed" in
+                AT+*) cmd_trimmed="$cmd_trimmed" ;;
+                +*) cmd_trimmed="AT$cmd_trimmed" ;;
+                *) log_message "Ignoring invalid AT command: $cmd_trimmed" "warn" ; continue ;;
+            esac
+            if [ -n "$cmd_trimmed" ]; then
+                log_message "Executing custom AT command: $cmd_trimmed" "debug"
+                output=$(execute_at_command "$cmd_trimmed" 10 "$token_id")
+                if [ $? -eq 0 ]; then
+                    log_message "Custom AT command executed successfully: $cmd_trimmed" "info"
+                else
+                    log_message "Custom AT command failed: $cmd_trimmed" "error"
+                fi
+            fi
+        done
+    fi
+
+
     # Release token
     release_token "$token_id"
 
@@ -913,11 +939,12 @@ check_profile() {
     local pdp_type=$(uci -q get quecprofiles.$profile_index.pdp_type)
     local imei=$(uci -q get quecprofiles.$profile_index.imei)
     local ttl=$(uci -q get quecprofiles.$profile_index.ttl)
-    
+    local at_commands=$(uci -q get quecprofiles.$profile_index.at_commands)
+
     # Check if profile is paused
     local paused=$(uci -q get quecprofiles.$profile_index.paused)
     paused="${paused:-0}" # Default to not paused if not set
-    
+
     # Skip applying paused profiles
     if [ "$paused" = "1" ]; then
         log_message "Profile '$profile_name' is paused, skipping application" "info"
@@ -982,7 +1009,7 @@ check_profile() {
         # Apply profile settings with the new parameters
         apply_profile_settings "$profile_name" "$network_type" "$lte_bands" "$sa_nr5g_bands" "$nsa_nr5g_bands" \
             "$apn" "$pdp_type" "$imei" "$ttl" "$current_apn" "$current_mode" "$current_lte_bands" \
-            "$current_sa_nr5g_bands" "$current_nsa_nr5g_bands" "$current_imei" "$current_iccid"
+            "$current_sa_nr5g_bands" "$current_nsa_nr5g_bands" "$current_imei" "$current_iccid" "$at_commands"
         return $?
     else
         log_message "Automatic profile switching is disabled, not applying profile" "info"
@@ -1038,7 +1065,7 @@ main() {
         while [ $sleep_counter -lt $check_interval ]; do
             sleep 5
             sleep_counter=$((sleep_counter + 5))
-            
+
             # Check for manual trigger during sleep
             if [ -f "$CHECK_TRIGGER" ]; then
                 log_message "Manual check triggered during sleep" "info"
