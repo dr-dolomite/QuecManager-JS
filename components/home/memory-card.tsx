@@ -25,7 +25,7 @@ const MemoryCard = () => {
   useEffect(() => {
     const fetchMemoryInfo = async () => {
       try {
-        const response = await fetch('/cgi-bin/quecmanager/home/fetch_hw_details.sh?type=memory', {
+        const response = await fetch('/cgi-bin/quecmanager/home/memory/fetch_memory.sh', {
           method: 'GET',
           cache: 'no-store',
           headers: {
@@ -35,8 +35,10 @@ const MemoryCard = () => {
         if (!response.ok) {
           throw new Error('Network response was not ok');
         }
-        const data: MemoryData = await response.json();
-        setMemoryData(data);
+        const result = await response.json();
+        if (result.status === 'success' && result.data) {
+          setMemoryData(result.data);
+        }
         
         if (isInitialLoad) {
           setIsInitialLoad(false);

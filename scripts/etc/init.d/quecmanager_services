@@ -43,6 +43,26 @@ start_service() {
     procd_close_instance
     echo "QCAINFO Interpreter started"
 
+    # Start ping daemon
+    echo "Starting Ping Daemon..."
+    procd_open_instance
+    procd_set_param command /www/cgi-bin/services/ping_daemon.sh
+    procd_set_param respawn
+    procd_set_param stdout 1
+    procd_set_param stderr 1
+    procd_close_instance
+    echo "Ping Daemon started"
+
+    # Start memory daemon
+    echo "Starting Memory Daemon..."
+    procd_open_instance
+    procd_set_param command /www/cgi-bin/services/memory_daemon.sh
+    procd_set_param respawn
+    procd_set_param stdout 1
+    procd_set_param stderr 1
+    procd_close_instance
+    echo "Memory Daemon started"
+
     echo "All QuecManager services Started"
 }
 
