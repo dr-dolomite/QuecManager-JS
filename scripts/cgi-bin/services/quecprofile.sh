@@ -821,7 +821,7 @@ apply_profile_settings() {
     # Probably requires reboot
     output_check=$(execute_at_command "AT+QMAP=\"mpdn_rule\"")
     sleep 1 # Short delay to ensure command is processed
-    qmap_rule0=$(echo "$output" | grep '+QMAP: "MPDN_rule",0,')
+    qmap_rule0=$(echo "$output_check" | grep '+QMAP: "MPDN_rule",0,')
     qmap_ippt_rule0=$(echo "$qmap_rule0" | cut -d',' -f5)
     if [ $apply_success -eq 1 ] && [ -n "$mobile_provider" ] && [ "$mobile_provider" = "Verizon" ]; then
         # If Verizon, data call should be set to rule 3, AT+QMAP="mpdn_rule",0,3,0,0,1
