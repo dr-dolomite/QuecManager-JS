@@ -81,7 +81,7 @@ interface Profile {
   nsa_nr5g_bands?: string;
   network_type: string;
   ttl: string;
-  at_commands: string;
+  mobile_provider: string;
   paused?: string; // Add this field for pause/resume feature
 }
 
@@ -133,7 +133,7 @@ const QuecProfilesPage = () => {
     nsa_nr5g_bands: "",
     network_type: "LTE",
     ttl: "0",
-    at_commands: "",
+    mobile_provider: "Other",
     paused: "0",
   });
 
@@ -381,7 +381,7 @@ const QuecProfilesPage = () => {
       nsa_nr5g_bands: "",
       network_type: "LTE",
       ttl: "0",
-      at_commands: "",
+      mobile_provider: "Other",
       paused: "0",
     });
 
@@ -424,7 +424,7 @@ const QuecProfilesPage = () => {
         nsa_nr5g_bands: formData.nsa_nr5g_bands || "",
         network_type: formData.network_type,
         ttl: formData.ttl || "0",
-        at_commands: formData.at_commands || "",
+        mobile_provider: formData.mobile_provider || "Other",
         paused: "0", // New profiles start active by default
       };
 
@@ -469,7 +469,7 @@ const QuecProfilesPage = () => {
           nsa_nr5g_bands: "",
           network_type: "LTE",
           ttl: "0",
-          at_commands: "",
+          mobile_provider: "Other",
           paused: "0",
         });
 
@@ -531,7 +531,7 @@ const QuecProfilesPage = () => {
         nsa_nr5g_bands: formData.nsa_nr5g_bands || "",
         network_type: formData.network_type,
         ttl: formData.ttl || "0",
-        at_commands: formData.at_commands || "",
+        mobile_provider: formData.mobile_provider || "Other",
         paused: formData.paused || "0", // Maintain pause state during edit
       };
 
@@ -578,7 +578,7 @@ const QuecProfilesPage = () => {
           nsa_nr5g_bands: "",
           network_type: "LTE",
           ttl: "0",
-          at_commands: "",
+          mobile_provider: "Other",
           paused: "0",
         });
 
@@ -754,7 +754,7 @@ const QuecProfilesPage = () => {
       nsa_nr5g_bands: profile.nsa_nr5g_bands || "",
       network_type: profile.network_type,
       ttl: profile.ttl || "0",
-      at_commands: profile.at_commands || "",
+      mobile_provider: profile.mobile_provider || "Other",
       paused: profile.paused || "0",
     });
 
@@ -991,7 +991,23 @@ const QuecProfilesPage = () => {
                       </SelectContent>
                     </Select>
                   </div>
-
+                  <div className="col-span-2 grid gap-1.5">
+                    <Label htmlFor="name">Mobile Provider</Label>
+                    <Select
+                      value={formData.mobile_provider}
+                      onValueChange={(value) =>
+                        handleSelectChange("mobile_provider", value)
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Mobile Provider" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Verizon">Verizon</SelectItem>
+                        <SelectItem value="Other">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                   <div className="col-span-2 grid gap-1.5">
                     <Label htmlFor="lte_bands">LTE Bands</Label>
                     <div className="grid gap-0.5">
@@ -1072,16 +1088,7 @@ const QuecProfilesPage = () => {
                       />
                     </div>
                   </div>
-                  <div className="col-span-2 grid gap-1.5">
-                    <Label htmlFor="name">Custom AT Commands</Label>
-                    <Input
-                      id="at_commands"
-                      placeholder="Custom AT Commands"
-                      value={formData.at_commands}
-                      onChange={handleInputChange}
-                      required
-                    />
-                  </div>
+
                 </div>
                 <DialogFooter>
                   <div className="flex items-center gap-4">
@@ -1296,6 +1303,20 @@ const QuecProfilesPage = () => {
                             {profile.pdp_type}
                           </p>
                         </div>
+                        <div className="grid gap-0.5">
+                          <Label
+                            htmlFor={`mobileProvider-${index}`}
+                            className="text-sm text-muted-foreground"
+                          >
+                            Mobile Provider
+                          </Label>
+                          <p
+                            id={`mobileProvider-${index}`}
+                            className="font-semibold"
+                          >
+                            {profile.mobile_provider || "Other"}
+                          </p>
+                        </div>
 
                         <div className="grid gap-0.5">
                           <Label
@@ -1351,20 +1372,6 @@ const QuecProfilesPage = () => {
                             className="font-semibold"
                           >
                             {profile.sa_nr5g_bands || "-"}
-                          </p>
-                        </div>
-                        <div className="grid gap-0.5">
-                          <Label
-                            htmlFor={`atCommands-${index}`}
-                            className="text-sm text-muted-foreground"
-                          >
-                            Custom AT Commands
-                          </Label>
-                          <p
-                            id={`atCommands-${index}`}
-                            className="font-semibold"
-                          >
-                            {profile.at_commands || "-"}
                           </p>
                         </div>
                       </div>

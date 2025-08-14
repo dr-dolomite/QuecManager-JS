@@ -104,15 +104,6 @@ validate_ttl() {
     return 0
 }
 
-jsonToString() {
-    echo "$1" | sed \
-        -e 's/\\/\\\\/g' \
-        -e 's/"/\\"/g' \
-        -e 's/\n/\\n/g' \
-        -e 's/\r/\\r/g' \
-        -e 's/\t/\\t/g'
-}
-
 # Function to check if a profile with the same name or ICCID already exists
 check_duplicate_profile() {
     local name="$1"
@@ -145,7 +136,7 @@ create_profile() {
     local nsa_nr5g_bands="$8"
     local network_type="$9"
     local ttl="${10}"
-    local at_commands="${11}"
+    local mobile_provider="${11}"
 
     # Generate a unique ID for the profile
     local profile_id="profile_$(date +%s)_$(head -c 4 /dev/urandom | hexdump -e '"%x"')"
@@ -164,7 +155,7 @@ set quecprofiles.@profile[-1].nsa_nr5g_bands='$nsa_nr5g_bands'
 set quecprofiles.@profile[-1].network_type='$network_type'
 set quecprofiles.@profile[-1].ttl='$ttl'
 set quecprofiles.@profile[-1].paused='0'
-set quecprofiles.@profile[-1].at_commands='$at_commands'
+set quecprofiles.@profile[-1].mobile_provider='$mobile_provider'
 commit quecprofiles
 EOF
 
@@ -217,7 +208,7 @@ if [ "$REQUEST_METHOD" = "POST" ]; then
             nsa_nr5g_bands=$(echo "$POST_DATA" | jsonfilter -e '@.nsa_nr5g_bands' 2>/dev/null)
             network_type=$(echo "$POST_DATA" | jsonfilter -e '@.network_type' 2>/dev/null)
             ttl=$(echo "$POST_DATA" | jsonfilter -e '@.ttl' 2>/dev/null)
-            at_commands=$(echo "$POST_DATA" | jsonfilter -e '@.at_commands' 2>/dev/null)
+            mobile_provider=$(echo "$POST_DATA" | jsonfilter -e '@.mobile_provider' 2>/dev/null)
 
             log_message "Parsed JSON data for profile: $name" "debug"
         else
@@ -233,7 +224,7 @@ if [ "$REQUEST_METHOD" = "POST" ]; then
             nsa_nr5g_bands=$(echo "$POST_DATA" | grep -o '"nsa_nr5g_bands":"[^"]*"' | head -1 | cut -d':' -f2 | tr -d '"')
             network_type=$(echo "$POST_DATA" | grep -o '"network_type":"[^"]*"' | head -1 | cut -d':' -f2 | tr -d '"')
             ttl=$(echo "$POST_DATA" | grep -o '"ttl":"[^"]*"' | head -1 | cut -d':' -f2 | tr -d '"')
-            at_commands=$(echo "$POST_DATA" | grep -o '"at_commands":"[^"]*"' | head -1 | cut -d':' -f2 | tr -d '"')
+            mobile_provider=$(echo "$POST_DATA" | grep -o '"mobile_provider":"[^"]*"' | head -1 | cut -d':' -f2 | tr -d '"')
 
             log_message "Basic parsing for profile: $name" "warn"
         fi
@@ -253,7 +244,7 @@ else
     nsa_nr5g_bands=$(echo "$QUERY_STRING" | grep -o 'nsa_nr5g_bands=[^&]*' | cut -d'=' -f2)
     network_type=$(echo "$QUERY_STRING" | grep -o 'network_type=[^&]*' | cut -d'=' -f2)
     ttl=$(echo "$QUERY_STRING" | grep -o 'ttl=[^&]*' | cut -d'=' -f2)
-    at_commands=$(echo "$QUERY_STRING" | grep -o 'at_commands=[^&]*' | cut -d'=' -f2)
+    mobile_provider=$(echo "$QUERY_STRING" | grep -o 'mobile_provider=[^&]*' | cut -d'=' -f2)
 
     # URL decode values
     name=$(echo "$name" | sed 's/+/ /g;s/%\(..\)/\\x\1/g;' | xargs -0 printf "%b")
@@ -266,7 +257,7 @@ else
     nsa_nr5g_bands=$(echo "$nsa_nr5g_bands" | sed 's/+/ /g;s/%\(..\)/\\x\1/g;' | xargs -0 printf "%b")
     network_type=$(echo "$network_type" | sed 's/+/ /g;s/%\(..\)/\\x\1/g;' | xargs -0 printf "%b")
     ttl=$(echo "$ttl" | sed 's/+/ /g;s/%\(..\)/\\x\1/g;' | xargs -0 printf "%b")
-    at_commands=$(echo "$at_commands" | sed 's/+/ /g;s/%\(..\)/\\x\1/g;' | xargs -0 printf "%b")
+    mobile_provider=$(echo "$mobile_provider" | sed 's/+/ /g;s/%\(..\)/\\x\1/g;' | xargs -0 printf "%b")
 
     log_message "Using URL parameters" "warn"
 fi
@@ -282,7 +273,7 @@ sa_nr5g_bands=$(sanitize "${sa_nr5g_bands:-}")
 nsa_nr5g_bands=$(sanitize "${nsa_nr5g_bands:-}")
 network_type=$(sanitize "${network_type:-LTE}")
 ttl=$(sanitize "${ttl:-0}") # Default to 0 (disabled)
-at_commands=$(jsonToString "${at_commands:-}") # Escape special characters to return as JSON
+mobile_provider=$(sanitize "${mobile_provider:-Other}") 
 
 # Output debug info
 log_message "Creating profile: $name, ICCID: $iccid, IMEI: $imei, APN: $apn" "debug"
@@ -356,14 +347,14 @@ elif [ $dup_status -eq 2 ]; then
 fi
 
 # Create the profile
-if create_profile "$name" "$iccid" "$imei" "$apn" "$pdp_type" "$lte_bands" "$sa_nr5g_bands" "$nsa_nr5g_bands" "$network_type" "$ttl" "$at_commands"; then
+if create_profile "$name" "$iccid" "$imei" "$apn" "$pdp_type" "$lte_bands" "$sa_nr5g_bands" "$nsa_nr5g_bands" "$network_type" "$ttl" "$mobile_provider"; then
     # Trigger immediate profile application
     touch "/tmp/quecprofiles_check"
     chmod 644 "/tmp/quecprofiles_check"
     log_message "Triggered immediate profile check after creation" "info"
 
     # Create profile data JSON for return - WITHOUT outer curly braces
-    profile_data="\"name\":\"$name\",\"iccid\":\"$iccid\",\"imei\":\"$imei\",\"apn\":\"$apn\",\"pdp_type\":\"$pdp_type\",\"lte_bands\":\"$lte_bands\",\"sa_nr5g_bands\":\"$sa_nr5g_bands\",\"nsa_nr5g_bands\":\"$nsa_nr5g_bands\",\"network_type\":\"$network_type\",\"ttl\":\"$ttl\",\"at_commands\":\"$at_commands\""
+    profile_data="\"name\":\"$name\",\"iccid\":\"$iccid\",\"imei\":\"$imei\",\"apn\":\"$apn\",\"pdp_type\":\"$pdp_type\",\"lte_bands\":\"$lte_bands\",\"sa_nr5g_bands\":\"$sa_nr5g_bands\",\"nsa_nr5g_bands\":\"$nsa_nr5g_bands\",\"network_type\":\"$network_type\",\"ttl\":\"$ttl\",\"mobile_provider\":\"$mobile_provider\""
 
     # Wrap the data field in curly braces inside output_json
     output_json "success" "Profile created successfully" "{$profile_data}"

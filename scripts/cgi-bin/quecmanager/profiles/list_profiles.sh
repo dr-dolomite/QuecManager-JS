@@ -83,7 +83,7 @@ get_profiles() {
         local nsa_nr5g_bands=$(uci -q get "quecprofiles.$idx.nsa_nr5g_bands" 2>/dev/null)
         local network_type=$(uci -q get "quecprofiles.$idx.network_type" 2>/dev/null)
         local ttl=$(uci -q get "quecprofiles.$idx.ttl" 2>/dev/null)
-        local at_commands=$(uci -q get "quecprofiles.$idx.at_commands" 2>/dev/null)
+        local mobile_provider=$(uci -q get "quecprofiles.$idx.mobile_provider" 2>/dev/null)
         local paused=$(uci -q get "quecprofiles.$idx.paused" 2>/dev/null)
 
         # Debug output
@@ -106,7 +106,7 @@ get_profiles() {
         nsa_nr5g_bands=$(sanitize_for_json "${nsa_nr5g_bands:-""}")
         network_type=$(sanitize_for_json "${network_type:-"LTE"}")
         ttl=$(sanitize_for_json "${ttl:-0}")
-        at_commands="${at_commands:-""}" # Already "sanitized"
+        mobile_provider=$(sanitize_for_json "${mobile_provider:-""}")
         paused=$(sanitize_for_json "${paused:-0}")
 
         # Create profile JSON
@@ -121,7 +121,7 @@ get_profiles() {
         profile_json="${profile_json}\"nsa_nr5g_bands\":\"${nsa_nr5g_bands}\","
         profile_json="${profile_json}\"network_type\":\"${network_type}\","
         profile_json="${profile_json}\"ttl\":\"${ttl}\","
-        profile_json="${profile_json}\"at_commands\":\"${at_commands}\","
+        profile_json="${profile_json}\"mobile_provider\":\"${mobile_provider}\","
         profile_json="${profile_json}\"paused\":\"${paused}\""
         profile_json="${profile_json}}"
 

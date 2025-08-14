@@ -145,10 +145,10 @@ elif [ -n "$QUERY_STRING" ]; then
     # URL parameters for GET requests (for testing)
     iccid=$(echo "$QUERY_STRING" | grep -o 'iccid=[^&]*' | cut -d'=' -f2)
     paused=$(echo "$QUERY_STRING" | grep -o 'paused=[^&]*' | cut -d'=' -f2)
-    
+
     # URL decode values
     iccid=$(echo "$iccid" | sed 's/+/ /g;s/%\(..\)/\\x\1/g;' | xargs -0 printf "%b")
-    
+
     log_message "Using URL parameters: iccid=$iccid, paused=$paused" "debug"
 fi
 
