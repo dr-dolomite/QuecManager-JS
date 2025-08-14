@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/auth";
+import { useLuci } from "@/hooks/luci";
 
 import Image from "next/image";
 import { useToast } from "@/hooks/use-toast";
@@ -24,6 +25,7 @@ const LoginPage = () => {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const { login, logout } = useAuth();
+  const { luciLogin } = useLuci();
 
   const { isServerAlive } = heartbeat();
   useEffect(() => {
@@ -35,6 +37,13 @@ const LoginPage = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const success = await login(password);
+    if (!success) {
+      setError("Invalid password");
+    }
+  };
+  const handleLuciSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const success = await luciLogin(password);
     if (!success) {
       setError("Invalid password");
     }
@@ -154,6 +163,28 @@ const LoginPage = () => {
                 </div>
                 <Button type="submit" className="w-full">
                   Login
+                </Button>
+                {error && (
+                  <div className="bg-rose-500 p-1 rounded-md flex text-center justify-center items-center">
+                    <p>{error}</p>
+                  </div>
+                )}
+              </div>
+            </form>
+            <form onSubmit={handleLuciSubmit}>
+              <div className="flex flex-col gap-6">
+                <div className="grid gap-3">
+                  {/* <Label htmlFor="password">Password</Label>
+                  <Input
+                    id="luci_password"
+                    type="password"
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                  /> */}
+                </div>
+                <Button type="submit" className="w-full">
+                  LuCi Login
                 </Button>
                 {error && (
                   <div className="bg-rose-500 p-1 rounded-md flex text-center justify-center items-center">
