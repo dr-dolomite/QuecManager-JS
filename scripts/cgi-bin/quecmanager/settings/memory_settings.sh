@@ -1,9 +1,7 @@
 #!/bin/sh
 
-# Ping Settings Configuration Script
-# Manages ping service (enable/disable) and daemon settings
-# Author: dr-dolomite
-# Date: 2025-08-04
+# Memory Settings Configuration Script
+# Manages memory service (enable/disable) and daemon settings
 
 # Handle OPTIONS request first (before any headers)
 if [ "${REQUEST_METHOD:-GET}" = "OPTIONS" ]; then
@@ -25,13 +23,13 @@ echo ""
 
 # Configuration
 CONFIG_DIR="/etc/quecmanager/settings"
-CONFIG_FILE="$CONFIG_DIR/ping_settings.conf"
+CONFIG_FILE="$CONFIG_DIR/memory_settings.conf"
 FALLBACK_CONFIG_DIR="/tmp/quecmanager/settings"
-FALLBACK_CONFIG_FILE="$FALLBACK_CONFIG_DIR/ping_settings.conf"
-LOG_FILE="/tmp/ping_settings.log"
-PID_FILE="/tmp/quecmanager/ping_daemon.pid"
+FALLBACK_CONFIG_FILE="$FALLBACK_CONFIG_DIR/memory_settings.conf"
+LOG_FILE="/tmp/memory_settings.log"
+PID_FILE="/tmp/quecmanager/memory_daemon.pid"
 # Prefer the new services location, fall back to the legacy path for compatibility
-DAEMON_RELATIVE_PATHS="/cgi-bin/services/ping_daemon.sh"
+DAEMON_RELATIVE_PATHS="/cgi-bin/services/memory_daemon.sh"
 
 # Logging function
 log_message() {
@@ -125,7 +123,7 @@ start_daemon() {
 
     if [ -x "$daemon_path" ]; then
         nohup "$daemon_path" >/dev/null 2>&1 &
-        log_message "Started ping daemon: $daemon_path (pid $!)"
+        log_message "Started memory daemon: $daemon_path (pid $!)"
         return 0
     else
         log_message "Daemon script not found or not executable: $daemon_path"
@@ -145,46 +143,54 @@ stop_daemon() {
     rm -f "$PID_FILE" 2>/dev/null || true
 }
 
-# Get current ping setting
+# Get current memory setting
 get_config_values() {
     # defaults
     ENABLED="true"
-    HOST="8.8.8.8"
-    INTERVAL="5"
+    INTERVAL="1"
 
     resolve_config_for_read
     if [ -f "$CONFIG_FILE" ]; then
-        val=$(grep -E "^PING_ENABLED=" "$CONFIG_FILE" | tail -n1 | cut -d'=' -f2)
+        # Clean the config file if it contains comments (one-time cleanup)
+        if grep -q "^#" "$CONFIG_FILE" 2>/dev/null; then
+            log_message "Cleaning config file of comments"
+            local temp_file="$CONFIG_FILE.clean.$$"
+            grep -E "^MEMORY_(ENABLED|INTERVAL)=" "$CONFIG_FILE" > "$temp_file" 2>/dev/null || true
+            if [ -s "$temp_file" ]; then
+                mv "$temp_file" "$CONFIG_FILE" 2>/dev/null || rm -f "$temp_file"
+                chmod 644 "$CONFIG_FILE" 2>/dev/null || true
+            else
+                rm -f "$temp_file"
+            fi
+        fi
+        
+        val=$(grep -E "^MEMORY_ENABLED=" "$CONFIG_FILE" | tail -n1 | cut -d'=' -f2)
         if [ -n "${val:-}" ]; then
             case "$val" in
                 true|1|on|yes|enabled) ENABLED="true" ;;
                 *) ENABLED="false" ;;
             esac
         fi
-        val=$(grep -E "^PING_HOST=" "$CONFIG_FILE" | tail -n1 | cut -d'=' -f2)
-        [ -n "${val:-}" ] && HOST="$val"
-        val=$(grep -E "^PING_INTERVAL=" "$CONFIG_FILE" | tail -n1 | cut -d'=' -f2)
+        val=$(grep -E "^MEMORY_INTERVAL=" "$CONFIG_FILE" | tail -n1 | cut -d'=' -f2)
         if echo "${val:-}" | grep -qE '^[0-9]+$'; then
             INTERVAL="$val"
         fi
     fi
 }
 
-# Save ping setting to config file
+# Save memory setting to config file
 save_config() {
     local enabled="$1"
-    local host="$2"
-    local interval="$3"
+    local interval="$2"
 
     # Try primary directory first
     if mkdir -p "$CONFIG_DIR" 2>/dev/null; then
         local tmp="$CONFIG_FILE.tmp.$$"
-        echo "PING_ENABLED=$enabled" > "$tmp" || rm -f "$tmp" || return 1
-        echo "PING_HOST=$host" >> "$tmp" || rm -f "$tmp" || return 1
-        echo "PING_INTERVAL=$interval" >> "$tmp" || rm -f "$tmp" || return 1
+        echo "MEMORY_ENABLED=$enabled" > "$tmp" || rm -f "$tmp" || return 1
+        echo "MEMORY_INTERVAL=$interval" >> "$tmp" || rm -f "$tmp" || return 1
         if mv -f "$tmp" "$CONFIG_FILE" 2>/dev/null; then
             chmod 644 "$CONFIG_FILE" 2>/dev/null || true
-            log_message "Saved ping config (primary): enabled=$enabled host=$host interval=$interval"
+            log_message "Saved memory config (primary): enabled=$enabled interval=$interval"
             return 0
         fi
     fi
@@ -192,25 +198,23 @@ save_config() {
     # Fallback to /tmp
     mkdir -p "$FALLBACK_CONFIG_DIR" 2>/dev/null || true
     local tmp2="$FALLBACK_CONFIG_FILE.tmp.$$"
-    echo "PING_ENABLED=$enabled" > "$tmp2" || rm -f "$tmp2" || return 1
-    echo "PING_HOST=$host" >> "$tmp2" || rm -f "$tmp2" || return 1
-    echo "PING_INTERVAL=$interval" >> "$tmp2" || rm -f "$tmp2" || return 1
+    echo "MEMORY_ENABLED=$enabled" > "$tmp2" || rm -f "$tmp2" || return 1
+    echo "MEMORY_INTERVAL=$interval" >> "$tmp2" || rm -f "$tmp2" || return 1
     mv -f "$tmp2" "$FALLBACK_CONFIG_FILE" 2>/dev/null || return 1
     chmod 644 "$FALLBACK_CONFIG_FILE" 2>/dev/null || true
     # Point CONFIG_FILE to fallback for subsequent reads in this request
     CONFIG_FILE="$FALLBACK_CONFIG_FILE"; CONFIG_DIR="$FALLBACK_CONFIG_DIR"
-    log_message "Saved ping config (fallback): enabled=$enabled host=$host interval=$interval"
+    log_message "Saved memory config (fallback): enabled=$enabled interval=$interval"
 }
 
-# Delete ping configuration (reset to default)
-delete_ping_setting() {
+# Delete memory configuration (reset to default)
+delete_memory_setting() {
     local removed=1
     for f in "$CONFIG_FILE" "$FALLBACK_CONFIG_FILE"; do
         if [ -f "$f" ]; then
-            sed -i '/^PING_ENABLED=/d' "$f" 2>/dev/null || true
-            sed -i '/^PING_HOST=/d' "$f" 2>/dev/null || true
-            sed -i '/^PING_INTERVAL=/d' "$f" 2>/dev/null || true
-            log_message "Deleted ping configuration entries in $f"
+            sed -i '/^MEMORY_ENABLED=/d' "$f" 2>/dev/null || true
+            sed -i '/^MEMORY_INTERVAL=/d' "$f" 2>/dev/null || true
+            log_message "Deleted memory configuration entries in $f"
             [ -s "$f" ] || { rm -f "$f" 2>/dev/null || true; log_message "Removed empty config file $f"; }
             removed=0
         fi
@@ -218,20 +222,7 @@ delete_ping_setting() {
     return $removed
 }
 
-# Handle GET request - Retrieve ping setting
-handle_get() {
-    log_message "GET request received"
-    get_config_values
-    local running=false
-    if daemon_running; then running=true; fi
-    local is_default=true
-    if [ -f "$CONFIG_FILE" ] && grep -q "^PING_ENABLED=" "$CONFIG_FILE"; then
-        is_default=false
-    fi
-    send_success "Ping configuration retrieved" "{\"enabled\":$ENABLED,\"host\":\"$HOST\",\"interval\":$INTERVAL,\"running\":$running,\"isDefault\":$is_default}"
-}
-
-# Handle POST request - Update ping setting
+# Handle POST request - Update memory setting
 handle_post() {
     log_message "POST request received"
     
@@ -242,15 +233,13 @@ handle_post() {
         log_message "Received POST data: $post_data"
         
         # Parse fields
-        local enabled host interval
+        local enabled interval
         enabled=$(echo "$post_data" | sed -n 's/.*"enabled"[[:space:]]*:[[:space:]]*\([^,}]*\).*/\1/p' | tr -d ' ' | sed 's/"//g')
-        host=$(echo "$post_data" | sed -n 's/.*"host"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
         interval=$(echo "$post_data" | sed -n 's/.*"interval"[[:space:]]*:[[:space:]]*\([0-9][0-9]*\).*/\1/p')
 
         # Defaults when missing
         [ -z "$enabled" ] && enabled="true"
-        [ -z "$host" ] && host="8.8.8.8"
-        [ -z "$interval" ] && interval="5"
+        [ -z "$interval" ] && interval="1"
 
         # Validate
         case "$enabled" in
@@ -260,23 +249,22 @@ handle_post() {
         if ! echo "$interval" | grep -qE '^[0-9]+$'; then
             send_error "INVALID_INTERVAL" "Interval must be a number (seconds)."
         fi
-        if [ "$interval" -lt 1 ] || [ "$interval" -gt 3600 ]; then
-            send_error "INVALID_INTERVAL" "Interval must be between 1 and 3600 seconds."
+        if [ "$interval" -lt 1 ] || [ "$interval" -gt 10 ]; then
+            send_error "INVALID_INTERVAL" "Interval must be between 1 and 10 seconds."
         fi
 
         # Capture previous values to decide on restart
         get_config_values
         local prev_enabled="$ENABLED"
-        local prev_host="$HOST"
         local prev_interval="$INTERVAL"
 
-        save_config "$enabled" "$host" "$interval" || send_error "WRITE_FAILED" "Failed to save configuration"
+        save_config "$enabled" "$interval" || send_error "WRITE_FAILED" "Failed to save configuration"
 
         if [ "$enabled" = "true" ]; then
             if daemon_running; then
                 # Restart only if effective parameters changed
-                if [ "$prev_host" != "$host" ] || [ "$prev_interval" != "$interval" ] || [ "$prev_enabled" != "$enabled" ]; then
-                    log_message "Config change detected (host/interval/enabled). Restarting daemon."
+                if [ "$prev_interval" != "$interval" ] || [ "$prev_enabled" != "$enabled" ]; then
+                    log_message "Config change detected (interval/enabled). Restarting daemon."
                     stop_daemon
                     start_daemon || log_message "Failed to restart daemon"
                 else
@@ -292,7 +280,7 @@ handle_post() {
         get_config_values
         local running=false
         if daemon_running; then running=true; fi
-        send_success "Ping setting updated successfully" "{\"enabled\":$ENABLED,\"host\":\"$HOST\",\"interval\":$INTERVAL,\"running\":$running}"
+        send_success "Memory setting updated successfully" "{\"enabled\":$ENABLED,\"interval\":$INTERVAL,\"running\":$running}"
     else
         send_error "NO_DATA" "No data provided"
     fi
@@ -302,22 +290,19 @@ handle_post() {
 handle_delete() {
     log_message "DELETE request received"
     stop_daemon
-    if delete_ping_setting; then
+    if delete_memory_setting; then
         # Default is enabled
-        send_success "Ping setting reset to default" "{\"enabled\":true,\"isDefault\":true,\"running\":false}"
+        send_success "Memory setting reset to default" "{\"enabled\":true,\"isDefault\":true,\"running\":false}"
     else
-        send_error "NOT_FOUND" "Ping setting configuration not found"
+        send_error "NOT_FOUND" "Memory setting configuration not found"
     fi
 }
 
 # Main execution
-log_message "Ping settings script called with method: ${REQUEST_METHOD:-GET}"
+log_message "Memory settings script called with method: ${REQUEST_METHOD:-GET}"
 
 # Handle different HTTP methods
 case "${REQUEST_METHOD:-GET}" in
-    GET)
-        handle_get
-        ;;
     POST)
         handle_post
         ;;
@@ -325,6 +310,6 @@ case "${REQUEST_METHOD:-GET}" in
         handle_delete
         ;;
     *)
-        send_error "METHOD_NOT_ALLOWED" "HTTP method ${REQUEST_METHOD} not supported"
+        send_error "METHOD_NOT_ALLOWED" "HTTP method ${REQUEST_METHOD} not supported. Use dedicated fetch script for reading settings."
         ;;
-esac 
+esac

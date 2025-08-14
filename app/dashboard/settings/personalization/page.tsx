@@ -73,6 +73,17 @@ interface PingSettingsResponse {
   message: string;
   data?: {
     enabled: boolean;
+    interval?: number;
+    isDefault: boolean;
+  };
+}
+
+interface MemorySettingsResponse {
+  status: string;
+  message: string;
+  data?: {
+    enabled: boolean;
+    interval?: number;
     isDefault: boolean;
   };
 }
@@ -88,7 +99,12 @@ const PersonalizationPage = () => {
   const [isUnitLoading, setIsUnitLoading] = useState<boolean>(false);
   const [isUnitDefault, setIsUnitDefault] = useState<boolean>(true);
   const [pingEnabled, setPingEnabled] = useState<boolean>(true);
+  const [pingInterval, setPingInterval] = useState<number>(5);
   const [isPingLoading, setIsPingLoading] = useState<boolean>(false);
+  const [memoryEnabled, setMemoryEnabled] = useState<boolean>(true);
+  const [memoryInterval, setMemoryInterval] = useState<number>(1);
+  const [isMemoryLoading, setIsMemoryLoading] = useState<boolean>(false);
+  const [isMemoryDefault, setIsMemoryDefault] = useState<boolean>(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Cache keys for localStorage
@@ -101,6 +117,7 @@ const PersonalizationPage = () => {
     fetchProfilePicture();
     fetchMeasurementUnit();
     fetchPingSettings();
+    fetchMemorySettings();
   }, []);
 
   const loadCachedImage = () => {
@@ -594,6 +611,9 @@ const PersonalizationPage = () => {
 
       if (data.status === "success" && data.data) {
         setPingEnabled(data.data.enabled);
+        if (typeof data.data.interval === "number") {
+          setPingInterval(data.data.interval);
+        }
       }
     } catch (error) {
       console.error("Error fetching ping settings:", error);
@@ -607,9 +627,12 @@ const PersonalizationPage = () => {
     }
   };
 
-  const updatePingSettings = async (enabled: boolean) => {
+  const updatePingSettings = async (enabled: boolean, interval?: number) => {
     try {
       setIsPingLoading(true);
+      const prevEnabled = pingEnabled;
+      const prevInterval = pingInterval;
+      const requestedInterval = interval ?? pingInterval;
       const response = await fetch(
         "/cgi-bin/quecmanager/settings/ping_settings.sh",
         {
@@ -617,19 +640,37 @@ const PersonalizationPage = () => {
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ enabled }),
+          body: JSON.stringify({ enabled, interval: requestedInterval }),
         }
       );
       const data: PingSettingsResponse = await response.json();
 
       if (data.status === "success") {
         setPingEnabled(enabled);
-        toast({
-          title: "Ping Settings Updated",
-          description: `Ping functionality ${
-            enabled ? "enabled" : "disabled"
-          }.`,
-        });
+        if (typeof data.data?.interval === "number") {
+          setPingInterval(data.data.interval);
+        }
+        const newInterval =
+          typeof data.data?.interval === "number"
+            ? data.data.interval
+            : requestedInterval;
+
+        // Separate toasts depending on what changed
+        if (enabled !== prevEnabled) {
+          toast({
+            title: "Ping Status Updated",
+            description: `Ping has been ${enabled ? "enabled" : "disabled"}.`,
+          });
+        }
+
+        if (newInterval !== prevInterval) {
+          toast({
+            title: "Polling Rate Updated",
+            description: `Now measuring every ${newInterval} second${
+              newInterval === 1 ? "" : "s"
+            }.`,
+          });
+        }
 
         // Dispatch custom event to notify ping card of the change
         window.dispatchEvent(new CustomEvent("pingSettingsUpdated"));
@@ -661,6 +702,11 @@ const PersonalizationPage = () => {
 
       if (data.status === "success" && data.data) {
         setPingEnabled(data.data.enabled);
+        if (typeof data.data.interval === "number") {
+          setPingInterval(data.data.interval);
+        } else {
+          setPingInterval(5);
+        }
         toast({
           title: "Ping Settings Reset",
           description: `Ping settings reset to system default (${
@@ -682,6 +728,142 @@ const PersonalizationPage = () => {
       });
     } finally {
       setIsPingLoading(false);
+    }
+  };
+
+  // Memory settings functions
+  const fetchMemorySettings = async () => {
+    try {
+      setIsMemoryLoading(true);
+      const response = await fetch(
+        "/cgi-bin/quecmanager/home/memory/fetch_memory_settings.sh"
+      );
+      const data: MemorySettingsResponse = await response.json();
+
+      if (data.status === "success" && data.data) {
+        setMemoryEnabled(data.data.enabled);
+        if (typeof data.data.interval === "number") {
+          setMemoryInterval(data.data.interval);
+        }
+        setIsMemoryDefault(data.data.isDefault);
+      }
+    } catch (error) {
+      console.error("Error fetching memory settings:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load memory monitoring settings.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsMemoryLoading(false);
+    }
+  };
+
+  const updateMemorySettings = async (enabled: boolean, interval?: number) => {
+    try {
+      setIsMemoryLoading(true);
+      const prevEnabled = memoryEnabled;
+      const prevInterval = memoryInterval;
+      const requestedInterval = interval ?? memoryInterval;
+      const response = await fetch(
+        "/cgi-bin/quecmanager/settings/memory_settings.sh",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ enabled, interval: requestedInterval }),
+        }
+      );
+      const data: MemorySettingsResponse = await response.json();
+
+      if (data.status === "success") {
+        setMemoryEnabled(enabled);
+        if (typeof data.data?.interval === "number") {
+          setMemoryInterval(data.data.interval);
+        }
+        setIsMemoryDefault(data.data?.isDefault ?? false);
+        const newInterval =
+          typeof data.data?.interval === "number"
+            ? data.data.interval
+            : requestedInterval;
+
+        // Separate toasts depending on what changed
+        if (enabled !== prevEnabled) {
+          toast({
+            title: "Memory Monitoring Updated",
+            description: `Memory monitoring has been ${
+              enabled ? "enabled" : "disabled"
+            }.`,
+          });
+        }
+
+        if (newInterval !== prevInterval) {
+          toast({
+            title: "Update Rate Changed",
+            description: `Memory now updates every ${newInterval} second${
+              newInterval === 1 ? "" : "s"
+            }.`,
+          });
+        }
+
+        // Dispatch custom event to notify memory card of the change
+        window.dispatchEvent(new CustomEvent("memorySettingsUpdated"));
+      } else {
+        throw new Error(data.message || "Failed to update memory settings");
+      }
+    } catch (error) {
+      console.error("Error updating memory settings:", error);
+      toast({
+        title: "Update Failed",
+        description: error instanceof Error ? error.message : "Unknown error",
+        variant: "destructive",
+      });
+    } finally {
+      setIsMemoryLoading(false);
+    }
+  };
+
+  const resetMemorySettings = async () => {
+    try {
+      setIsMemoryLoading(true);
+      const response = await fetch(
+        "/cgi-bin/quecmanager/settings/memory_settings.sh",
+        {
+          method: "DELETE",
+        }
+      );
+      const data: MemorySettingsResponse = await response.json();
+
+      if (data.status === "success" && data.data) {
+        setMemoryEnabled(data.data.enabled);
+        if (typeof data.data.interval === "number") {
+          setMemoryInterval(data.data.interval);
+        } else {
+          setMemoryInterval(1);
+        }
+        setIsMemoryDefault(data.data.isDefault);
+        toast({
+          title: "Memory Settings Reset",
+          description: `Memory monitoring reset to system default (${
+            data.data.enabled ? "enabled" : "disabled"
+          }).`,
+        });
+
+        // Dispatch custom event to notify memory card of the change
+        window.dispatchEvent(new CustomEvent("memorySettingsUpdated"));
+      } else {
+        throw new Error(data.message || "Failed to reset memory settings");
+      }
+    } catch (error) {
+      console.error("Error resetting memory settings:", error);
+      toast({
+        title: "Reset Failed",
+        description: error instanceof Error ? error.message : "Unknown error",
+        variant: "destructive",
+      });
+    } finally {
+      setIsMemoryLoading(false);
     }
   };
 
@@ -772,57 +954,59 @@ const PersonalizationPage = () => {
 
           <Separator className="w-full my-2" />
 
-          <div className="grid gap-6">
-            <div className="grid w-full max-w-sm items-center gap-2">
-              <Label htmlFor="MeasurementUnits">
-                Distance Measurement Unit
-              </Label>
-              {isUnitLoading ? (
-                <Skeleton className="h-8" />
-              ) : (
-                <div className="flex flex-row gap-2 items-center">
-                  <Select
-                    disabled={isUnitLoading}
-                    value={measurementUnit}
-                    onValueChange={(value: "km" | "mi") =>
-                      updateMeasurementUnit(value)
-                    }
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue>
-                        {measurementUnit === "km"
-                          ? "Kilometers (km)"
-                          : "Miles (mi)"}
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectGroup>
-                        <SelectLabel>Distance Unit</SelectLabel>
-                        <SelectItem value="km">Kilometers (km)</SelectItem>
-                        <SelectItem value="mi">Miles (mi)</SelectItem>
-                      </SelectGroup>
-                    </SelectContent>
-                  </Select>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    disabled={isUnitLoading || isUnitDefault}
-                    onClick={resetMeasurementUnit}
-                  >
-                    <Undo2Icon className="h-4 w-4" />
-                  </Button>
-                </div>
-              )}
+          <div className="grid lg:grid-cols-2 grid-flow-row gap-4">
+            <div className="lg:col-span-2 col-span-1">
+              <div className="grid w-full max-w-sm items-center gap-2">
+                <Label htmlFor="MeasurementUnits">
+                  Distance Measurement Unit
+                </Label>
+                {isUnitLoading ? (
+                  <Skeleton className="h-8" />
+                ) : (
+                  <div className="flex flex-row gap-2 items-center">
+                    <Select
+                      disabled={isUnitLoading}
+                      value={measurementUnit}
+                      onValueChange={(value: "km" | "mi") =>
+                        updateMeasurementUnit(value)
+                      }
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue>
+                          {measurementUnit === "km"
+                            ? "Kilometers (km)"
+                            : "Miles (mi)"}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectGroup>
+                          <SelectLabel>Distance Unit</SelectLabel>
+                          <SelectItem value="km">Kilometers (km)</SelectItem>
+                          <SelectItem value="mi">Miles (mi)</SelectItem>
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      disabled={isUnitLoading || isUnitDefault}
+                      onClick={resetMeasurementUnit}
+                    >
+                      <Undo2Icon className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )}
 
-              {isUnitDefault ? (
-                <p className="text-sm text-muted-foreground">
-                  This is the default unit based on your system settings.
-                </p>
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  This is a custom unit setting.
-                </p>
-              )}
+                {isUnitDefault ? (
+                  <p className="text-sm text-muted-foreground">
+                    This is the default unit based on your system settings.
+                  </p>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    This is a custom unit setting.
+                  </p>
+                )}
+              </div>
             </div>
 
             <div className="grid w-full max-w-sm items-center gap-2">
@@ -830,39 +1014,189 @@ const PersonalizationPage = () => {
               {isPingLoading ? (
                 <Skeleton className="h-8" />
               ) : (
-                <div className="flex flex-row gap-2 items-center">
-                  <Select
-                    disabled={isPingLoading}
-                    value={pingEnabled ? "enabled" : "disabled"}
-                    onValueChange={(value: string) =>
-                      updatePingSettings(value === "enabled")
-                    }
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue>
-                        {pingEnabled ? "Enabled" : "Disabled"}
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectGroup>
-                        <SelectLabel>Latency Testing</SelectLabel>
-                        <SelectItem value="enabled">
-                          Enable latency testing
-                        </SelectItem>
-                        <SelectItem value="disabled">
-                          Disable latency testing
-                        </SelectItem>
-                      </SelectGroup>
-                    </SelectContent>
-                  </Select>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    disabled={isPingLoading}
-                    onClick={resetPingSettings}
-                  >
-                    <Undo2Icon className="h-4 w-4" />
-                  </Button>
+                <div className="flex flex-col gap-2">
+                  <div className="flex flex-row gap-2 items-center">
+                    <Select
+                      disabled={isPingLoading}
+                      value={pingEnabled ? "enabled" : "disabled"}
+                      onValueChange={(value: string) =>
+                        updatePingSettings(value === "enabled")
+                      }
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue>
+                          {pingEnabled ? "Enabled" : "Disabled"}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectGroup>
+                          <SelectLabel>Latency Testing</SelectLabel>
+                          <SelectItem value="enabled">
+                            Enable latency testing
+                          </SelectItem>
+                          <SelectItem value="disabled">
+                            Disable latency testing
+                          </SelectItem>
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      disabled={isPingLoading}
+                      onClick={resetPingSettings}
+                    >
+                      <Undo2Icon className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Controls whether the device measures network latency.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div className="grid w-full max-w-sm items-center gap-2">
+              {isPingLoading ? (
+                <Skeleton className="h-8" />
+              ) : (
+                <div className="grid w-full items-center gap-2">
+                  <Label htmlFor="PingPolling">Polling Rate</Label>
+                  <div className="flex flex-row gap-2 items-center">
+                    <Select
+                      disabled={isPingLoading || !pingEnabled}
+                      value={String(pingInterval)}
+                      onValueChange={(value: string) => {
+                        const next = parseInt(value, 10);
+                        setPingInterval(next);
+                        // Persist immediately to backend while keeping UX consistent
+                        updatePingSettings(pingEnabled, next);
+                      }}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue>{pingInterval} seconds</SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectGroup>
+                          <SelectLabel>Polling Rate</SelectLabel>
+                          <SelectItem value="2">Every 2 seconds</SelectItem>
+                          <SelectItem value="5">Every 5 seconds</SelectItem>
+                          <SelectItem value="10">Every 10 seconds</SelectItem>
+                          <SelectItem value="15">Every 15 seconds</SelectItem>
+                          <SelectItem value="30">Every 30 seconds</SelectItem>
+                          <SelectItem value="60">Every 60 seconds</SelectItem>
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      disabled={isPingLoading || pingInterval === 5}
+                      onClick={() => updatePingSettings(pingEnabled, 5)}
+                    >
+                      <Undo2Icon className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Controls how often the device measures latency.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div className="grid w-full max-w-sm items-center gap-2">
+              <Label htmlFor="MemorySettings">Memory Monitoring</Label>
+              {isMemoryLoading ? (
+                <Skeleton className="h-8" />
+              ) : (
+                <div className="flex flex-col gap-2">
+                  <div className="flex flex-row gap-2 items-center">
+                    <Select
+                      disabled={isMemoryLoading}
+                      value={memoryEnabled ? "enabled" : "disabled"}
+                      onValueChange={(value: string) =>
+                        updateMemorySettings(value === "enabled")
+                      }
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue>
+                          {memoryEnabled ? "Enabled" : "Disabled"}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectGroup>
+                          <SelectLabel>Memory Monitoring</SelectLabel>
+                          <SelectItem value="enabled">
+                            Enable memory monitoring
+                          </SelectItem>
+                          <SelectItem value="disabled">
+                            Disable memory monitoring
+                          </SelectItem>
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      disabled={isMemoryLoading || isMemoryDefault}
+                      onClick={resetMemorySettings}
+                    >
+                      <Undo2Icon className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+              <p className="text-sm text-muted-foreground">
+                Controls whether the device measures memory usage.
+              </p>
+            </div>
+
+            <div className="grid w-full max-w-sm items-center gap-2">
+              {isMemoryLoading ? (
+                <Skeleton className="h-8" />
+              ) : (
+                <div className="grid w-full items-center gap-2">
+                  <Label htmlFor="MemoryUpdateRate">Update Rate</Label>
+                  <div className="flex flex-row gap-2 items-center">
+                    <Select
+                      disabled={isMemoryLoading || !memoryEnabled}
+                      value={String(memoryInterval)}
+                      onValueChange={(value: string) => {
+                        const next = parseInt(value, 10);
+                        setMemoryInterval(next);
+                        // Persist immediately to backend while keeping UX consistent
+                        updateMemorySettings(memoryEnabled, next);
+                      }}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue>
+                          {memoryInterval} second
+                          {memoryInterval === 1 ? "" : "s"}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectGroup>
+                          <SelectLabel>Update Rate</SelectLabel>
+                          <SelectItem value="1">Every 1 second</SelectItem>
+                          <SelectItem value="2">Every 2 seconds</SelectItem>
+                          <SelectItem value="3">Every 3 seconds</SelectItem>
+                          <SelectItem value="5">Every 5 seconds</SelectItem>
+                          <SelectItem value="10">Every 10 seconds</SelectItem>
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      disabled={isMemoryLoading || memoryInterval === 1}
+                      onClick={() => updateMemorySettings(memoryEnabled, 1)}
+                    >
+                      <Undo2Icon className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Controls how often memory usage is updated.
+                  </p>
                 </div>
               )}
             </div>

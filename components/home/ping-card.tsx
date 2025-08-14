@@ -8,7 +8,7 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Badge } from "../ui/badge";
+import { Badge } from "@/components/ui/badge";
 
 interface PingData {
   time: string;
@@ -16,14 +16,7 @@ interface PingData {
   index: number;
 }
 
-interface PingSettingsResponse {
-  status: string;
-  message: string;
-  data?: {
-    enabled: boolean;
-    isDefault: boolean;
-  };
-}
+// enabled state is now included in the fetch payload; no direct settings call from card
 
 const chartConfig = {
   ms: {
@@ -75,6 +68,7 @@ const PingCard = () => {
 
   const [hasFreshData, setHasFreshData] = useState(false);
   const [isPingEnabled, setIsPingEnabled] = useState<boolean>(true);
+  const [pollIntervalSec, setPollIntervalSec] = useState<number>(5);
   const [isCheckingSettings, setIsCheckingSettings] = useState<boolean>(true);
 
   // Animate number changes for smooth transitions
@@ -111,14 +105,9 @@ const PingCard = () => {
   };
 
   const fetchPingLatency = async () => {
-    // Don't fetch if ping is disabled
-    if (!isPingEnabled) {
-      return;
-    }
-
     try {
       const response = await fetch(
-        "/cgi-bin/quecmanager/home/ping_latency.sh",
+        "/cgi-bin/quecmanager/home/ping/fetch_ping.sh",
         {
           method: "GET",
           cache: "no-store",
@@ -132,17 +121,37 @@ const PingCard = () => {
         throw new Error("Network response was not ok");
       }
 
-      const data: { latency: number } = await response.json();
+      const data: {
+        status: string;
+        data?: { latency: number | null; enabled?: boolean; interval?: number };
+      } = await response.json();
 
       // Update latency value with animation
       setCurrentLatency((prev) => {
         // If this is fresh data and we had a previous value, animate
-        if (prev !== null && !hasFreshData) {
-          animateNumber(prev, data.latency, (val) => setCurrentLatency(val));
+        const latencyVal = data?.data?.latency;
+        if (
+          prev !== null &&
+          !hasFreshData &&
+          typeof latencyVal === "number"
+        ) {
+          animateNumber(prev, latencyVal, (val) => setCurrentLatency(val));
           return prev; // Return previous value initially for smooth animation
         }
-        return data.latency;
+        return typeof latencyVal === "number" ? latencyVal : prev;
       });
+
+      // Update enabled state and polling interval from payload (if present)
+      if (typeof data?.data?.enabled === "boolean") {
+        setIsPingEnabled(data.data.enabled);
+      }
+      if (
+        typeof data?.data?.interval === "number" &&
+        data.data.interval > 0 &&
+        data.data.interval !== pollIntervalSec
+      ) {
+        setPollIntervalSec(data.data.interval);
+      }
 
       // Format time
       const time = formatTime();
@@ -153,7 +162,7 @@ const PingCard = () => {
       // Create new data point
       const newDataPoint: PingData = {
         time: time,
-        ms: data.latency,
+  ms: typeof data?.data?.latency === "number" ? data.data.latency : 0,
         index: currentData.length > 0 ? 5 : 1, // Always use consistent indices
       };
 
@@ -207,63 +216,19 @@ const PingCard = () => {
   };
 
   useEffect(() => {
-    const checkPingSettings = async () => {
-      try {
-        setIsCheckingSettings(true);
-        const response = await fetch(
-          "/cgi-bin/quecmanager/settings/ping_settings.sh",
-          {
-            method: "GET",
-            cache: "no-store",
-            headers: {
-              "Content-Type": "application/json",
-            },
-          }
-        );
-
-        if (response.ok) {
-          const data: PingSettingsResponse = await response.json();
-          if (data.status === "success" && data.data) {
-            setIsPingEnabled(data.data.enabled);
-          }
-        }
-      } catch (error) {
-        console.error("Error checking ping settings:", error);
-        // Default to enabled if we can't check settings
-        setIsPingEnabled(true);
-      } finally {
-        setIsCheckingSettings(false);
-      }
-    };
-
-    // Check ping settings first
-    checkPingSettings();
-
-    // Listen for ping settings changes
-    const handlePingSettingsChange = () => {
-      checkPingSettings();
-    };
-
-    window.addEventListener("pingSettingsUpdated", handlePingSettingsChange);
-
-    return () => {
-      window.removeEventListener(
-        "pingSettingsUpdated",
-        handlePingSettingsChange
-      );
-    };
+  // We no longer call settings directly here; first fetch will carry enabled
+  setIsCheckingSettings(false);
   }, []);
 
-  // Separate effect to handle interval when ping is enabled/disabled
+  // Separate effect to handle polling; uses server-provided interval
   useEffect(() => {
-    if (!isPingEnabled || isCheckingSettings) {
-      return;
-    }
-
+    if (isCheckingSettings) return;
+    // Always poll; the fetch handler will update isPingEnabled and chart safely
     fetchPingLatency();
-    const interval = setInterval(fetchPingLatency, 5000);
+    const ms = Math.max(1, pollIntervalSec) * 1000;
+    const interval = setInterval(fetchPingLatency, ms);
     return () => clearInterval(interval);
-  }, [isPingEnabled, isCheckingSettings]);
+  }, [isCheckingSettings, pollIntervalSec]);
 
   const getYAxisDomain = (): [number, number] => {
     if (chartData.length === 0) return [0, 100];
