@@ -825,7 +825,7 @@ apply_profile_settings() {
     qmap_ippt_rule0=$(echo "$qmap_rule0" | cut -d',' -f5)
     if [ $apply_success -eq 1 ] && [ -n "$mobile_provider" ] && [ "$mobile_provider" = "Verizon" ]; then
         # If Verizon, data call should be set to rule 3, AT+QMAP="mpdn_rule",0,3,0,0,1
-        if echo "$qmap_rule0" | awk -F',' '{if ($2==0 && $3=3 && $6==1) exit 0; else exit 1}'; then
+        if echo "$qmap_rule0" | awk -F',' '{if ($2==0 && $3==3 && $6==1) exit 0; else exit 1}'; then
             log_message "Verizon rule already set correctly, no changes needed" "info"
         else
             log_message "Setting Verizon data call mpdn_rule to 3" "info"
