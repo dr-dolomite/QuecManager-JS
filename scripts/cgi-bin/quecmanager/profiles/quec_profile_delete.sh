@@ -17,7 +17,7 @@ output_json() {
     local status="$1"
     local message="$2"
     local data="${3:-{}}"
-    
+
     printf '{"status":"%s","message":"%s","data":%s}\n' "$status" "$message" "$data"
     exit 0
 }
@@ -32,7 +32,7 @@ find_profile_by_iccid() {
     local iccid="$1"
     # Get all profile indices
     local profile_indices=$(uci show quecprofiles | grep -o '@profile\[[0-9]\+\]' | sort -u)
-    
+
     for profile_index in $profile_indices; do
         local current_iccid=$(uci -q get quecprofiles.$profile_index.iccid)
         if [ "$current_iccid" = "$iccid" ]; then
@@ -40,7 +40,7 @@ find_profile_by_iccid() {
             return 0
         fi
     done
-    
+
     return 1
 }
 
@@ -48,13 +48,13 @@ find_profile_by_iccid() {
 delete_profile() {
     local profile_index="$1"
     local profile_name=$(uci -q get quecprofiles.$profile_index.name)
-    
+
     # Delete the profile from UCI config
     uci -q batch <<EOF
 delete quecprofiles.$profile_index
 commit quecprofiles
 EOF
-    
+
     # Check if the operation was successful
     if [ $? -eq 0 ]; then
         log_message "Successfully deleted profile '$profile_name'" "info"
@@ -80,14 +80,14 @@ iccid=""
 if [ "$REQUEST_METHOD" = "POST" ]; then
     # Get content length
     CONTENT_LENGTH=$(echo "$CONTENT_LENGTH" | tr -cd '0-9')
-    
+
     if [ -n "$CONTENT_LENGTH" ]; then
         # Read POST data
         POST_DATA=$(dd bs=1 count=$CONTENT_LENGTH 2>/dev/null)
-        
+
         # Debug log
         log_message "Received POST data: $POST_DATA" "debug"
-        
+
         # Parse JSON with jsonfilter if available
         if command -v jsonfilter >/dev/null 2>&1; then
             iccid=$(echo "$POST_DATA" | jsonfilter -e '@.iccid' 2>/dev/null)
@@ -102,10 +102,10 @@ if [ "$REQUEST_METHOD" = "POST" ]; then
 elif [ -n "$QUERY_STRING" ]; then
     # URL parameters for GET or DELETE requests
     iccid=$(echo "$QUERY_STRING" | grep -o 'iccid=[^&]*' | cut -d'=' -f2)
-    
+
     # URL decode value
     iccid=$(echo "$iccid" | sed 's/+/ /g;s/%\(..\)/\\x\1/g;' | xargs -0 printf "%b")
-    
+
     log_message "Using URL parameter: iccid=$iccid" "debug"
 fi
 
