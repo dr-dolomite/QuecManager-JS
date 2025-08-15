@@ -823,52 +823,50 @@ apply_profile_settings() {
     sleep 1 # Short delay to ensure command is processed
     qmap_rule0=$(echo "$output_check" | grep '+QMAP: "MPDN_rule",0,')
     qmap_ippt_rule0=$(echo "$qmap_rule0" | cut -d',' -f5)
-    if [ $apply_success -eq 1 ] && [ -n "$mobile_provider" ] && [ "$mobile_provider" = "Verizon" ]; then
-        # If Verizon, data call should be set to rule 3, AT+QMAP="mpdn_rule",0,3,0,0,1
-        if echo "$qmap_rule0" | awk -F',' '{if ($2==0 && $3==3 && $6==1) exit 0; else exit 1}'; then
-            log_message "Verizon rule already set correctly, no changes needed" "info"
-        else
-            log_message "Setting Verizon data call mpdn_rule to 3" "info"
-            update_track "applying" "Setting Verizon data call rule to 3" "$profile_name" "100"
-            local verizon_cmd="AT+QMAP=\"mpdn_rule\",0,3,0,$qmap_ippt_rule0,1"
-            local output=$(execute_at_command "$verizon_cmd" 10 "$token_id")
-            sleep 1 # Short delay to ensure command is processed
-        fi
-    elif [ $apply_success -eq 1 ] && [ -n "$mobile_provider" ] && [ "$mobile_provider" = "Other" ]; then
-        # Check if MPDN_rule 0 is already set to all zeros
-        if echo "$qmap_rule0" | awk -F',' '{if ($2==0 && $3==0 && $6==0) exit 0; else exit 1}'; then
-            log_message "Default rule already set correctly, no changes needed" "info"
-        else
-            log_message "Setting to default mpdn_rule and releasing" "info"
-            update_track "applying" "Setting Default data call mpdn_rule to 0" "$profile_name" "100"
-            local def_cmd1="AT+QMAP=\"mpdn_rule\",0"
-            local output1=$(execute_at_command "$def_cmd1" 10 "$token_id")
-            sleep 1 # Short delay to ensure command is processed
-            local def_cmd2="AT+QMAP=\"mpdn_rule\",0,1,0,$qmap_ippt_rule0,1"
-            local output2=$(execute_at_command "$def_cmd2" 10 "$token_id")
-            sleep 1 # Short delay to ensure command is processed
-            if [ "$qmap_ippt_rule0" = "0" ]; then
-                log_message "IPPT is disabled for rule, release the MPDN_rule" "info"
-                local def_cmd3="AT+QMAP=\"mpdn_rule\",0"
-                local output3=$(execute_at_command "$def_cmd3" 10 "$token_id")
-                sleep 1 # Short delay to ensure command is processed
-                if [ "$(cat /sys/devices/soc0/machine)" = "SDXPINN" ]; then
-                    requires_reboot=1
-                    change_for_reboot="MPDN_rule"
-                    update_track "rebooting" "MPDN_rule released, device will reboot" "$profile_name" "105"
-                fi
+    if [ $apply_success -eq 1 ] && [ -n "$mobile_provider" ]; then
+        if [ "$mobile_provider" = "Verizon" ]; then
+            # If Verizon, data call should be set to rule 3, AT+QMAP="mpdn_rule",0,3,0,0,1
+            if echo "$qmap_rule0" | awk -F',' '{exit !($2==0 && $3==3 && $6==1)}'; then
+                log_message "Verizon rule already set correctly, no changes needed" "info"
             else
-                log_message "IPPT is enabled for rule0 not releasing MPDN_rule, no reboot needed: IPPT Value $qmap_ippt_rule0" "info"
+                log_message "Setting Verizon data call mpdn_rule to 3" "info"
+                update_track "applying" "Setting Verizon data call rule to 3" "$profile_name" "100"
+                verizon_cmd="AT+QMAP=\"mpdn_rule\",0,3,0,$qmap_ippt_rule0,1"
+                execute_at_command "$verizon_cmd" 10 "$token_id" >/dev/null
+                sleep 1 # Short delay to ensure command is processed
             fi
-
-
+        elif [ "$mobile_provider" = "Other" ]; then
+            # Check if MPDN_rule 0 is already set to all zeros
+            if echo "$qmap_rule0" | awk -F',' '{exit !($2==0 && $3==0 && $6==0)}'; then
+                log_message "Default rule already set correctly, no changes needed" "info"
+            else
+                log_message "Setting to default mpdn_rule and releasing" "info"
+                update_track "applying" "Setting Default data call mpdn_rule to 0" "$profile_name" "100"
+                def_cmd1="AT+QMAP=\"mpdn_rule\",0"
+                execute_at_command "$def_cmd1" 10 "$token_id"
+                sleep 1 # Short delay to ensure command is processed
+                def_cmd2="AT+QMAP=\"mpdn_rule\",0,1,0,$qmap_ippt_rule0,1"
+                execute_at_command "$def_cmd2" 10 "$token_id"
+                sleep 1 # Short delay to ensure command is processed
+                if [ "$qmap_ippt_rule0" = "0" ]; then
+                    log_message "IPPT is disabled for rule, release the MPDN_rule" "info"
+                    def_cmd3="AT+QMAP=\"mpdn_rule\",0"
+                    execute_at_command "$def_cmd3" 10 "$token_id"
+                    sleep 1 # Short delay to ensure command is processed
+                    if [ "$(cat /sys/devices/soc0/machine)" = "SDXPINN" ]; then
+                        requires_reboot=1
+                        change_for_reboot="MPDN_rule"
+                        update_track "rebooting" "MPDN_rule released, device will reboot" "$profile_name" "105"
+                    fi
+                else
+                    log_message "IPPT is enabled for rule0 not releasing MPDN_rule, no reboot needed: IPPT Value $qmap_ippt_rule0" "info"
+                fi
+            fi
         fi
     fi
 
-
     # Release token
     release_token "$token_id"
-
     # Mark profile as applied if changes were made
     if [ $changes_made -eq 1 ]; then
         mark_profile_applied "$iccid" "$profile_name"
