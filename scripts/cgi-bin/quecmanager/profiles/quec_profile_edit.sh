@@ -380,7 +380,7 @@ if check_duplicate_name "$name" "$iccid"; then
 fi
 
 # Update profile
-if update_profile "$profile_index" "$name" "$imei" "$apn" "$pdp_type" "$lte_bands" "$nr5g_bands" "$network_type" "$mobile_provider"; then
+if update_profile "$profile_index" "$name" "$imei" "$apn" "$pdp_type" "$lte_bands" "$sa_nr5g_bands" "$nsa_nr5g_bands" "$network_type" "$ttl" "$mobile_provider"; then
     # Trigger immediate profile application
     touch "/tmp/quecprofiles_check"
     chmod 644 "/tmp/quecprofiles_check"
