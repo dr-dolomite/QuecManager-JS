@@ -35,15 +35,15 @@ if [ -f "$STATUS_FILE" ]; then
     if [ -s "$STATUS_FILE" ]; then
         # Cat the entire file content (more reliable than grep)
         status_content=$(cat "$STATUS_FILE")
-        
+
         # Log content for debugging
         log_message "Status file content: $status_content" "debug"
-        
+
         # Check if it looks like valid JSON
         if echo "$status_content" | grep -q "status"; then
             # Output the status file content
             cat "$STATUS_FILE"
-            
+
             # Extract status for logging only
             status=$(echo "$status_content" | sed -n 's/.*"status":"\([^"]*\)".*/\1/p')
             log_message "Status from file: $status" "info"
@@ -63,7 +63,7 @@ if [ -f "$TRACK_FILE" ]; then
     status=$(echo "$status_info" | cut -d':' -f1)
     profile=$(echo "$status_info" | cut -d':' -f2)
     progress=$(echo "$status_info" | cut -d':' -f3)
-    
+
     # Make sure the message reflects the actual status
     if [ "$status" = "success" ]; then
         message="Profile successfully applied"
@@ -76,7 +76,7 @@ if [ -f "$TRACK_FILE" ]; then
     else
         message="Profile operation status: $status"
     fi
-    
+
     # Output JSON based on track file
     cat <<EOF
 {
