@@ -1188,7 +1188,7 @@ const PersonalizationPage = () => {
                     <Button
                       variant="outline"
                       size="icon"
-                      disabled={isMemoryLoading || memoryInterval === 1}
+                      disabled={isMemoryLoading || memoryInterval === 1 || isMemoryDefault}
                       onClick={() => updateMemorySettings(memoryEnabled, 1)}
                     >
                       <Undo2Icon className="h-4 w-4" />
