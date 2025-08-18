@@ -46,7 +46,7 @@ const EthernetCard = () => {
     const fetchEthernetInfo = async () => {
       try {
         const response = await fetch(
-          "/cgi-bin/quecmanager/home/fetch_hw_details.sh?type=eth",
+          "/cgi-bin/quecmanager/home/fetch_hw_details.sh",
           {
             method: "GET",
             cache: "no-store",
