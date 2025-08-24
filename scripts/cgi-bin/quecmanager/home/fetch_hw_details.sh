@@ -11,7 +11,7 @@ echo ""
 
 # Lock file path
 LOCK_FILE="/tmp/hw_details.lock"
-LOCK_TIMEOUT=10  # Maximum wait time in seconds
+LOCK_TIMEOUT=10  # Maximum wait time in seconds 
 
 # Function to acquire lock
 acquire_lock() {
@@ -63,26 +63,56 @@ trap cleanup EXIT INT TERM
 # Function to get ethernet information
 get_ethernet_info() {
     interface=${1:-eth0}
-    # Check if ethtool is installed
-    if ! which ethtool >/dev/null 2>&1; then
-        error_response "ethtool not found"
+    
+    # First check if interface exists at all
+    if ! ip link show "$interface" >/dev/null 2>&1; then
+        # Interface doesn't exist - return not connected state
+        echo "{\"link_speed\":\"Not Connected\",\"link_status\":\"no\",\"auto_negotiation\":\"off\",\"connected\":false}"
+        return 0
     fi
     
-    # Check if interface exists
-    if ! ip link show "$interface" >/dev/null 2>&1; then
-        error_response "Interface $interface not found"
+    # Check if interface is up (administratively)
+    interface_state=$(ip link show "$interface" 2>/dev/null | grep -o "state [A-Z]*" | cut -d' ' -f2)
+    if [ "$interface_state" = "DOWN" ]; then
+        # Interface exists but is down - return not connected state
+        echo "{\"link_speed\":\"Not Connected\",\"link_status\":\"no\",\"auto_negotiation\":\"off\",\"connected\":false}"
+        return 0
+    fi
+    
+    # Check if ethtool is available
+    if ! which ethtool >/dev/null 2>&1; then
+        # Fallback: basic interface info without ethtool
+        echo "{\"link_speed\":\"Unknown\",\"link_status\":\"unknown\",\"auto_negotiation\":\"unknown\",\"connected\":true}"
+        return 0
     fi
     
     # Run ethtool and capture output
-    ethtool_output=$(ethtool "$interface" 2>/dev/null) || error_response "Failed to get ethernet information"
+    ethtool_output=$(ethtool "$interface" 2>/dev/null)
+    if [ $? -ne 0 ]; then
+        # ethtool failed - likely no physical connection
+        echo "{\"link_speed\":\"Not Connected\",\"link_status\":\"no\",\"auto_negotiation\":\"off\",\"connected\":false}"
+        return 0
+    fi
     
     # Extract values using sed instead of grep -P
-    speed=$(echo "$ethtool_output" | sed -n 's/.*Speed: \([^[:space:]]*\).*/\1/p' || echo "Unknown")
-    link_status=$(echo "$ethtool_output" | sed -n 's/.*Link detected: \(yes\|no\).*/\1/p' || echo "unknown")
-    auto_negotiation=$(echo "$ethtool_output" | sed -n 's/.*Auto-negotiation: \(on\|off\).*/\1/p' || echo "unknown")
+    speed=$(echo "$ethtool_output" | sed -n 's/.*Speed: \([^[:space:]]*\).*/\1/p')
+    link_status=$(echo "$ethtool_output" | sed -n 's/.*Link detected: \(yes\|no\).*/\1/p')
+    auto_negotiation=$(echo "$ethtool_output" | sed -n 's/.*Auto-negotiation: \(on\|off\).*/\1/p')
     
-    # Output JSON
-    echo "{\"link_speed\":\"$speed\",\"link_status\":\"$link_status\",\"auto_negotiation\":\"$auto_negotiation\"}"
+    # Set defaults if extraction failed
+    [ -z "$speed" ] && speed="Unknown"
+    [ -z "$link_status" ] && link_status="unknown"
+    [ -z "$auto_negotiation" ] && auto_negotiation="unknown"
+    
+    # Check if link is actually detected
+    if [ "$link_status" = "no" ]; then
+        # Physical link not detected - return not connected state
+        echo "{\"link_speed\":\"Not Connected\",\"link_status\":\"no\",\"auto_negotiation\":\"$auto_negotiation\",\"connected\":false}"
+        return 0
+    fi
+    
+    # Link is detected and active - return connected state
+    echo "{\"link_speed\":\"$speed\",\"link_status\":\"$link_status\",\"auto_negotiation\":\"$auto_negotiation\",\"connected\":true}"
 }
 
 # Main execution

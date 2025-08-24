@@ -116,7 +116,7 @@ start_daemon() {
 
     local daemon_path
     daemon_path="$(resolve_daemon_path)"
-    if [ ! -x "$daemon_path" ]; then
+    if [ ! -x "$daemon_path" ]; then 
         # Try to make it executable if present
         if [ -f "$daemon_path" ]; then
             chmod +x "$daemon_path" 2>/dev/null || true

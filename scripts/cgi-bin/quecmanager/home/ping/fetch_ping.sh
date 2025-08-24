@@ -1,86 +1,55 @@
 #!/bin/sh
 
-# Fetch Ping Result (relocated under /home/ping)
-# OpenWrt/BusyBox compatible version
+# Ping Data Fetch Script - Simplified and OpenWrt compatible
 
-# Handle OPTIONS first
-if [ "${REQUEST_METHOD:-GET}" = "OPTIONS" ]; then
-    echo "Content-Type: application/json"
-    echo "Access-Control-Allow-Origin: *"
-    echo "Access-Control-Allow-Methods: GET, OPTIONS"
-    echo "Access-Control-Allow-Headers: Content-Type"
-    echo ""
-    exit 0
-fi
-
-# Set headers for other requests
+# Always set CORS headers first
 echo "Content-Type: application/json"
 echo "Access-Control-Allow-Origin: *"
 echo "Access-Control-Allow-Methods: GET, OPTIONS"
 echo "Access-Control-Allow-Headers: Content-Type"
 echo ""
 
-# Configuration
-OUT_JSON="/tmp/quecmanager/ping_latency.json"
+# Handle OPTIONS request and exit early
+if [ "${REQUEST_METHOD:-GET}" = "OPTIONS" ]; then
+    echo "{\"status\":\"success\"}"
+    exit 0
+fi
+
+# Only handle GET requests
+if [ "${REQUEST_METHOD:-GET}" != "GET" ]; then
+    echo "{\"status\":\"error\",\"message\":\"Method not allowed\"}"
+    exit 0
+fi
+
+# Paths
+PING_JSON="/tmp/quecmanager/ping_latency.json"
 CONFIG_FILE="/etc/quecmanager/settings/ping_settings.conf"
-[ -f "$CONFIG_FILE" ] || CONFIG_FILE="/tmp/quecmanager/settings/ping_settings.conf"
 
-# Get enabled setting
-get_enabled() {
-    local enabled="true"
-    if [ -f "$CONFIG_FILE" ]; then
-        val=$(grep -E "^PING_ENABLED=" "$CONFIG_FILE" 2>/dev/null | tail -n1 | cut -d'=' -f2 | tr -d '\r' || echo "")
-        case "${val:-}" in
-            true|1|on|yes|enabled) enabled="true" ;;
-            false|0|off|no|disabled) enabled="false" ;;
-        esac
-    fi
-    echo "$enabled"
-}
-
-# Get interval setting
-get_interval() {
-    local interval="5"
-    if [ -f "$CONFIG_FILE" ]; then
-        val=$(grep -E "^PING_INTERVAL=" "$CONFIG_FILE" 2>/dev/null | tail -n1 | cut -d'=' -f2 | tr -d '\r' || echo "")
-        if [ -n "$val" ] && echo "$val" | grep -qE '^[0-9]+$'; then
-            interval="$val"
-        fi
-    fi
-    echo "$interval"
-}
-
-# Get host setting
-get_host() {
-    local host="8.8.8.8"
-    if [ -f "$CONFIG_FILE" ]; then
-        val=$(grep -E "^PING_HOST=" "$CONFIG_FILE" 2>/dev/null | tail -n1 | cut -d'=' -f2 | tr -d '\r' || echo "")
-        if [ -n "$val" ]; then
-            host="$val"
-        fi
-    fi
-    echo "$host"
-}
-
-# Get config values
-ENABLED=$(get_enabled)
-INTERVAL=$(get_interval)
-HOST=$(get_host)
-
-# Check if daemon JSON exists and is readable
-if [ -f "$OUT_JSON" ] && [ -r "$OUT_JSON" ]; then
-    # Read the daemon output
-    PING_DATA=$(cat "$OUT_JSON" 2>/dev/null || echo "")
+# Check if ping data file exists
+if [ -f "$PING_JSON" ] && [ -r "$PING_JSON" ]; then
+    # Read the file content
+    ping_data=$(cat "$PING_JSON" 2>/dev/null)
     
-    if [ -n "$PING_DATA" ]; then
-        # Simple approach: just wrap the daemon data with our response format
-        echo "{\"status\":\"success\",\"data\":$PING_DATA,\"config\":{\"enabled\":$ENABLED,\"interval\":$INTERVAL,\"host\":\"$HOST\"}}"
+    # Check if we got content and it looks like JSON
+    if [ -n "$ping_data" ] && echo "$ping_data" | grep -q '"timestamp"'; then
+        # File exists and has content, return it wrapped in success
+        echo "{\"status\":\"success\",\"data\":$ping_data}"
     else
-        # JSON file exists but is empty/unreadable
-        echo "{\"status\":\"error\",\"message\":\"Ping data file exists but is empty or unreadable\"}"
+        echo "{\"status\":\"error\",\"message\":\"Ping data file is empty or corrupted\"}"
     fi
 else
-    # Fallback: return default structure when daemon file doesn't exist
-    TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date +"%Y-%m-%dT%H:%M:%SZ")
-    echo "{\"status\":\"success\",\"data\":{\"timestamp\":\"$TIMESTAMP\",\"host\":\"$HOST\",\"latency\":null,\"ok\":false},\"config\":{\"enabled\":$ENABLED,\"interval\":$INTERVAL,\"host\":\"$HOST\"}}"
+    # No ping file exists - check configuration
+    if [ -f "$CONFIG_FILE" ] && [ -r "$CONFIG_FILE" ]; then
+        # Check if ping monitoring is enabled
+        if grep -q "^PING_ENABLED=true" "$CONFIG_FILE" 2>/dev/null; then
+            echo "{\"status\":\"error\",\"message\":\"Ping daemon starting up\"}"
+        else
+            echo "{\"status\":\"error\",\"message\":\"Ping monitoring disabled\"}"
+        fi
+    else
+        echo "{\"status\":\"error\",\"message\":\"Ping monitoring not configured\"}"
+    fi
 fi
+
+# Always exit cleanly
+exit 0

@@ -26,7 +26,7 @@ daemon_is_running() {
     if [ -n "${pid:-}" ] && kill -0 "$pid" 2>/dev/null; then
       # Avoid false positive if PID reused
       if [ -r "/proc/$pid/cmdline" ] && grep -q "ping_daemon.sh" "/proc/$pid/cmdline" 2>/dev/null; then
-        return 0
+        return 0 
       else
         rm -f "$PID_FILE" 2>/dev/null || true
       fi

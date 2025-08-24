@@ -1,66 +1,59 @@
 #!/bin/sh
 
-# Memory Data Fetch Script - Simple OpenWrt/BusyBox compliant version
+# Memory Data Fetch Script - Simplified and robust
 
-# Handle OPTIONS request
+# Always set CORS headers first (no conditional OPTIONS handling)
+echo "Content-Type: application/json"
+echo "Access-Control-Allow-Origin: *"
+echo "Access-Control-Allow-Methods: GET, OPTIONS"
+echo "Access-Control-Allow-Headers: Content-Type"
+echo ""
+
+# Handle OPTIONS request and exit early
 if [ "${REQUEST_METHOD:-GET}" = "OPTIONS" ]; then
-    echo "Content-Type: text/plain"
-    echo "Access-Control-Allow-Origin: *"
-    echo "Access-Control-Allow-Methods: GET, OPTIONS"
-    echo "Access-Control-Allow-Headers: Content-Type"
-    echo "Access-Control-Max-Age: 86400"
-    echo ""
+    echo "{\"status\":\"success\"}"
     exit 0
 fi
 
-# Set CORS headers
-echo "Content-Type: application/json"
-echo "Access-Control-Allow-Origin: *"
-echo ""
-
 # Only handle GET requests
 if [ "${REQUEST_METHOD:-GET}" != "GET" ]; then
-    echo "{\"status\":\"error\",\"message\":\"Only GET method supported\"}"
-    exit 1
+    echo "{\"status\":\"error\",\"message\":\"Method not allowed\"}"
+    exit 0
 fi
 
-# Configuration and data paths
+# Paths
 MEMORY_JSON="/tmp/quecmanager/memory.json"
 CONFIG_FILE="/etc/quecmanager/settings/memory_settings.conf"
 
-# Check if memory data file exists and read it
-if [ -f "$MEMORY_JSON" ]; then
+# Check if memory data file exists
+if [ -f "$MEMORY_JSON" ] && [ -r "$MEMORY_JSON" ]; then
+    # Read the file content
     memory_data=$(cat "$MEMORY_JSON" 2>/dev/null)
     
-    # Simple validation - check if it has the basic structure
-    if echo "$memory_data" | grep -q '"total"' && echo "$memory_data" | grep -q '"used"'; then
-        # Extract values using awk (more reliable in BusyBox)
-        total=$(echo "$memory_data" | awk -F'"total"[[:space:]]*:[[:space:]]*' '{print $2}' | awk -F'[,}]' '{print $1}')
-        used=$(echo "$memory_data" | awk -F'"used"[[:space:]]*:[[:space:]]*' '{print $2}' | awk -F'[,}]' '{print $1}')
-        available=$(echo "$memory_data" | awk -F'"available"[[:space:]]*:[[:space:]]*' '{print $2}' | awk -F'[,}]' '{print $1}')
-        
-        # Basic validation
-        if [ -n "$total" ] && [ "$total" -gt 0 ] 2>/dev/null; then
-            echo "{\"status\":\"success\",\"data\":{\"total\":$total,\"used\":$used,\"available\":$available}}"
+    # Check if we got content and it looks like JSON
+    if [ -n "$memory_data" ] && echo "$memory_data" | grep -q '"total"'; then
+        # File exists and has content, return it as-is if it's valid JSON
+        if echo "$memory_data" | grep -q '"used"' && echo "$memory_data" | grep -q '"available"'; then
+            echo "{\"status\":\"success\",\"data\":$memory_data}"
         else
-            echo "{\"status\":\"error\",\"message\":\"Invalid memory data\"}"
+            echo "{\"status\":\"error\",\"message\":\"Invalid memory data format\"}"
         fi
     else
-        echo "{\"status\":\"error\",\"message\":\"Memory data file corrupted\"}"
+        echo "{\"status\":\"error\",\"message\":\"Memory data file is empty or corrupted\"}"
     fi
 else
-    # No memory file - check if memory monitoring is enabled
-    if [ -f "$CONFIG_FILE" ]; then
-        enabled=$(awk -F'=' '/^MEMORY_ENABLED=/ {print $2}' "$CONFIG_FILE" 2>/dev/null | tr -d '"')
-        case "$enabled" in
-            true|1|on|yes|enabled)
-                echo "{\"status\":\"error\",\"message\":\"Memory daemon starting up, please wait...\"}"
-                ;;
-            *)
-                echo "{\"status\":\"error\",\"message\":\"Memory monitoring disabled\"}"
-                ;;
-        esac
+    # No memory file exists - check configuration
+    if [ -f "$CONFIG_FILE" ] && [ -r "$CONFIG_FILE" ]; then
+        # Check if memory monitoring is enabled
+        if grep -q "^MEMORY_ENABLED=true" "$CONFIG_FILE" 2>/dev/null; then
+            echo "{\"status\":\"error\",\"message\":\"Memory daemon starting up\"}"
+        else
+            echo "{\"status\":\"error\",\"message\":\"Memory monitoring disabled\"}"
+        fi
     else
         echo "{\"status\":\"error\",\"message\":\"Memory monitoring not configured\"}"
     fi
 fi
+
+# Always exit cleanly
+exit 0

@@ -96,19 +96,23 @@ const MemoryCard = () => {
 
     const initialize = async () => {
       // 1. First fetch config to see if memory monitoring is enabled
+      setIsLoading(true);
       const configResult = await fetchMemoryConfig();
-      
+
       // 2. Only try to fetch memory data if it's enabled
       if (configResult?.enabled) {
-        // Try to fetch existing data
-        const dataFetched = await fetchMemoryData();
-        
+        // Try to fetch existing data immediately
+        await fetchMemoryData();
+
         // Start polling regardless of whether initial fetch succeeded
         // (daemon might be starting up)
-        const pollInterval = Math.max((configResult.interval || 2) * 1000, 1000);
+        const pollInterval = Math.max(
+          (configResult.interval || 2) * 1000,
+          1000
+        );
         intervalId = setInterval(fetchMemoryData, pollInterval);
       }
-      
+
       // Always set loading to false after config check
       setIsLoading(false);
     };
@@ -126,14 +130,14 @@ const MemoryCard = () => {
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>Memory</CardTitle>
-        {config.enabled && config.running && hasData ? (
+        {config.enabled && config.running ? (
           <MonitorCheckIcon className="h-4 w-4 text-green-500" />
         ) : (
           <MonitorOffIcon className="h-4 w-4 text-red-500" />
         )}
       </CardHeader>
       <CardContent>
-        {isLoading ? (
+        {isLoading || !hasData ? (
           <div className="grid lg:grid-cols-3 grid-cols-2 grid-flow-row gap-4 col-span-3">
             <div className="grid gap-1">
               <span className="text-sm text-muted-foreground">Total</span>
@@ -155,12 +159,6 @@ const MemoryCard = () => {
             </p>
             <p className="text-xs text-muted-foreground mt-1">
               Enable it in Settings → Personalization
-            </p>
-          </div>
-        ) : !hasData ? (
-          <div className="text-center py-4">
-            <p className="text-sm text-muted-foreground">
-              Starting memory monitoring...
             </p>
           </div>
         ) : (

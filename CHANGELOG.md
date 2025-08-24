@@ -1,89 +1,66 @@
-# QuecManager Beta Version 2.2.8 Release Candidate
+# QuecManager Beta Version 2.2.8 Release Candidate - Hotfix Update
 
-## 🚀 **Major Features & Improvements**
+## **Critical Hotfixes & System Improvements**
 
-### **Network Insights System - Complete Overhaul**
-- **Dynamic Event Categorization**: Completely reworked network insights interpreter with intelligent categorization for Band Changes, Carrier Aggregation Changes, Network Mode Changes, and No Signal events
-- **Comprehensive QCAINFO Parsing**: Advanced parsing engine for both LTE and NR5G bands with accurate band detection and signal interpretation
-- **Human-Readable Interpretations**: Automatic generation of detailed, technical context for network events with professional explanations
-- **Real-Time Monitoring**: Automated 61-second polling intervals with intelligent event detection and processing
-- **Service Integration**: Seamless integration with QuecManager services for automatic startup and lifecycle management
-- **Deployment Validation**: Comprehensive test suite for OpenWrt deployment verification and system validation
+### **Memory Monitoring System - Persistence & Reliability Fixes**
+- **Fixed Memory Settings Persistence**: Resolved critical issue where memory monitoring settings would not persist across device reboots
+- **Conditional Service Startup**: Implemented intelligent daemon startup that only runs when memory monitoring is enabled in configuration
+- **Simplified CORS Handling**: Streamlined CORS headers in `fetch_memory.sh`
+- **Config-First Architecture**: Memory card component now checks configuration before attempting data fetches, improving loading states and error handling
+- **Optimistic Loading**: Memory data displays immediately when configuration is enabled, eliminating unnecessary loading delays
 
-### **Memory Monitoring System - Complete Rewrite**
-- **Dynamic Service Management**: Memory monitoring now uses dynamic service configuration instead of static initialization
-- **Simplified Architecture**: Streamlined memory daemon system with automatic service lifecycle management
-- **Enhanced Memory Card Component**: Intelligent state management with configuration awareness and real-time status indicators
-- **Optimistic Loading**: Memory data loads immediately when available, with separate loading states for better UX
-- **Error-Free UI**: Removed error states from memory card - shows only loading skeletons or actual data
+### **Ping Latency System - Complete Rework**
+- **Unified Architecture**: Completely reworked ping latency fetching to match the simplified memory system pattern for consistency
+- **New Configuration Service**: Created `ping_service.sh` to provide ping settings via clean JSON API, matching memory service pattern
+- **Simplified Data Fetching**: Replaced complex `fetch_ping.sh` (67 lines) with streamlined version (39 lines) using direct JSON file reading
+- **Fixed Interval Handling**: Resolved critical bug where ping refreshed every 2 seconds despite 5-second configuration - now properly respects config intervals
+- **Config-First Component**: Updated `ping-card.tsx` to use same config-first approach as memory card, eliminating complex animation logic
+- **Conditional Daemon Management**: Ping daemon now starts conditionally based on `PING_ENABLED` configuration, matching memory daemon behavior
 
-### **Network Latency (Ping) System - Enhanced**
-- **Improved Ping Configuration**: Better handling of ping settings with dynamic enable/disable functionality
-- **Real-time Status Updates**: Live ping monitoring with proper state synchronization
-- **Settings Integration**: Seamless integration with personalization settings for ping configuration
+### **Ethernet Hardware Detection - Error Prevention**
+- **Pre-Connection Validation**: Enhanced `fetch_hw_details.sh` to check Ethernet interface existence and status before attempting ethtool operations
+- **Graceful Disconnection Handling**: Script now returns proper "Not Connected" state instead of throwing errors when Ethernet is unplugged
+- **Multi-State Detection**: Distinguishes between interface down, no physical link, and ethtool failures with appropriate responses
+- **Enhanced Component Logic**: Updated `ethernet-card.tsx` to properly handle disconnected states with visual indicators and "Not Available" labels
+- **Improved Error Recovery**: Component now shows proper connection states instead of error messages when hardware is unavailable
 
-### **Public IP Fetching - Non-Blocking Architecture**
-- **Separated Data Flow**: Public IP now fetches independently from main data, eliminating blocking behavior
-- **Progressive Loading**: Main dashboard data (SIM, connection, bands) loads immediately while public IP loads separately
-- **Intelligent Loading States**: Specific loading skeleton only for public IP field while other data displays instantly
-- **Internet Connectivity Validation**: Enhanced public IP script with ping-based connectivity checking before HTTP requests
+### **UI Component Updates**
 
-## 🎨 **User Interface & Experience**
+- **Fixed Cell Scan Feature Access**: Restored accidentally removed component for Cell Scan Feature
 
-### **Legal Compliance**
-- **Terms of Service**: Added comprehensive Terms of Service with Quectel non-affiliation disclaimers
-- **Privacy Policy**: Enhanced privacy documentation with third-party separation clarifications
+## 🐛 **Critical Bug Fixes**
 
-### **Navigation Improvements**
-- **Responsive Design**: Adjusted dashboard navigation to show hamburger menu on lg (1024px) screen sizes
-- **Mobile Navigation**: Fixed outdated mobile navigation components for better accessibility
+### **Memory System Reliability**
+- **Fixed Reboot Persistence**: Memory monitoring settings now survive device reboots and maintain user preferences
+- **Eliminated Random 500 Errors**: Simplified CORS handling prevents intermittent fetch failures
+- **Fixed Loading States**: Memory card no longer shows indefinite loading when service is disabled
 
-### **Personalization Settings**
-- **Memory Settings Integration**: Added memory monitoring controls to personalization page
-- **Dynamic Configuration**: Real-time settings updates with proper event dispatching
+### **Ping System Accuracy**
+- **Fixed Interval Timing**: Ping latency now refreshes at correct intervals
+- **Stable Polling**: Eliminated unnecessary useEffect dependencies that caused polling restarts
 
-## 🐛 **Bug Fixes & Performance**
+### **Ethernet Hardware Robustness**
+- **Prevented Script Errors**: Ethernet script no longer fails when interface is down or cable is unplugged
+- **Improved Error Messages**: Users see "Not Connected" instead of technical error messages
+- **Visual State Indicators**: Proper red/green icon states for connected/disconnected Ethernet
 
-### **Data Loading Issues**
-- **Fixed Frozen Loading States**: Resolved issue where all data would freeze on loading when public IP fetch failed
+## 🔧 **Technical Implementation Details**
 
-### **Network Reliability**
-- **Enhanced Error Handling**: Improved error handling for network connectivity issues
-- **Fallback Mechanisms**: Better fallback behavior when internet connectivity is unavailable
+### **Script Optimizations**
+- **fetch_memory.sh**: Simplified from complex awk parsing to direct JSON file reading with basic validation
+- **fetch_ping.sh**: Reduced from 67 to 39 lines with streamlined logic and simplified CORS
+- **ping_service.sh**: New configuration service providing ping settings via clean JSON API
+- **fetch_hw_details.sh**: Enhanced with pre-validation checks and graceful disconnection handling
 
-## 🔧 **Technical Improvements**
+### **React Component Improvements**
+- **memory-card.tsx**: Config-first architecture with optimistic loading and simplified state management
+- **ping-card.tsx**: Eliminated complex animation logic, fixed dependency issues, added proper interval logging
+- **ethernet-card.tsx**: Enhanced disconnection handling with improved visual states
 
-### **Backend Scripts**
-- **Network Insights Infrastructure**: Complete shell-based interpreter system with POSIX compliance and BusyBox compatibility
-- **Memory System Scripts**: Complete rewrite of memory daemon, service management, and configuration scripts
-- **Fetch Scripts**: Enhanced `fetch_memory.sh` with comprehensive error handling and validation
-- **Service Integration**: Dynamic service file manipulation for memory daemon management
-- **Robust Datetime Handling**: GNU date fallbacks for BusyBox environments with string-based comparison systems
+## 🔄 **Migration & Deployment Notes**
 
-### **React Components**
-- **Hook Optimizations**: Separated concerns in data fetching hooks for better performance
-- **State Management**: Improved state management across memory and network components
-- **Component Architecture**: Cleaner component hierarchy with better separation of loading states
-- **Network Insights UI**: New React components for displaying categorized network events with real-time updates
+- **Ethernet Monitoring**: No user action required
 
-### **Error Handling**
-- **Graceful Degradation**: Components now handle missing data more gracefully
-- **User-Friendly Messages**: Better error messages and loading indicators throughout the application
+## 📋 **Summary of Changes**
 
-## 📈 **Performance Metrics**
-
-- **Faster Initial Load**: Main dashboard data now appears faster
-- **Non-Blocking Operations**: Public IP fetching no longer blocks other data display
-- **Reduced Loading Time**: Memory component shows data immediately when available
-- **Optimized Polling**: Separate polling intervals for different data types (15s main, 30s public IP, 2s memory, 61s network insights)
-- **Intelligent Event Processing**: Network insights processing optimized for minimal system impact
-
-## 🔄 **Migration Notes**
-
-- Memory monitoring may need to be re-enabled in personalization settings after update
-- Network insights interpreter will automatically integrate with existing QuecManager services
-- No breaking changes to user interface or existing functionality
-- Run chmod +x on the cgi-bin directory or new scripts to enable execution
-- OpenWrt users should run the deployment test script to validate network insights compatibility
-
----
+This hotfix update focuses on critical reliability improvements and system consistency. 
