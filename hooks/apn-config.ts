@@ -92,7 +92,7 @@ export function useAPNConfig(): UseAPNConfigReturn {
       }
 
       const data: APNProfileResponse = await response.json();
-      console.log('Fetched APN profiles data:', data);
+      // console.log('Fetched APN profiles data:', data);
       
       setProfiles(data.profiles);
       setServiceStatus(data.service || null);

@@ -75,7 +75,7 @@ const useAboutData = () => {
         uptimeResponse.json(),
       ]);
 
-      console.log("Raw data:", rawData);
+      // console.log("Raw data:", rawData);
 
       const processedData: AboutData = {
         manufacturer: rawData[0].response.split("\n")[1].trim(),

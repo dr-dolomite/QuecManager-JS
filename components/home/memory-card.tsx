@@ -28,7 +28,7 @@ const MemoryCard = () => {
   });
   const [config, setConfig] = useState<MemoryConfig>({
     enabled: false,
-    interval: 1,
+    interval: 2,
     running: false,
   });
   const [isLoading, setIsLoading] = useState(true);
@@ -48,21 +48,17 @@ const MemoryCard = () => {
         }
       );
 
-      if (!response.ok) {
-        return false;
-      }
+      if (!response.ok) return false;
 
       const result = await response.json();
-
       if (result.status === "success" && result.data) {
         setMemoryData(result.data);
         setHasData(true);
         return true;
       }
-      
       return false;
     } catch (err) {
-      console.error("Failed to fetch memory information:", err);
+      console.error("Failed to fetch memory data:", err);
       return false;
     }
   }, []);
@@ -80,61 +76,36 @@ const MemoryCard = () => {
           },
         }
       );
-      if (!response.ok) {
-        throw new Error("Failed to fetch memory configuration");
-      }
+
+      if (!response.ok) return null;
+
       const result = await response.json();
       if (result.status === "success" && result.data) {
         setConfig(result.data);
         return result.data;
       }
-      throw new Error("Invalid configuration response");
+      return null;
     } catch (err) {
-      console.error("Failed to fetch memory configuration:", err);
+      console.error("Failed to fetch memory config:", err);
       return null;
     }
   }, []);
-
-  // Enable memory monitoring
 
   useEffect(() => {
     let intervalId: NodeJS.Timeout | null = null;
 
     const initialize = async () => {
-      // 1. Always fetch memory data first (optimistic)
-      // Add a 500ms buffer
+      // 1. Optimistically fetch memory data first
       await fetchMemoryData();
       setIsLoading(false);
 
-      // Log
-      console.log("Memory data fetched:", memoryData);
-
-      // 2. Then fetch config to determine if we should start polling
+      // 2. Fetch config to determine polling behavior
       const configResult = await fetchMemoryConfig();
+      // console.log("Memory config:", configResult);
 
-      // Log
-      console.log("Memory config fetched:", configResult);
-
-      // 3. Only start polling if config says enabled
-      if (configResult?.enabled && hasData) {
-        const pollInterval = Math.max((configResult.interval || 2) * 1000, 1000);
-        intervalId = setInterval(fetchMemoryData, pollInterval);
-
-        // Log
-        console.log("Memory polling started:", pollInterval);
-      }
-    };
-
-    const handleSettingsUpdate = async () => {
-      // Clear existing interval
-      if (intervalId) {
-        clearInterval(intervalId);
-        intervalId = null;
-      }
-      
-      // Re-fetch config and restart polling if needed
-      const configResult = await fetchMemoryConfig();
-      if (configResult?.enabled && hasData) {
+      // 3. If enabled, start polling based on interval
+      if (configResult?.enabled) {
+        // console.log("Starting memory polling with interval:", configResult.interval);
         const pollInterval = Math.max((configResult.interval || 2) * 1000, 1000);
         intervalId = setInterval(fetchMemoryData, pollInterval);
       }
@@ -142,16 +113,12 @@ const MemoryCard = () => {
 
     initialize();
 
-    // Listen for settings updates from personalization page
-    window.addEventListener("memorySettingsUpdated", handleSettingsUpdate);
-
     return () => {
       if (intervalId) {
         clearInterval(intervalId);
       }
-      window.removeEventListener("memorySettingsUpdated", handleSettingsUpdate);
     };
-  }, [fetchMemoryData, fetchMemoryConfig, hasData]);
+  }, []); // No dependencies - just run once on mount
 
   return (
     <Card>
@@ -165,7 +132,6 @@ const MemoryCard = () => {
       </CardHeader>
       <CardContent>
         {isLoading && !hasData ? (
-          // Only show loading state if we don't have any data yet
           <div className="grid lg:grid-cols-3 grid-cols-2 grid-flow-row gap-4 col-span-3">
             <div className="grid gap-1">
               <span className="text-sm text-muted-foreground">Total</span>
@@ -181,7 +147,6 @@ const MemoryCard = () => {
             </div>
           </div>
         ) : (
-          // Show data (either fresh or stale, but we have something to show)
           <div className="grid lg:grid-cols-3 grid-cols-2 grid-flow-row gap-4 col-span-3">
             <div className="grid gap-1">
               <span className="text-sm text-muted-foreground">Total</span>
