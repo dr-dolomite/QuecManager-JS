@@ -27,26 +27,40 @@ import { useNetworkInterpretations } from "@/hooks/use-network-interpretations";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const getInterpretationIcon = (interpretation: string) => {
-  if (interpretation.includes("band")) return <Radio className="h-4 w-4" />;
-  if (interpretation.includes("carrier aggregation"))
+  if (interpretation.toLowerCase().includes("band")) return <Radio className="h-4 w-4" />;
+  if (interpretation.toLowerCase().includes("carrier aggregation") || interpretation.toLowerCase().includes("carriers"))
     return <Zap className="h-4 w-4" />;
-  if (interpretation.includes("signal")) return <Signal className="h-4 w-4" />;
-  if (interpretation.includes("PCI") || interpretation.includes("EARFCN"))
+  if (interpretation.toLowerCase().includes("signal")) return <Signal className="h-4 w-4" />;
+  if (interpretation.toLowerCase().includes("network mode")) return <Activity className="h-4 w-4" />;
+  if (interpretation.toLowerCase().includes("pci") || interpretation.toLowerCase().includes("earfcn"))
     return <Activity className="h-4 w-4" />;
   return <Activity className="h-4 w-4" />;
 };
 
 const getInterpretationColor = (interpretation: string) => {
-  if (interpretation.includes("activated"))
-    return "bg-green-100 text-green-800 border-green-200 dark:bg-green-900/20 dark:text-green-300 dark:border-green-800";
-  if (interpretation.includes("deactivated"))
+  const lowerInterp = interpretation.toLowerCase();
+  
+  // Signal events (highest priority - red/green)
+  if (lowerInterp.includes("signal lost") || lowerInterp.includes("no cellular"))
     return "bg-red-100 text-red-800 border-red-200 dark:bg-red-900/20 dark:text-red-300 dark:border-red-800";
-  if (interpretation.includes("improved"))
+  if (lowerInterp.includes("signal restored") || lowerInterp.includes("connected"))
+    return "bg-green-100 text-green-800 border-green-200 dark:bg-green-900/20 dark:text-green-300 dark:border-green-800";
+  
+  // CA events (yellow/blue)
+  if (lowerInterp.includes("aggregation activated") || lowerInterp.includes("carriers increased"))
     return "bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-800";
-  if (interpretation.includes("degraded"))
+  if (lowerInterp.includes("aggregation deactivated") || lowerInterp.includes("single carrier"))
     return "bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-900/20 dark:text-orange-300 dark:border-orange-800";
-  if (interpretation.includes("changed"))
+  
+  // Network mode changes (purple)
+  if (lowerInterp.includes("network mode changed") || lowerInterp.includes("nsa") || lowerInterp.includes("lte") || lowerInterp.includes("5g sa"))
     return "bg-purple-100 text-purple-800 border-purple-200 dark:bg-purple-900/20 dark:text-purple-300 dark:border-purple-800";
+  
+  // Band changes (teal)
+  if (lowerInterp.includes("band") && (lowerInterp.includes("added") || lowerInterp.includes("removed") || lowerInterp.includes("changed")))
+    return "bg-teal-100 text-teal-800 border-teal-200 dark:bg-teal-900/20 dark:text-teal-300 dark:border-teal-800";
+  
+  // Default
   return "bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-900/20 dark:text-gray-300 dark:border-gray-800";
 };
 
@@ -94,9 +108,9 @@ export default function NetworkInsights() {
       <CardHeader>
         <CardTitle>Network Insights</CardTitle>
         <CardDescription>
-          This page provides real-time insights into your cellular network
-          changes, including band switches, carrier aggregation events, and
-          signal quality improvements or degradations.
+          Real-time insights into your cellular network changes, including band
+          switches, carrier aggregation events, and signal quality changes. The
+          monitoring service runs automatically as part of QuecManager services.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -112,7 +126,7 @@ export default function NetworkInsights() {
 
           <div className="grid gap-6">
             {/* Stats Card */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <Card>
                 <CardContent className="p-4">
                   <div className="flex items-center space-x-3">
@@ -133,7 +147,7 @@ export default function NetworkInsights() {
               <Card>
                 <CardContent className="p-4">
                   <div className="flex items-center space-x-3">
-                    <CloudCog className="h-8 w-8 text-green-500" />
+                    <Radio className="h-8 w-8 text-teal-500" />
                     <div>
                       <p className="text-sm font-medium">Band Changes</p>
                       {loading && interpretations.length === 0 ? (
@@ -142,7 +156,7 @@ export default function NetworkInsights() {
                         <p className="text-2xl font-bold">
                           {
                             interpretations.filter((i) =>
-                              i.interpretation.includes("band")
+                              i.interpretation.toLowerCase().includes("band")
                             ).length
                           }
                         </p>
@@ -154,7 +168,7 @@ export default function NetworkInsights() {
               <Card>
                 <CardContent className="p-4">
                   <div className="flex items-center space-x-3">
-                    <WorkflowIcon className="h-8 w-8 text-purple-500" />
+                    <Zap className="h-8 w-8 text-blue-500" />
                     <div>
                       <p className="text-sm font-medium">CA Events</p>
                       {loading && interpretations.length === 0 ? (
@@ -163,7 +177,30 @@ export default function NetworkInsights() {
                         <p className="text-2xl font-bold">
                           {
                             interpretations.filter((i) =>
-                              i.interpretation.includes("carrier aggregation")
+                              i.interpretation.toLowerCase().includes("carrier aggregation") ||
+                              i.interpretation.toLowerCase().includes("carriers")
+                            ).length
+                          }
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center space-x-3">
+                    <Signal className="h-8 w-8 text-green-500" />
+                    <div>
+                      <p className="text-sm font-medium">Signal Events</p>
+                      {loading && interpretations.length === 0 ? (
+                        <Skeleton className="h-8 w-6 mt-1" />
+                      ) : (
+                        <p className="text-2xl font-bold">
+                          {
+                            interpretations.filter((i) =>
+                              i.interpretation.toLowerCase().includes("signal") ||
+                              i.interpretation.toLowerCase().includes("network mode")
                             ).length
                           }
                         </p>
