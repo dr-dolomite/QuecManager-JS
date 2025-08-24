@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
+import { ArrowLeftIcon } from "lucide-react";
 
 const LoginPage = () => {
   const { toast } = useToast();
@@ -90,9 +91,18 @@ const LoginPage = () => {
                     onChange={(e) => setPassword(e.target.value)}
                   />
                 </div>
-                <Button type="submit" className="w-full">
-                  Login
-                </Button>
+                <div className="grid gap-2">
+                  <Button type="submit" className="w-full">
+                    Login
+                  </Button>
+                  <Link href="/" className="flex items-center">
+                    <ArrowLeftIcon className="size-4 gap-x-1 text-muted-foreground" />
+                    <p className="text-xs text-muted-foreground underline underline-offset-4">
+                      Go Back
+                    </p>
+                  </Link>
+                </div>
+
                 {error && (
                   <div className="bg-rose-500 p-1 rounded-md flex text-center justify-center items-center">
                     <p>{error}</p>

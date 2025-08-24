@@ -134,9 +134,15 @@ const useHomeData = () => {
       const rawData = await response.json();
       console.log(rawData); //
       // Add type annotation for rawData
-      if (rawData.some((x: {response: string}) => x.response.toLowerCase().includes("failed"))) {
-        console.error("SMS tool failure detected in modem response. Attempting service restart via reset-at-bridge.sh.");
-        await fetch("/cgi-bin/quecmanager/reset-at-bridge.sh")
+      if (
+        rawData.some((x: { response: string }) =>
+          x.response.toLowerCase().includes("failed")
+        )
+      ) {
+        console.error(
+          "SMS tool failure detected in modem response. Attempting service restart via reset-at-bridge.sh."
+        );
+        await fetch("/cgi-bin/quecmanager/reset-at-bridge.sh");
       }
       // fetch public ip from /cgi-bin/quecmanager/home/fetch_public_ip.sh
       const publicIPResponse = await fetch(
@@ -147,7 +153,15 @@ const useHomeData = () => {
       const processedData: HomeData = {
         simCard: {
           slot: parseField(rawData[0].response, 1, 1, 0),
-          state: rawData[6].response.includes("READY") ? "Inserted" : rawData[6].response.includes("PIN") ? "Waiting for PIN" : rawData[6].response.includes("PUK") ? "Waiting for Password" : rawData[6].response.toLowerCase().includes("failed") ? "SMS-Tool Failed Token" : "Unknown",
+          state: rawData[6].response.includes("READY")
+            ? "Inserted"
+            : rawData[6].response.includes("PIN")
+            ? "Waiting for PIN"
+            : rawData[6].response.includes("PUK")
+            ? "Waiting for Password"
+            : rawData[6].response.toLowerCase().includes("failed")
+            ? "SMS-Tool Failed Token"
+            : "Unknown",
           provider: parseField(rawData[2].response, 1, 1, 2),
           phoneNumber: parseField(rawData[1].response, 1, 1, 1),
           imsi: parseField(rawData[3].response, 1, 0, 0),
@@ -194,11 +208,39 @@ const useHomeData = () => {
         },
         cellularInfo: {
           // The TAC and CellID are providing a data map for the network type to correlate to which index to use for the parsing
-          cellId: extractValueByNetworkType(rawData[10]?.response, getNetworkType(rawData[13]?.response), { "NR5G-SA": 1, "NR5G-NSA": 2, "LTE": 1 }, { "NR5G-SA": 6, "NR5G-NSA": 4, "LTE": 6 }, false),
-          trackingAreaCode: extractValueByNetworkType(rawData[10]?.response, getNetworkType(rawData[13]?.response), { "NR5G-SA": 1, "NR5G-NSA": 2, "LTE": 1 }, { "NR5G-SA": 8, "NR5G-NSA": 10, "LTE": 12 }, false),
-          cellIdRaw: extractValueByNetworkType(rawData[10]?.response, getNetworkType(rawData[13]?.response), { "NR5G-SA": 1, "NR5G-NSA": 2, "LTE": 1 }, { "NR5G-SA": 6, "NR5G-NSA": 4, "LTE": 6 }, true),
-          trackingAreaCodeRaw: extractValueByNetworkType(rawData[10]?.response, getNetworkType(rawData[13]?.response), { "NR5G-SA": 1, "NR5G-NSA": 2, "LTE": 1 }, { "NR5G-SA": 8, "NR5G-NSA": 10, "LTE": 12 }, true),
-          physicalCellId: getCurrentBandsPCI(rawData[13].response, getNetworkType(rawData[13].response)).join(", ") || "Unknown",
+          cellId: extractValueByNetworkType(
+            rawData[10]?.response,
+            getNetworkType(rawData[13]?.response),
+            { "NR5G-SA": 1, "NR5G-NSA": 2, LTE: 1 },
+            { "NR5G-SA": 6, "NR5G-NSA": 4, LTE: 6 },
+            false
+          ),
+          trackingAreaCode: extractValueByNetworkType(
+            rawData[10]?.response,
+            getNetworkType(rawData[13]?.response),
+            { "NR5G-SA": 1, "NR5G-NSA": 2, LTE: 1 },
+            { "NR5G-SA": 8, "NR5G-NSA": 10, LTE: 12 },
+            false
+          ),
+          cellIdRaw: extractValueByNetworkType(
+            rawData[10]?.response,
+            getNetworkType(rawData[13]?.response),
+            { "NR5G-SA": 1, "NR5G-NSA": 2, LTE: 1 },
+            { "NR5G-SA": 6, "NR5G-NSA": 4, LTE: 6 },
+            true
+          ),
+          trackingAreaCodeRaw: extractValueByNetworkType(
+            rawData[10]?.response,
+            getNetworkType(rawData[13]?.response),
+            { "NR5G-SA": 1, "NR5G-NSA": 2, LTE: 1 },
+            { "NR5G-SA": 8, "NR5G-NSA": 10, LTE: 12 },
+            true
+          ),
+          physicalCellId:
+            getCurrentBandsPCI(
+              rawData[13].response,
+              getNetworkType(rawData[13].response)
+            ).join(", ") || "Unknown",
           earfcn: getCurrentBandsEARFCN(rawData[13].response).join(", "),
           mcc: getNetworkCode(
             rawData[10]?.response,
@@ -240,9 +282,13 @@ const useHomeData = () => {
           ) || ["Unknown"],
         },
         networkAddressing: {
-          publicIPv4: publicIPResponse.ok
-            ? (await publicIPResponse.json()).public_ip || "-"
-            : "Can't fetch public IP",
+          publicIPv4: await (async () => {
+            if (!publicIPResponse.ok) return "Can't fetch public IP";
+            const publicIPData = await publicIPResponse.json();
+            return publicIPData.error
+              ? "No Internet"
+              : publicIPData.public_ip || "-";
+          })(),
           // Extract IPv4 address from QMAP="WWAN" response
           cellularIPv4: extractIPAddress(rawData, "IPV4"),
           cellularIPv6: extractIPAddress(rawData, "IPV6"),

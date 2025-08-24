@@ -736,7 +736,7 @@ const PersonalizationPage = () => {
     try {
       setIsMemoryLoading(true);
       const response = await fetch(
-        "/cgi-bin/quecmanager/home/memory/fetch_memory_settings.sh"
+        "/cgi-bin/quecmanager/home/memory/memory_service.sh"
       );
       const data: MemorySettingsResponse = await response.json();
 
@@ -745,7 +745,9 @@ const PersonalizationPage = () => {
         if (typeof data.data.interval === "number") {
           setMemoryInterval(data.data.interval);
         }
-        setIsMemoryDefault(data.data.isDefault);
+        // For the new dynamic system, we determine default status based on enabled state
+        // If monitoring is disabled, it's effectively in default state
+        setIsMemoryDefault(!data.data.enabled);
       }
     } catch (error) {
       console.error("Error fetching memory settings:", error);
@@ -781,8 +783,11 @@ const PersonalizationPage = () => {
         setMemoryEnabled(enabled);
         if (typeof data.data?.interval === "number") {
           setMemoryInterval(data.data.interval);
+        } else {
+          setMemoryInterval(requestedInterval);
         }
-        setIsMemoryDefault(data.data?.isDefault ?? false);
+        // In the new dynamic system, default state is disabled
+        setIsMemoryDefault(!enabled);
         const newInterval =
           typeof data.data?.interval === "number"
             ? data.data.interval
@@ -835,19 +840,14 @@ const PersonalizationPage = () => {
       );
       const data: MemorySettingsResponse = await response.json();
 
-      if (data.status === "success" && data.data) {
-        setMemoryEnabled(data.data.enabled);
-        if (typeof data.data.interval === "number") {
-          setMemoryInterval(data.data.interval);
-        } else {
-          setMemoryInterval(1);
-        }
-        setIsMemoryDefault(data.data.isDefault);
+      if (data.status === "success") {
+        // With the new dynamic system, reset means disabling monitoring
+        setMemoryEnabled(false);
+        setMemoryInterval(1); // Default interval
+        setIsMemoryDefault(true);
         toast({
           title: "Memory Settings Reset",
-          description: `Memory monitoring reset to system default (${
-            data.data.enabled ? "enabled" : "disabled"
-          }).`,
+          description: "Memory monitoring reset to system default (disabled).",
         });
 
         // Dispatch custom event to notify memory card of the change

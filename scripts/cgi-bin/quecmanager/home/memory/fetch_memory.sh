@@ -1,96 +1,121 @@
 #!/bin/sh
 
-# Fetch Memory Result (following ping pattern)
-# OpenWrt/BusyBox compatible version
+# Memory Data Fetch Script
+# Returns current memory usage data from the memory daemon
 
-# Handle OPTIONS first
+# Handle OPTIONS request first
 if [ "${REQUEST_METHOD:-GET}" = "OPTIONS" ]; then
-    echo "Content-Type: application/json"
+    echo "Content-Type: text/plain"
     echo "Access-Control-Allow-Origin: *"
     echo "Access-Control-Allow-Methods: GET, OPTIONS"
     echo "Access-Control-Allow-Headers: Content-Type"
+    echo "Access-Control-Max-Age: 86400"
     echo ""
     exit 0
 fi
 
-# Set headers for other requests
+# Set content type and CORS headers
 echo "Content-Type: application/json"
 echo "Access-Control-Allow-Origin: *"
 echo "Access-Control-Allow-Methods: GET, OPTIONS"
 echo "Access-Control-Allow-Headers: Content-Type"
 echo ""
 
-# Configuration
-OUT_JSON="/tmp/quecmanager/memory.json"
+# Configuration paths
+MEMORY_JSON="/tmp/quecmanager/memory.json"
 CONFIG_FILE="/etc/quecmanager/settings/memory_settings.conf"
-[ -f "$CONFIG_FILE" ] || CONFIG_FILE="/tmp/quecmanager/settings/memory_settings.conf"
+FALLBACK_CONFIG_FILE="/tmp/quecmanager/settings/memory_settings.conf"
 
-# Get enabled setting
-get_enabled() {
-    local enabled="true"
+# Check if memory monitoring is enabled
+is_memory_enabled() {
+    local config_to_read=""
     if [ -f "$CONFIG_FILE" ]; then
-        val=$(grep -E "^MEMORY_ENABLED=" "$CONFIG_FILE" 2>/dev/null | tail -n1 | cut -d'=' -f2 | tr -d '\r' || echo "")
-        case "${val:-}" in
-            true|1|on|yes|enabled) enabled="true" ;;
-            false|0|off|no|disabled) enabled="false" ;;
+        config_to_read="$CONFIG_FILE"
+    elif [ -f "$FALLBACK_CONFIG_FILE" ]; then
+        config_to_read="$FALLBACK_CONFIG_FILE"
+    fi
+
+    if [ -n "$config_to_read" ]; then
+        local enabled_val=$(grep "^MEMORY_ENABLED=" "$config_to_read" 2>/dev/null | tail -n1 | cut -d'=' -f2 | tr -d '"')
+        case "$enabled_val" in
+            true|1|on|yes|enabled) return 0 ;;
+            *) return 1 ;;
         esac
     fi
-    echo "$enabled"
+    return 1  # Default to disabled
 }
 
-# Get interval setting
-get_interval() {
-    local interval="1"
-    if [ -f "$CONFIG_FILE" ]; then
-        val=$(grep -E "^MEMORY_INTERVAL=" "$CONFIG_FILE" 2>/dev/null | tail -n1 | cut -d'=' -f2 | tr -d '\r' || echo "")
-        if [ -n "$val" ] && echo "$val" | grep -qE '^[0-9]+$'; then
-            interval="$val"
-        fi
-    fi
-    echo "$interval"
+# Check if memory daemon is running
+is_memory_daemon_running() {
+    pgrep -f "memory_daemon.sh" >/dev/null 2>&1
 }
 
-# Get config values
-ENABLED=$(get_enabled)
-INTERVAL=$(get_interval)
+# Handle GET request only
+if [ "${REQUEST_METHOD:-GET}" != "GET" ]; then
+    echo "{\"status\":\"error\",\"code\":\"METHOD_NOT_ALLOWED\",\"message\":\"Only GET method is supported\"}"
+    exit 1
+fi
 
-# Check if daemon JSON exists and is readable
-if [ -f "$OUT_JSON" ] && [ -r "$OUT_JSON" ]; then
-    # Read the daemon output
-    MEMORY_DATA=$(cat "$OUT_JSON" 2>/dev/null || echo "")
+# Check if memory monitoring is enabled
+if ! is_memory_enabled; then
+    echo "{\"status\":\"error\",\"code\":\"MEMORY_DISABLED\",\"message\":\"Memory monitoring is disabled. Enable it in settings to view memory data.\"}"
+    exit 1
+fi
+
+# Check if daemon is running
+if ! is_memory_daemon_running; then
+    echo "{\"status\":\"error\",\"code\":\"DAEMON_NOT_RUNNING\",\"message\":\"Memory daemon is not running. Check memory settings.\"}"
+    exit 1
+fi
+
+# Check if memory data file exists and is recent (within last 30 seconds)
+if [ ! -f "$MEMORY_JSON" ]; then
+    echo "{\"status\":\"error\",\"code\":\"NO_DATA\",\"message\":\"Memory data file not found. Memory daemon may be starting up.\"}"
+    exit 1
+fi
+
+# Check if file is recent (modified within last 30 seconds)
+# Get current time and file modification time
+current_time=$(date +%s)
+file_time=$(stat -c %Y "$MEMORY_JSON" 2>/dev/null)
+
+if [ -z "$file_time" ]; then
+    echo "{\"status\":\"error\",\"code\":\"STAT_ERROR\",\"message\":\"Cannot determine file modification time.\"}"
+    exit 1
+fi
+
+# Check if file is older than 30 seconds
+time_diff=$((current_time - file_time))
+if [ "$time_diff" -gt 30 ]; then
+    echo "{\"status\":\"error\",\"code\":\"STALE_DATA\",\"message\":\"Memory data is stale (${time_diff}s old). Memory daemon may have stopped.\"}"
+    exit 1
+fi
+
+# Read and validate the memory data
+if [ -r "$MEMORY_JSON" ]; then
+    memory_content=$(cat "$MEMORY_JSON" 2>/dev/null)
     
-    if [ -n "$MEMORY_DATA" ]; then
-        # Simple approach: just wrap the daemon data with our response format
-        echo "{\"status\":\"success\",\"data\":$MEMORY_DATA,\"config\":{\"enabled\":$ENABLED,\"interval\":$INTERVAL}}"
+    # Basic validation - check if it looks like valid JSON with required fields
+    if echo "$memory_content" | grep -q '"total"' && echo "$memory_content" | grep -q '"used"' && echo "$memory_content" | grep -q '"available"'; then
+        # Extract the data part and ensure it's properly formatted
+        total=$(echo "$memory_content" | sed -n 's/.*"total"[[:space:]]*:[[:space:]]*\([0-9][0-9]*\).*/\1/p')
+        used=$(echo "$memory_content" | sed -n 's/.*"used"[[:space:]]*:[[:space:]]*\([0-9][0-9]*\).*/\1/p')
+        available=$(echo "$memory_content" | sed -n 's/.*"available"[[:space:]]*:[[:space:]]*\([0-9][0-9]*\).*/\1/p')
+        
+        # Validate that we got valid numbers
+        if [ -n "$total" ] && [ -n "$used" ] && [ -n "$available" ] && \
+           [ "$total" -gt 0 ] && [ "$used" -ge 0 ] && [ "$available" -ge 0 ]; then
+            # Return properly formatted response
+            echo "{\"status\":\"success\",\"data\":{\"total\":$total,\"used\":$used,\"available\":$available}}"
+        else
+            echo "{\"status\":\"error\",\"code\":\"INVALID_DATA\",\"message\":\"Memory data contains invalid values.\"}"
+            exit 1
+        fi
     else
-        # JSON file exists but is empty/unreadable
-        echo "{\"status\":\"error\",\"message\":\"Memory data file exists but is empty or unreadable\"}"
+        echo "{\"status\":\"error\",\"code\":\"INVALID_FORMAT\",\"message\":\"Memory data file has invalid format.\"}"
+        exit 1
     fi
 else
-    # Fallback: get memory info directly using OpenWrt-compatible commands
-    # Use /proc/meminfo which is more reliable on OpenWrt than 'free'
-    if [ -r "/proc/meminfo" ]; then
-        # Extract values from /proc/meminfo (values are in kB)
-        TOTAL_KB=$(grep "^MemTotal:" /proc/meminfo | awk '{print $2}' || echo "0")
-        AVAIL_KB=$(grep "^MemAvailable:" /proc/meminfo | awk '{print $2}' || echo "0")
-        FREE_KB=$(grep "^MemFree:" /proc/meminfo | awk '{print $2}' || echo "0")
-        
-        # If MemAvailable is not available (older kernels), use MemFree
-        if [ "$AVAIL_KB" = "0" ]; then
-            AVAIL_KB="$FREE_KB"
-        fi
-        
-        # Convert to bytes (multiply by 1024)
-        TOTAL_BYTES=$((TOTAL_KB * 1024))
-        AVAIL_BYTES=$((AVAIL_KB * 1024))
-        USED_BYTES=$((TOTAL_BYTES - AVAIL_BYTES))
-        
-        # Generate timestamp
-        TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date +"%Y-%m-%dT%H:%M:%SZ")
-        
-        # Output JSON
-        echo "{\"status\":\"success\",\"data\":{\"total\":$TOTAL_BYTES,\"used\":$USED_BYTES,\"available\":$AVAIL_BYTES,\"timestamp\":\"$TIMESTAMP\"},\"config\":{\"enabled\":$ENABLED,\"interval\":$INTERVAL}}"
-    else
-        echo "{\"status\":\"error\",\"message\":\"Unable to read memory information\"}"
-    fi
+    echo "{\"status\":\"error\",\"code\":\"READ_ERROR\",\"message\":\"Cannot read memory data file.\"}"
+    exit 1
 fi

@@ -1,9 +1,9 @@
 #!/bin/sh
 
 # Memory Settings Configuration Script
-# Manages memory service (enable/disable) and daemon settings
+# Manages memory service (enable/disable) and daemon settings with dynamic service management
 
-# Handle OPTIONS request first (before any headers)
+# Handle OPTIONS request first
 if [ "${REQUEST_METHOD:-GET}" = "OPTIONS" ]; then
     echo "Content-Type: text/plain"
     echo "Access-Control-Allow-Origin: *"
@@ -14,22 +14,20 @@ if [ "${REQUEST_METHOD:-GET}" = "OPTIONS" ]; then
     exit 0
 fi
 
-# Set content type and CORS headers for other requests
+# Set content type and CORS headers
 echo "Content-Type: application/json"
 echo "Access-Control-Allow-Origin: *"
 echo "Access-Control-Allow-Methods: GET, POST, DELETE, OPTIONS"
 echo "Access-Control-Allow-Headers: Content-Type"
 echo ""
 
-# Configuration
+# Configuration paths
 CONFIG_DIR="/etc/quecmanager/settings"
 CONFIG_FILE="$CONFIG_DIR/memory_settings.conf"
 FALLBACK_CONFIG_DIR="/tmp/quecmanager/settings"
 FALLBACK_CONFIG_FILE="$FALLBACK_CONFIG_DIR/memory_settings.conf"
 LOG_FILE="/tmp/memory_settings.log"
-PID_FILE="/tmp/quecmanager/memory_daemon.pid"
-# Prefer the new services location, fall back to the legacy path for compatibility
-DAEMON_RELATIVE_PATHS="/cgi-bin/services/memory_daemon.sh"
+SERVICES_INIT="/etc/init.d/quecmanager_services"
 
 # Logging function
 log_message() {
@@ -57,251 +55,239 @@ send_success() {
     fi
 }
 
-# Resolve config file for reading: prefer primary, then fallback
-resolve_config_for_read() {
-    if [ -f "$CONFIG_FILE" ]; then
-        return 0
-    elif [ -f "$FALLBACK_CONFIG_FILE" ]; then
-        CONFIG_FILE="$FALLBACK_CONFIG_FILE"
-        CONFIG_DIR="$FALLBACK_CONFIG_DIR"
-        return 0
-    fi
-    # Default to primary path if none exist
-    return 0
-}
-
-# Determine daemon path (absolute) based on typical web root layouts
-resolve_daemon_path() {
-    # Common locations where CGI/WWW is mounted
-    for rel in $DAEMON_RELATIVE_PATHS; do
-        for base in \
-            /www \
-            /; do
-            if [ -x "$base$rel" ]; then
-                echo "$base$rel"
-                return 0
-            fi
-        done
-        # Also try as-is if busybox httpd cwd matches web root
-        if [ -x "$rel" ]; then
-            echo "$rel"
-            return 0
-        fi
-    done
-    # Nothing found; return first candidate as a best-effort path
-    set -- $DAEMON_RELATIVE_PATHS
-    echo "$1"
-}
-
-daemon_running() {
-    if [ -f "$PID_FILE" ]; then
-        pid="$(cat "$PID_FILE" 2>/dev/null || true)"
-        if [ -n "${pid:-}" ] && kill -0 "$pid" 2>/dev/null; then
-            return 0
-        fi
-    fi
-    return 1
-}
-
-start_daemon() {
-    # Ensure /tmp/quecmanager exists for PID
-    [ -d "/tmp/quecmanager" ] || mkdir -p "/tmp/quecmanager"
-
-    if daemon_running; then
-        log_message "Daemon already running"
-        return 0
-    fi
-
-    local daemon_path
-    daemon_path="$(resolve_daemon_path)"
-    if [ ! -x "$daemon_path" ]; then
-        # Try to make it executable if present
-        if [ -f "$daemon_path" ]; then
-            chmod +x "$daemon_path" 2>/dev/null || true
-        fi
-    fi
-
-    if [ -x "$daemon_path" ]; then
-        nohup "$daemon_path" >/dev/null 2>&1 &
-        log_message "Started memory daemon: $daemon_path (pid $!)"
-        return 0
-    else
-        log_message "Daemon script not found or not executable: $daemon_path"
-        return 1
-    fi
-}
-
-stop_daemon() {
-    if daemon_running; then
-        pid="$(cat "$PID_FILE" 2>/dev/null || true)"
-        if [ -n "${pid:-}" ]; then
-            kill "$pid" 2>/dev/null || true
-            sleep 0.2
-            kill -9 "$pid" 2>/dev/null || true
-        fi
-    fi
-    rm -f "$PID_FILE" 2>/dev/null || true
-}
-
-# Get current memory setting
-get_config_values() {
-    # defaults
-    ENABLED="true"
+# Get current configuration
+get_config() {
+    # Defaults
+    ENABLED="false"
     INTERVAL="1"
 
-    resolve_config_for_read
+    # Try primary config first, then fallback
+    local config_to_read=""
     if [ -f "$CONFIG_FILE" ]; then
-        # Clean the config file if it contains comments (one-time cleanup)
-        if grep -q "^#" "$CONFIG_FILE" 2>/dev/null; then
-            log_message "Cleaning config file of comments"
-            local temp_file="$CONFIG_FILE.clean.$$"
-            grep -E "^MEMORY_(ENABLED|INTERVAL)=" "$CONFIG_FILE" > "$temp_file" 2>/dev/null || true
-            if [ -s "$temp_file" ]; then
-                mv "$temp_file" "$CONFIG_FILE" 2>/dev/null || rm -f "$temp_file"
-                chmod 644 "$CONFIG_FILE" 2>/dev/null || true
-            else
-                rm -f "$temp_file"
-            fi
-        fi
+        config_to_read="$CONFIG_FILE"
+    elif [ -f "$FALLBACK_CONFIG_FILE" ]; then
+        config_to_read="$FALLBACK_CONFIG_FILE"
+    fi
+
+    if [ -n "$config_to_read" ]; then
+        local enabled_val=$(grep "^MEMORY_ENABLED=" "$config_to_read" 2>/dev/null | tail -n1 | cut -d'=' -f2)
+        local interval_val=$(grep "^MEMORY_INTERVAL=" "$config_to_read" 2>/dev/null | tail -n1 | cut -d'=' -f2)
         
-        val=$(grep -E "^MEMORY_ENABLED=" "$CONFIG_FILE" | tail -n1 | cut -d'=' -f2)
-        if [ -n "${val:-}" ]; then
-            case "$val" in
-                true|1|on|yes|enabled) ENABLED="true" ;;
-                *) ENABLED="false" ;;
-            esac
-        fi
-        val=$(grep -E "^MEMORY_INTERVAL=" "$CONFIG_FILE" | tail -n1 | cut -d'=' -f2)
-        if echo "${val:-}" | grep -qE '^[0-9]+$'; then
-            INTERVAL="$val"
+        case "$enabled_val" in
+            true|1|on|yes|enabled) ENABLED="true" ;;
+            *) ENABLED="false" ;;
+        esac
+        
+        if echo "$interval_val" | grep -qE '^[0-9]+$' && [ "$interval_val" -ge 1 ] && [ "$interval_val" -le 10 ]; then
+            INTERVAL="$interval_val"
         fi
     fi
 }
 
-# Save memory setting to config file
+# Save configuration
 save_config() {
     local enabled="$1"
     local interval="$2"
 
-    # Try primary directory first
-    if mkdir -p "$CONFIG_DIR" 2>/dev/null; then
-        local tmp="$CONFIG_FILE.tmp.$$"
-        echo "MEMORY_ENABLED=$enabled" > "$tmp" || rm -f "$tmp" || return 1
-        echo "MEMORY_INTERVAL=$interval" >> "$tmp" || rm -f "$tmp" || return 1
-        if mv -f "$tmp" "$CONFIG_FILE" 2>/dev/null; then
-            chmod 644 "$CONFIG_FILE" 2>/dev/null || true
-            log_message "Saved memory config (primary): enabled=$enabled interval=$interval"
-            return 0
-        fi
+    # Try primary location first
+    if mkdir -p "$CONFIG_DIR" 2>/dev/null && [ -w "$CONFIG_DIR" ]; then
+        {
+            echo "MEMORY_ENABLED=$enabled"
+            echo "MEMORY_INTERVAL=$interval"
+        } > "$CONFIG_FILE" && chmod 644 "$CONFIG_FILE" 2>/dev/null
+        log_message "Saved config to primary location: enabled=$enabled, interval=$interval"
+        return 0
     fi
 
-    # Fallback to /tmp
-    mkdir -p "$FALLBACK_CONFIG_DIR" 2>/dev/null || true
-    local tmp2="$FALLBACK_CONFIG_FILE.tmp.$$"
-    echo "MEMORY_ENABLED=$enabled" > "$tmp2" || rm -f "$tmp2" || return 1
-    echo "MEMORY_INTERVAL=$interval" >> "$tmp2" || rm -f "$tmp2" || return 1
-    mv -f "$tmp2" "$FALLBACK_CONFIG_FILE" 2>/dev/null || return 1
-    chmod 644 "$FALLBACK_CONFIG_FILE" 2>/dev/null || true
-    # Point CONFIG_FILE to fallback for subsequent reads in this request
-    CONFIG_FILE="$FALLBACK_CONFIG_FILE"; CONFIG_DIR="$FALLBACK_CONFIG_DIR"
-    log_message "Saved memory config (fallback): enabled=$enabled interval=$interval"
+    # Fallback to tmp
+    mkdir -p "$FALLBACK_CONFIG_DIR" 2>/dev/null
+    {
+        echo "MEMORY_ENABLED=$enabled"
+        echo "MEMORY_INTERVAL=$interval"  
+    } > "$FALLBACK_CONFIG_FILE" && chmod 644 "$FALLBACK_CONFIG_FILE" 2>/dev/null
+    log_message "Saved config to fallback location: enabled=$enabled, interval=$interval"
 }
 
-# Delete memory configuration (reset to default)
-delete_memory_setting() {
-    local removed=1
-    for f in "$CONFIG_FILE" "$FALLBACK_CONFIG_FILE"; do
-        if [ -f "$f" ]; then
-            sed -i '/^MEMORY_ENABLED=/d' "$f" 2>/dev/null || true
-            sed -i '/^MEMORY_INTERVAL=/d' "$f" 2>/dev/null || true
-            log_message "Deleted memory configuration entries in $f"
-            [ -s "$f" ] || { rm -f "$f" 2>/dev/null || true; log_message "Removed empty config file $f"; }
-            removed=0
-        fi
-    done
-    return $removed
+# Add memory daemon to services init script
+add_memory_daemon_to_services() {
+    if [ ! -f "$SERVICES_INIT" ]; then
+        log_message "Services init file not found: $SERVICES_INIT"
+        return 1
+    fi
+
+    # Check if memory daemon is already present
+    if grep -q "memory_daemon.sh" "$SERVICES_INIT" 2>/dev/null; then
+        log_message "Memory daemon already present in services"
+        return 0
+    fi
+
+    # Create a temporary file with the memory daemon block
+    local temp_file="/tmp/services_temp_$$"
+    
+    # Find the line before "echo \"All QuecManager services Started\"" and insert memory daemon
+    awk '
+    /echo "All QuecManager services Started"/ {
+        print "    # Start memory daemon"
+        print "    echo \"Starting Memory Daemon...\""
+        print "    procd_open_instance"
+        print "    procd_set_param command /www/cgi-bin/services/memory_daemon.sh"
+        print "    procd_set_param respawn"
+        print "    procd_set_param stdout 1"
+        print "    procd_set_param stderr 1"
+        print "    procd_close_instance"
+        print "    echo \"Memory Daemon started\""
+        print ""
+    }
+    { print }
+    ' "$SERVICES_INIT" > "$temp_file"
+
+    if [ -s "$temp_file" ]; then
+        mv "$temp_file" "$SERVICES_INIT"
+        chmod +x "$SERVICES_INIT"
+        log_message "Added memory daemon to services init script"
+        return 0
+    else
+        rm -f "$temp_file"
+        log_message "Failed to add memory daemon to services"
+        return 1
+    fi
+}
+
+# Remove memory daemon from services init script
+remove_memory_daemon_from_services() {
+    if [ ! -f "$SERVICES_INIT" ]; then
+        log_message "Services init file not found: $SERVICES_INIT"
+        return 1
+    fi
+
+    # Check if memory daemon is present
+    if ! grep -q "memory_daemon.sh" "$SERVICES_INIT" 2>/dev/null; then
+        log_message "Memory daemon not present in services"
+        return 0
+    fi
+
+    # Remove the memory daemon block (from "# Start memory daemon" to the empty line after)
+    local temp_file="/tmp/services_temp_$$"
+    
+    awk '
+    /# Start memory daemon/ { skip=1; next }
+    skip && /^$/ { skip=0; next }
+    !skip { print }
+    ' "$SERVICES_INIT" > "$temp_file"
+
+    if [ -s "$temp_file" ]; then
+        mv "$temp_file" "$SERVICES_INIT"
+        chmod +x "$SERVICES_INIT"
+        log_message "Removed memory daemon from services init script"
+        return 0
+    else
+        rm -f "$temp_file"
+        log_message "Failed to remove memory daemon from services"
+        return 1
+    fi
+}
+
+# Restart QuecManager services
+restart_services() {
+    log_message "Restarting QuecManager services..."
+    
+    # Stop services
+    if [ -x "$SERVICES_INIT" ]; then
+        "$SERVICES_INIT" stop >/dev/null 2>&1
+        sleep 2
+        "$SERVICES_INIT" start >/dev/null 2>&1
+        log_message "Services restarted successfully"
+        return 0
+    else
+        log_message "Cannot restart services - init script not found or not executable"
+        return 1
+    fi
+}
+
+# Check if memory daemon is running
+is_memory_daemon_running() {
+    pgrep -f "memory_daemon.sh" >/dev/null 2>&1
 }
 
 # Handle POST request - Update memory setting
 handle_post() {
     log_message "POST request received"
     
-    # Read POST data
     local content_length=${CONTENT_LENGTH:-0}
-    if [ "$content_length" -gt 0 ]; then
-        local post_data=$(dd bs=$content_length count=1 2>/dev/null)
-        log_message "Received POST data: $post_data"
-        
-        # Parse fields
-        local enabled interval
-        enabled=$(echo "$post_data" | sed -n 's/.*"enabled"[[:space:]]*:[[:space:]]*\([^,}]*\).*/\1/p' | tr -d ' ' | sed 's/"//g')
-        interval=$(echo "$post_data" | sed -n 's/.*"interval"[[:space:]]*:[[:space:]]*\([0-9][0-9]*\).*/\1/p')
-
-        # Defaults when missing
-        [ -z "$enabled" ] && enabled="true"
-        [ -z "$interval" ] && interval="1"
-
-        # Validate
-        case "$enabled" in
-            true|false) : ;;
-            *) send_error "INVALID_SETTING" "Invalid enabled value. Must be true or false." ;;
-        esac
-        if ! echo "$interval" | grep -qE '^[0-9]+$'; then
-            send_error "INVALID_INTERVAL" "Interval must be a number (seconds)."
-        fi
-        if [ "$interval" -lt 1 ] || [ "$interval" -gt 10 ]; then
-            send_error "INVALID_INTERVAL" "Interval must be between 1 and 10 seconds."
-        fi
-
-        # Capture previous values to decide on restart
-        get_config_values
-        local prev_enabled="$ENABLED"
-        local prev_interval="$INTERVAL"
-
-        save_config "$enabled" "$interval" || send_error "WRITE_FAILED" "Failed to save configuration"
-
-        if [ "$enabled" = "true" ]; then
-            if daemon_running; then
-                # Restart only if effective parameters changed
-                if [ "$prev_interval" != "$interval" ] || [ "$prev_enabled" != "$enabled" ]; then
-                    log_message "Config change detected (interval/enabled). Restarting daemon."
-                    stop_daemon
-                    start_daemon || log_message "Failed to restart daemon"
-                else
-                    log_message "No change requiring restart; daemon remains running"
-                fi
-            else
-                start_daemon || log_message "Failed to start daemon"
-            fi
-        else
-            stop_daemon
-        fi
-
-        get_config_values
-        local running=false
-        if daemon_running; then running=true; fi
-        send_success "Memory setting updated successfully" "{\"enabled\":$ENABLED,\"interval\":$INTERVAL,\"running\":$running}"
-    else
+    if [ "$content_length" -eq 0 ]; then
         send_error "NO_DATA" "No data provided"
     fi
+
+    # Read POST data
+    local post_data=$(dd bs=$content_length count=1 2>/dev/null)
+    log_message "Received POST data: $post_data"
+    
+    # Parse enabled and interval from JSON
+    local enabled=$(echo "$post_data" | sed -n 's/.*"enabled"[[:space:]]*:[[:space:]]*\([^,}]*\).*/\1/p' | tr -d ' "')
+    local interval=$(echo "$post_data" | sed -n 's/.*"interval"[[:space:]]*:[[:space:]]*\([0-9][0-9]*\).*/\1/p')
+
+    # Set defaults if not provided
+    [ -z "$enabled" ] && enabled="false"
+    [ -z "$interval" ] && interval="1"
+
+    # Validate input
+    case "$enabled" in
+        true|false) ;;
+        *) send_error "INVALID_SETTING" "Invalid enabled value. Must be true or false." ;;
+    esac
+
+    if ! echo "$interval" | grep -qE '^[0-9]+$' || [ "$interval" -lt 1 ] || [ "$interval" -gt 10 ]; then
+        send_error "INVALID_INTERVAL" "Interval must be a number between 1 and 10 seconds."
+    fi
+
+    # Get current config to compare
+    get_config
+    local prev_enabled="$ENABLED"
+    local prev_interval="$INTERVAL"
+
+    # Save new configuration
+    save_config "$enabled" "$interval"
+
+    # Handle service changes
+    if [ "$enabled" = "true" ]; then
+        # Enable memory daemon
+        add_memory_daemon_to_services
+        if [ "$prev_enabled" != "true" ] || [ "$prev_interval" != "$interval" ]; then
+            restart_services
+        fi
+    else
+        # Disable memory daemon
+        remove_memory_daemon_from_services
+        restart_services
+    fi
+
+    # Return current status
+    sleep 1  # Give services time to start/stop
+    local running="false"
+    if is_memory_daemon_running; then
+        running="true"
+    fi
+
+    send_success "Memory setting updated successfully" "{\"enabled\":$enabled,\"interval\":$interval,\"running\":$running}"
 }
 
-# Handle DELETE request - Reset to default (delete configuration)
+# Handle DELETE request - Reset to default
 handle_delete() {
     log_message "DELETE request received"
-    stop_daemon
-    if delete_memory_setting; then
-        # Default is enabled
-        send_success "Memory setting reset to default" "{\"enabled\":true,\"isDefault\":true,\"running\":false}"
-    else
-        send_error "NOT_FOUND" "Memory setting configuration not found"
-    fi
+    
+    # Remove memory daemon from services and restart
+    remove_memory_daemon_from_services
+    restart_services
+    
+    # Remove config files
+    rm -f "$CONFIG_FILE" "$FALLBACK_CONFIG_FILE" 2>/dev/null
+    
+    send_success "Memory setting reset to default (disabled)" "{\"enabled\":false,\"interval\":1,\"running\":false,\"isDefault\":true}"
 }
 
 # Main execution
 log_message "Memory settings script called with method: ${REQUEST_METHOD:-GET}"
 
-# Handle different HTTP methods
 case "${REQUEST_METHOD:-GET}" in
     POST)
         handle_post
@@ -310,6 +296,6 @@ case "${REQUEST_METHOD:-GET}" in
         handle_delete
         ;;
     *)
-        send_error "METHOD_NOT_ALLOWED" "HTTP method ${REQUEST_METHOD} not supported. Use dedicated fetch script for reading settings."
+        send_error "METHOD_NOT_ALLOWED" "HTTP method ${REQUEST_METHOD} not supported."
         ;;
 esac
