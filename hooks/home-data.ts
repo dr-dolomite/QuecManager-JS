@@ -36,6 +36,46 @@ const useHomeData = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const [retryCount, setRetryCount] = useState(0);
+  const [isPublicIPLoading, setIsPublicIPLoading] = useState(true);
+
+  // Separate function to fetch public IP
+  const fetchPublicIP = useCallback(async () => {
+    try {
+      setIsPublicIPLoading(true);
+      const publicIPResponse = await fetch(
+        "/cgi-bin/quecmanager/home/fetch_public_ip.sh"
+      );
+
+      let publicIP = "Can't fetch public IP";
+      if (publicIPResponse.ok) {
+        const publicIPData = await publicIPResponse.json();
+        publicIP = publicIPData.error
+          ? "No Internet"
+          : publicIPData.public_ip || "-";
+      }
+
+      // Update only the public IP in the existing data
+      setData(prevData => prevData ? {
+        ...prevData,
+        networkAddressing: {
+          ...prevData.networkAddressing,
+          publicIPv4: publicIP
+        }
+      } : null);
+    } catch (error) {
+      console.error("Error fetching public IP:", error);
+      // Set fallback value for public IP
+      setData(prevData => prevData ? {
+        ...prevData,
+        networkAddressing: {
+          ...prevData.networkAddressing,
+          publicIPv4: "Can't fetch public IP"
+        }
+      } : null);
+    } finally {
+      setIsPublicIPLoading(false);
+    }
+  }, []);
 
   // Automated recovery function
   const handleErrorWithRetry = useCallback(
@@ -144,12 +184,8 @@ const useHomeData = () => {
         );
         await fetch("/cgi-bin/quecmanager/reset-at-bridge.sh");
       }
-      // fetch public ip from /cgi-bin/quecmanager/home/fetch_public_ip.sh
-      const publicIPResponse = await fetch(
-        "/cgi-bin/quecmanager/home/fetch_public_ip.sh"
-      );
 
-      // Process the raw data into the HomeData format
+      // Process the raw data into the HomeData format (without public IP)
       const processedData: HomeData = {
         simCard: {
           slot: parseField(rawData[0].response, 1, 1, 0),
@@ -282,13 +318,7 @@ const useHomeData = () => {
           ) || ["Unknown"],
         },
         networkAddressing: {
-          publicIPv4: await (async () => {
-            if (!publicIPResponse.ok) return "Can't fetch public IP";
-            const publicIPData = await publicIPResponse.json();
-            return publicIPData.error
-              ? "No Internet"
-              : publicIPData.public_ip || "-";
-          })(),
+          publicIPv4: "Loading...", // Placeholder, will be updated by fetchPublicIP
           // Extract IPv4 address from QMAP="WWAN" response
           cellularIPv4: extractIPAddress(rawData, "IPV4"),
           cellularIPv6: extractIPAddress(rawData, "IPV6"),
@@ -331,10 +361,14 @@ const useHomeData = () => {
           nrTimeAdvance: parseField(rawData[22]?.response, 1, 1, 2),
         },
       };
+      
       setData(processedData);
       setRetryCount(0);
       setError(null);
       console.log("Processed home data:", processedData); //
+      
+      // Fetch public IP separately (non-blocking)
+      fetchPublicIP();
     } catch (error) {
       console.error("Error fetching home data:", error);
       handleErrorWithRetry(
@@ -343,11 +377,12 @@ const useHomeData = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [handleErrorWithRetry]);
+  }, [handleErrorWithRetry, fetchPublicIP]);
 
   useEffect(() => {
     let isMounted = true;
     let intervalId: NodeJS.Timeout;
+    let publicIPIntervalId: NodeJS.Timeout;
 
     const loadData = async () => {
       if (!isMounted) return;
@@ -360,17 +395,23 @@ const useHomeData = () => {
     // Initial load
     loadData();
 
-    // Set up polling interval
+    // Set up polling interval for main data
     intervalId = setInterval(() => {
       fetchHomeData();
     }, 15000);
+
+    // Set up separate polling for public IP (every 30 seconds)
+    publicIPIntervalId = setInterval(() => {
+      fetchPublicIP();
+    }, 30000);
 
     // Cleanup function
     return () => {
       isMounted = false;
       clearInterval(intervalId);
+      clearInterval(publicIPIntervalId);
     };
-  }, [fetchHomeData]);
+  }, [fetchHomeData, fetchPublicIP]);
 
   const refresh = useCallback(async () => {
     setIsLoading(true);
@@ -378,7 +419,7 @@ const useHomeData = () => {
     setIsLoading(false);
   }, [fetchHomeData]);
 
-  return { data, isLoading, error, refresh };
+  return { data, isLoading, error, refresh, isPublicIPLoading };
 };
 
 // Helper functions for data processing

@@ -18,6 +18,7 @@ import {
 interface NetworkInfoCardProps {
   data: HomeData | null;
   isLoading: boolean;
+  isPublicIPLoading?: boolean;
   hideSensitiveData: boolean;
   // onRefresh?: () => void;
 }
@@ -25,6 +26,7 @@ interface NetworkInfoCardProps {
 const NetworkInfoCard = ({
   data,
   isLoading,
+  isPublicIPLoading = false,
   hideSensitiveData,
 }: NetworkInfoCardProps) => {
   return (
@@ -33,7 +35,7 @@ const NetworkInfoCard = ({
         <div className="grid place-items-center gap-1.5">
           <h2 className="font-semibold">Public IPv4 Address</h2>
 
-          {isLoading ? (
+          {isLoading || isPublicIPLoading ? (
             <Skeleton className="h-4 w-[100px]" />
           ) : hideSensitiveData ? (
             <div className="border-none bg-gray-600 rounded-md h-5 md:w-36 w-24" />
@@ -72,7 +74,7 @@ const NetworkInfoCard = ({
           {isLoading ? (
             <Skeleton className="h-4 w-[100px]" />
           ) : (
-            <TooltipProvider>
+            <TooltipProvider> 
               <Tooltip>
                 <TooltipTrigger>
                   {data?.networkAddressing.carrierPrimaryDNS}

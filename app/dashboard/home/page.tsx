@@ -69,7 +69,7 @@ const HomePage = () => {
   const { toast } = useToast();
   const [noSimDialogOpen, setNoSimDialogOpen] = useState(false);
   const [hideSensitiveData, setHideSensitiveData] = useState(false);
-  const { data: homeData, isLoading, refresh: refreshHomeData } = useHomeData();
+  const { data: homeData, isLoading, refresh: refreshHomeData, isPublicIPLoading } = useHomeData();
   const {
     dataConnectionState,
     isStateLoading,
@@ -94,7 +94,7 @@ const HomePage = () => {
         .split("\n")[1]
         .split(":")[1]
         .trim();
-      const command =
+      const command = 
         currentSimSlot === "1" ? "AT+QUIMSLOT=2" : "AT+QUIMSLOT=1";
 
       // Use atCommandSender instead of direct fetch
@@ -480,6 +480,7 @@ const HomePage = () => {
           <NetworkInfoCard
             data={homeData}
             isLoading={isLoading}
+            isPublicIPLoading={isPublicIPLoading}
             hideSensitiveData={hideSensitiveData}
             // onRefresh={refreshData}
           />
