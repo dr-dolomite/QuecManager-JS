@@ -368,7 +368,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   return (
     <div className="flex min-h-screen w-full flex-col">
       <header className="sticky top-0 flex h-16 items-center gap-4 border-b bg-background px-4 md:px-6">
-        <nav className="hidden flex-col gap-6 text-lg font-medium md:flex md:flex-row md:items-center md:gap-5 md:text-base lg:gap-6">
+        <nav className="hidden flex-col gap-6 text-lg font-medium lg:flex lg:flex-row lg:items-center lg:gap-5 lg:text-base xl:gap-6">
           <Link
             href="/dashboard/home/"
             className="flex items-center gap-2 text-lg font-semibold md:text-xl md:mr-8"
@@ -443,7 +443,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
             <Button
               variant="outline"
               size="icon"
-              className="shrink-0 md:hidden"
+              className="shrink-0 lg:hidden"
             >
               <Menu className="h-5 w-5" />
               <span className="sr-only">Toggle navigation menu</span>
@@ -500,6 +500,19 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                 </Link>
               </SheetClose>
 
+                            <SheetClose asChild>
+                <Link
+                  href="/dashboard/custom-features/"
+                  className={`${
+                    currentPathName === "/dashboard/custom-features/"
+                      ? "text-foreground"
+                      : "text-muted-foreground"
+                  } transition-colors hover:text-foreground`}
+                >
+                  Custom Features
+                </Link>
+              </SheetClose>
+
               <SheetClose asChild>
                 <Link
                   href="/dashboard/experimental/"
@@ -510,19 +523,6 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                   } transition-colors hover:text-foreground`}
                 >
                   Experimental
-                </Link>
-              </SheetClose>
-
-              <SheetClose asChild>
-                <Link
-                  href="/dashboard/about/"
-                  className={`${
-                    currentPathName === "/dashboard/about/"
-                      ? "text-foreground"
-                      : "text-muted-foreground"
-                  } transition-colors hover:text-foreground`}
-                >
-                  About
                 </Link>
               </SheetClose>
 

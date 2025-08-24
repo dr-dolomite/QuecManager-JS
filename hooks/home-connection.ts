@@ -44,7 +44,7 @@ const useDataConnectionState = () => {
     } catch (error) {
       console.error("Error fetching data connection state:", error);
       setDataConnectionState("Unknown");
-      setIsStateLoading(false);
+      setIsStateLoading(false); 
     }
   }, []);
 
