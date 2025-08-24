@@ -36,7 +36,7 @@ start_service() {
     # Start the QCAINFO Interpreter
     echo "Starting QCAINFO Interpreter..."
     procd_open_instance
-    procd_set_param command /www/cgi-bin/services/interpret_qcainfo.sh
+    procd_set_param command /www/cgi-bin/services/network_insights_interpreter.sh
     procd_set_param respawn
     procd_set_param stdout 1
     procd_set_param stderr 1
