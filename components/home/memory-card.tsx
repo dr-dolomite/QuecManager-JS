@@ -95,20 +95,22 @@ const MemoryCard = () => {
     let intervalId: NodeJS.Timeout | null = null;
 
     const initialize = async () => {
-      // 1. Optimistically fetch memory data first
-      await fetchMemoryData();
-      setIsLoading(false);
-
-      // 2. Fetch config to determine polling behavior
+      // 1. First fetch config to see if memory monitoring is enabled
       const configResult = await fetchMemoryConfig();
-      // console.log("Memory config:", configResult);
-
-      // 3. If enabled, start polling based on interval
+      
+      // 2. Only try to fetch memory data if it's enabled
       if (configResult?.enabled) {
-        // console.log("Starting memory polling with interval:", configResult.interval);
+        // Try to fetch existing data
+        const dataFetched = await fetchMemoryData();
+        
+        // Start polling regardless of whether initial fetch succeeded
+        // (daemon might be starting up)
         const pollInterval = Math.max((configResult.interval || 2) * 1000, 1000);
         intervalId = setInterval(fetchMemoryData, pollInterval);
       }
+      
+      // Always set loading to false after config check
+      setIsLoading(false);
     };
 
     initialize();
@@ -131,7 +133,7 @@ const MemoryCard = () => {
         )}
       </CardHeader>
       <CardContent>
-        {isLoading && !hasData ? (
+        {isLoading ? (
           <div className="grid lg:grid-cols-3 grid-cols-2 grid-flow-row gap-4 col-span-3">
             <div className="grid gap-1">
               <span className="text-sm text-muted-foreground">Total</span>
@@ -145,6 +147,21 @@ const MemoryCard = () => {
               <span className="text-sm text-muted-foreground">Available</span>
               <Skeleton className="h-5 w-24" />
             </div>
+          </div>
+        ) : !config.enabled ? (
+          <div className="text-center py-4">
+            <p className="text-sm text-muted-foreground">
+              Memory monitoring is disabled.
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Enable it in Settings → Personalization
+            </p>
+          </div>
+        ) : !hasData ? (
+          <div className="text-center py-4">
+            <p className="text-sm text-muted-foreground">
+              Starting memory monitoring...
+            </p>
           </div>
         ) : (
           <div className="grid lg:grid-cols-3 grid-cols-2 grid-flow-row gap-4 col-span-3">
