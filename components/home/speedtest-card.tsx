@@ -717,21 +717,21 @@ const SpeedtestStream = () => {
           {speedtestData ? (
             <div className="mt-4">
               <div className="relative flex flex-col items-center justify-center">
-                <div className="grid lg:grid-cols-3 grid-cols-1 grid-flow-row">
+                <div className="grid grid-cols-3 grid-flow-row">
                   <div className="flex items-center mx-2">
-                    <ArrowDownCircle className="text-green-500 lg:size-4 size-4 mr-1" />
+                    <ArrowDownCircle className="text-green-500 size-4 mr-1" />
                     {speedtestData?.download
                       ? `${formatSpeed(speedtestData?.download?.bandwidth)}`
                       : "N/A"}
                   </div>
                   <div className="flex items-center mx-2">
-                    <ArrowUpCircle className="text-violet-500 lg:size-4 size-4 mr-1" />
+                    <ArrowUpCircle className="text-violet-500 size-4 mr-1" />
                     {speedtestData?.upload
                       ? `${formatSpeed(speedtestData?.upload?.bandwidth)}`
                       : "N/A"}
                   </div>
                   <div className="flex items-center mx-2">
-                    <Clock className="text-gray-600 lg:size-4 mr-1" />
+                    <Clock className="text-gray-600 size-4 mr-1" />
                     {speedtestData?.ping
                       ? `${speedtestData?.ping?.latency?.toFixed(2)} ms`
                       : "N/A"}

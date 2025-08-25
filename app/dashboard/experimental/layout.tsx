@@ -24,7 +24,7 @@ const ExperimentalLayout = ({ children }: ExperimentalLayoutProps) => {
           <Link
             href="/dashboard/experimental/network-insights"
             className={`${
-              currentPathName === "/dashboard/experimental/network-insights/"
+              currentPathName === "/dashboard/experimental/network-insights"
                 ? "font-semibold text-primary"
                 : "text-sm"
             }`}
@@ -34,7 +34,7 @@ const ExperimentalLayout = ({ children }: ExperimentalLayoutProps) => {
           <Link
             href="/dashboard/experimental/keep-alive"
             className={`${
-              currentPathName === "/dashboard/experimental/keep-alive/"
+              currentPathName === "/dashboard/experimental/keep-alive"
                 ? "font-semibold text-primary"
                 : "text-sm"
             }`}
@@ -44,12 +44,22 @@ const ExperimentalLayout = ({ children }: ExperimentalLayoutProps) => {
           <Link
             href="/dashboard/experimental/scheduled-reboot"
             className={`${
-              currentPathName === "/dashboard/experimental/scheduled-reboot/"
+              currentPathName === "/dashboard/experimental/scheduled-reboot"
                 ? "font-semibold text-primary"
                 : "text-sm"
             }`}
           >
             Scheduled Reboot
+          </Link>
+                    <Link
+            href="/dashboard/experimental/logs"
+            className={`${
+              currentPathName === "/dashboard/experimental/logs"
+                ? "font-semibold text-primary"
+                : "text-sm"
+            }`}
+          >
+            Logs
           </Link>
         </nav>
         {children}
