@@ -53,6 +53,7 @@ import SpeedtestStream from "@/components/home/speedtest-card";
 import { atCommandSender } from "@/utils/at-command";
 import NetworkInfoCard from "@/components/home/network-info-card";
 import ApproxDistanceCard from "@/components/home/approx-distance-card";
+import WebSocketComponent from "@/components/home/websocket";
 
 interface newBands {
   id: number;
@@ -437,6 +438,9 @@ const HomePage = () => {
         <div className="grid lg:grid-cols-2 grid-cols-1 grid-flow-row gap-4">
           <div>
             <SignalChart />
+          </div>
+          <div>
+            <WebSocketComponent />
           </div>
           <div className="grid gap-2 lg:grid-cols-2 grid-cols-1 grid-flow-row">
             {/* <EthernetCard /> */}
