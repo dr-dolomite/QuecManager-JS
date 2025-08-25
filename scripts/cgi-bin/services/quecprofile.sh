@@ -2,6 +2,9 @@
 # Updated QuecProfiles daemon with enhanced SA/NSA NR5G band management and TTL support
 # Including profile application functions and fixed comparison logic
 
+# Load centralized logging
+. /www/cgi-bin/services/quecmanager_logger.sh
+
 # Configuration
 QUEUE_DIR="/tmp/at_queue"
 TOKEN_FILE="$QUEUE_DIR/token"
@@ -9,33 +12,39 @@ TRACK_FILE="/tmp/quecprofiles_active"
 CHECK_TRIGGER="/tmp/quecprofiles_check"
 STATUS_FILE="/tmp/quecprofiles_status.json"
 APPLIED_FLAG="/tmp/quecprofiles_applied"
-DEBUG_LOG="/tmp/quecprofiles_debug.log"
-DETAILED_LOG="/tmp/quecprofiles_detailed.log"
 DEFAULT_CHECK_INTERVAL=60 # Default check interval in seconds
 COMMAND_TIMEOUT=10        # Default timeout for AT commands in seconds
 QUEUE_PRIORITY=3          # Medium-high priority (1 is highest for cell scan)
 MAX_TOKEN_WAIT=15         # Maximum seconds to wait for token acquisition
+SCRIPT_NAME="quecprofile"
 
-# Initialize log file
-echo "$(date) - Starting QuecProfiles daemon with SA/NSA NR5G and TTL support (PID: $$)" >"$DEBUG_LOG"
-echo "$(date) - Starting QuecProfiles daemon with SA/NSA NR5G and TTL support (PID: $$)" >"$DETAILED_LOG"
-chmod 644 "$DEBUG_LOG" "$DETAILED_LOG"
+# Initialize logging
+qm_log_info "service" "$SCRIPT_NAME" "Starting QuecProfiles daemon with SA/NSA NR5G and TTL support (PID: $$)"
 
 # Function to log messages
 log_message() {
     local message="$1"
     local level="${2:-info}"
-    local timestamp=$(date "+%Y-%m-%d %H:%M:%S")
 
-    # Log to system log
-    logger -t quecprofiles_daemon -p "daemon.$level" "$message"
+    # Use centralized logging
+    case "$level" in
+        "error")
+            qm_log_error "service" "$SCRIPT_NAME" "$message"
+            ;;
+        "warn")
+            qm_log_warn "service" "$SCRIPT_NAME" "$message"
+            ;;
+        "debug")
+            qm_log_debug "service" "$SCRIPT_NAME" "$message"
+            ;;
+        *)
+            qm_log_info "service" "$SCRIPT_NAME" "$message"
+            ;;
+    esac
 
-    # Log to debug file
-    echo "[$timestamp] [$level] $message" >>"$DEBUG_LOG"
-
-    # For detailed logs or errors
-    if [ "$level" = "error" ] || [ "$level" = "debug" ]; then
-        echo "[$timestamp] [$level] $message" >>"$DETAILED_LOG"
+    # Also log to system log for important messages
+    if [ "$level" = "error" ] || [ "$level" = "warn" ] || [ "$level" = "info" ]; then
+        logger -t quecprofiles_daemon -p "daemon.$level" "$message"
     fi
 }
 

@@ -1,12 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useAuth } from "@/hooks/auth";
 import { useLuci } from "@/hooks/luci";
 
 import { useToast } from "@/hooks/use-toast";
 import GithubButtonToast from "@/components/github-button";
-import heartbeat from "@/hooks/heartbeat";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,13 +18,6 @@ const LoginPage = () => {
   const [error, setError] = useState("");
   const { login, logout } = useAuth();
   const { luciLogin } = useLuci();
-
-  const { isServerAlive } = heartbeat();
-  useEffect(() => {
-    if (!isServerAlive) {
-      logout();
-    }
-  }, [isServerAlive, logout]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -7,7 +7,6 @@ import { useState, useEffect } from "react";
 import { RadioTower, User2Icon, Menu, Power } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import heartbeat from "@/hooks/heartbeat";
 
 interface ProfilePictureResponse {
   status: string;
@@ -236,13 +235,6 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       window.removeEventListener("storage", handleStorageChange);
     };
   }, []);
-
-  const { isServerAlive } = heartbeat();
-  useEffect(() => {
-    if (!isServerAlive) {
-      logout();
-    }
-  }, [isServerAlive, logout]);
 
   // Handler for rebooting the device
   const handleReboot = async () => {

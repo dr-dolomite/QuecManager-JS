@@ -19,7 +19,6 @@ import { calculateSignalPercentage } from "@/utils/signalMetrics";
 import { ArrowRightIcon } from "@radix-ui/react-icons";
 
 import { useAuth } from "@/hooks/auth";
-import heartbeat from "@/hooks/heartbeat";
 
 interface ModemResponse {
   response: string;
@@ -63,11 +62,7 @@ export default function ChartPreviewSignal() {
   const [initialLoading, setInitialLoading] = useState(true);
   const previousData = useRef<SignalData | null>(null);
   const { logout } = useAuth();
-  const { isServerAlive } = heartbeat();
   useEffect(() => {
-    if (!isServerAlive) {
-      logout();
-    }
     const fetchStats = async () => {
       try {
         const response = await fetch(
@@ -135,7 +130,7 @@ export default function ChartPreviewSignal() {
 
     const intervalId = setInterval(fetchStats, 2000);
     return () => clearInterval(intervalId);
-  }, [initialLoading, isServerAlive, logout]);
+  }, [initialLoading, logout]);
 
   const chartData: ChartDataItem[] = [
     {

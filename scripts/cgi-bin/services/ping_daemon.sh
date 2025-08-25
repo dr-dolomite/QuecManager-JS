@@ -5,19 +5,22 @@ set -eu
 # Ensure PATH for OpenWrt/BusyBox
 export PATH="/usr/sbin:/usr/bin:/sbin:/bin:$PATH"
 
+# Load centralized logging
+. /www/cgi-bin/services/quecmanager_logger.sh
+
 TMP_DIR="/tmp/quecmanager"
 OUT_JSON="$TMP_DIR/ping_latency.json"
 PID_FILE="$TMP_DIR/ping_daemon.pid"
-LOG_FILE="$TMP_DIR/ping_daemon.log"
 CONFIG_FILE="/etc/quecmanager/settings/ping_settings.conf"
 [ -f "$CONFIG_FILE" ] || CONFIG_FILE="/tmp/quecmanager/settings/ping_settings.conf"
 DEFAULT_HOST="8.8.8.8"
 DEFAULT_INTERVAL=5
+SCRIPT_NAME="ping_daemon"
 
 ensure_tmp_dir() { [ -d "$TMP_DIR" ] || mkdir -p "$TMP_DIR" || exit 1; }
 
 log() {
-  printf '%s - %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$1" >> "$LOG_FILE" 2>/dev/null || true
+  qm_log_info "daemon" "$SCRIPT_NAME" "$1"
 }
 
 daemon_is_running() {

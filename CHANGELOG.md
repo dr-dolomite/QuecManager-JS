@@ -2,6 +2,16 @@
 
 ## **Critical Hotfixes & System Improvements**
 
+### **Centralized Logging System - Infrastructure Overhaul**
+- **Unified Logging Framework**: Implemented centralized logging system with OpenWrt/BusyBox compatibility for consistent log management across all services
+- **Organized Directory Structure**: Created `/tmp/quecmanager/logs/` with categorized subdirectories (daemons/, services/, settings/, system/) for better log organization
+- **Automatic Log Rotation**: Built-in rotation at 500KB with 2-backup system to prevent /tmp storage issues on embedded systems
+- **Dedicated Logging Service**: New `quecmanager_logging` init.d service (START=48) handles logging initialization and periodic maintenance
+- **Web-Accessible Log Viewer**: New `/cgi-bin/quecmanager/experimental/logs/fetch_logs.sh` API provides JSON-formatted log access for experimental page integration
+- **Periodic Maintenance**: Automatic log cleanup every 6 hours via procd-managed daemon to prevent disk space issues
+- **Migration Completed**: Updated memory_daemon, ping_daemon, quecwatch, and quecprofile services to use centralized logging
+- **Standardized Format**: Consistent log format `[YYYY-MM-DD HH:MM:S] [LEVEL] [SCRIPT] [PID:xxxx] Message` across all services
+
 ### **Memory Monitoring System - Persistence & Reliability Fixes**
 - **Fixed Memory Settings Persistence**: Resolved critical issue where memory monitoring settings would not persist across device reboots
 - **Conditional Service Startup**: Implemented intelligent daemon startup that only runs when memory monitoring is enabled in configuration

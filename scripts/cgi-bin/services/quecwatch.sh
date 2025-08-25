@@ -6,20 +6,22 @@
 # Load UCI configuration functions
 . /lib/functions.sh
 
+# Load centralized logging
+. /www/cgi-bin/services/quecmanager_logger.sh
+
 # Configuration
 QUEUE_DIR="/tmp/at_queue"
 TOKEN_FILE="$QUEUE_DIR/token"
-LOG_DIR="/tmp/log/quecwatch"
-LOG_FILE="$LOG_DIR/quecwatch.log"
 PID_FILE="/var/run/quecwatch.pid"
 STATUS_FILE="/tmp/quecwatch_status.json"
 RETRY_COUNT_FILE="/tmp/quecwatch_retry_count"
 UCI_CONFIG="quecmanager"
 MAX_TOKEN_WAIT=10  # Maximum seconds to wait for token acquisition
 TOKEN_PRIORITY=15  # Medium priority (between profiles and metrics)
+SCRIPT_NAME="quecwatch"
 
 # Ensure directories exist
-mkdir -p "$LOG_DIR" "$QUEUE_DIR"
+mkdir -p "$QUEUE_DIR"
 
 # Store PID
 echo "$$" > "$PID_FILE"
@@ -29,13 +31,27 @@ chmod 644 "$PID_FILE"
 log_message() {
     local level="${2:-info}"
     local message="$1"
-    local timestamp=$(date "+%Y-%m-%d %H:%M:%S")
     
-    # Log to file
-    echo "[$timestamp] [$level] $message" >> "$LOG_FILE"
+    # Use centralized logging
+    case "$level" in
+        "error")
+            qm_log_error "service" "$SCRIPT_NAME" "$message"
+            ;;
+        "warn")
+            qm_log_warn "service" "$SCRIPT_NAME" "$message"
+            ;;
+        "debug")
+            qm_log_debug "service" "$SCRIPT_NAME" "$message"
+            ;;
+        *)
+            qm_log_info "service" "$SCRIPT_NAME" "$message"
+            ;;
+    esac
     
-    # Log to system log
-    logger -t quecwatch -p "daemon.$level" "$message"
+    # Also log to system log for important messages
+    if [ "$level" = "error" ] || [ "$level" = "warn" ] || [ "$level" = "info" ]; then
+        logger -t quecwatch -p "daemon.$level" "$message"
+    fi
 }
 
 # Function to update status
