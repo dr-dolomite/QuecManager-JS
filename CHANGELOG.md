@@ -9,7 +9,7 @@
 - **Dedicated Logging Service**: New `quecmanager_logging` init.d service (START=48) handles logging initialization and periodic maintenance
 - **Web-Accessible Log Viewer**: New `/cgi-bin/quecmanager/experimental/logs/fetch_logs.sh` API provides JSON-formatted log access for experimental page integration
 - **Periodic Maintenance**: Automatic log cleanup every 6 hours via procd-managed daemon to prevent disk space issues
-- **Migration Completed**: Updated memory_daemon, ping_daemon, quecwatch, and quecprofile services to use centralized logging
+- **Migration Completed**: Updated memory_daemon, ping_daemon, quecwatch, quecprofile, and at_queue_manager services to use centralized logging
 - **Standardized Format**: Consistent log format `[YYYY-MM-DD HH:MM:S] [LEVEL] [SCRIPT] [PID:xxxx] Message` across all services
 
 ### **Memory Monitoring System - Persistence & Reliability Fixes**

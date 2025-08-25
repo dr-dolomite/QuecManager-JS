@@ -2,6 +2,9 @@
 # AT Queue Manager for OpenWRT with Preemption Support and Token System
 # Located in /www/cgi-bin/services/at_queue_manager
 
+# Load centralized logging
+. /www/cgi-bin/services/quecmanager_logger.sh
+
 # Constants
 QUEUE_DIR="/tmp/at_queue"
 QUEUE_FILE="$QUEUE_DIR/queue"
@@ -15,6 +18,32 @@ RESULTS_MAX_AGE=3600   # 1 hour in seconds
 POLL_INTERVAL=0.01
 PREEMPTION_THRESHOLD=2  # 3 seconds threshold for preemption
 TOKEN_TIMEOUT=30  # seconds before token expires
+SCRIPT_NAME="at_queue_manager"
+
+# Logging function - uses both centralized and system logging
+log_at_queue() {
+    local level="$1"
+    local message="$2"
+    
+    # Use centralized logging
+    case "$level" in
+        "error")
+            qm_log_error "service" "$SCRIPT_NAME" "$message"
+            ;;
+        "warn")
+            qm_log_warn "service" "$SCRIPT_NAME" "$message"
+            ;;
+        "debug")
+            qm_log_debug "service" "$SCRIPT_NAME" "$message"
+            ;;
+        *)
+            qm_log_info "service" "$SCRIPT_NAME" "$message"
+            ;;
+    esac
+    
+    # Also maintain system logging for compatibility
+    logger -t at_queue -p "daemon.$level" "$message"
+}
 
 # Utility function for JSON escaping
 escape_json() {
@@ -39,7 +68,7 @@ acquire_lock() {
     
     while [ $attempt -lt $timeout ]; do
         if mkdir "$LOCK_DIR" 2>/dev/null; then
-            logger -t at_queue -p daemon.debug "Lock acquired"
+            log_at_queue "debug" "Lock acquired"
             return 0
         fi
         
@@ -47,42 +76,36 @@ acquire_lock() {
         attempt=$((attempt + 1))
     done
     
-    logger -t at_queue -p daemon.error "Failed to acquire lock after $timeout attempts"
+    log_at_queue "error" "Failed to acquire lock after $timeout attempts"
     return 1
 }
 
 release_lock() {
-    if [ -d "$LOCK_DIR" ]; then
-        rmdir "$LOCK_DIR" 2>/dev/null
-        logger -t at_queue -p daemon.debug "Lock released"
+    if rmdir "$LOCK_DIR" 2>/dev/null; then
+        log_at_queue "debug" "Lock released"
         return 0
+    else
+        log_at_queue "error" "Lock directory doesn't exist"
+        return 1
     fi
-    
-    logger -t at_queue -p daemon.error "Lock directory doesn't exist"
-    return 1
 }
 
 # Ensure required directories exist
-init_queue_system() {
+initialize_queue() {
     mkdir -p "$QUEUE_DIR" "$RESULTS_DIR"
-    touch "$QUEUE_FILE"
-    chmod 755 "$QUEUE_DIR"
-    chmod 644 "$QUEUE_FILE"
-    chmod 755 "$RESULTS_DIR"
-    logger -t at_queue -p daemon.info "Queue system initialized"
+    touch "$QUEUE_FILE" "$ACTIVE_FILE"
+    chmod 666 "$QUEUE_FILE" "$ACTIVE_FILE"
+    log_at_queue "info" "Queue system initialized"
 }
 
 # Cleanup old results and tracking files
 cleanup_old_results() {
     local current_time=$(date +%s)
     
-    # Clean up old execution tracking files
-    find "$QUEUE_DIR" -name "pid.*" -type f -mmin +60 -delete 2>/dev/null
-    find "$QUEUE_DIR" -name "*.exit" -type f -mmin +60 -delete 2>/dev/null
-    find "$QUEUE_DIR" -name "start_time.*" -type f -mmin +60 -delete 2>/dev/null
-    logger -t at_queue -p daemon.debug "Cleaned up old tracking files"
+    # Remove old tracking files
+    find "$QUEUE_DIR" -name "start_time.*" -o -name "pid.*" -type f -mmin +60 -delete 2>/dev/null
     
-    # Use find with -delete and basic timestamp check for OpenWRT
+    log_at_queue "debug" "Cleaned up old tracking files"    # Use find with -delete and basic timestamp check for OpenWRT
     find "$RESULTS_DIR" -name "*.json" -type f -mmin +60 -delete 2>/dev/null || {
         # Fallback method if find fails
         for file in "$RESULTS_DIR"/*.json; do
@@ -99,12 +122,12 @@ cleanup_old_results() {
         local token_time=$(cat "$TOKEN_FILE" | jsonfilter -e '@.timestamp')
         if [ $((current_time - token_time)) -gt $TOKEN_TIMEOUT ]; then
             local token_holder=$(cat "$TOKEN_FILE" | jsonfilter -e '@.id')
-            logger -t at_queue -p daemon.warn "Removing expired token from $token_holder"
+            log_at_queue "warn" "Removing expired token from $token_holder"
             rm -f "$TOKEN_FILE"
         fi
     fi
     
-    logger -t at_queue -p daemon.info "Cleanup: Removed files older than 1 hour"
+    log_at_queue "info" "Cleanup: Removed files older than 1 hour"
 }
 
 # Generate unique command ID
@@ -122,7 +145,7 @@ start_execution_tracking() {
     echo "$pid" > "$QUEUE_DIR/pid.$cmd_id"
     chmod 644 "$QUEUE_DIR/start_time.$cmd_id"
     chmod 644 "$QUEUE_DIR/pid.$cmd_id"
-    logger -t at_queue -p daemon.debug "Started tracking command $cmd_id (PID: $pid)"
+    log_at_queue "debug" "Started tracking command $cmd_id (PID: $pid)"
 }
 
 # Check if running command should be preempted
@@ -131,7 +154,7 @@ should_preempt() {
     local new_priority="$2"
     
     if [ ! -f "$QUEUE_DIR/start_time.$current_cmd_id" ]; then
-        logger -t at_queue -p daemon.debug "No start time found for $current_cmd_id"
+        log_at_queue "debug" "No start time found for $current_cmd_id"
         return 1
     fi
     
@@ -144,16 +167,16 @@ should_preempt() {
     if [ -f "$ACTIVE_FILE" ]; then
         current_priority=$(cat "$ACTIVE_FILE" | jsonfilter -e '@.priority')
     else
-        logger -t at_queue -p daemon.debug "No active command found"
+        log_at_queue "debug" "No active command found"
         return 1
     fi
     
     if [ $execution_time -gt $PREEMPTION_THRESHOLD ] && [ $new_priority -lt $current_priority ]; then
-        logger -t at_queue -p daemon.info "Command $current_cmd_id (priority $current_priority) running for ${execution_time}s is eligible for preemption by priority $new_priority"
+        log_at_queue "info" "Command $current_cmd_id (priority $current_priority) running for ${execution_time}s is eligible for preemption by priority $new_priority"
         return 0
     fi
     
-    logger -t at_queue -p daemon.debug "Command $current_cmd_id not eligible for preemption (time: ${execution_time}s, current priority: $current_priority, new priority: $new_priority)"
+    log_at_queue "debug" "Command $current_cmd_id not eligible for preemption (time: ${execution_time}s, current priority: $current_priority, new priority: $new_priority)"
     return 1
 }
 
@@ -164,7 +187,7 @@ preempt_command() {
     
     if [ -f "$pid_file" ]; then
         local pid=$(cat "$pid_file")
-        logger -t at_queue -p daemon.info "Preempting command $cmd_id (PID: $pid)"
+        log_at_queue "info" "Preempting command $cmd_id (PID: $pid)"
         
         # Send SIGTERM first
         kill -TERM $pid 2>/dev/null
@@ -175,7 +198,7 @@ preempt_command() {
         # Force kill if still running
         if kill -0 $pid 2>/dev/null; then
             kill -KILL $pid 2>/dev/null
-            logger -t at_queue -p daemon.warn "Forced termination of command $cmd_id"
+            log_at_queue "warn" "Forced termination of command $cmd_id"
         fi
         
         # Record preemption result
@@ -185,11 +208,11 @@ preempt_command() {
         rm -f "$pid_file" "$QUEUE_DIR/start_time.$cmd_id" "$QUEUE_DIR/$cmd_id.exit"
         [ -f "$ACTIVE_FILE" ] && rm -f "$ACTIVE_FILE"
         
-        logger -t at_queue -p daemon.info "Command $cmd_id preemption complete"
+        log_at_queue "info" "Command $cmd_id preemption complete"
         return 0
     fi
     
-    logger -t at_queue -p daemon.warn "No PID file found for command $cmd_id"
+    log_at_queue "warn" "No PID file found for command $cmd_id"
     return 1
 }
 
@@ -227,7 +250,7 @@ EOF
     
     printf "%s" "$response" > "$RESULTS_DIR/$cmd_id.json"
     chmod 644 "$RESULTS_DIR/$cmd_id.json"
-    logger -t at_queue -p daemon.info "Recorded preemption result for command $cmd_id (duration: ${duration}ms)"
+    log_at_queue "info" "Recorded preemption result for command $cmd_id (duration: ${duration}ms)"
 }
 
 # Request a token for direct sms_tool execution
@@ -238,7 +261,7 @@ request_token() {
     
     # Acquire lock first
     if ! acquire_lock; then
-        logger -t at_queue -p daemon.error "Failed to acquire lock for token request"
+        log_at_queue "error" "Failed to acquire lock for token request"
         echo "{\"error\":\"Could not acquire lock\",\"status\":\"denied\"}"
         return 1
     fi
@@ -252,11 +275,11 @@ request_token() {
         
         # Check for expired token (> TOKEN_TIMEOUT seconds old)
         if [ $((current_time - timestamp)) -gt $TOKEN_TIMEOUT ]; then
-            logger -t at_queue -p daemon.warn "Found expired token from $current_holder, releasing"
+            log_at_queue "warn" "Found expired token from $current_holder, releasing"
             rm -f "$TOKEN_FILE"
         # Check for priority preemption
         elif [ $priority -lt $current_priority ]; then
-            logger -t at_queue -p daemon.info "Preempting token from $current_holder (priority: $current_priority) for $requestor_id (priority: $priority)"
+            log_at_queue "info" "Preempting token from $current_holder (priority: $current_priority) for $requestor_id (priority: $priority)"
             rm -f "$TOKEN_FILE"
         else
             # Token in use and cannot be preempted
@@ -278,7 +301,7 @@ request_token() {
             return 1
         fi
         
-        logger -t at_queue -p daemon.info "Direct execution with higher priority than active queue command"
+        log_at_queue "info" "Direct execution with higher priority than active queue command"
     fi
     
     # Grant token
@@ -296,7 +319,7 @@ release_token() {
     local requestor_id="$1"
     
     if ! acquire_lock; then
-        logger -t at_queue -p daemon.error "Failed to acquire lock for token release"
+        log_at_queue "error" "Failed to acquire lock for token release"
         return 1
     fi
     
@@ -305,15 +328,15 @@ release_token() {
         
         if [ "$current_holder" = "$requestor_id" ]; then
             rm -f "$TOKEN_FILE"
-            logger -t at_queue -p daemon.debug "Token released by $requestor_id"
+            log_at_queue "debug" "Token released by $requestor_id"
             release_lock
             echo "{\"status\":\"released\"}"
             return 0
         else
-            logger -t at_queue -p daemon.warn "Token release attempted by $requestor_id but held by $current_holder"
+            log_at_queue "warn" "Token release attempted by $requestor_id but held by $current_holder"
         fi
     else
-        logger -t at_queue -p daemon.warn "Token release attempted but no token exists"
+        log_at_queue "warn" "Token release attempted but no token exists"
     fi
     
     release_lock
@@ -331,11 +354,11 @@ enqueue_command() {
     # Ensure queue directory exists
     [ ! -d "$QUEUE_DIR" ] && init_queue_system
     
-    logger -t at_queue -p daemon.info "Enqueuing command: $cmd (priority: $priority, id: $cmd_id)"
+    log_at_queue "info" "Enqueuing command: $cmd (priority: $priority, id: $cmd_id)"
     
     # Acquire lock for queue modification
     if ! acquire_lock; then
-        logger -t at_queue -p daemon.error "Failed to acquire lock for enqueuing command"
+        log_at_queue "error" "Failed to acquire lock for enqueuing command"
         echo "{\"error\":\"Queue lock acquisition failed\",\"command\":\"$cmd\"}"
         return 1
     fi
@@ -358,11 +381,11 @@ enqueue_command() {
         cat "$QUEUE_FILE" >> "$temp_file"
         mv "$temp_file" "$QUEUE_FILE"
         chmod 644 "$QUEUE_FILE"
-        logger -t at_queue -p daemon.info "Added high priority command to front of queue"
+        log_at_queue "info" "Added high priority command to front of queue"
     else
         # Normal priority - append to queue
         echo "$entry" >> "$QUEUE_FILE"
-        logger -t at_queue -p daemon.info "Added normal priority command to end of queue"
+        log_at_queue "info" "Added normal priority command to end of queue"
     fi
     
     # Release lock
@@ -379,7 +402,7 @@ dequeue_command() {
     
     # Acquire lock
     if ! acquire_lock; then
-        logger -t at_queue -p daemon.error "Failed to acquire lock for dequeuing command"
+        log_at_queue "error" "Failed to acquire lock for dequeuing command"
         return 1
     fi
     
@@ -395,7 +418,7 @@ dequeue_command() {
     # Release lock
     release_lock
     
-    logger -t at_queue -p daemon.debug "Dequeued command: $(echo "$cmd_entry" | jsonfilter -e '@.command')"
+    log_at_queue "debug" "Dequeued command: $(echo "$cmd_entry" | jsonfilter -e '@.command')"
     echo "$cmd_entry"
 }
 
@@ -433,7 +456,7 @@ execute_with_timeout() {
     # Start execution tracking
     start_execution_tracking "$cmd_id" "$pid"
     
-    logger -t at_queue -p daemon.debug "Started command execution: $command (PID: $pid)"
+    log_at_queue "debug" "Started command execution: $command (PID: $pid)"
     
     # Wait for completion with shorter polling interval
     local start_time=$(date +%s)
@@ -447,7 +470,7 @@ execute_with_timeout() {
             # Cleanup
             rm -f "$QUEUE_DIR/pid.$cmd_id" "$QUEUE_DIR/$cmd_id.exit" "$output_file" "$QUEUE_DIR/start_time.$cmd_id"
             
-            logger -t at_queue -p daemon.debug "Command completed with exit code $exit_code"
+            log_at_queue "debug" "Command completed with exit code $exit_code"
             echo "$output"
             return $exit_code
         fi
@@ -471,7 +494,7 @@ execute_with_timeout() {
         # Cleanup
         rm -f "$QUEUE_DIR/pid.$cmd_id" "$QUEUE_DIR/$cmd_id.exit" "$output_file" "$QUEUE_DIR/start_time.$cmd_id"
         
-        logger -t at_queue -p daemon.warn "Command timed out after $timeout seconds"
+        log_at_queue "warn" "Command timed out after $timeout seconds"
         echo "${partial_output:-Command timed out after $timeout seconds}"
     fi
     
@@ -487,7 +510,7 @@ execute_command() {
     
     local start_time=$(date +%s%3N)
     
-    logger -t at_queue -p daemon.info "Executing command $cmd_id: $cmd_text (priority: $priority)"
+    log_at_queue "info" "Executing command $cmd_id: $cmd_text (priority: $priority)"
     
     # Execute command with timeout
     local result=$(execute_with_timeout "$cmd_text" $MAX_TIMEOUT "$cmd_id")
@@ -501,16 +524,16 @@ execute_command() {
     
     if [ $exit_code -eq 124 ]; then
         status="timeout"
-        logger -t at_queue -p daemon.error "Command $cmd_id timed out after ${duration}ms"
+        log_at_queue "error" "Command $cmd_id timed out after ${duration}ms"
     elif echo "$result" | grep -q "OK"; then
         status="success"
         log_level="info"
-        logger -t at_queue -p daemon.info "Command $cmd_id completed successfully in ${duration}ms"
+        log_at_queue "info" "Command $cmd_id completed successfully in ${duration}ms"
     elif echo "$result" | grep -q "CME ERROR"; then
         status="cme_error"
-        logger -t at_queue -p daemon.error "Command $cmd_id failed with CME ERROR in ${duration}ms"
+        log_at_queue "error" "Command $cmd_id failed with CME ERROR in ${duration}ms"
     else
-        logger -t at_queue -p daemon.error "Command $cmd_id failed with general error in ${duration}ms"
+        log_at_queue "error" "Command $cmd_id failed with general error in ${duration}ms"
     fi
     
     # Clean and escape the output
@@ -536,7 +559,7 @@ EOF
     
     # Acquire lock for writing result
     if ! acquire_lock; then
-        logger -t at_queue -p daemon.error "Failed to acquire lock for writing result"
+        log_at_queue "error" "Failed to acquire lock for writing result"
     else
         # Save response
         printf "%s" "$response" > "$RESULTS_DIR/$cmd_id.json"
@@ -561,7 +584,7 @@ process_queue() {
     # Make sure the lock directory doesn't exist at startup
     [ -d "$LOCK_DIR" ] && rmdir "$LOCK_DIR" 2>/dev/null
     
-    logger -t at_queue -p daemon.info "Started queue processing daemon"
+    log_at_queue "info" "Started queue processing daemon"
     
     while true; do
         # Quick cleanup check
@@ -579,12 +602,12 @@ process_queue() {
             
             # Check for expired token
             if [ $((current_time - token_time)) -gt $TOKEN_TIMEOUT ]; then
-                logger -t at_queue -p daemon.warn "Removing expired token from $token_holder"
+                log_at_queue "warn" "Removing expired token from $token_holder"
                 rm -f "$TOKEN_FILE"
             else
                 # Log pause status only every 5 seconds to reduce log spam
                 if [ $((current_time - last_log)) -ge 5 ]; then
-                    logger -t at_queue -p daemon.debug "Queue processing paused, token held by $token_holder"
+                    log_at_queue "debug" "Queue processing paused, token held by $token_holder"
                     last_log=$current_time
                 fi
                 sleep $POLL_INTERVAL
@@ -612,49 +635,64 @@ if [ "${SCRIPT_NAME}" != "" ]; then
         echo ""
     fi
     
+    # Log the incoming request for debugging
+    log_at_queue "debug" "CGI: Incoming request - QUERY_STRING='$QUERY_STRING', REQUEST_METHOD='$REQUEST_METHOD', HTTP_USER_AGENT='$HTTP_USER_AGENT'"
+    
     # Parse query string for CGI mode
     eval $(echo "$QUERY_STRING" | sed 's/&/;/g')
+    
+    # Handle empty action parameter specifically
+    if [ -z "$action" ]; then
+        if [ -z "$QUERY_STRING" ]; then
+            log_at_queue "warn" "CGI: No query string provided - possible health check or browser prefetch"
+            echo "{\"error\":\"No action specified\",\"help\":\"Valid actions: enqueue, status, request_token, release_token\"}"
+        else
+            log_at_queue "warn" "CGI: Query string present but no action parameter: '$QUERY_STRING'"
+            echo "{\"error\":\"Missing action parameter\",\"query_string\":\"$QUERY_STRING\"}"
+        fi
+        exit 0
+    fi
     
     case "$action" in
         "enqueue")
             if [ -n "$command" ]; then
-                logger -t at_queue -p daemon.info "CGI: Received enqueue request for command: $command"
+                log_at_queue "info" "CGI: Received enqueue request for command: $command"
                 enqueue_command "$command" "$priority"
             else
-                logger -t at_queue -p daemon.error "CGI: Empty command received"
+                log_at_queue "error" "CGI: Empty command received"
                 echo "{\"error\":\"No command specified\"}"
             fi
             ;;
         "status")
             if [ -f "$ACTIVE_FILE" ]; then
-                logger -t at_queue -p daemon.debug "CGI: Status request - queue active"
+                log_at_queue "debug" "CGI: Status request - queue active"
                 cat "$ACTIVE_FILE"
             else
-                logger -t at_queue -p daemon.debug "CGI: Status request - queue idle"
+                log_at_queue "debug" "CGI: Status request - queue idle"
                 echo "{\"status\":\"idle\"}"
             fi
             ;;
         "request_token")
             if [ -n "$id" ]; then
-                logger -t at_queue -p daemon.info "Token request from $id (priority: ${priority:-10})"
+                log_at_queue "info" "Token request from $id (priority: ${priority:-10})"
                 request_token "$id" "${priority:-10}" "${timeout:-10}"
             else
-                logger -t at_queue -p daemon.error "Token request missing ID"
+                log_at_queue "error" "Token request missing ID"
                 echo "{\"error\":\"No requestor ID specified\",\"status\":\"denied\"}"
             fi
             ;;
         "release_token")
             if [ -n "$id" ]; then
-                logger -t at_queue -p daemon.info "Token release from $id"
+                log_at_queue "info" "Token release from $id"
                 release_token "$id"
             else
-                logger -t at_queue -p daemon.error "Token release missing ID"
+                log_at_queue "error" "Token release missing ID"
                 echo "{\"error\":\"No requestor ID specified\",\"status\":\"denied\"}"
             fi
             ;;
         *)
-            logger -t at_queue -p daemon.error "CGI: Invalid action received: $action"
-            echo "{\"error\":\"Invalid action\"}"
+            log_at_queue "error" "CGI: Invalid action received: '$action' (QUERY_STRING: '$QUERY_STRING')"
+            echo "{\"error\":\"Invalid action: $action\",\"valid_actions\":[\"enqueue\",\"status\",\"request_token\",\"release_token\"]}"
             ;;
     esac
     exit 0
