@@ -12,8 +12,10 @@ const WebSocketComponent = () => {
       console.log('WebSocket connected');
       setIsOpen(true);
     };
-    ws.current.onmessage = (event) =>
+    ws.current.onmessage = (event) => {
       setMessages((prev) => [...prev, event.data]);
+      console.log('Message received:', event.data);
+    }
     ws.current.onclose = () => {
       console.log('WebSocket disconnected');
       setIsOpen(false);
