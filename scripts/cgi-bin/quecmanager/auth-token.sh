@@ -25,7 +25,7 @@ cleanup() {
     mv "$TMP_FILE" "$AUTH_FILE"
 }
 
-function removeToken() {
+removeToken() {
     TOKEN=$1
         # Remove token from file
     if [ -n ${TOKEN} ]; then
@@ -37,7 +37,7 @@ function removeToken() {
     EXIT_CODE=3
 }
 
-function process() {
+process() {
     if [ -n "$1" ]; then
         TOKEN=$1
     else
@@ -47,7 +47,7 @@ function process() {
         echo "" >> ${AUTH_FILE}
     fi
 
-    if ! -f $AUTH_FILE; then
+    if [ ! -f $AUTH_FILE ]; then
         echo '{"state":"failed", "message":"Authentication file not found"}'
         EXIT_CODE=2
     fi
