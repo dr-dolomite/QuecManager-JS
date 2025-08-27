@@ -2,40 +2,11 @@
 # AT Queue Client for OpenWRT
 # Located in /www/cgi-bin/services/at_queue_client
 
-# Load centralized logging
-. /www/cgi-bin/services/quecmanager_logger.sh
-
 AUTH_FILE="/tmp/auth_success"
 QUEUE_DIR="/tmp/at_queue"
 RESULTS_DIR="$QUEUE_DIR/results"
 QUEUE_MANAGER="/www/cgi-bin/services/at_queue_manager.sh"
 POLL_INTERVAL=0.01
-SCRIPT_NAME_LOG="at_queue_client"
-
-# Logging function - uses both centralized and system logging
-log_at_queue_client() {
-    local level="$1"
-    local message="$2"
-    
-    # Use centralized logging
-    case "$level" in
-        "error")
-            qm_log_error "service" "$SCRIPT_NAME_LOG" "$message"
-            ;;
-        "warn")
-            qm_log_warn "service" "$SCRIPT_NAME_LOG" "$message"
-            ;;
-        "debug")
-            qm_log_debug "service" "$SCRIPT_NAME_LOG" "$message"
-            ;;
-        *)
-            qm_log_info "service" "$SCRIPT_NAME_LOG" "$message"
-            ;;
-    esac
-    
-    # Also maintain system logging for compatibility
-    logger -t at_queue -p "daemon.$level" "$message"
-}
 
 usage() {
     echo "Usage: $0 [options] <AT command>"
@@ -49,14 +20,14 @@ usage() {
 # Output JSON response
 output_json() {
     local content="$1"
-    local headers="${2:-1}"  # Default to showing headers 
+    local headers="${2:-1}"  # Default to showing headers
     echo "$content"
 }
 
 # URL decode function
 urldecode() {
     local encoded="$1"
-    log_at_queue_client "debug" "urldecode: input='$encoded'"
+    logger -t at_queue -p daemon.debug "urldecode: input='$encoded'"
     
     # Handle %2B -> + and %22 -> " conversions
     local decoded="${encoded//%2B/+}"
@@ -64,21 +35,8 @@ urldecode() {
     # Then handle other encoded characters
     decoded=$(printf '%b' "${decoded//%/\\x}")
     
-    log_at_queue_client "debug" "urldecode: output='$decoded'"
+    logger -t at_queue -p daemon.debug "urldecode: output='$decoded'"
     echo "$decoded"
-}
-
-# URL encode function (simplified for AT commands)
-urlencode() {
-    local string="$1"
-    # Simple encoding for common AT command characters
-    string="${string// /%20}"
-    string="${string//+/%2B}"
-    string="${string//\"/%22}"
-    string="${string//=/%3D}"
-    string="${string//&/%26}"
-    string="${string//?/%3F}"
-    echo "$string"
 }
 
 # Extract command ID from response with improved error handling
@@ -114,19 +72,19 @@ get_command_id() {
 # Normalize AT command
 normalize_at_command() {
     local cmd="$1"
-    log_at_queue_client "debug" "normalize: input='$cmd'"
+    logger -t at_queue -p daemon.debug "normalize: input='$cmd'"
     
     # URL decode the command
     cmd=$(urldecode "$cmd")
-    log_at_queue_client "debug" "normalize: after urldecode='$cmd'"
+    logger -t at_queue -p daemon.debug "normalize: after urldecode='$cmd'"
     
     # Remove any carriage returns or newlines
     cmd=$(echo "$cmd" | tr -d '\r\n')
-    log_at_queue_client "debug" "normalize: after cleanup='$cmd'"
+    logger -t at_queue -p daemon.debug "normalize: after cleanup='$cmd'"
     
     # Trim leading/trailing whitespace while preserving quotes
     cmd=$(echo "$cmd" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
-    log_at_queue_client "debug" "normalize: final output='$cmd'"
+    logger -t at_queue -p daemon.debug "normalize: final output='$cmd'"
     
     echo "$cmd"
 }
@@ -143,7 +101,7 @@ submit_command() {
     
     # Submit using appropriate method
     if [ "${SCRIPT_NAME}" != "" ]; then
-        # CGI mode - direct execution like the original working version
+        # CGI mode - direct execution
         local escaped_cmd=$(echo "$cmd" | sed 's/"/\\"/g')
         QUERY_STRING="action=enqueue&command=${escaped_cmd}&priority=$priority" "$QUEUE_MANAGER"
     else
@@ -160,7 +118,7 @@ check_result() {
     if [ -f "$RESULTS_DIR/$cmd_id.json" ]; then
         local result_content=$(cat "$RESULTS_DIR/$cmd_id.json")
         if [ -z "$result_content" ]; then
-            log_at_queue_client "error" "Empty result file for command ID: $cmd_id"
+            logger -t at_queue -p daemon.error "Empty result file for command ID: $cmd_id"
             local error_json="{\"error\":\"Empty result file\",\"command_id\":\"$cmd_id\"}"
             output_json "$error_json" "$show_headers"
             return 1
