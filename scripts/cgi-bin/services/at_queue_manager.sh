@@ -18,7 +18,7 @@ RESULTS_MAX_AGE=3600   # 1 hour in seconds
 POLL_INTERVAL=0.01
 PREEMPTION_THRESHOLD=2  # 3 seconds threshold for preemption
 TOKEN_TIMEOUT=30  # seconds before token expires
-SCRIPT_NAME="at_queue_manager"
+SCRIPT_NAME_LOG="at_queue_manager"
 
 # Logging function - uses both centralized and system logging
 log_at_queue() {
@@ -28,16 +28,16 @@ log_at_queue() {
     # Use centralized logging
     case "$level" in
         "error")
-            qm_log_error "service" "$SCRIPT_NAME" "$message"
+            qm_log_error "service" "$SCRIPT_NAME_LOG" "$message"
             ;;
         "warn")
-            qm_log_warn "service" "$SCRIPT_NAME" "$message"
+            qm_log_warn "service" "$SCRIPT_NAME_LOG" "$message"
             ;;
         "debug")
-            qm_log_debug "service" "$SCRIPT_NAME" "$message"
+            qm_log_debug "service" "$SCRIPT_NAME_LOG" "$message"
             ;;
         *)
-            qm_log_info "service" "$SCRIPT_NAME" "$message"
+            qm_log_info "service" "$SCRIPT_NAME_LOG" "$message"
             ;;
     esac
     
@@ -81,20 +81,23 @@ acquire_lock() {
 }
 
 release_lock() {
-    if rmdir "$LOCK_DIR" 2>/dev/null; then
+    if [ -d "$LOCK_DIR" ]; then
+        rmdir "$LOCK_DIR" 2>/dev/null
         log_at_queue "debug" "Lock released"
         return 0
-    else
-        log_at_queue "error" "Lock directory doesn't exist"
-        return 1
     fi
+    
+    log_at_queue "error" "Lock directory doesn't exist"
+    return 1
 }
 
 # Ensure required directories exist
-initialize_queue() {
+init_queue_system() {
     mkdir -p "$QUEUE_DIR" "$RESULTS_DIR"
-    touch "$QUEUE_FILE" "$ACTIVE_FILE"
-    chmod 666 "$QUEUE_FILE" "$ACTIVE_FILE"
+    touch "$QUEUE_FILE"
+    chmod 755 "$QUEUE_DIR"
+    chmod 644 "$QUEUE_FILE"
+    chmod 755 "$RESULTS_DIR"
     log_at_queue "info" "Queue system initialized"
 }
 
@@ -102,10 +105,13 @@ initialize_queue() {
 cleanup_old_results() {
     local current_time=$(date +%s)
     
-    # Remove old tracking files
-    find "$QUEUE_DIR" -name "start_time.*" -o -name "pid.*" -type f -mmin +60 -delete 2>/dev/null
+    # Clean up old execution tracking files
+    find "$QUEUE_DIR" -name "pid.*" -type f -mmin +60 -delete 2>/dev/null
+    find "$QUEUE_DIR" -name "*.exit" -type f -mmin +60 -delete 2>/dev/null
+    find "$QUEUE_DIR" -name "start_time.*" -type f -mmin +60 -delete 2>/dev/null
+    log_at_queue "debug" "Cleaned up old tracking files"
     
-    log_at_queue "debug" "Cleaned up old tracking files"    # Use find with -delete and basic timestamp check for OpenWRT
+    # Use find with -delete and basic timestamp check for OpenWRT
     find "$RESULTS_DIR" -name "*.json" -type f -mmin +60 -delete 2>/dev/null || {
         # Fallback method if find fails
         for file in "$RESULTS_DIR"/*.json; do
@@ -635,23 +641,8 @@ if [ "${SCRIPT_NAME}" != "" ]; then
         echo ""
     fi
     
-    # Log the incoming request for debugging
-    log_at_queue "debug" "CGI: Incoming request - QUERY_STRING='$QUERY_STRING', REQUEST_METHOD='$REQUEST_METHOD', HTTP_USER_AGENT='$HTTP_USER_AGENT'"
-    
     # Parse query string for CGI mode
     eval $(echo "$QUERY_STRING" | sed 's/&/;/g')
-    
-    # Handle empty action parameter specifically
-    if [ -z "$action" ]; then
-        if [ -z "$QUERY_STRING" ]; then
-            log_at_queue "warn" "CGI: No query string provided - possible health check or browser prefetch"
-            echo "{\"error\":\"No action specified\",\"help\":\"Valid actions: enqueue, status, request_token, release_token\"}"
-        else
-            log_at_queue "warn" "CGI: Query string present but no action parameter: '$QUERY_STRING'"
-            echo "{\"error\":\"Missing action parameter\",\"query_string\":\"$QUERY_STRING\"}"
-        fi
-        exit 0
-    fi
     
     case "$action" in
         "enqueue")
@@ -691,8 +682,8 @@ if [ "${SCRIPT_NAME}" != "" ]; then
             fi
             ;;
         *)
-            log_at_queue "error" "CGI: Invalid action received: '$action' (QUERY_STRING: '$QUERY_STRING')"
-            echo "{\"error\":\"Invalid action: $action\",\"valid_actions\":[\"enqueue\",\"status\",\"request_token\",\"release_token\"]}"
+            log_at_queue "error" "CGI: Invalid action received: $action"
+            echo "{\"error\":\"Invalid action\"}"
             ;;
     esac
     exit 0

@@ -12,39 +12,57 @@ TRACK_FILE="/tmp/quecprofiles_active"
 CHECK_TRIGGER="/tmp/quecprofiles_check"
 STATUS_FILE="/tmp/quecprofiles_status.json"
 APPLIED_FLAG="/tmp/quecprofiles_applied"
+DEBUG_LOG="/tmp/quecprofiles_debug.log"
+DETAILED_LOG="/tmp/quecprofiles_detailed.log"
 DEFAULT_CHECK_INTERVAL=60 # Default check interval in seconds
 COMMAND_TIMEOUT=10        # Default timeout for AT commands in seconds
 QUEUE_PRIORITY=3          # Medium-high priority (1 is highest for cell scan)
 MAX_TOKEN_WAIT=15         # Maximum seconds to wait for token acquisition
-SCRIPT_NAME="quecprofile"
+SCRIPT_NAME_LOG="quecprofiles_daemon"
 
-# Initialize logging
-qm_log_info "service" "$SCRIPT_NAME" "Starting QuecProfiles daemon with SA/NSA NR5G and TTL support (PID: $$)"
+# Initialize log files and use centralized logging
+mkdir -p "$(dirname "$DEBUG_LOG")" "$(dirname "$DETAILED_LOG")"
+touch "$DEBUG_LOG" "$DETAILED_LOG"
+chmod 644 "$DEBUG_LOG" "$DETAILED_LOG"
 
-# Function to log messages
+# Log startup message using centralized logging
+qm_log_info "service" "$SCRIPT_NAME_LOG" "Starting QuecProfiles daemon with SA/NSA NR5G and TTL support (PID: $$)"
+
+# Also maintain file logging for compatibility
+echo "$(date) - Starting QuecProfiles daemon with SA/NSA NR5G and TTL support (PID: $$)" >"$DEBUG_LOG"
+echo "$(date) - Starting QuecProfiles daemon with SA/NSA NR5G and TTL support (PID: $$)" >"$DETAILED_LOG"
+
+# Function to log messages - now uses centralized logging
 log_message() {
     local message="$1"
     local level="${2:-info}"
+    local timestamp=$(date "+%Y-%m-%d %H:%M:%S")
 
     # Use centralized logging
     case "$level" in
         "error")
-            qm_log_error "service" "$SCRIPT_NAME" "$message"
+            qm_log_error "service" "$SCRIPT_NAME_LOG" "$message"
             ;;
         "warn")
-            qm_log_warn "service" "$SCRIPT_NAME" "$message"
+            qm_log_warn "service" "$SCRIPT_NAME_LOG" "$message"
             ;;
         "debug")
-            qm_log_debug "service" "$SCRIPT_NAME" "$message"
+            qm_log_debug "service" "$SCRIPT_NAME_LOG" "$message"
             ;;
         *)
-            qm_log_info "service" "$SCRIPT_NAME" "$message"
+            qm_log_info "service" "$SCRIPT_NAME_LOG" "$message"
             ;;
     esac
 
-    # Also log to system log for important messages
-    if [ "$level" = "error" ] || [ "$level" = "warn" ] || [ "$level" = "info" ]; then
-        logger -t quecprofiles_daemon -p "daemon.$level" "$message"
+    # Also maintain system logging for compatibility
+    logger -t quecprofiles_daemon -p "daemon.$level" "$message"
+
+    # Log to debug file (maintain existing behavior)
+    echo "[$timestamp] [$level] $message" >>"$DEBUG_LOG"
+
+    # For detailed logs or errors (maintain existing behavior)
+    if [ "$level" = "error" ] || [ "$level" = "debug" ]; then
+        echo "[$timestamp] [$level] $message" >>"$DETAILED_LOG"
     fi
 }
 

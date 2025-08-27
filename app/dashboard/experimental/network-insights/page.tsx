@@ -192,7 +192,7 @@ export default function NetworkInsights() {
                   <div className="flex items-center space-x-3">
                     <Signal className="h-8 w-8 text-green-500" />
                     <div>
-                      <p className="text-sm font-medium">Signal Events</p>
+                      <p className="text-sm font-medium">Network Events</p>
                       {loading && interpretations.length === 0 ? (
                         <Skeleton className="h-8 w-6 mt-1" />
                       ) : (

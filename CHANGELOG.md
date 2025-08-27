@@ -1,76 +1,89 @@
-# QuecManager Beta Version 2.2.8 Release Candidate - Hotfix Update
+# QuecManager Beta Version 2.2.9 - Major System Architecture Update
 
-## **Critical Hotfixes & System Improvements**
+## **🔧 Core System Infrastructure**
 
-### **Centralized Logging System - Infrastructure Overhaul**
-- **Unified Logging Framework**: Implemented centralized logging system with OpenWrt/BusyBox compatibility for consistent log management across all services
-- **Organized Directory Structure**: Created `/tmp/quecmanager/logs/` with categorized subdirectories (daemons/, services/, settings/, system/) for better log organization
-- **Automatic Log Rotation**: Built-in rotation at 500KB with 2-backup system to prevent /tmp storage issues on embedded systems
-- **Dedicated Logging Service**: New `quecmanager_logging` init.d service (START=48) handles logging initialization and periodic maintenance
-- **Web-Accessible Log Viewer**: New `/cgi-bin/quecmanager/experimental/logs/fetch_logs.sh` API provides JSON-formatted log access for experimental page integration
-- **Periodic Maintenance**: Automatic log cleanup every 6 hours via procd-managed daemon to prevent disk space issues
-- **Migration Completed**: Updated memory_daemon, ping_daemon, quecwatch, quecprofile, and at_queue_manager services to use centralized logging
-- **Standardized Format**: Consistent log format `[YYYY-MM-DD HH:MM:S] [LEVEL] [SCRIPT] [PID:xxxx] Message` across all services
+### **Centralized Logging System - Complete Implementation**
 
-### **Memory Monitoring System - Persistence & Reliability Fixes**
-- **Fixed Memory Settings Persistence**: Resolved critical issue where memory monitoring settings would not persist across device reboots
-- **Conditional Service Startup**: Implemented intelligent daemon startup that only runs when memory monitoring is enabled in configuration
-- **Simplified CORS Handling**: Streamlined CORS headers in `fetch_memory.sh`
-- **Config-First Architecture**: Memory card component now checks configuration before attempting data fetches, improving loading states and error handling
-- **Optimistic Loading**: Memory data displays immediately when configuration is enabled, eliminating unnecessary loading delays
+- **Backend Infrastructure**: Built comprehensive centralized logging framework
+  - Created `quecmanager_logger.sh` - Core logging framework with automatic rotation at 500KB
+  - Implemented `/tmp/quecmanager/logs/` directory structure with categorized subdirectories (daemons/, services/, settings/, system/)
+  - Added `quecmanager_logging` init.d service (START=48) for logging system initialization and maintenance
+  - Deployed automatic log cleanup daemon running every 6 hours to prevent storage issues
+  - Standardized log format: `[YYYY-MM-DD HH:MM:SS] [LEVEL] [SCRIPT] [PID:xxxx] Message`
 
-### **Ping Latency System - Complete Rework**
-- **Unified Architecture**: Completely reworked ping latency fetching to match the simplified memory system pattern for consistency
-- **New Configuration Service**: Created `ping_service.sh` to provide ping settings via clean JSON API, matching memory service pattern
-- **Simplified Data Fetching**: Replaced complex `fetch_ping.sh` (67 lines) with streamlined version (39 lines) using direct JSON file reading
-- **Fixed Interval Handling**: Resolved critical bug where ping refreshed every 2 seconds despite 5-second configuration - now properly respects config intervals
-- **Config-First Component**: Updated `ping-card.tsx` to use same config-first approach as memory card, eliminating complex animation logic
-- **Conditional Daemon Management**: Ping daemon now starts conditionally based on `PING_ENABLED` configuration, matching memory daemon behavior
+- **Service Integration**: Migrated all core services to centralized logging
+  - Updated `memory_daemon`, `ping_daemon`, `quecwatch`, `quecprofile` to use centralized logging
+  - Enhanced `at_queue_manager.sh` with comprehensive logging and CGI debugging capabilities
+  - Implemented dual logging (centralized + system) for critical services
 
-### **Ethernet Hardware Detection - Error Prevention**
-- **Pre-Connection Validation**: Enhanced `fetch_hw_details.sh` to check Ethernet interface existence and status before attempting ethtool operations
-- **Graceful Disconnection Handling**: Script now returns proper "Not Connected" state instead of throwing errors when Ethernet is unplugged
-- **Multi-State Detection**: Distinguishes between interface down, no physical link, and ethtool failures with appropriate responses
-- **Enhanced Component Logic**: Updated `ethernet-card.tsx` to properly handle disconnected states with visual indicators and "Not Available" labels
-- **Improved Error Recovery**: Component now shows proper connection states instead of error messages when hardware is unavailable
+- **Web API**: Created robust log access system
+  - Built `/cgi-bin/quecmanager/experimental/logs/fetch_logs.sh` API for web-based log access
+  - Implemented JSON response format with category/script/level filtering
+  - Added pagination and search capabilities for large log files
 
-### **UI Component Updates**
+### **System Logs - New Experimental Feature**
 
-- **Fixed Cell Scan Feature Access**: Restored accidentally removed component for Cell Scan Feature
+- **Frontend Implementation**: Built comprehensive React-based log viewer at `/dashboard/experimental/logs`
+  - Real-time log viewing with auto-refresh capabilities (5s, 10s, 30s, 1m intervals)
+  - Dynamic category and script selection with intelligent filtering
+  - Multi-level log filtering (ERROR, WARN, INFO, DEBUG)
+  - Search functionality across log messages and script names
+  - Export functionality for log analysis and archiving
+  - Responsive design with dark mode compatibility
 
-## 🐛 **Critical Bug Fixes**
+- **Enhanced UI Components**: Implemented colorized log level badges
+  - ERROR: Red badges for critical issues
+  - WARN: Orange badges for warnings
+  - INFO: Blue badges for informational messages
+  - DEBUG: Green badges for diagnostic information
+  - Added corresponding icons for visual identification
 
-### **Memory System Reliability**
-- **Fixed Reboot Persistence**: Memory monitoring settings now survive device reboots and maintain user preferences
-- **Eliminated Random 500 Errors**: Simplified CORS handling prevents intermittent fetch failures
-- **Fixed Loading States**: Memory card no longer shows indefinite loading when service is disabled
+## **🗑️ System Cleanup & Optimization**
 
-### **Ping System Accuracy**
-- **Fixed Interval Timing**: Ping latency now refreshes at correct intervals
-- **Stable Polling**: Eliminated unnecessary useEffect dependencies that caused polling restarts
+### **Heartbeat Functionality Removal**
 
-### **Ethernet Hardware Robustness**
-- **Prevented Script Errors**: Ethernet script no longer fails when interface is down or cable is unplugged
-- **Improved Error Messages**: Users see "Not Connected" instead of technical error messages
-- **Visual State Indicators**: Proper red/green icon states for connected/disconnected Ethernet
+- **Complete Removal**: Eliminated deprecated heartbeat system and related components
+  - Removed heartbeat hooks, API endpoints, and related infrastructure
+  - Cleaned up unused code and dependencies
+  - Simplified system architecture by removing redundant monitoring
 
-## 🔧 **Technical Implementation Details**
+## **🎨 User Interface Improvements**
 
-### **Script Optimizations**
-- **fetch_memory.sh**: Simplified from complex awk parsing to direct JSON file reading with basic validation
-- **fetch_ping.sh**: Reduced from 67 to 39 lines with streamlined logic and simplified CORS
-- **ping_service.sh**: New configuration service providing ping settings via clean JSON API
-- **fetch_hw_details.sh**: Enhanced with pre-validation checks and graceful disconnection handling
+### **Navigation & Layout Enhancements**
 
-### **React Component Improvements**
-- **memory-card.tsx**: Config-first architecture with optimistic loading and simplified state management
-- **ping-card.tsx**: Eliminated complex animation logic, fixed dependency issues, added proper interval logging
-- **ethernet-card.tsx**: Enhanced disconnection handling with improved visual states
+- **Fixed Active Link Highlighting**: Resolved navigation issues in custom features layout
+  - Corrected active state detection for navigation menu items
+  - Improved visual feedback for current page indication
 
-## 🔄 **Migration & Deployment Notes**
+## **🔧 Technical Implementation Details**
 
-- **Ethernet Monitoring**: No user action required
+### **Backend Scripts**
 
-## 📋 **Summary of Changes**
+- **quecmanager_logger.sh**: Core logging framework with rotation, cleanup, and categorization
+- **quecmanager_logging**: Init.d service for logging system management
+- **fetch_logs.sh**: CGI API providing JSON-formatted log access with filtering
+- **cleanup_logs.sh**: Automated maintenance script for log rotation and cleanup
 
-This hotfix update focuses on critical reliability improvements and system consistency. 
+### **Frontend Components**
+
+- **LogsPage.tsx**: Comprehensive log viewer with filtering, search, and export capabilities
+- **Enhanced Badge Components**: Custom styling for log level identification
+- **Improved Form Handling**: Better validation and error states
+
+## **🔄 Migration & Deployment Notes**
+
+### **New Services**
+
+- `quecmanager_logging` service will auto-start on deployment
+- Existing logs will be preserved during migration
+- No user configuration required for basic functionality
+
+### **Experimental Features**
+
+- System Logs feature available at `/dashboard/experimental/logs`
+- Requires no additional configuration
+- Works with existing service logging automatically
+
+## **📋 Summary of Changes**
+
+This major update introduces a complete centralized logging infrastructure, removes deprecated heartbeat functionality, and adds a powerful new System Logs experimental feature. The update focuses on improved system observability, cleaner architecture, and enhanced user experience through better navigation and log management capabilities.
