@@ -5,7 +5,7 @@
 EXIT_CODE=0
 AUTH_FILE="/tmp/quecmanager/auth_success"
 
-function cleanup() {
+cleanup() {
     MAX_AGE=$((2 * 3600)) # 2 hours in seconds
     NOW_TIME=$(date +%s)
     TMP_FILE=$(mktemp)
