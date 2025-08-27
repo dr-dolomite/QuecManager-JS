@@ -190,7 +190,7 @@ if [ "${SCRIPT_NAME}" != "" ]; then
         output_json "{\"error\":\"Unauthorized\"}" "0"
         exit 1
     fi
-    AUTH_RESPONSE=$(/bin/ash ../auth-token.sh process)   
+    AUTH_RESPONSE=$(/bin/ash ../auth-token.sh process "${HTTP_AUTHORIZATION}")   
     AUTH_RESPONSE_STATUS=$?
     if [ $AUTH_RESPONSE_STATUS -ne 0 ]; then
         output_json $AUTH_RESPONSE "0"

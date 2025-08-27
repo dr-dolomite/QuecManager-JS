@@ -28,7 +28,7 @@ cleanup() {
 removeToken() {
     TOKEN=$1
         # Remove token from file
-    if [ -n ${TOKEN} ]; then
+    if [ -n "${TOKEN}" ]; then
         sed -i -e "s/.*${TOKEN}.*//g" ${AUTH_FILE} 2>/dev/null
         echo '{"state":"success", "message":"Logged out successfully"}'
         EXIT_CODE=0
@@ -52,12 +52,12 @@ process() {
         EXIT_CODE=2
     fi
 
-    if [ $EXIT_CODE -eq 0 ] && [ -z "$TOKEN" ] || "${TOKEN}" = "" || [ $(grep "${TOKEN}" "${AUTH_FILE}" | wc -l) -eq 0 ]; then
+    if [ $EXIT_CODE -eq 0 ] && ( [ -z "$TOKEN" ] || [ "$TOKEN" = "" ] || [ $(grep "${TOKEN}" "${AUTH_FILE}" | wc -l) -eq 0 ] ); then
         echo "{\"response\": { \"status\": \"error\", \"raw_output\": \"Not Authorized\" }, \"command\": {\"timestamp\": \"$(date +%Y%m%d'T'%H%M%S)\"}, \"error\":\"Not Authorized\"}"
         EXIT_CODE=1
     fi
 
-    if [ $EXIT_CODE -eq 0 ] && grep -q $TOKEN $AUTH_FILE; then
+    if [ $EXIT_CODE -eq 0 ] && grep -q "$TOKEN" "$AUTH_FILE"; then
         echo "{\"state\":\"success\", \"token\":\"$TOKEN\"}"
         EXIT_CODE=0
     fi
