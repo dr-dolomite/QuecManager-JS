@@ -18,6 +18,12 @@ import {
 } from "@/components/ui/popover";
 
 import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from "@/components/ui/hover-card";
+
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -52,6 +58,7 @@ import {
   RefreshCcw,
   Play,
   Pause,
+  MenuIcon,
 } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -59,6 +66,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
+import { cn } from "@/lib/utils";
+import { InfoCircledIcon } from "@radix-ui/react-icons";
 
 // Updated Type definitions for our profile data
 interface Profile {
@@ -72,6 +81,7 @@ interface Profile {
   nsa_nr5g_bands?: string;
   network_type: string;
   ttl: string;
+  mobile_provider: string;
   paused?: string; // Add this field for pause/resume feature
 }
 
@@ -123,6 +133,7 @@ const QuecProfilesPage = () => {
     nsa_nr5g_bands: "",
     network_type: "LTE",
     ttl: "0",
+    mobile_provider: "Other",
     paused: "0",
   });
 
@@ -147,19 +158,19 @@ const QuecProfilesPage = () => {
       const response = await fetch(
         "/cgi-bin/quecmanager/at_cmd/fetch_data.sh?set=9"
       );
-      
+
       if (!response.ok) {
         throw new Error("Failed to fetch device information");
       }
-      
-      const data = await response.json() as ATCommandResponse[];
+
+      const data = (await response.json()) as ATCommandResponse[];
       console.log("Device info response:", data);
-      
+
       let iccid = "";
       let imei = "";
-      
+
       // Extract ICCID from AT+ICCID response
-      const iccidResponse = data.find(item => item.command === "AT+ICCID");
+      const iccidResponse = data.find((item) => item.command === "AT+ICCID");
       if (iccidResponse && iccidResponse.status === "success") {
         // ICCID is typically a string of numbers in the response
         const match = iccidResponse.response.match(/\d{10,20}/);
@@ -167,9 +178,9 @@ const QuecProfilesPage = () => {
           iccid = match[0];
         }
       }
-      
+
       // Extract IMEI from AT+CGSN response
-      const imeiResponse = data.find(item => item.command === "AT+CGSN");
+      const imeiResponse = data.find((item) => item.command === "AT+CGSN");
       if (imeiResponse && imeiResponse.status === "success") {
         // IMEI is typically a 15-digit number in the response
         const match = imeiResponse.response.match(/\d{15}/);
@@ -177,19 +188,18 @@ const QuecProfilesPage = () => {
           imei = match[0];
         }
       }
-      
+
       console.log("Extracted device info - ICCID:", iccid, "IMEI:", imei);
-      
+
       // Update state and also immediately set values in form data
       setDeviceInfo({ iccid, imei });
-      
+
       // Directly update the form with the fetched values
-      setFormData(prev => ({
+      setFormData((prev) => ({
         ...prev,
         iccid: iccid || prev.iccid,
-        imei: imei || prev.imei
+        imei: imei || prev.imei,
       }));
-      
     } catch (error) {
       console.error("Error fetching device information:", error);
       toast({
@@ -358,7 +368,7 @@ const QuecProfilesPage = () => {
   const handleOpenCreateDialog = () => {
     setModalMode("create");
     setErrorMessage(null);
-    
+
     // Reset form with empty values except for device info
     setFormData({
       name: "",
@@ -371,9 +381,10 @@ const QuecProfilesPage = () => {
       nsa_nr5g_bands: "",
       network_type: "LTE",
       ttl: "0",
+      mobile_provider: "Other",
       paused: "0",
     });
-    
+
     // Show the modal with pre-populated device info
     setShowModal(true);
   };
@@ -413,6 +424,7 @@ const QuecProfilesPage = () => {
         nsa_nr5g_bands: formData.nsa_nr5g_bands || "",
         network_type: formData.network_type,
         ttl: formData.ttl || "0",
+        mobile_provider: formData.mobile_provider || "Other",
         paused: "0", // New profiles start active by default
       };
 
@@ -457,6 +469,7 @@ const QuecProfilesPage = () => {
           nsa_nr5g_bands: "",
           network_type: "LTE",
           ttl: "0",
+          mobile_provider: "Other",
           paused: "0",
         });
 
@@ -518,6 +531,7 @@ const QuecProfilesPage = () => {
         nsa_nr5g_bands: formData.nsa_nr5g_bands || "",
         network_type: formData.network_type,
         ttl: formData.ttl || "0",
+        mobile_provider: formData.mobile_provider || "Other",
         paused: formData.paused || "0", // Maintain pause state during edit
       };
 
@@ -564,6 +578,7 @@ const QuecProfilesPage = () => {
           nsa_nr5g_bands: "",
           network_type: "LTE",
           ttl: "0",
+          mobile_provider: "Other",
           paused: "0",
         });
 
@@ -739,6 +754,7 @@ const QuecProfilesPage = () => {
       nsa_nr5g_bands: profile.nsa_nr5g_bands || "",
       network_type: profile.network_type,
       ttl: profile.ttl || "0",
+      mobile_provider: profile.mobile_provider || "Other",
       paused: profile.paused || "0",
     });
 
@@ -757,7 +773,7 @@ const QuecProfilesPage = () => {
       case "NR5G":
         return "5G SA";
       case "LTE:NR5G":
-        return "NR5G-NSA";
+        return "5G NSA";
       default:
         return type;
     }
@@ -975,7 +991,23 @@ const QuecProfilesPage = () => {
                       </SelectContent>
                     </Select>
                   </div>
-
+                  <div className="col-span-2 grid gap-1.5">
+                    <Label htmlFor="name">Mobile Provider</Label>
+                    <Select
+                      value={formData.mobile_provider}
+                      onValueChange={(value) =>
+                        handleSelectChange("mobile_provider", value)
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Mobile Provider" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Verizon">Verizon</SelectItem>
+                        <SelectItem value="Other">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                   <div className="col-span-2 grid gap-1.5">
                     <Label htmlFor="lte_bands">LTE Bands</Label>
                     <div className="grid gap-0.5">
@@ -1056,6 +1088,7 @@ const QuecProfilesPage = () => {
                       />
                     </div>
                   </div>
+
                 </div>
                 <DialogFooter>
                   <div className="flex items-center gap-4">
@@ -1151,54 +1184,57 @@ const QuecProfilesPage = () => {
 
                         <Popover>
                           <PopoverTrigger>
-                            <MoreVertical className="h-4 w-4" />
+                            <MenuIcon className="h-4 w-4" />
                           </PopoverTrigger>
-                          <PopoverContent className="grid gap-2 max-w-[180px]">
-                            {/* Pause/Resume Button */}
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="p-1"
-                              onClick={() =>
-                                toggleProfilePause(
-                                  profile.iccid,
-                                  profile.name,
-                                  profile.paused || "0"
-                                )
-                              }
-                            >
-                              {profile.paused === "1" ? (
-                                <>
-                                  <Play className="w-4 h-4 text-emerald-500" />
-                                  Resume Profile
-                                </>
-                              ) : (
-                                <>
-                                  <Pause className="w-4 h-4 text-orange-500" />
-                                  Pause Profile
-                                </>
-                              )}
-                            </Button>
-                            <Button
-                              size="sm"
-                              onClick={() => handleEditClick(profile)}
-                              variant="outline"
-                            >
-                              <PencilLine className="w-4 h-4" />
-                              Edit Profile
-                            </Button>
+                          <PopoverContent className="w-48">
+                            <div className="grid gap-2">
+                              <Button onClick={() => handleEditClick(profile)}>
+                                <PencilLine className="h-4 w-4" />
+                                Edit Profile
+                              </Button>
 
-                            <Separator className="w-full my-2" />
-                            <Button
-                              size="sm"
-                              variant="destructive"
-                              onClick={() =>
-                                deleteProfile(profile.iccid, profile.name)
-                              }
-                            >
-                              <Trash2Icon className="w-4 h-4" />
-                              Delete Profile
-                            </Button>
+                              <Button
+                                onClick={() =>
+                                  toggleProfilePause(
+                                    profile.iccid,
+                                    profile.name,
+                                    profile.paused || "0"
+                                  )
+                                }
+                                // If profile is paused make background as orange
+                                className={cn(
+                                  "w-full justify-start",
+                                  profile.paused === "1" &&
+                                    "bg-emerald-600 hover:bg-emerald-700 text-white",
+                                  profile.paused === "0" &&
+                                    "bg-orange-500 hover:bg-orange-600 text-white"
+                                )}
+                              >
+                                {profile.paused === "1" ? (
+                                  <>
+                                    <PlayCircle className="h-4 w-4" />
+                                    Resume Profile
+                                  </>
+                                ) : (
+                                  <>
+                                    <PauseCircle className="h-4 w-4" />
+                                    Pause Profile
+                                  </>
+                                )}
+                              </Button>
+
+                              <Separator className="my-1" />
+
+                              <Button
+                                variant="destructive"
+                                onClick={() =>
+                                  deleteProfile(profile.iccid, profile.name)
+                                }
+                              >
+                                <Trash2Icon className="h-4 w-4" />
+                                Delete Profile
+                              </Button>
+                            </div>
                           </PopoverContent>
                         </Popover>
                       </div>
@@ -1265,6 +1301,20 @@ const QuecProfilesPage = () => {
                           </Label>
                           <p id={`PDP-${index}`} className="font-semibold">
                             {profile.pdp_type}
+                          </p>
+                        </div>
+                        <div className="grid gap-0.5">
+                          <Label
+                            htmlFor={`mobileProvider-${index}`}
+                            className="text-sm text-muted-foreground"
+                          >
+                            Mobile Provider
+                          </Label>
+                          <p
+                            id={`mobileProvider-${index}`}
+                            className="font-semibold"
+                          >
+                            {profile.mobile_provider || "Other"}
                           </p>
                         </div>
 
@@ -1355,13 +1405,13 @@ const QuecProfilesPage = () => {
                       Profile Name
                     </th>
                     <th className="h-10 px-4 text-left align-middle font-medium text-muted-foreground">
-                      ICCID
+                      IMEI
                     </th>
                     <th className="h-10 px-4 text-left align-middle font-medium text-muted-foreground">
-                      APN (PDP Type)
+                      APN
                     </th>
                     <th className="h-10 px-4 text-left align-middle font-medium text-muted-foreground">
-                      Network Type
+                      Network
                     </th>
                     <th className="h-10 px-4 text-left align-middle font-medium text-muted-foreground">
                       TTL
@@ -1408,99 +1458,106 @@ const QuecProfilesPage = () => {
                         className="border-t hover:bg-muted/50 transition-colors"
                       >
                         <td className="p-4">
-                          <div className="font-medium">
-                            {profile.name}
-
-                            {/* Paused Status Badge */}
-                            {profile.paused === "1" && (
-                              <Badge
-                                variant="outline"
-                                className="ml-2 text-xs bg-amber-100 text-amber-700 border-amber-300"
-                              >
-                                Paused
-                              </Badge>
-                            )}
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            IMEI: {profile.imei || "Not specified"}
-                          </div>
-                        </td>
-                        <td className="p-4 font-mono text-sm">
-                          {profile.iccid}
+                          <HoverCard>
+                            <HoverCardTrigger className="flex items-center gap-x-1">
+                              <InfoCircledIcon className="size-4 text-emerald-500" />
+                              <p className="underline underline-offset-4 cursor-pointer font-medium ">
+                                {profile.name}
+                              </p>
+                            </HoverCardTrigger>
+                            <HoverCardContent className="text-sm font-medium text-center w-auto">
+                              <span className="font-semibold mr-4">ICCID</span>
+                              {profile.iccid}
+                            </HoverCardContent>
+                          </HoverCard>
                         </td>
                         <td className="p-4">
-                          {profile.apn}{" "}
-                          <span className="text-muted-foreground text-xs">
-                            ({profile.pdp_type})
-                          </span>
+                          {profile.imei || "Not specified"}
                         </td>
                         <td className="p-4">
-                          <Badge variant="secondary" className="text-xs">
-                            {formatNetworkType(profile.network_type)}
-                          </Badge>
+                          <HoverCard>
+                            <HoverCardTrigger className="flex items-center gap-x-1">
+                              <InfoCircledIcon className="size-4 text-emerald-500" />
+                              <p className="underline underline-offset-4 cursor-pointer font-medium ">
+                                {profile.apn}
+                              </p>
+                            </HoverCardTrigger>
+                            <HoverCardContent className="text-sm font-semibold text-center w-auto">
+                              {profile.pdp_type}
+                            </HoverCardContent>
+                          </HoverCard>
+                        </td>
+                        <td className="p-4">
+                          <span>{formatNetworkType(profile.network_type)}</span>
                         </td>
                         <td className="p-4">
                           {profile.ttl && parseInt(profile.ttl) > 0 ? (
-                            <Badge variant="outline" className="text-xs">
-                              {profile.ttl}
-                            </Badge>
+                            <span>{profile.ttl}</span>
                           ) : (
-                            <span className="text-muted-foreground text-sm">
-                              Off
-                            </span>
+                            <span>Off</span>
                           )}
                         </td>
                         <td className="p-4">
-                          <div className="flex items-center gap-2">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8"
-                              onClick={() => handleEditClick(profile)}
-                            >
-                              <PencilLine className="h-4 w-4" />
-                              <span className="sr-only">Edit</span>
-                            </Button>
+                          <div>
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <Button variant="ghost">
+                                  <MenuIcon className="h-4 w-4" />
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-48">
+                                <div className="grid gap-2">
+                                  <Button
+                                    onClick={() => handleEditClick(profile)}
+                                  >
+                                    <PencilLine className="h-4 w-4" />
+                                    Edit Profile
+                                  </Button>
 
-                            {/* Pause/Resume Button */}
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8"
-                              onClick={() =>
-                                toggleProfilePause(
-                                  profile.iccid,
-                                  profile.name,
-                                  profile.paused || "0"
-                                )
-                              }
-                              title={
-                                profile.paused === "1"
-                                  ? "Resume Profile"
-                                  : "Pause Profile"
-                              }
-                            >
-                              {profile.paused === "1" ? (
-                                <PlayCircle className="h-4 w-4 text-green-600" />
-                              ) : (
-                                <PauseCircle className="h-4 w-4 text-amber-600" />
-                              )}
-                              <span className="sr-only">
-                                {profile.paused === "1" ? "Resume" : "Pause"}
-                              </span>
-                            </Button>
+                                  <Button
+                                    onClick={() =>
+                                      toggleProfilePause(
+                                        profile.iccid,
+                                        profile.name,
+                                        profile.paused || "0"
+                                      )
+                                    }
+                                    // If profile is paused make background as orange
+                                    className={cn(
+                                      "w-full justify-start",
+                                      profile.paused === "1" &&
+                                        "bg-emerald-600 hover:bg-emerald-700 text-white",
+                                      profile.paused === "0" &&
+                                        "bg-orange-500 hover:bg-orange-600 text-white"
+                                    )}
+                                  >
+                                    {profile.paused === "1" ? (
+                                      <>
+                                        <PlayCircle className="h-4 w-4" />
+                                        Resume Profile
+                                      </>
+                                    ) : (
+                                      <>
+                                        <PauseCircle className="h-4 w-4" />
+                                        Pause Profile
+                                      </>
+                                    )}
+                                  </Button>
 
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-destructive"
-                              onClick={() =>
-                                deleteProfile(profile.iccid, profile.name)
-                              }
-                            >
-                              <Trash2Icon className="h-4 w-4" />
-                              <span className="sr-only">Delete</span>
-                            </Button>
+                                  <Separator className="my-1" />
+
+                                  <Button
+                                    variant="destructive"
+                                    onClick={() =>
+                                      deleteProfile(profile.iccid, profile.name)
+                                    }
+                                  >
+                                    <Trash2Icon className="h-4 w-4" />
+                                    Delete Profile
+                                  </Button>
+                                </div>
+                              </PopoverContent>
+                            </Popover>
                           </div>
                         </td>
                       </tr>

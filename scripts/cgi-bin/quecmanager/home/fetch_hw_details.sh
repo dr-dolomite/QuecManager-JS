@@ -1,5 +1,8 @@
 #!/bin/sh
 
+# Ethernet Hardware Details Fetch Script
+# Provides ethernet interface information using ethtool
+
 # Set common headers
 echo "Content-Type: application/json"
 echo "Access-Control-Allow-Origin: *"
@@ -57,13 +60,6 @@ cleanup() {
 # Set trap for cleanup
 trap cleanup EXIT INT TERM
 
-# Function to get memory information
-get_memory_info() {
-    free_output=$(free -b)
-    memory_info=$(echo "$free_output" | awk '/Mem:/ {print "{\"total\": " $2 ", \"used\": " $3 ", \"available\": " $7 "}"}')
-    echo "$memory_info"
-}
-
 # Function to get ethernet information
 get_ethernet_info() {
     interface=${1:-eth0}
@@ -93,27 +89,13 @@ get_ethernet_info() {
 # Acquire lock before proceeding
 acquire_lock
 
-# Parse query string for type and interface
-type=$(echo "$QUERY_STRING" | sed -n 's/.*type=\([^&]*\).*/\1/p')
+# Parse query string for interface parameter
 interface=$(echo "$QUERY_STRING" | sed -n 's/.*interface=\([^&]*\).*/\1/p')
 
 # Default interface if not specified
 [ -z "$interface" ] && interface="eth0"
 
-# Convert type to lowercase using tr
-type=$(echo "$type" | tr '[:upper:]' '[:lower:]')
-
-# Check type parameter and call appropriate function
-case "$type" in
-    "memory")
-        get_memory_info
-        ;;
-    "eth")
-        get_ethernet_info "$interface"
-        ;;
-    *)
-        error_response "Invalid type. Use 'memory' or 'eth'"
-        ;;
-esac
+# Get ethernet information for the specified interface
+get_ethernet_info "$interface"
 
 # Lock will be automatically released by the cleanup trap

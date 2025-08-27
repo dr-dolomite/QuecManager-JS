@@ -15,6 +15,13 @@ import PingCard from "@/components/home/ping-card";
 
 import { Button } from "@/components/ui/button";
 import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -30,7 +37,7 @@ import {
   CirclePlay,
   RefreshCcw,
   Eye,
-  EyeOff
+  EyeOff,
 } from "lucide-react";
 
 import PropagateLoader from "react-spinners/PropagateLoader";
@@ -62,7 +69,7 @@ const HomePage = () => {
   const { toast } = useToast();
   const [noSimDialogOpen, setNoSimDialogOpen] = useState(false);
   const [hideSensitiveData, setHideSensitiveData] = useState(false);
-  const { data: homeData, isLoading, refresh: refreshHomeData } = useHomeData();
+  const { data: homeData, isLoading, refresh: refreshHomeData, isPublicIPLoading } = useHomeData();
   const {
     dataConnectionState,
     isStateLoading,
@@ -87,7 +94,7 @@ const HomePage = () => {
         .split("\n")[1]
         .split(":")[1]
         .trim();
-      const command =
+      const command = 
         currentSimSlot === "1" ? "AT+QUIMSLOT=2" : "AT+QUIMSLOT=1";
 
       // Use atCommandSender instead of direct fetch
@@ -171,15 +178,13 @@ const HomePage = () => {
     try {
       await startDiagnostics();
     } catch (error) {
-      console.error("Error running diagnostics:", error);
+      toast({
+        variant: "destructive",
+        title: "Diagnostics Failed",
+        description: "Failed to run diagnostics",
+      });
     }
   };
-
-  useEffect(() => {
-    if (runDiagnosticsData) {
-      console.log("Diagnostics data updated:", runDiagnosticsData);
-    }
-  }, [runDiagnosticsData]);
 
   useEffect(() => {
     if (homeData && homeData.currentBands) {
@@ -200,6 +205,14 @@ const HomePage = () => {
   }, [homeData]);
 
   useEffect(() => {
+    if (homeData?.simCard?.state?.toLowerCase().includes("failed")) {
+      toast({
+        title: "SMS_Tool failed to acquire token",
+        description:
+          "The system will attempt to recover automatically. If this issue persists, please logout and log back in or restart the device.",
+        variant: "destructive",
+      });
+    }
     if (!isLoading && homeData?.simCard.state === "Not Inserted") {
       setNoSimDialogOpen(true);
     }
@@ -227,8 +240,14 @@ const HomePage = () => {
           </div>
           <div className="flex flex-row items-center gap-x-2">
             <Button onClick={() => setHideSensitiveData((prev) => !prev)}>
-              { hideSensitiveData ? <Eye className="xl:size-6 size-5" /> : <EyeOff className="xl:size-6 size-5" /> }
-                <span className="hidden md:block">{hideSensitiveData ? 'Show' : 'Hide' } Sensitive Data</span>
+              {hideSensitiveData ? (
+                <Eye className="xl:size-6 size-5" />
+              ) : (
+                <EyeOff className="xl:size-6 size-5" />
+              )}
+              <span className="hidden md:block">
+                {hideSensitiveData ? "Show" : "Hide"} Sensitive Data
+              </span>
             </Button>
             {homeData?.simCard.state === "Not Inserted" && (
               <Dialog open={noSimDialogOpen} onOpenChange={setNoSimDialogOpen}>
@@ -271,12 +290,13 @@ const HomePage = () => {
             )}
 
             <Dialog>
-              <DialogTrigger>
+              <DialogTrigger asChild>
                 <Button onClick={runDiagnostics}>
                   <CirclePlay className="xl:size-6 size-5" />
                   <span className="hidden md:block">Run Diagnostics</span>
                 </Button>
               </DialogTrigger>
+
               {!isRunningDiagnostics && (
                 <DialogContent className="max-w-xs md:max-w-lg">
                   <DialogHeader>
@@ -342,18 +362,57 @@ const HomePage = () => {
                     </div>
 
                     <div className="flex items-center justify-between mt-6">
-                      <h3 className="font-semibold">Net Reject Cause</h3>
-                      {runDiagnosticsData?.netReject === "None" ? (
-                        <div className="flex space-x-2 items-center">
-                          <CheckCircle2 className="text-green-500" />
-                          <span>None</span>
-                        </div>
-                      ) : (
-                        <div className="flex space-x-2 items-center">
-                          <AlertCircle className="text-red-500" />
-                          <span>{runDiagnosticsData?.netReject}</span>
-                        </div>
-                      )}
+                      <h3 className="font-semibold">Network Reject Causes</h3>
+                      <div className="flex flex-col items-end space-y-1">
+                        {runDiagnosticsData?.rejectCauses ? (
+                          <>
+                            {runDiagnosticsData.rejectCauses.emm && (
+                              <div className="flex items-center space-x-2">
+                                <AlertCircle className="text-red-500 w-4 h-4" />
+                                <span className="text-sm">
+                                  EMM (
+                                  {runDiagnosticsData.rejectCauses.emm.code}):{" "}
+                                  {
+                                    runDiagnosticsData.rejectCauses.emm
+                                      .description
+                                  }
+                                </span>
+                              </div>
+                            )}
+                            {runDiagnosticsData.rejectCauses.esm && (
+                              <div className="flex items-center space-x-2">
+                                <AlertCircle className="text-red-500 w-4 h-4" />
+                                <span className="text-sm">
+                                  ESM (
+                                  {runDiagnosticsData.rejectCauses.esm.code}):{" "}
+                                  {
+                                    runDiagnosticsData.rejectCauses.esm
+                                      .description
+                                  }
+                                </span>
+                              </div>
+                            )}
+                            {runDiagnosticsData.rejectCauses.nrmm && (
+                              <div className="flex items-center space-x-2">
+                                <AlertCircle className="text-red-500 w-4 h-4" />
+                                <span className="text-sm">
+                                  NRMM (
+                                  {runDiagnosticsData.rejectCauses.nrmm.code}):{" "}
+                                  {
+                                    runDiagnosticsData.rejectCauses.nrmm
+                                      .description
+                                  }
+                                </span>
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          <div className="flex items-center space-x-2">
+                            <CheckCircle2 className="text-green-500" />
+                            <span>None</span>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </DialogContent>
@@ -394,7 +453,11 @@ const HomePage = () => {
         </div>
 
         <div className="grid 2xl:grid-cols-4 lg:grid-cols-2 grid-cols-1 gap-4">
-          <SimCard data={homeData} isLoading={isLoading} hideSensitiveData={hideSensitiveData} />
+          <SimCard
+            data={homeData}
+            isLoading={isLoading}
+            hideSensitiveData={hideSensitiveData}
+          />
           <Connection
             data={homeData}
             isLoading={isLoading}
@@ -417,6 +480,7 @@ const HomePage = () => {
           <NetworkInfoCard
             data={homeData}
             isLoading={isLoading}
+            isPublicIPLoading={isPublicIPLoading}
             hideSensitiveData={hideSensitiveData}
             // onRefresh={refreshData}
           />

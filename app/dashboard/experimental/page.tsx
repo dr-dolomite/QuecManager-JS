@@ -1,9 +1,10 @@
-import React from "react";
-
-import QuecWatchPage from "./quecwatch/page";
+import React from 'react'
+import NetworkInsights from './network-insights/page'
 
 const ExperimentalPage = () => {
-  return <QuecWatchPage />;
-};
+  return (
+    <NetworkInsights />
+  )
+}
 
-export default ExperimentalPage;
+export default ExperimentalPage

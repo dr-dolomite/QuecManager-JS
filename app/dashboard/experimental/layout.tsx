@@ -4,11 +4,11 @@ import * as React from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 
-interface CellSettingsLayoutProps {
+interface ExperimentalLayoutProps {
   children: React.ReactNode;
 }
 
-const CellSettingsLayout = ({ children }: CellSettingsLayoutProps) => {
+const ExperimentalLayout = ({ children }: ExperimentalLayoutProps) => {
   const currentPathName = usePathname();
 
   return (
@@ -22,27 +22,15 @@ const CellSettingsLayout = ({ children }: CellSettingsLayoutProps) => {
           x-chunk="dashboard-04-chunk-0"
         >
           <Link
-            href="/dashboard/experimental/quecwatch"
+            href="/dashboard/experimental/network-insights"
             className={`${
-              currentPathName === "/dashboard/experimental/quecwatch/"
+              currentPathName === "/dashboard/experimental/network-insights/"
                 ? "font-semibold text-primary"
                 : "text-sm"
             }`}
           >
-            QuecWatch
+            Network Insights
           </Link>
-
-          <Link
-            href="/dashboard/experimental/quecprofiles"
-            className={`${
-              currentPathName === "/dashboard/experimental/quecprofiles/"
-                ? "font-semibold text-primary"
-                : "text-sm"
-            }`}
-          >
-            QuecProfiles
-          </Link>
-
           <Link
             href="/dashboard/experimental/keep-alive"
             className={`${
@@ -54,24 +42,14 @@ const CellSettingsLayout = ({ children }: CellSettingsLayoutProps) => {
             Keep Alive
           </Link>
           <Link
-            href="/dashboard/experimental/cell-scanner"
+            href="/dashboard/experimental/scheduled-reboot"
             className={`${
-              currentPathName === "/dashboard/experimental/cell-scanner/"
+              currentPathName === "/dashboard/experimental/scheduled-reboot/"
                 ? "font-semibold text-primary"
                 : "text-sm"
             }`}
           >
-            Cell Scanner
-          </Link>
-          <Link
-            href="/dashboard/experimental/freq-calculator"
-            className={`${
-              currentPathName === "/dashboard/experimental/freq-calculator/"
-                ? "font-semibold text-primary"
-                : "text-sm"
-            }`}
-          >
-            Frequency Calculator
+            Scheduled Reboot
           </Link>
         </nav>
         {children}
@@ -80,4 +58,4 @@ const CellSettingsLayout = ({ children }: CellSettingsLayoutProps) => {
   );
 };
 
-export default CellSettingsLayout;
+export default ExperimentalLayout;

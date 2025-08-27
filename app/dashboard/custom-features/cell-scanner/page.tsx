@@ -871,7 +871,7 @@ const CellScannerPage = () => {
             ) : (
               <TooltipProvider>
                 <Tooltip>
-                  <TooltipTrigger>
+                  <TooltipTrigger asChild>
                     <Button
                       onClick={startNewScan}
                       disabled={

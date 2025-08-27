@@ -607,6 +607,7 @@ apply_profile_settings() {
     local current_nsa_nr5g_bands="${14}"
     local current_imei="${15}"
     local iccid="${16}"
+    local mobile_provider="${17}"
 
     # Set TTL to 0 (disabled) if not specified
     ttl="${ttl:-0}"
@@ -619,6 +620,7 @@ apply_profile_settings() {
     log_message "- APN: $apn ($pdp_type)" "info"
     log_message "- IMEI: $imei" "info"
     log_message "- TTL: $ttl" "info"
+    log_message "- Mobile Provider: $mobile_provider" "info"
 
     # Check if any changes are needed using improved comparison
     local needs_apn_change=0
@@ -630,6 +632,7 @@ apply_profile_settings() {
     local needs_ttl_change=0
     local changes_needed=0
     local requires_reboot=0
+    local change_for_reboot=""
 
     # Use normalized comparison
     compare_values "$current_apn" "$apn" "apn" && needs_apn_change=1 && changes_needed=1
@@ -804,6 +807,7 @@ apply_profile_settings() {
         if [ $? -eq 0 ]; then
             changes_made=1
             requires_reboot=1
+            change_for_reboot="IMEI"
             log_message "IMEI changed successfully to $imei (device will reboot)" "info"
             update_track "rebooting" "IMEI changed, device will reboot" "$profile_name" "95"
         else
@@ -813,9 +817,56 @@ apply_profile_settings() {
         fi
     fi
 
+    # Apply unique rule setup for Verizon, but also handle "Other" Mobile Providers because of MPDN_rule shenanigans
+    # Probably requires reboot
+    output_check=$(execute_at_command "AT+QMAP=\"mpdn_rule\"")
+    sleep 1 # Short delay to ensure command is processed
+    qmap_rule0=$(echo "$output_check" | grep '+QMAP: "MPDN_rule",0,')
+    qmap_ippt_rule0=$(echo "$qmap_rule0" | cut -d',' -f5)
+    if [ $apply_success -eq 1 ] && [ -n "$mobile_provider" ]; then
+        if [ "$mobile_provider" = "Verizon" ]; then
+            # If Verizon, data call should be set to rule 3, AT+QMAP="mpdn_rule",0,3,0,0,1
+            if echo "$qmap_rule0" | awk -F',' '{exit !($2==0 && $3==3 && $6==1)}'; then
+                log_message "Verizon rule already set correctly, no changes needed" "info"
+            else
+                log_message "Setting Verizon data call mpdn_rule to 3" "info"
+                update_track "applying" "Setting Verizon data call rule to 3" "$profile_name" "100"
+                verizon_cmd="AT+QMAP=\"mpdn_rule\",0,3,0,$qmap_ippt_rule0,1"
+                execute_at_command "$verizon_cmd" 10 "$token_id" >/dev/null
+                sleep 1 # Short delay to ensure command is processed
+            fi
+        elif [ "$mobile_provider" = "Other" ]; then
+            # Check if MPDN_rule 0 is already set to all zeros
+            if echo "$qmap_rule0" | awk -F',' '{exit !($2==0 && $3==0 && $6==0)}'; then
+                log_message "Default rule already set correctly, no changes needed" "info"
+            else
+                log_message "Setting to default mpdn_rule and releasing" "info"
+                update_track "applying" "Setting Default data call mpdn_rule to 0" "$profile_name" "100"
+                def_cmd1="AT+QMAP=\"mpdn_rule\",0"
+                execute_at_command "$def_cmd1" 10 "$token_id"
+                sleep 1 # Short delay to ensure command is processed
+                def_cmd2="AT+QMAP=\"mpdn_rule\",0,1,0,$qmap_ippt_rule0,1"
+                execute_at_command "$def_cmd2" 10 "$token_id"
+                sleep 1 # Short delay to ensure command is processed
+                if [ "$qmap_ippt_rule0" = "0" ]; then
+                    log_message "IPPT is disabled for rule, release the MPDN_rule" "info"
+                    def_cmd3="AT+QMAP=\"mpdn_rule\",0"
+                    execute_at_command "$def_cmd3" 10 "$token_id"
+                    sleep 1 # Short delay to ensure command is processed
+                    if [ "$(cat /sys/devices/soc0/machine)" = "SDXPINN" ]; then
+                        requires_reboot=1
+                        change_for_reboot="MPDN_rule"
+                        update_track "rebooting" "MPDN_rule released, device will reboot" "$profile_name" "105"
+                    fi
+                else
+                    log_message "IPPT is enabled for rule0 not releasing MPDN_rule, no reboot needed: IPPT Value $qmap_ippt_rule0" "info"
+                fi
+            fi
+        fi
+    fi
+
     # Release token
     release_token "$token_id"
-
     # Mark profile as applied if changes were made
     if [ $changes_made -eq 1 ]; then
         mark_profile_applied "$iccid" "$profile_name"
@@ -824,7 +875,7 @@ apply_profile_settings() {
     # If IMEI was changed, need to reboot
     if [ $requires_reboot -eq 1 ]; then
         log_message "IMEI change requires reboot, scheduling reboot..." "info"
-        update_track "rebooting" "Device is rebooting to apply IMEI change" "$profile_name" "100"
+        update_track "rebooting" "Device is rebooting to apply $change_for_reboot change" "$profile_name" "100"
         sleep 2
         reboot &
         return 0
@@ -913,11 +964,12 @@ check_profile() {
     local pdp_type=$(uci -q get quecprofiles.$profile_index.pdp_type)
     local imei=$(uci -q get quecprofiles.$profile_index.imei)
     local ttl=$(uci -q get quecprofiles.$profile_index.ttl)
-    
+    local mobile_provider=$(uci -q get quecprofiles.$profile_index.mobile_provider)
+
     # Check if profile is paused
     local paused=$(uci -q get quecprofiles.$profile_index.paused)
     paused="${paused:-0}" # Default to not paused if not set
-    
+
     # Skip applying paused profiles
     if [ "$paused" = "1" ]; then
         log_message "Profile '$profile_name' is paused, skipping application" "info"
@@ -982,7 +1034,7 @@ check_profile() {
         # Apply profile settings with the new parameters
         apply_profile_settings "$profile_name" "$network_type" "$lte_bands" "$sa_nr5g_bands" "$nsa_nr5g_bands" \
             "$apn" "$pdp_type" "$imei" "$ttl" "$current_apn" "$current_mode" "$current_lte_bands" \
-            "$current_sa_nr5g_bands" "$current_nsa_nr5g_bands" "$current_imei" "$current_iccid"
+            "$current_sa_nr5g_bands" "$current_nsa_nr5g_bands" "$current_imei" "$current_iccid" "$mobile_provider"
         return $?
     else
         log_message "Automatic profile switching is disabled, not applying profile" "info"
@@ -1038,7 +1090,7 @@ main() {
         while [ $sleep_counter -lt $check_interval ]; do
             sleep 5
             sleep_counter=$((sleep_counter + 5))
-            
+
             # Check for manual trigger during sleep
             if [ -f "$CHECK_TRIGGER" ]; then
                 log_message "Manual check triggered during sleep" "info"

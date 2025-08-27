@@ -42,7 +42,8 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
 const SESSION_DURATION = 30 * 60 * 1000; // 30 minutes in milliseconds
-const HEARTBEAT_INTERVAL = 5 * 1000; // Check server every 5 seconds
+// const HEARTBEAT_INTERVAL = 5 * 1000; // Check server every 5 seconds
+// ! HEARTBEAT_INTERVAL is not used in this version
 
 interface SessionData {
   token: string;
@@ -121,7 +122,7 @@ export function useAuth() {
       },
     })
     localStorage.removeItem("authToken");
-    router.push("/login");
+    router.push("/");
   }
 
   function checkAuth() {

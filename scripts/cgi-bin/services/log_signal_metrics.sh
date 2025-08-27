@@ -164,7 +164,23 @@ process_all_metrics() {
            "$logfile" > "$temp_file" 2>/dev/null && mv "$temp_file" "$logfile"
         chmod 644 "$logfile"
     fi
-    
+
+    sleep 0.5
+
+    # QCAINFO with time stamp
+    local usage_output=$(execute_at_command "AT+QCAINFO")
+    if [ -n "$usage_output" ] && echo "$usage_output" | grep -q "QCAINFO"; then
+        local logfile="$LOGDIR/qcainfo.json"
+        [ ! -s "$logfile" ] && echo "[]" > "$logfile"
+
+        local temp_file="${logfile}.tmp.$$"
+        jq --arg dt "$timestamp" \
+           --arg out "$usage_output" \
+           '. + [{"datetime": $dt, "output": $out}] | .[-'"$MAX_ENTRIES"':]' \
+           "$logfile" > "$temp_file" 2>/dev/null && mv "$temp_file" "$logfile"
+        chmod 644 "$logfile"
+    fi
+
     # Release token
     release_token "$metrics_id"
     logger -t at_queue -p daemon.info "Metrics processing completed"
