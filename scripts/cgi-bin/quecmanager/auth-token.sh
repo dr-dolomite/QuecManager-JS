@@ -36,7 +36,7 @@ removeToken() {
         echo '{"state":"failed", "message":"Token Removal Failed"}'
         EXIT_CODE=3
     fi
-
+}
 process() {
     if [ -n "$1" ]; then
         TOKEN=$1
