@@ -32,10 +32,10 @@ removeToken() {
         sed -i -e "s/.*${TOKEN}.*//g" ${AUTH_FILE} 2>/dev/null
         echo '{"state":"success", "message":"Logged out successfully"}'
         EXIT_CODE=0
+    else
+        echo '{"state":"failed", "message":"Token Removal Failed"}'
+        EXIT_CODE=3
     fi
-    echo '{"state":"failed", "message":"Token Removal Failed"}'
-    EXIT_CODE=3
-}
 
 process() {
     if [ -n "$1" ]; then
