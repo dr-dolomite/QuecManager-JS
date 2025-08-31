@@ -9,8 +9,9 @@ read -r POST_DATA
 
 # Debug log for generated hash
 DEBUG_LOG="/tmp/password_change.log"
+HOST_DIR=$(pwd)
 
-AUTH_RESPONSE=$(../auth-token.sh process "$HTTP_AUTHORIZATION")
+AUTH_RESPONSE=$(/bin/sh ${HOST_DIR}/cgi-bin/quecmanager/auth-token.sh process "$HTTP_AUTHORIZATION")
 AUTH_RESPONSE_STATUS=$?
 if [ $AUTH_RESPONSE_STATUS -ne 0 ]; then
     echo $AUTH_RESPONSE
