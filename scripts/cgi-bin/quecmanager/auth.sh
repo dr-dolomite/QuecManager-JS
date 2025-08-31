@@ -11,6 +11,7 @@ read -r POST_DATA
 USER="root"
 INPUT_PASSWORD=$(echo "$POST_DATA" | grep -o 'password=[^&]*' | cut -d= -f2-)
 RESPONSE=""
+HOST_DIR=$(pwd)
 
 # URL-decode the password while preserving most special characters
 # First decode percent-encoded sequences
@@ -53,9 +54,9 @@ GENERATED_HASH=$(printf '%s' "$INPUT_PASSWORD" | openssl passwd -1 -salt "$SALT"
 SUPPLIED_TOKEN="${HTTP_AUTHORIZATION}"
 # Compare the generated hash with the one in the shadow file
 if [ "$GENERATED_HASH" = "$USER_HASH" ]; then
-    RESPONSE=$(./auth-token.sh process "$SUPPLIED_TOKEN")
+    RESPONSE=$(/bin/sh ${HOST_DIR}/cgi-bin/quecmanager/auth-token.sh process "$SUPPLIED_TOKEN")
 else
-    RESPONSE=$(./auth-token.sh removeToken "$SUPPLIED_TOKEN")
+    RESPONSE=$(/bin/sh ${HOST_DIR}/cgi-bin/quecmanager/auth-token.sh removeToken "$SUPPLIED_TOKEN")
 fi
 
 echo "$RESPONSE"

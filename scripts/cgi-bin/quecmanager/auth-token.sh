@@ -10,25 +10,26 @@ cleanup() {
     NOW_TIME=$(date +%s)
     TMP_FILE=$(mktemp)
     # AUTH_FILE cleanup process, Remove any token lines older than 2 hours from AUTH_FILE
-    while read -r line; do
-        if [ -n "$(echo "$line" | tr -d '[:space:]')" ]; then
-            # Extract the date from the line and convert it to a timestamp
-            TOKEN_DATE=$(echo "$line" | awk '{print $1}' | sed 's/T/ /')
-            TOKEN_TIME=$(date -d "$TOKEN_DATE" +%s 2>/dev/null)
-            # If date is valid and not older than MAX_AGE, keep the line
-            if [ -n "$TOKEN_TIME" ] && [ $((NOW_TIME - TOKEN_TIME)) -le $MAX_AGE ]; then
-                echo "$line" >> "$TMP_FILE"
+    if [ -f $AUTH_FILE ]; then
+        while read -r line; do
+            if [ -n "$(echo "$line" | tr -d '[:space:]')" ]; then
+                # Extract the date from the line and convert it to a timestamp
+                TOKEN_DATE=$(echo "$line" | awk '{print $1}' | sed 's/T/ /')
+                TOKEN_TIME=$(date -d "$TOKEN_DATE" +%s 2>/dev/null)
+                # If date is valid and not older than MAX_AGE, keep the line
+                if [ -n "$TOKEN_TIME" ] && [ $((NOW_TIME - TOKEN_TIME)) -le $MAX_AGE ]; then
+                    echo "$line" >> "$TMP_FILE"
+                fi
             fi
-        fi
-    done < "$AUTH_FILE"
-
-    mv "$TMP_FILE" "$AUTH_FILE"
+        done < "$AUTH_FILE"
+        mv "$TMP_FILE" "$AUTH_FILE"
+    fi
 }
 
 removeToken() {
     TOKEN=$1
         # Remove token from file
-    if [ -n "${TOKEN}" ]; then
+    if [ -f $AUTH_FILE ] && [ -n "${TOKEN}" ]; then
         sed -i -e "s/.*${TOKEN}.*//g" ${AUTH_FILE} 2>/dev/null
         echo '{"state":"success", "message":"Logged out successfully"}'
         EXIT_CODE=0
@@ -63,7 +64,6 @@ process() {
     fi
 
 }
-
 case $1 in
     removeToken)
         removeToken $2
