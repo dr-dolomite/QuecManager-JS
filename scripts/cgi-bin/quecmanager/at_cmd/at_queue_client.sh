@@ -4,7 +4,8 @@
 
 QUEUE_DIR="/tmp/at_queue"
 RESULTS_DIR="$QUEUE_DIR/results"
-QUEUE_MANAGER="/www/cgi-bin/services/at_queue_manager.sh"
+HOST_DIR=$(pwd)
+QUEUE_MANAGER="${HOST_DIR}/cgi-bin/services/at_queue_manager.sh"
 POLL_INTERVAL=0.01
 
 usage() {
@@ -190,7 +191,7 @@ if [ "${SCRIPT_NAME}" != "" ]; then
         output_json "{\"error\":\"Unauthorized\"}" "0"
         exit 1
     fi
-    AUTH_RESPONSE=$(/bin/ash ../auth-token.sh process "${HTTP_AUTHORIZATION}")   
+    AUTH_RESPONSE=$(/bin/sh ${HOST_DIR}/cgi-bin/quecmanager/auth-token.sh process "${HTTP_AUTHORIZATION}")
     AUTH_RESPONSE_STATUS=$?
     if [ $AUTH_RESPONSE_STATUS -ne 0 ]; then
         output_json $AUTH_RESPONSE "0"
