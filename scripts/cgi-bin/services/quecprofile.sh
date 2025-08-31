@@ -2,9 +2,6 @@
 # Updated QuecProfiles daemon with enhanced SA/NSA NR5G band management and TTL support
 # Including profile application functions and fixed comparison logic
 
-# Load centralized logging
-. /www/cgi-bin/services/quecmanager_logger.sh
-
 # Configuration
 QUEUE_DIR="/tmp/at_queue"
 TOKEN_FILE="$QUEUE_DIR/token"
@@ -18,49 +15,25 @@ DEFAULT_CHECK_INTERVAL=60 # Default check interval in seconds
 COMMAND_TIMEOUT=10        # Default timeout for AT commands in seconds
 QUEUE_PRIORITY=3          # Medium-high priority (1 is highest for cell scan)
 MAX_TOKEN_WAIT=15         # Maximum seconds to wait for token acquisition
-SCRIPT_NAME_LOG="quecprofiles_daemon"
 
-# Initialize log files and use centralized logging
-mkdir -p "$(dirname "$DEBUG_LOG")" "$(dirname "$DETAILED_LOG")"
-touch "$DEBUG_LOG" "$DETAILED_LOG"
-chmod 644 "$DEBUG_LOG" "$DETAILED_LOG"
-
-# Log startup message using centralized logging
-qm_log_info "service" "$SCRIPT_NAME_LOG" "Starting QuecProfiles daemon with SA/NSA NR5G and TTL support (PID: $$)"
-
-# Also maintain file logging for compatibility
+# Initialize log file
 echo "$(date) - Starting QuecProfiles daemon with SA/NSA NR5G and TTL support (PID: $$)" >"$DEBUG_LOG"
 echo "$(date) - Starting QuecProfiles daemon with SA/NSA NR5G and TTL support (PID: $$)" >"$DETAILED_LOG"
+chmod 644 "$DEBUG_LOG" "$DETAILED_LOG"
 
-# Function to log messages - now uses centralized logging
+# Function to log messages
 log_message() {
     local message="$1"
     local level="${2:-info}"
     local timestamp=$(date "+%Y-%m-%d %H:%M:%S")
 
-    # Use centralized logging
-    case "$level" in
-        "error")
-            qm_log_error "service" "$SCRIPT_NAME_LOG" "$message"
-            ;;
-        "warn")
-            qm_log_warn "service" "$SCRIPT_NAME_LOG" "$message"
-            ;;
-        "debug")
-            qm_log_debug "service" "$SCRIPT_NAME_LOG" "$message"
-            ;;
-        *)
-            qm_log_info "service" "$SCRIPT_NAME_LOG" "$message"
-            ;;
-    esac
-
-    # Also maintain system logging for compatibility
+    # Log to system log
     logger -t quecprofiles_daemon -p "daemon.$level" "$message"
 
-    # Log to debug file (maintain existing behavior)
+    # Log to debug file
     echo "[$timestamp] [$level] $message" >>"$DEBUG_LOG"
 
-    # For detailed logs or errors (maintain existing behavior)
+    # For detailed logs or errors
     if [ "$level" = "error" ] || [ "$level" = "debug" ]; then
         echo "[$timestamp] [$level] $message" >>"$DETAILED_LOG"
     fi
