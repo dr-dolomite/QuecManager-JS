@@ -1,0 +1,103 @@
+#!/bin/sh /etc/rc.common
+START=48
+STOP=11
+USE_PROCD=1
+
+# QuecManager Logging Management Service
+# Handles log rotation, cleanup, and logging system initialization
+
+start_service() {
+    echo "Starting QuecManager Logging Management..."
+    
+    # Initialize centralized logging system
+    echo "Initializing centralized logging directories..."
+    
+    # Source logger with error handling
+    if . /www/cgi-bin/services/quecmanager_logger.sh 2>/dev/null; then
+        qm_init_logs
+        LOGGER_AVAILABLE=1
+    else
+        echo "Warning: Could not load logger, creating directories manually"
+        mkdir -p "/tmp/quecmanager/logs/daemons" "/tmp/quecmanager/logs/services" "/tmp/quecmanager/logs/settings" "/tmp/quecmanager/logs/system" 2>/dev/null || true
+        LOGGER_AVAILABLE=0
+    fi
+    
+    # Set proper permissions
+    chmod 755 "/tmp/quecmanager/logs" "/tmp/quecmanager/logs/daemons" "/tmp/quecmanager/logs/services" "/tmp/quecmanager/logs/settings" "/tmp/quecmanager/logs/system" 2>/dev/null || true
+    
+    # Create status and readme files
+    cat > "/tmp/quecmanager/logs/status.json" <<EOF
+{
+    "status": "initialized",
+    "timestamp": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
+    "directories": {
+        "daemons": "/tmp/quecmanager/logs/daemons",
+        "services": "/tmp/quecmanager/logs/services", 
+        "settings": "/tmp/quecmanager/logs/settings",
+        "system": "/tmp/quecmanager/logs/system"
+    }
+}
+EOF
+    chmod 644 "/tmp/quecmanager/logs/status.json" 2>/dev/null || true
+    
+    # Create README for administrators
+    cat > "/tmp/quecmanager/logs/README.txt" <<EOF
+QuecManager Centralized Logging
+==============================
+
+This directory contains organized log files for the QuecManager system.
+
+Directory Structure:
+- daemons/     - Background daemon logs (memory_daemon, ping_daemon, etc.)
+- services/    - Service logs (quecwatch, quecprofile, etc.)  
+- settings/    - Configuration and settings script logs
+- system/      - System-level logs and initialization
+
+Log Format:
+[YYYY-MM-DD HH:MM:SS] [LEVEL] [SCRIPT] [PID:xxxx] Message
+
+Log Rotation:
+- Files are automatically rotated when they exceed 500KB
+- Up to 2 backup files are kept (.1, .2)
+- Old backup files are cleaned up periodically
+
+Web Access:
+Use /cgi-bin/quecmanager/experimental/logs/fetch_logs.sh to view logs.
+
+Maintenance:
+Automatic cleanup runs every 6 hours via this service.
+EOF
+    chmod 644 "/tmp/quecmanager/logs/README.txt" 2>/dev/null || true
+    
+    # Log the initialization (only if logger is available)
+    if [ "$LOGGER_AVAILABLE" = "1" ]; then
+        qm_log_info "system" "quecmanager_logging" "Centralized logging system initialized"
+    fi
+    echo "Centralized logging directories initialized"
+    
+    # Start periodic log cleanup daemon
+    echo "Starting periodic log cleanup daemon..."
+    procd_open_instance cleanup
+    procd_set_param command sh -c 'while true; do sleep 21600; /www/cgi-bin/services/cleanup_logs.sh; done'
+    procd_set_param respawn
+    procd_set_param stdout 1
+    procd_set_param stderr 1
+    procd_close_instance
+    echo "Log cleanup daemon started (runs every 6 hours)"
+    
+    # Log the completion (only if logger is available)
+    if [ "$LOGGER_AVAILABLE" = "1" ]; then
+        qm_log_info "system" "quecmanager_logging" "QuecManager logging management started - cleanup every 6 hours"
+    fi
+    echo "QuecManager Logging Management started"
+}
+
+stop_service() {
+    # Log shutdown (only if logger is available)
+    if . /www/cgi-bin/services/quecmanager_logger.sh 2>/dev/null; then
+        qm_log_info "system" "quecmanager_logging" "QuecManager logging management stopping" 2>/dev/null || true
+    fi
+    
+    # procd will handle stopping all instances automatically
+    echo "Stopping QuecManager Logging Management."
+}

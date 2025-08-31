@@ -24,7 +24,7 @@ const CustomFeaturesLayout = ({ children }: CustomFeaturesLayoutProps) => {
           <Link
             href="/dashboard/custom-features/quecwatch"
             className={`${
-              currentPathName === "/dashboard/custom-features/quecwatch"
+              currentPathName === "/dashboard/custom-features/quecwatch/"
                 ? "font-semibold text-primary"
                 : "text-sm"
             }`}
@@ -34,7 +34,7 @@ const CustomFeaturesLayout = ({ children }: CustomFeaturesLayoutProps) => {
           <Link
             href="/dashboard/custom-features/quecprofiles"
             className={`${
-              currentPathName === "/dashboard/custom-features/quecprofiles"
+              currentPathName === "/dashboard/custom-features/quecprofiles/"
                 ? "font-semibold text-primary"
                 : "text-sm"
             }`}
@@ -44,7 +44,7 @@ const CustomFeaturesLayout = ({ children }: CustomFeaturesLayoutProps) => {
           <Link
             href="/dashboard/custom-features/cell-scanner"
             className={`${
-              currentPathName === "/dashboard/custom-features/cell-scanner"
+              currentPathName === "/dashboard/custom-features/cell-scanner/"
                 ? "font-semibold text-primary"
                 : "text-sm"
             }`}
@@ -55,7 +55,7 @@ const CustomFeaturesLayout = ({ children }: CustomFeaturesLayoutProps) => {
             href="/dashboard/custom-features/frequency-calculator"
             className={`${
               currentPathName ===
-              "/dashboard/custom-features/frequency-calculator"
+              "/dashboard/custom-features/frequency-calculator/"
                 ? "font-semibold text-primary"
                 : "text-sm"
             }`}

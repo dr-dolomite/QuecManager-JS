@@ -67,7 +67,7 @@ const useCellSettingsData = () => {
         "/cgi-bin/quecmanager/at_cmd/fetch_data.sh?set=2"
       );
       const rawData = await response.json();
-      console.log("Fetched cell settings data:", rawData);
+      // console.log("Fetched cell settings data:", rawData);
 
       const processedData: CellSettingsData = {
         APNProfiles: getAPNProfiles(
@@ -126,9 +126,9 @@ const useCellSettingsData = () => {
         nr5gAMBR: getNR5GAMBRValue(rawData[10]?.response),
       };
 
-      console.log("Processed cell settings data:", processedData);
+      // console.log("Processed cell settings data:", processedData);
       setData(processedData);
-      console.log("Processed cell settings data:", processedData);
+      // console.log("Processed cell settings data:", processedData);
     } catch (error) {
       console.error("Error fetching cell settings data:", error);
     }
@@ -215,7 +215,7 @@ const getAPNProfiles = (
 
     const profileIDMatch = qmapLines[0]?.match(/\+QMAP: "WWAN",\d+,(\d+),/);
     const activeProfileID = profileIDMatch ? profileIDMatch[1] : null;
-    console.log("Active Profile ID:", activeProfileID);
+    // console.log("Active Profile ID:", activeProfileID);
 
     // Step 2: Parse all profiles from CGDCONT response
     const cgdcontProfiles = cgdcont
@@ -239,7 +239,7 @@ const getAPNProfiles = (
 
         // If APN is empty and this is the active profile, find real APN from CGCONTRDP
         if (isActive && (!apn || apn === "")) {
-          console.log("Empty APN for active profile, checking CGCONTRDP");
+          // console.log("Empty APN for active profile, checking CGCONTRDP");
 
           // Look for matching cid in CGCONTRDP
           const cgcontrdpLine = cgdcontrdp.split("\n").find((line) => {
@@ -252,7 +252,7 @@ const getAPNProfiles = (
             const parts = cgcontrdpLine.split(",");
             if (parts.length >= 3) {
               apn = parts[2].replace(/"/g, "");
-              console.log("Found dynamic APN from CGCONTRDP:", apn);
+              // console.log("Found dynamic APN from CGCONTRDP:", apn);
             }
           }
         }
@@ -273,7 +273,7 @@ const getAPNProfiles = (
       return parseInt(a.cid) - parseInt(b.cid);
     });
 
-    console.log("APN Profiles:", cgdcontProfiles);
+    // console.log("APN Profiles:", cgdcontProfiles);
 
     // Return just the APNs in order, with active one first
     return cgdcontProfiles.map((profile) => profile.apn);
@@ -286,13 +286,13 @@ const getAPNProfiles = (
 const getLTEAMBRValue = (data: string): string[] => {
   try {
     if (!data) {
-      console.log("No data provided for LTE AMBR parsing");
+      // console.log("No data provided for LTE AMBR parsing");
       return [];
     }
 
     // Check if the response is empty (no AMBR values)
     if (!data.includes('+QNWCFG: "lte_ambr"')) {
-      console.log("No LTE AMBR values in response");
+      // console.log("No LTE AMBR values in response");
       return [];
     }
 
@@ -305,7 +305,7 @@ const getLTEAMBRValue = (data: string): string[] => {
     );
 
     if (!ambrLines.length) {
-      console.log("No LTE AMBR values found after filtering");
+      // console.log("No LTE AMBR values found after filtering");
       return [];
     }
 
@@ -338,13 +338,13 @@ const getLTEAMBRValue = (data: string): string[] => {
 const getNR5GAMBRValue = (data: string): string[] => {
   try {
     if (!data) {
-      console.log("No data provided for NR5G AMBR parsing");
+      // console.log("No data provided for NR5G AMBR parsing");
       return [];
     }
 
     // Check if the response is empty (no AMBR values)
     if (!data.includes('+QNWCFG: "nr5g_ambr"')) {
-      console.log("No NR5G AMBR values in response");
+      // console.log("No NR5G AMBR values in response");
       return [];
     }
 
@@ -357,7 +357,7 @@ const getNR5GAMBRValue = (data: string): string[] => {
     );
 
     if (!ambrLines.length) {
-      console.log("No NR5G AMBR values found after filtering");
+      // console.log("No NR5G AMBR values found after filtering");
       return [];
     }
 

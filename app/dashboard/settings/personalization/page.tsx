@@ -101,6 +101,7 @@ const PersonalizationPage = () => {
   const [pingEnabled, setPingEnabled] = useState<boolean>(true);
   const [pingInterval, setPingInterval] = useState<number>(5);
   const [isPingLoading, setIsPingLoading] = useState<boolean>(false);
+  const [isPingDefault, setIsPingDefault] = useState<boolean>(true);
   const [memoryEnabled, setMemoryEnabled] = useState<boolean>(true);
   const [memoryInterval, setMemoryInterval] = useState<number>(1);
   const [isMemoryLoading, setIsMemoryLoading] = useState<boolean>(false);
@@ -614,6 +615,9 @@ const PersonalizationPage = () => {
         if (typeof data.data.interval === "number") {
           setPingInterval(data.data.interval);
         }
+        // For the new dynamic system, we determine default status based on enabled state
+        // If monitoring is disabled, it's effectively in default state
+        setIsPingDefault(!data.data.enabled);
       }
     } catch (error) {
       console.error("Error fetching ping settings:", error);
@@ -630,6 +634,7 @@ const PersonalizationPage = () => {
   const updatePingSettings = async (enabled: boolean, interval?: number) => {
     try {
       setIsPingLoading(true);
+      setIsMemoryLoading(true); // Disable memory fields during ping update
       const prevEnabled = pingEnabled;
       const prevInterval = pingInterval;
       const requestedInterval = interval ?? pingInterval;
@@ -649,7 +654,11 @@ const PersonalizationPage = () => {
         setPingEnabled(enabled);
         if (typeof data.data?.interval === "number") {
           setPingInterval(data.data.interval);
+        } else {
+          setPingInterval(requestedInterval);
         }
+        // In the new dynamic system, default state is disabled
+        setIsPingDefault(!enabled);
         const newInterval =
           typeof data.data?.interval === "number"
             ? data.data.interval
@@ -686,12 +695,14 @@ const PersonalizationPage = () => {
       });
     } finally {
       setIsPingLoading(false);
+      setIsMemoryLoading(false); // Re-enable memory fields
     }
   };
 
   const resetPingSettings = async () => {
     try {
       setIsPingLoading(true);
+      setIsMemoryLoading(true); // Disable memory fields during ping reset
       const response = await fetch(
         "/cgi-bin/quecmanager/settings/ping_settings.sh",
         {
@@ -700,18 +711,14 @@ const PersonalizationPage = () => {
       );
       const data: PingSettingsResponse = await response.json();
 
-      if (data.status === "success" && data.data) {
-        setPingEnabled(data.data.enabled);
-        if (typeof data.data.interval === "number") {
-          setPingInterval(data.data.interval);
-        } else {
-          setPingInterval(5);
-        }
+      if (data.status === "success") {
+        // With the new dynamic system, reset means disabling monitoring
+        setPingEnabled(false);
+        setPingInterval(5); // Default interval
+        setIsPingDefault(true);
         toast({
           title: "Ping Settings Reset",
-          description: `Ping settings reset to system default (${
-            data.data.enabled ? "enabled" : "disabled"
-          }).`,
+          description: "Ping settings reset to system default (disabled).",
         });
 
         // Dispatch custom event to notify ping card of the change
@@ -728,6 +735,7 @@ const PersonalizationPage = () => {
       });
     } finally {
       setIsPingLoading(false);
+      setIsMemoryLoading(false); // Re-enable memory fields
     }
   };
 
@@ -764,6 +772,7 @@ const PersonalizationPage = () => {
   const updateMemorySettings = async (enabled: boolean, interval?: number) => {
     try {
       setIsMemoryLoading(true);
+      setIsPingLoading(true); // Disable ping fields during memory update
       const prevEnabled = memoryEnabled;
       const prevInterval = memoryInterval;
       const requestedInterval = interval ?? memoryInterval;
@@ -826,12 +835,14 @@ const PersonalizationPage = () => {
       });
     } finally {
       setIsMemoryLoading(false);
+      setIsPingLoading(false); // Re-enable ping fields
     }
   };
 
   const resetMemorySettings = async () => {
     try {
       setIsMemoryLoading(true);
+      setIsPingLoading(true); // Disable ping fields during memory reset
       const response = await fetch(
         "/cgi-bin/quecmanager/settings/memory_settings.sh",
         {
@@ -864,6 +875,7 @@ const PersonalizationPage = () => {
       });
     } finally {
       setIsMemoryLoading(false);
+      setIsPingLoading(false); // Re-enable ping fields
     }
   };
 
@@ -1043,17 +1055,17 @@ const PersonalizationPage = () => {
                     <Button
                       variant="outline"
                       size="icon"
-                      disabled={isPingLoading}
+                      disabled={isPingLoading || isPingDefault}
                       onClick={resetPingSettings}
                     >
                       <Undo2Icon className="h-4 w-4" />
                     </Button>
                   </div>
-                  <p className="text-sm text-muted-foreground">
-                    Controls whether the device measures network latency.
-                  </p>
                 </div>
               )}
+              <p className="text-sm text-muted-foreground">
+                Controls whether the device measures network latency.
+              </p>
             </div>
 
             <div className="grid w-full max-w-sm items-center gap-2">
@@ -1091,7 +1103,7 @@ const PersonalizationPage = () => {
                     <Button
                       variant="outline"
                       size="icon"
-                      disabled={isPingLoading || pingInterval === 5}
+                      disabled={isPingLoading || pingInterval === 5 || isPingDefault}
                       onClick={() => updatePingSettings(pingEnabled, 5)}
                     >
                       <Undo2Icon className="h-4 w-4" />

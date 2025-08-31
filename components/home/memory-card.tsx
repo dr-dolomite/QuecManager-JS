@@ -21,20 +21,44 @@ const formatMemory = (bytes: number) => {
 };
 
 const MemoryCard = () => {
-  const [memoryData, setMemoryData] = useState<MemoryData>({
-    total: 0,
-    used: 0,
-    available: 0,
+  // Load cached data and set initial states
+  const [memoryData, setMemoryData] = useState<MemoryData>(() => {
+    const savedData = localStorage.getItem("memoryData");
+    return savedData ? JSON.parse(savedData) : { total: 0, used: 0, available: 0 };
   });
+
   const [config, setConfig] = useState<MemoryConfig>({
-    enabled: false,
-    interval: 1,
+    enabled: true,
+    interval: 2,
     running: false,
   });
-  const [isLoading, setIsLoading] = useState(true);
-  const [hasData, setHasData] = useState(false);
 
-  // Fetch memory data (optimistic)
+  const [isLoading, setIsLoading] = useState(() => {
+    const savedData = localStorage.getItem("memoryData");
+    if (!savedData) return true;
+    
+    try {
+      const parsedData = JSON.parse(savedData);
+      // Only show loading if we have no valid cached data
+      return !parsedData || parsedData.total === 0;
+    } catch {
+      return true;
+    }
+  });
+
+  const [hasData, setHasData] = useState(() => {
+    const savedData = localStorage.getItem("memoryData");
+    if (!savedData) return false;
+    
+    try {
+      const parsedData = JSON.parse(savedData);
+      return parsedData && parsedData.total > 0;
+    } catch {
+      return false;
+    }
+  });
+
+  // Fetch memory data
   const fetchMemoryData = useCallback(async () => {
     try {
       const response = await fetch(
@@ -48,21 +72,21 @@ const MemoryCard = () => {
         }
       );
 
-      if (!response.ok) {
-        return false;
-      }
+      if (!response.ok) return false;
 
       const result = await response.json();
-
       if (result.status === "success" && result.data) {
         setMemoryData(result.data);
         setHasData(true);
+        
+        // Cache the data in localStorage
+        localStorage.setItem("memoryData", JSON.stringify(result.data));
+        
         return true;
       }
-      
       return false;
     } catch (err) {
-      console.error("Failed to fetch memory information:", err);
+      console.error("Failed to fetch memory data:", err);
       return false;
     }
   }, []);
@@ -80,108 +104,94 @@ const MemoryCard = () => {
           },
         }
       );
-      if (!response.ok) {
-        throw new Error("Failed to fetch memory configuration");
-      }
+
+      if (!response.ok) return null;
+
       const result = await response.json();
       if (result.status === "success" && result.data) {
         setConfig(result.data);
         return result.data;
       }
-      throw new Error("Invalid configuration response");
+      return null;
     } catch (err) {
-      console.error("Failed to fetch memory configuration:", err);
+      console.error("Failed to fetch memory config:", err);
       return null;
     }
   }, []);
-
-  // Enable memory monitoring
 
   useEffect(() => {
     let intervalId: NodeJS.Timeout | null = null;
 
     const initialize = async () => {
-      // 1. Always fetch memory data first (optimistic)
-      // Add a 500ms buffer
-      await fetchMemoryData();
-      setIsLoading(false);
-
-      // Log
-      console.log("Memory data fetched:", memoryData);
-
-      // 2. Then fetch config to determine if we should start polling
+      // 1. First fetch config to see if memory monitoring is enabled
       const configResult = await fetchMemoryConfig();
 
-      // Log
-      console.log("Memory config fetched:", configResult);
-
-      // 3. Only start polling if config says enabled
-      if (configResult?.enabled && hasData) {
-        const pollInterval = Math.max((configResult.interval || 2) * 1000, 1000);
-        intervalId = setInterval(fetchMemoryData, pollInterval);
-
-        // Log
-        console.log("Memory polling started:", pollInterval);
-      }
-    };
-
-    const handleSettingsUpdate = async () => {
-      // Clear existing interval
-      if (intervalId) {
-        clearInterval(intervalId);
-        intervalId = null;
-      }
+      // 2. If we don't have cached data, show loading during initial fetch
+      const savedData = localStorage.getItem("memoryData");
+      const hasCachedData = savedData && JSON.parse(savedData).total > 0;
       
-      // Re-fetch config and restart polling if needed
-      const configResult = await fetchMemoryConfig();
-      if (configResult?.enabled && hasData) {
-        const pollInterval = Math.max((configResult.interval || 2) * 1000, 1000);
+      if (!hasCachedData) {
+        setIsLoading(true);
+      }
+
+      // 3. Only try to fetch memory data if it's enabled
+      if (configResult?.enabled) {
+        // Try to fetch existing data
+        await fetchMemoryData();
+
+        // Start polling based on interval from config (convert to milliseconds)
+        const pollInterval = Math.max(
+          (configResult.interval || 2) * 1000,
+          1000
+        );
+        console.log(
+          `Starting memory polling with ${pollInterval}ms interval (${configResult.interval}s from config)`
+        );
         intervalId = setInterval(fetchMemoryData, pollInterval);
       }
+
+      // Always set loading to false after config check and initial fetch
+      setIsLoading(false);
     };
 
     initialize();
-
-    // Listen for settings updates from personalization page
-    window.addEventListener("memorySettingsUpdated", handleSettingsUpdate);
 
     return () => {
       if (intervalId) {
         clearInterval(intervalId);
       }
-      window.removeEventListener("memorySettingsUpdated", handleSettingsUpdate);
     };
-  }, [fetchMemoryData, fetchMemoryConfig, hasData]);
+  }, [fetchMemoryConfig, fetchMemoryData]); // Only depend on the callback functions
 
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>Memory</CardTitle>
-        {config.enabled && config.running && hasData ? (
+        {config.enabled && config.running ? (
           <MonitorCheckIcon className="h-4 w-4 text-green-500" />
         ) : (
           <MonitorOffIcon className="h-4 w-4 text-red-500" />
         )}
       </CardHeader>
       <CardContent>
-        {isLoading && !hasData ? (
-          // Only show loading state if we don't have any data yet
-          <div className="grid lg:grid-cols-3 grid-cols-2 grid-flow-row gap-4 col-span-3">
-            <div className="grid gap-1">
-              <span className="text-sm text-muted-foreground">Total</span>
-              <Skeleton className="h-5 w-24" />
-            </div>
-            <div className="grid gap-1">
-              <span className="text-sm text-muted-foreground">Used</span>
-              <Skeleton className="h-5 w-24" />
-            </div>
-            <div className="grid gap-1">
-              <span className="text-sm text-muted-foreground">Available</span>
-              <Skeleton className="h-5 w-24" />
-            </div>
+        {isLoading ? (
+          <Skeleton className="h-[120px] w-full" />
+        ) : !config.enabled ? (
+          <div className="h-[60px] flex flex-col items-center justify-center">
+            <p className="text-sm text-muted-foreground">
+              Memory monitoring is disabled.
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Enable it in Settings → Personalization
+            </p>
+          </div>
+        ) : !hasData ? (
+          <div className="h-[120px] flex items-center justify-center">
+            <p className="text-sm text-muted-foreground">
+              Starting memory monitoring...
+            </p>
           </div>
         ) : (
-          // Show data (either fresh or stale, but we have something to show)
           <div className="grid lg:grid-cols-3 grid-cols-2 grid-flow-row gap-4 col-span-3">
             <div className="grid gap-1">
               <span className="text-sm text-muted-foreground">Total</span>
