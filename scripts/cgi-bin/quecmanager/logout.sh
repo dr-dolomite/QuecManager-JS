@@ -1,8 +1,8 @@
 #!/bin/sh
-# Get token from Request Header Authorization
-USER_TOKEN="${HTTP_AUTHORIZATION}"
+
 # Remove token from file
-sed -i -e "s/.*${USER_TOKEN}.*//g" /tmp/auth_success 2>/dev/null
+AUTH_RESPONSE=$(./auth-token.sh removeToken "${HTTP_AUTHORIZATION}")
+EXIT_CODE=$?
 
 echo "Content-Type: application/json"
 echo "Cache-Control: no-cache, no-store, must-revalidate"
@@ -12,4 +12,5 @@ echo ""
 
 
 
-echo '{"state":"success", "message":"Logged out successfully"}'
+echo $AUTH_RESPONSE
+exit $EXIT_CODE

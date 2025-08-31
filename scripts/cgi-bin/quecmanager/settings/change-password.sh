@@ -4,38 +4,17 @@
 echo "Content-type: application/json"
 echo ""
 
-TOKEN="${HTTP_AUTHORIZATION}"
-
 # Read POST data
 read -r POST_DATA
 
 # Debug log for generated hash
 DEBUG_LOG="/tmp/password_change.log"
-AUTH_FILE="/tmp/auth_success"
 
-# Get Token from Authorization Header on Request
-if [ ! -f $AUTH_FILE  ]; then
-    echo "{\"error\":\"Unauthenticated Request\"}"
-    exit 1
-fi
-
-if [ -z "$TOKEN" ] || "${TOKEN}" = "" || [ $(grep "${TOKEN}" "${AUTH_FILE}" | wc -l) -eq 0 ]; then
-    echo "{\"response\": { \"status\": \"error\", \"raw_output\": \"Not Authorized\" }, \"command\": {\"timestamp\": \"$(date +%Y%m%d'T'%H%M%S)\"}, \"error\":\"Not Authorized\"}"
-    exit 1
-fi
-
-# Check if token is within 2 hours
-TOKEN_LINE=$(grep "${TOKEN}" "${AUTH_FILE}")
-TOKEN_DATE=$(echo "$TOKEN_LINE" | awk '{print $1}' | sed 's/T/ /')
-TOKEN_TIME=$(date -d "$TOKEN_DATE" +%s 2>/dev/null)
-NOW_TIME=$(date +%s)
-MAX_AGE=$((2 * 3600)) # 2 hours in seconds
-
-if [ -z "$TOKEN_TIME" ] || [ $((NOW_TIME - TOKEN_TIME)) -gt $MAX_AGE ]; then
-    echo "{ \"response\": { \"status\": \"error\", \"raw_output\": \"Token expired. Reauthenticate to get new token.\" }, \"command\": {\"timestamp\": \"$(date +%Y%m%d'T'%H%M%S)\"}, \"error\":\"Token expired\"}" 
-    # Cleanup/Remove token from file
-    sed -i -e "s/.*${TOKEN}.*//g" /tmp/auth_success 2>/dev/null
-    exit 1
+AUTH_RESPONSE=$(../auth-token.sh process "$HTTP_AUTHORIZATION")
+AUTH_RESPONSE_STATUS=$?
+if [ $AUTH_RESPONSE_STATUS -ne 0 ]; then
+    echo $AUTH_RESPONSE
+    exit $AUTH_RESPONSE_STATUS
 fi
 
 
