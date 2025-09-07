@@ -5,6 +5,7 @@ import {
   Card,
   CardContent,
   CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -145,6 +146,9 @@ const LogsPage = () => {
           );
         }
 
+        // Reverse the array so newest entries appear first
+        filteredLogs = filteredLogs.reverse();
+
         setLogs(filteredLogs);
         setTotalLogs(data.total || 0);
         setLastRefresh(new Date());
@@ -200,29 +204,31 @@ const LogsPage = () => {
   const getLevelBadgeProps = (level: string) => {
     switch (level.toUpperCase()) {
       case "ERROR":
-        return { 
+        return {
           variant: "destructive" as const,
-          className: "bg-red-500 hover:bg-red-600 text-white border-red-500"
+          className: "bg-red-500 hover:bg-red-600 text-white border-red-500",
         };
       case "WARN":
-        return { 
+        return {
           variant: "secondary" as const,
-          className: "bg-orange-500 hover:bg-orange-600 text-white border-orange-500"
+          className:
+            "bg-orange-500 hover:bg-orange-600 text-white border-orange-500",
         };
       case "INFO":
-        return { 
+        return {
           variant: "default" as const,
-          className: "bg-blue-500 hover:bg-blue-600 text-white border-blue-500"
+          className: "bg-blue-500 hover:bg-blue-600 text-white border-blue-500",
         };
       case "DEBUG":
-        return { 
+        return {
           variant: "outline" as const,
-          className: "bg-green-500 hover:bg-green-600 text-white border-green-500"
+          className:
+            "bg-green-500 hover:bg-green-600 text-white border-green-500",
         };
       default:
-        return { 
+        return {
           variant: "default" as const,
-          className: "bg-gray-500 hover:bg-gray-600 text-white border-gray-500"
+          className: "bg-gray-500 hover:bg-gray-600 text-white border-gray-500",
         };
     }
   };
@@ -426,27 +432,18 @@ const LogsPage = () => {
       {/* Log Display */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>Log Entries</CardTitle>
-              <CardDescription>
-                {selectedScript ? (
-                  <>
-                    Showing {logs.length} of {totalLogs} entries from{" "}
-                    {selectedScript}
-                    {searchTerm && ` (filtered by "${searchTerm}")`}
-                  </>
-                ) : (
-                  "Select a category and script to view logs"
-                )}
-              </CardDescription>
-            </div>
-            {lastRefresh && (
-              <div className="text-sm text-muted-foreground">
-                Last updated: {lastRefresh.toLocaleTimeString()}
-              </div>
+          <CardTitle>Log Entries</CardTitle>
+          <CardDescription>
+            {selectedScript ? (
+              <>
+                Showing {logs.length} of {totalLogs} entries from{" "}
+                {selectedScript}
+                {searchTerm && ` (filtered by "${searchTerm}")`}
+              </>
+            ) : (
+              "Select a category and script to view logs"
             )}
-          </div>
+          </CardDescription>
         </CardHeader>
         <CardContent>
           {selectedScript ? (
@@ -467,7 +464,9 @@ const LogsPage = () => {
                         {getLevelIcon(log.level)}
                         <Badge
                           {...getLevelBadgeProps(log.level)}
-                          className={`text-xs ${getLevelBadgeProps(log.level).className}`}
+                          className={`text-xs ${
+                            getLevelBadgeProps(log.level).className
+                          }`}
                         >
                           {log.level}
                         </Badge>
@@ -497,6 +496,13 @@ const LogsPage = () => {
             </div>
           )}
         </CardContent>
+        <CardFooter>
+          {lastRefresh && (
+            <div className="text-sm text-muted-foreground">
+              Last updated: {lastRefresh.toLocaleTimeString()}
+            </div>
+          )}
+        </CardFooter>
       </Card>
     </div>
   );
