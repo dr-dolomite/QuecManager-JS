@@ -56,7 +56,7 @@ MAX_TIMEOUT=240
 CLEANUP_INTERVAL=300  # 5 minutes in seconds
 RESULTS_MAX_AGE=3600   # 1 hour in seconds
 POLL_INTERVAL=0.01
-PREEMPTION_THRESHOLD=2  # 3 seconds threshold for preemption
+PREEMPTION_THRESHOLD=2  # 2 seconds threshold for preemption and same-priority command bypass
 TOKEN_TIMEOUT=30  # seconds before token expires
 
 # Utility function for JSON escaping
@@ -426,9 +426,73 @@ dequeue_command() {
         return 1
     fi
     
-    local cmd_entry=$(head -n 1 "$QUEUE_FILE")
+    local cmd_entry
     local temp_file=$(mktemp)
-    tail -n +2 "$QUEUE_FILE" > "$temp_file"
+    local selected_cmd=""
+    local current_time=$(date +%s)
+    local line_num=1
+    local skip_line=0
+    local best_priority=999  # Start with lowest possible priority
+    local best_timestamp=0
+    
+    # Find the command with the highest priority (lowest number)
+    # If multiple commands have the same highest priority, prefer the newest one if the oldest is stuck
+    while IFS= read -r line; do
+        local cmd_timestamp=$(echo "$line" | jsonfilter -e '@.timestamp')
+        local cmd_priority=$(echo "$line" | jsonfilter -e '@.priority')
+        
+        # Convert ISO timestamp to epoch for comparison
+        if echo "$cmd_timestamp" | grep -q "T"; then
+            cmd_timestamp=$(date -d "$cmd_timestamp" +%s 2>/dev/null || echo "0")
+        fi
+        
+        local cmd_age=$((current_time - cmd_timestamp))
+        
+        # If this command has higher priority (lower number), select it
+        if [ $cmd_priority -lt $best_priority ]; then
+            selected_cmd="$line"
+            skip_line=$line_num
+            best_priority=$cmd_priority
+            best_timestamp=$cmd_timestamp
+            log_at_queue_manager "debug" "Found higher priority command (priority: $cmd_priority) at line $line_num"
+        # If same priority, apply timeout logic for stuck commands
+        elif [ $cmd_priority -eq $best_priority ]; then
+            # If the currently selected command is stuck (>2 seconds) and this one is newer, prefer this one
+            local best_age=$((current_time - best_timestamp))
+            if [ $best_age -gt $PREEMPTION_THRESHOLD ] && [ $cmd_timestamp -gt $best_timestamp ]; then
+                selected_cmd="$line"
+                skip_line=$line_num
+                best_timestamp=$cmd_timestamp
+                log_at_queue_manager "info" "Replacing stuck same-priority command (age: ${best_age}s) with newer command at line $line_num"
+            # If no stuck command issue, prefer the older one (FIFO within same priority)
+            elif [ $best_age -le $PREEMPTION_THRESHOLD ] && [ $cmd_timestamp -lt $best_timestamp ]; then
+                selected_cmd="$line"
+                skip_line=$line_num
+                best_timestamp=$cmd_timestamp
+                log_at_queue_manager "debug" "Maintaining FIFO order for same-priority commands"
+            fi
+        fi
+        
+        line_num=$((line_num + 1))
+    done < "$QUEUE_FILE"
+    
+    # If no command was selected (shouldn't happen), fall back to first command
+    if [ -z "$selected_cmd" ]; then
+        cmd_entry=$(head -n 1 "$QUEUE_FILE")
+        tail -n +2 "$QUEUE_FILE" > "$temp_file"
+        log_at_queue_manager "warn" "No command selected by priority logic, falling back to FIFO"
+    else
+        cmd_entry="$selected_cmd"
+        # Remove the selected command from the queue
+        if [ $skip_line -eq 1 ]; then
+            # If it's the first line, use tail
+            tail -n +2 "$QUEUE_FILE" > "$temp_file"
+        else
+            # Remove the specific line
+            awk -v skip="$skip_line" 'NR != skip' "$QUEUE_FILE" > "$temp_file"
+        fi
+    fi
+    
     mv "$temp_file" "$QUEUE_FILE"
     chmod 644 "$QUEUE_FILE"
     
@@ -438,7 +502,8 @@ dequeue_command() {
     # Release lock
     release_lock
     
-    log_at_queue_manager "debug" "Dequeued command: $(echo "$cmd_entry" | jsonfilter -e '@.command')"
+    local selected_priority=$(echo "$cmd_entry" | jsonfilter -e '@.priority')
+    log_at_queue_manager "debug" "Dequeued command with priority $selected_priority: $(echo "$cmd_entry" | jsonfilter -e '@.command')"
     echo "$cmd_entry"
 }
 
