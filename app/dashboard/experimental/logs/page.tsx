@@ -63,6 +63,7 @@ const LogsPage = () => {
   const [selectedLevel, setSelectedLevel] = useState<string>("all");
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [maxLines, setMaxLines] = useState<string>("100");
+  const [sortOrder, setSortOrder] = useState<string>("newest-first");
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [totalLogs, setTotalLogs] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(false);
@@ -146,8 +147,11 @@ const LogsPage = () => {
           );
         }
 
-        // Reverse the array so newest entries appear first
-        filteredLogs = filteredLogs.reverse();
+        // Apply sort order
+        if (sortOrder === "newest-first") {
+          filteredLogs = filteredLogs.reverse();
+        }
+        // If sortOrder === "oldest-first", keep the original order (no reverse needed)
 
         setLogs(filteredLogs);
         setTotalLogs(data.total || 0);
@@ -161,7 +165,7 @@ const LogsPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [selectedCategory, selectedScript, selectedLevel, searchTerm, maxLines]);
+  }, [selectedCategory, selectedScript, selectedLevel, searchTerm, maxLines, sortOrder]);
 
   // Auto-refresh functionality
   const [autoRefresh, setAutoRefresh] = useState<boolean>(false);
@@ -324,8 +328,8 @@ const LogsPage = () => {
             </div>
           </div>
 
-          {/* Second row - Level and Lines */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Second row - Level, Lines, Sort Order, and Search */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="space-y-2">
               <Label htmlFor="level">Log Level</Label>
               <Select value={selectedLevel} onValueChange={setSelectedLevel}>
@@ -353,6 +357,19 @@ const LogsPage = () => {
                   <SelectItem value="100">100 lines</SelectItem>
                   <SelectItem value="200">200 lines</SelectItem>
                   <SelectItem value="500">500 lines</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="sortOrder">Sort Order</Label>
+              <Select value={sortOrder} onValueChange={setSortOrder}>
+                <SelectTrigger id="sortOrder">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="newest-first">Newest First</SelectItem>
+                  <SelectItem value="oldest-first">Oldest First</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -437,7 +454,7 @@ const LogsPage = () => {
             {selectedScript ? (
               <>
                 Showing {logs.length} of {totalLogs} entries from{" "}
-                {selectedScript}
+                {selectedScript} ({sortOrder === "newest-first" ? "newest first" : "oldest first"})
                 {searchTerm && ` (filtered by "${searchTerm}")`}
               </>
             ) : (
