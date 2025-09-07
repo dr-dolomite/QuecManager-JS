@@ -659,7 +659,7 @@ const CellLockingPage = () => {
                 disabled={loading || (scheduleData.enabled && locked)}
               />
             </div>
-            <Separator className="my-1 col-span-2 w-full" />
+            <Separator className="my-1 lg:col-span-2 col-span-1 w-full" />
             <div className="grid w-full max-w-sm items-center gap-2">
               <Label htmlFor="EARFCN2">EARFCN 2</Label>
               <Input
@@ -686,7 +686,7 @@ const CellLockingPage = () => {
                 disabled={loading || (scheduleData.enabled && locked)}
               />
             </div>
-            <Separator className="my-1 col-span-2 w-full" />
+            <Separator className="my-1 lg:col-span-2 col-span-1 w-full" />
             <div className="grid w-full max-w-sm items-center gap-2">
               <Label htmlFor="EARFCN3">EARFCN 3</Label>
               <Input
@@ -777,7 +777,7 @@ const CellLockingPage = () => {
                 disabled={loading || (scheduleData.enabled && locked)}
               />
             </div>
-            <Separator className="my-0.5 col-span-2 w-full" />
+            <Separator className="my-0.5 lg:col-span-2 col-span-1 w-full" />
             <div className="grid w-full max-w-sm items-center gap-2">
               <Label htmlFor="SCS">SCS</Label>
               <Select

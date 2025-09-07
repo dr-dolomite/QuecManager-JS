@@ -772,39 +772,41 @@ const BasicSettings = () => {
                 ) : (
                   <TooltipProvider>
                     <Tooltip>
-                      <TooltipTrigger>
-                        <Select
-                          value={formData.selectedMbnProfile || "0"}
-                          onValueChange={(value) =>
-                            handleFieldChange("selectedMbnProfile", value)
-                          }
-                          disabled={isLoading || formData.autoSelState === "1"}
-                        >
-                          <SelectTrigger
-                            className={
-                              formData.autoSelState === "1"
-                                ? "bg-muted cursor-not-allowed"
-                                : ""
+                      <TooltipTrigger asChild>
+                        <div className="w-full">
+                          <Select
+                            value={formData.selectedMbnProfile || "0"}
+                            onValueChange={(value) =>
+                              handleFieldChange("selectedMbnProfile", value)
                             }
+                            disabled={isLoading || formData.autoSelState === "1"}
                           >
-                            <SelectValue placeholder="Select MBN Profile" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectGroup>
-                              <SelectLabel>Available MBN Profiles</SelectLabel>
-                              {formData.mbnProfilesList?.map(
-                                (profile, index) => (
-                                  <SelectItem
-                                    key={`profile-${index}`}
-                                    value={String(index)}
-                                  >
-                                    {profile}
-                                  </SelectItem>
-                                )
-                              )}
-                            </SelectGroup>
-                          </SelectContent>
-                        </Select>
+                            <SelectTrigger
+                              className={
+                                formData.autoSelState === "1"
+                                  ? "bg-muted cursor-not-allowed"
+                                  : ""
+                              }
+                            >
+                              <SelectValue placeholder="Select MBN Profile" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectGroup>
+                                <SelectLabel>Available MBN Profiles</SelectLabel>
+                                {formData.mbnProfilesList?.map(
+                                  (profile, index) => (
+                                    <SelectItem
+                                      key={`profile-${index}`}
+                                      value={String(index)}
+                                    >
+                                      {profile}
+                                    </SelectItem>
+                                  )
+                                )}
+                              </SelectGroup>
+                            </SelectContent>
+                          </Select>
+                        </div>
                       </TooltipTrigger>
                       <TooltipContent>
                         <p>
@@ -817,7 +819,7 @@ const BasicSettings = () => {
                 )}
               </div>
 
-              <Separator className="col-span-2 my-2" />
+              <Separator className="lg:col-span-2 col-span-1 my-2" />
 
               <div className="grid w-full max-w-sm items-center gap-2">
                 <Label>
