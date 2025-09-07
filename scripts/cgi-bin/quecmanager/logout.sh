@@ -1,7 +1,8 @@
 #!/bin/sh
 
 # Remove token from file
-AUTH_RESPONSE=$(./auth-token.sh removeToken "${HTTP_AUTHORIZATION}")
+HOST_DIR=$(pwd)
+AUTH_RESPONSE=$(/bin/sh ${HOST_DIR}/cgi-bin/quecmanager/auth-token.sh removeToken "${HTTP_AUTHORIZATION}")
 EXIT_CODE=$?
 
 echo "Content-Type: application/json"
