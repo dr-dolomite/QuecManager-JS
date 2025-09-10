@@ -51,7 +51,7 @@ const ExperimentalLayout = ({ children }: ExperimentalLayoutProps) => {
           >
             Scheduled Reboot
           </Link>
-                    <Link
+          <Link
             href="/dashboard/experimental/logs"
             className={`${
               currentPathName === "/dashboard/experimental/logs/"

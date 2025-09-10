@@ -117,7 +117,7 @@ process_all_metrics() {
         chmod 644 "$logfile"
     fi
     
-    sleep 0.5
+    sleep 0.1
     
     # RSRQ
     local rsrq_output=$(execute_at_command "AT+QRSRQ")
@@ -133,7 +133,7 @@ process_all_metrics() {
         chmod 644 "$logfile"
     fi
     
-    sleep 0.5
+    sleep 0.1
     
     # SINR
     local sinr_output=$(execute_at_command "AT+QSINR")
@@ -149,7 +149,7 @@ process_all_metrics() {
         chmod 644 "$logfile"
     fi
     
-    sleep 0.5
+    sleep 0.1
     
     # Data usage
     local usage_output=$(execute_at_command "AT+QGDCNT?;+QGDNRCNT?")
@@ -165,7 +165,7 @@ process_all_metrics() {
         chmod 644 "$logfile"
     fi
 
-    sleep 0.5
+    sleep 0.1
 
     # QCAINFO with time stamp
     local usage_output=$(execute_at_command "AT+QCAINFO")

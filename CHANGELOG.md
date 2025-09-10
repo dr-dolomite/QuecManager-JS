@@ -13,14 +13,24 @@
   - Smart refresh cycle management - pauses automatic polling when optimization is active
   - Manual refresh capability to restart monitoring cycle when needed
 
+#### Network Insights Enhancement
+- **Enhanced PCI Change Detection**: Improved network insights interpreter with comprehensive PCI tracking
+  - Detects primary cell PCI changes (cell handoffs) even when bands remain the same
+  - Tracks secondary cell PCI changes in carrier aggregation scenarios
+  - Identifies network events previously missed when band configuration was stable
+  - Provides detailed interpretations for cell tower changes and CA updates
+  - Maintains existing band change and network mode detection capabilities
+
 ### 🛠️ Technical Improvements
 - **Intelligent Resource Management**: Optimized polling system to reduce unnecessary network requests and improve performance
 - **Enhanced Hook Management**: Improved React hook lifecycle with smart interval control
+- **Advanced Network Monitoring**: Enhanced network insights interpreter with comprehensive cellular event detection
 
 ### 📱 User Experience
 - **Cleaner Status Display**: Concise "Ping Active" status replaces longer text for better UI
 - **Reduced Data Usage**: Automatic optimization when multiple monitoring systems are active
 - **Maintained Control**: Manual refresh always available to restart monitoring cycle
+- **Enhanced Network Insights**: More comprehensive network event detection including cell handoffs and tower changes
 
 
 ---
