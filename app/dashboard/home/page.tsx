@@ -74,6 +74,7 @@ const HomePage = () => {
     dataConnectionState,
     isStateLoading,
     refresh: refreshConnectionState,
+    isPingMonitoringActive,
   } = useDataConnectionState();
 
   const { isRunningDiagnostics, runDiagnosticsData, startDiagnostics } =
