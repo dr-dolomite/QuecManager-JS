@@ -623,7 +623,6 @@ const CellScannerPage = () => {
         description: "Failed to remove scan results. Please try again.",
         variant: "destructive",
       });
-
     }
   }, []);
 
@@ -799,10 +798,15 @@ const CellScannerPage = () => {
                             <TableCell>
                               {cell.type === "LTE"
                                 ? (cell as LTECellInfo).bandwidthMHz
-                                : (cell as NR5GCellInfo).carrierBandwidth + "MHz"}
+                                : (cell as NR5GCellInfo).carrierBandwidth +
+                                  "MHz"}
                             </TableCell>
-                            <TableCell>{parseInt(cell.cellId,16) || "-"}</TableCell>
-                            <TableCell>{parseInt(cell.tac,16) || "-"}</TableCell>
+                            <TableCell>
+                              {parseInt(cell.cellId, 16) || "-"}
+                            </TableCell>
+                            <TableCell>
+                              {parseInt(cell.tac, 16) || "-"}
+                            </TableCell>
                             <TableCell>
                               <TooltipProvider>
                                 <Tooltip>
@@ -918,7 +922,7 @@ const CellScannerPage = () => {
                   onClick={exportToCsv}
                   disabled={scanState.status === "scanning"}
                 >
-                  <FileUpIcon className="w-4 h-4 mr-2" />
+                  <FileUpIcon className="w-4 h-4" />
                   Export to CSV
                 </Button>
                 <Button
@@ -926,7 +930,7 @@ const CellScannerPage = () => {
                   onClick={clearResults}
                   disabled={scanState.status === "scanning"}
                 >
-                  <Trash2Icon className="w-4 h-4 mr-2" />
+                  <Trash2Icon className="w-4 h-4" />
                   Clear Results
                 </Button>
               </>
@@ -953,12 +957,7 @@ const CellScannerPage = () => {
         </CardContent>
         <CardFooter className="border-t py-4">
           <div className="flex items-center space-x-4">
-            <Button
-              onClick={startNeighborScan}
-              disabled={
-                isInitiatingScan
-              }
-            >
+            <Button onClick={startNeighborScan} disabled={isInitiatingScan}>
               {isInitiatingScan ? (
                 <div className="flex items-center gap-x-2">
                   <Loader2 className="animate-spin w-4 h-4" />
@@ -978,7 +977,7 @@ const CellScannerPage = () => {
                 onClick={clearNeighborCells}
                 disabled={isInitiatingScan}
               >
-                <Trash2Icon className="w-4 h-4 mr-2" />
+                <Trash2Icon className="w-4 h-4" />
                 Clear Results
               </Button>
             )}
