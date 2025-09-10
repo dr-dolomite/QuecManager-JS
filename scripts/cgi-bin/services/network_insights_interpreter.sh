@@ -50,7 +50,7 @@ is_datetime_newer() {
     fi
 }
 
-# Parse QCAINFO output to extract band information
+# Parse QCAINFO output to extract band information and PCI data
 parse_qcainfo_bands() {
     local output="$1"
     
@@ -71,6 +71,86 @@ parse_qcainfo_bands() {
             fi
         fi
     done
+}
+
+# Parse PCI information from QCAINFO output
+parse_qcainfo_pci() {
+    local output="$1"
+    
+    # Clean up the output
+    local clean_output=$(echo "$output" | tr -d '\r' | sed 's/\\r//g; s/\\n/\n/g')
+    
+    # Extract PCI information from PCC (Primary Component Carrier) and SCC (Secondary Component Carrier) lines
+    local pci_list=""
+    
+    # Get PCC PCI (Primary Cell)
+    local pcc_pci=$(echo "$clean_output" | grep '+QCAINFO: "PCC"' | head -1 | sed -n 's/.*+QCAINFO: "PCC",[0-9]*,\([0-9]*\).*/\1/p')
+    if [ -n "$pcc_pci" ]; then
+        pci_list="PCC:$pcc_pci"
+    fi
+    
+    # Get SCC PCIs (Secondary Cells)
+    local scc_count=0
+    echo "$clean_output" | grep '+QCAINFO: "SCC"' | while IFS= read -r line; do
+        local scc_pci=$(echo "$line" | sed -n 's/.*+QCAINFO: "SCC",[0-9]*,\([0-9]*\).*/\1/p')
+        if [ -n "$scc_pci" ]; then
+            scc_count=$((scc_count + 1))
+            if [ -n "$pci_list" ]; then
+                pci_list="$pci_list,SCC$scc_count:$scc_pci"
+            else
+                pci_list="SCC$scc_count:$scc_pci"
+            fi
+        fi
+    done
+    
+    echo "$pci_list"
+}
+
+# Get primary PCI from PCI list
+get_primary_pci() {
+    local pci_list="$1"
+    echo "$pci_list" | sed -n 's/.*PCC:\([0-9]*\).*/\1/p'
+}
+
+# Get secondary PCIs from PCI list
+get_secondary_pcis() {
+    local pci_list="$1"
+    echo "$pci_list" | grep -o 'SCC[0-9]*:[0-9]*' | sed 's/SCC[0-9]*://' | tr '\n' ',' | sed 's/,$//'
+}
+
+# Compare PCI configurations and generate interpretation
+compare_pci_configurations() {
+    local base_pci_list="$1"
+    local new_pci_list="$2"
+    
+    local base_primary=$(get_primary_pci "$base_pci_list")
+    local new_primary=$(get_primary_pci "$new_pci_list")
+    local base_secondary=$(get_secondary_pcis "$base_pci_list")
+    local new_secondary=$(get_secondary_pcis "$new_pci_list")
+    
+    local pci_interpretations=""
+    
+    # Check for primary PCI changes
+    if [ -n "$base_primary" ] && [ -n "$new_primary" ] && [ "$base_primary" != "$new_primary" ]; then
+        pci_interpretations="Primary cell PCI changed from $base_primary to $new_primary"
+    fi
+    
+    # Check for secondary PCI changes
+    if [ "$base_secondary" != "$new_secondary" ]; then
+        if [ -n "$pci_interpretations" ]; then
+            pci_interpretations="$pci_interpretations; "
+        fi
+        
+        if [ -z "$base_secondary" ] && [ -n "$new_secondary" ]; then
+            pci_interpretations="${pci_interpretations}Secondary cells added (PCI: $new_secondary)"
+        elif [ -n "$base_secondary" ] && [ -z "$new_secondary" ]; then
+            pci_interpretations="${pci_interpretations}Secondary cells removed (was PCI: $base_secondary)"
+        elif [ -n "$base_secondary" ] && [ -n "$new_secondary" ]; then
+            pci_interpretations="${pci_interpretations}Secondary cell PCIs changed from ($base_secondary) to ($new_secondary)"
+        fi
+    fi
+    
+    echo "$pci_interpretations"
 }
 
 # Get network mode from bands
@@ -127,6 +207,8 @@ compare_configurations() {
     # Parse both configurations
     local base_bands=$(parse_qcainfo_bands "$base_output")
     local new_bands=$(parse_qcainfo_bands "$new_output")
+    local base_pci_list=$(parse_qcainfo_pci "$base_output")
+    local new_pci_list=$(parse_qcainfo_pci "$new_output")
     
     local base_mode=$(get_network_mode "$base_bands")
     local new_mode=$(get_network_mode "$new_bands")
@@ -240,6 +322,15 @@ compare_configurations() {
             elif [ "$new_carrier_count" -lt "$base_carrier_count" ]; then
                 interpretations="${interpretations}Carriers reduced from $base_carrier_count to $new_carrier_count"
             fi
+        fi
+        
+        # PCI changes - Check even when band configuration is the same
+        local pci_interpretation=$(compare_pci_configurations "$base_pci_list" "$new_pci_list")
+        if [ -n "$pci_interpretation" ]; then
+            if [ -n "$interpretations" ]; then
+                interpretations="$interpretations; "
+            fi
+            interpretations="${interpretations}$pci_interpretation"
         fi
     fi
     
