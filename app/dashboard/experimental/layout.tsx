@@ -61,6 +61,16 @@ const ExperimentalLayout = ({ children }: ExperimentalLayoutProps) => {
           >
             Logs
           </Link>
+          <Link
+            href="/dashboard/experimental/data-usage-tracking"
+            className={`${
+              currentPathName === "/dashboard/experimental/data-usage-tracking/"
+                ? "font-semibold text-primary"
+                : "text-sm"
+            }`}
+          >
+            Data Usage Tracking
+          </Link>
         </nav>
         {children}
       </div>

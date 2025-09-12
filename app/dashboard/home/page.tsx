@@ -48,11 +48,13 @@ import useHomeData from "@/hooks/home-data";
 import useDataConnectionState from "@/hooks/home-connection";
 import useTrafficStats from "@/hooks/home-traffic";
 import useRunDiagnostics from "@/hooks/diagnostics";
+import useDataUsageTracking from "@/hooks/data-usage-tracking";
 import { BsSimSlashFill } from "react-icons/bs";
 import SpeedtestStream from "@/components/home/speedtest-card";
 import { atCommandSender } from "@/utils/at-command";
 import NetworkInfoCard from "@/components/home/network-info-card";
 import ApproxDistanceCard from "@/components/home/approx-distance-card";
+import DataUsageWarningDialog from "@/components/experimental/data-usage-warning-dialog";
 
 interface newBands {
   id: number;
@@ -79,6 +81,17 @@ const HomePage = () => {
 
   const { isRunningDiagnostics, runDiagnosticsData, startDiagnostics } =
     useRunDiagnostics();
+
+  // Data usage tracking for global warnings
+  const {
+    showWarning,
+    usagePercentage,
+    formattedUsage,
+    formattedLimit,
+    remaining,
+    dismissWarning,
+    closeWarning,
+  } = useDataUsageTracking();
 
   const {
     bytesSent,
@@ -496,6 +509,17 @@ const HomePage = () => {
           <BandTable bands={bands} isLoading={isLoading} />
         </div>
       </div>
+
+      {/* Global Data Usage Warning Dialog */}
+      <DataUsageWarningDialog
+        open={showWarning}
+        onClose={closeWarning}
+        onDismiss={dismissWarning}
+        usagePercentage={usagePercentage}
+        currentUsage={formattedUsage.total}
+        monthlyLimit={formattedLimit}
+        remaining={remaining}
+      />
     </div>
   );
 };
