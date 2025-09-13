@@ -39,34 +39,82 @@ set_config() {
     fi
 }
 
-# Parse latest modem data
+# Parse latest modem data with robust logic
 get_latest_usage() {
     if [ ! -f "$DATA_FILE" ]; then
         echo "0 0"
         return
     fi
     
-    # Get last complete JSON entry and extract modem data
-    local entry=$(awk 'BEGIN{RS="}\n"} /^\s*\{/{print $0"}"}' "$DATA_FILE" | tail -1)
-    local output=$(echo "$entry" | sed -n 's/.*"output"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
+    # Get the last complete JSON entry - use robust AWK parsing
+    local last_entry=$(awk '
+        BEGIN { in_object = 0; object = ""; brace_count = 0 }
+        /^\s*\{/ { 
+            in_object = 1; 
+            brace_count = 1; 
+            object = $0; 
+            next 
+        }
+        in_object == 1 {
+            object = object "\n" $0
+            # Count braces to find the end of the object
+            for (i = 1; i <= length($0); i++) {
+                char = substr($0, i, 1)
+                if (char == "{") brace_count++
+                if (char == "}") brace_count--
+            }
+            if (brace_count == 0) {
+                last_object = object
+                in_object = 0
+                object = ""
+            }
+        }
+        END { if (last_object) print last_object }
+    ' "$DATA_FILE")
     
-    if [ -z "$output" ]; then
+    if [ -z "$last_entry" ]; then
+        log "No complete JSON entries found in data file"
         echo "0 0"
         return
     fi
     
-    # Convert escaped newlines and parse modem counters
-    local data=$(echo "$output" | sed 's/\\r\\n/\n/g')
+    # Extract the output field from the JSON entry
+    local output_data=$(echo "$last_entry" | sed 's/.*"output"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/')
     
-    # Parse LTE: +QGDCNT: received,sent
-    local lte=$(echo "$data" | grep "+QGDCNT:" | head -1 | sed 's/.*+QGDCNT:[[:space:]]*\([0-9,[:space:]]*\).*/\1/')
-    local lte_rx=$(echo "$lte" | cut -d',' -f1 | tr -d ' ')
-    local lte_tx=$(echo "$lte" | cut -d',' -f2 | tr -d ' ')
+    if [ -z "$output_data" ] || [ "$output_data" = "$last_entry" ]; then
+        log "Failed to extract output data from JSON entry"
+        echo "0 0"
+        return
+    fi
     
-    # Parse NR: +QGDNRCNT: sent,received  
-    local nr=$(echo "$data" | grep "+QGDNRCNT:" | head -1 | sed 's/.*+QGDNRCNT:[[:space:]]*\([0-9,[:space:]]*\).*/\1/')
-    local nr_tx=$(echo "$nr" | cut -d',' -f1 | tr -d ' ')
-    local nr_rx=$(echo "$nr" | cut -d',' -f2 | tr -d ' ')
+    # Convert escaped newlines to actual newlines for parsing
+    output_data=$(echo "$output_data" | sed 's/\\r\\n/\n/g')
+    
+    # Parse LTE data (QGDCNT) - format: +QGDCNT: received,sent
+    local lte_line=$(echo "$output_data" | grep "+QGDCNT:" | head -1)
+    local lte_rx=0
+    local lte_tx=0
+    
+    if [ -n "$lte_line" ]; then
+        local lte_numbers=$(echo "$lte_line" | sed 's/.*+QGDCNT:[[:space:]]*\([0-9,[:space:]]*\).*/\1/')
+        lte_rx=$(echo "$lte_numbers" | cut -d',' -f1 | tr -d ' ')
+        lte_tx=$(echo "$lte_numbers" | cut -d',' -f2 | tr -d ' ')
+        lte_rx=${lte_rx:-0}
+        lte_tx=${lte_tx:-0}
+    fi
+    
+    # Parse NR data (QGDNRCNT) - format: +QGDNRCNT: sent,received  
+    local nr_line=$(echo "$output_data" | grep "+QGDNRCNT:" | head -1)
+    local nr_tx=0
+    local nr_rx=0
+    
+    if [ -n "$nr_line" ]; then
+        local nr_numbers=$(echo "$nr_line" | sed 's/.*+QGDNRCNT:[[:space:]]*\([0-9,[:space:]]*\).*/\1/')
+        nr_tx=$(echo "$nr_numbers" | cut -d',' -f1 | tr -d ' ')
+        nr_rx=$(echo "$nr_numbers" | cut -d',' -f2 | tr -d ' ')
+        nr_tx=${nr_tx:-0}
+        nr_rx=${nr_rx:-0}
+    fi
     
     # Calculate totals
     local total_tx=$((${lte_tx:-0} + ${nr_tx:-0}))

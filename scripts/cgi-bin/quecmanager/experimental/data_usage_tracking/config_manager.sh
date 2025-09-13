@@ -583,39 +583,16 @@ check_monthly_reset() {
 # Create backup of current usage with intelligent comparison logic
 # Simple manual backup function
 create_backup() {
-    local data_file="/www/signal_graphs/data_usage.json"
+    # Get current session totals using existing parser
+    local session_usage=$(parse_modem_data)
     
-    # Get latest modem usage
-    if [ ! -f "$data_file" ]; then
-        qm_log_warn "$LOG_CATEGORY" "$SCRIPT_NAME" "Data file not found: $data_file"
-        return 1
-    fi
+    # Parse the JSON values from session
+    local curr_tx=$(echo "$session_usage" | sed 's/.*"upload":\([0-9]*\).*/\1/')
+    local curr_rx=$(echo "$session_usage" | sed 's/.*"download":\([0-9]*\).*/\1/')
     
-    # Get last complete JSON entry and extract modem data
-    local entry=$(awk 'BEGIN{RS="}\n"} /^\s*\{/{print $0"}"}' "$data_file" | tail -1)
-    local output=$(echo "$entry" | sed -n 's/.*"output"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
-    
-    if [ -z "$output" ]; then
-        qm_log_error "$LOG_CATEGORY" "$SCRIPT_NAME" "Failed to extract modem data from latest entry"
-        return 1
-    fi
-    
-    # Convert escaped newlines and parse modem counters
-    local data=$(echo "$output" | sed 's/\\r\\n/\n/g')
-    
-    # Parse LTE: +QGDCNT: received,sent
-    local lte=$(echo "$data" | grep "+QGDCNT:" | head -1 | sed 's/.*+QGDCNT:[[:space:]]*\([0-9,[:space:]]*\).*/\1/')
-    local lte_rx=$(echo "$lte" | cut -d',' -f1 | tr -d ' ')
-    local lte_tx=$(echo "$lte" | cut -d',' -f2 | tr -d ' ')
-    
-    # Parse NR: +QGDNRCNT: sent,received  
-    local nr=$(echo "$data" | grep "+QGDNRCNT:" | head -1 | sed 's/.*+QGDNRCNT:[[:space:]]*\([0-9,[:space:]]*\).*/\1/')
-    local nr_tx=$(echo "$nr" | cut -d',' -f1 | tr -d ' ')
-    local nr_rx=$(echo "$nr" | cut -d',' -f2 | tr -d ' ')
-    
-    # Calculate current totals
-    local curr_tx=$((${lte_tx:-0} + ${nr_tx:-0}))
-    local curr_rx=$((${lte_rx:-0} + ${nr_rx:-0}))
+    # Ensure we have valid numbers
+    curr_tx=${curr_tx:-0}
+    curr_rx=${curr_rx:-0}
     
     # Get stored values
     local stored_tx=$(get_config "STORED_UPLOAD")
@@ -629,23 +606,23 @@ create_backup() {
     local new_tx new_rx
     
     if [ "$stored_tx" -gt "$curr_tx" ]; then
-        # Counter reset detected - replace stored value
-        new_tx="$curr_tx"
-        qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "TX counter reset detected, replacing stored value"
-    else
-        # Normal case - add current to stored
+        # Counter reset detected (reboot) - preserve stored + add new session
         new_tx=$((stored_tx + curr_tx))
-        qm_log_debug "$LOG_CATEGORY" "$SCRIPT_NAME" "TX accumulating: $stored_tx + $curr_tx = $new_tx"
+        qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "TX counter reset detected, preserving stored value: $stored_tx + $curr_tx = $new_tx"
+    else
+        # Normal case - just store current session total
+        new_tx=$curr_tx
+        qm_log_debug "$LOG_CATEGORY" "$SCRIPT_NAME" "TX normal update: $curr_tx"
     fi
     
     if [ "$stored_rx" -gt "$curr_rx" ]; then
-        # Counter reset detected - replace stored value  
-        new_rx="$curr_rx"
-        qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "RX counter reset detected, replacing stored value"
-    else
-        # Normal case - add current to stored
+        # Counter reset detected (reboot) - preserve stored + add new session
         new_rx=$((stored_rx + curr_rx))
-        qm_log_debug "$LOG_CATEGORY" "$SCRIPT_NAME" "RX accumulating: $stored_rx + $curr_rx = $new_rx"
+        qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "RX counter reset detected, preserving stored value: $stored_rx + $curr_rx = $new_rx"
+    else
+        # Normal case - just store current session total
+        new_rx=$curr_rx
+        qm_log_debug "$LOG_CATEGORY" "$SCRIPT_NAME" "RX normal update: $curr_rx"
     fi
     
     # Update stored values in config
