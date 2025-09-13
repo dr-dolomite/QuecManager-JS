@@ -309,6 +309,40 @@ handle_get_action() {
             # Return current configuration and usage (same as default)
             handle_default_get
             ;;
+        *"action=service_status"*)
+            # Return service status
+            send_json_headers
+            printf '{\n'
+            printf '  "service": {\n'
+            
+            # Check if daemon is running
+            if [ -f "/var/run/data_usage_backup.pid" ]; then
+                local pid=$(cat /var/run/data_usage_backup.pid 2>/dev/null)
+                if kill -0 "$pid" 2>/dev/null; then
+                    printf '    "daemon_running": true,\n'
+                    printf '    "daemon_pid": %s,\n' "$pid"
+                else
+                    printf '    "daemon_running": false,\n'
+                    printf '    "daemon_pid": null,\n'
+                fi
+            else
+                printf '    "daemon_running": false,\n'
+                printf '    "daemon_pid": null,\n'
+            fi
+            
+            # Check daemon log
+            if [ -f "/tmp/data_usage_daemon.log" ]; then
+                printf '    "log_exists": true,\n'
+                local last_log=$(tail -1 /tmp/data_usage_daemon.log 2>/dev/null)
+                printf '    "last_log": "%s"\n' "$last_log"
+            else
+                printf '    "log_exists": false,\n'
+                printf '    "last_log": null\n'
+            fi
+            
+            printf '  }\n'
+            printf '}\n'
+            ;;
         *)
             # Default: return current configuration and usage
             handle_default_get
@@ -526,67 +560,79 @@ check_monthly_reset() {
 }
 
 # Create backup of current usage with intelligent comparison logic
+# Simple manual backup function
 create_backup() {
-    # Get current session usage (without stored values)
-    local session_usage_json=$(get_session_usage)
-    local timestamp=$(date +%s)
-    local backup_file="$BACKUP_DIR/backup_$timestamp.json"
+    local data_file="/www/signal_graphs/data_usage.json"
     
-    # Parse current session usage values
-    local session_upload=$(echo "$session_usage_json" | sed 's/.*"upload":\([0-9]*\).*/\1/')
-    local session_download=$(echo "$session_usage_json" | sed 's/.*"download":\([0-9]*\).*/\1/')
-    
-    # Get current stored values (from previous backups)
-    local stored_upload=$(get_config "STORED_UPLOAD")
-    local stored_download=$(get_config "STORED_DOWNLOAD")
-    
-    # Set defaults if empty
-    stored_upload=${stored_upload:-0}
-    stored_download=${stored_download:-0}
-    session_upload=${session_upload:-0}
-    session_download=${session_download:-0}
-    
-    # Intelligent backup logic: compare stored values with current session
-    local new_stored_upload
-    local new_stored_download
-    
-    if [ "$stored_upload" -gt "$session_upload" ]; then
-        # Stored value is larger than current session (likely router reboot or counter reset)
-        # Replace stored value with current session value
-        new_stored_upload=$session_upload
-        qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Upload counter reset detected: stored=$stored_upload > session=$session_upload, replacing stored value"
-    else
-        # Normal case: add session usage to stored totals (accumulate)
-        new_stored_upload=$((stored_upload + session_upload))
-        qm_log_debug "$LOG_CATEGORY" "$SCRIPT_NAME" "Upload accumulating: stored=$stored_upload + session=$session_upload = $new_stored_upload"
+    # Get latest modem usage
+    if [ ! -f "$data_file" ]; then
+        qm_log_warn "$LOG_CATEGORY" "$SCRIPT_NAME" "Data file not found: $data_file"
+        return 1
     fi
     
-    if [ "$stored_download" -gt "$session_download" ]; then
-        # Stored value is larger than current session (likely router reboot or counter reset)
-        # Replace stored value with current session value
-        new_stored_download=$session_download
-        qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Download counter reset detected: stored=$stored_download > session=$session_download, replacing stored value"
+    # Get last complete JSON entry and extract modem data
+    local entry=$(awk 'BEGIN{RS="}\n"} /^\s*\{/{print $0"}"}' "$data_file" | tail -1)
+    local output=$(echo "$entry" | sed -n 's/.*"output"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
+    
+    if [ -z "$output" ]; then
+        qm_log_error "$LOG_CATEGORY" "$SCRIPT_NAME" "Failed to extract modem data from latest entry"
+        return 1
+    fi
+    
+    # Convert escaped newlines and parse modem counters
+    local data=$(echo "$output" | sed 's/\\r\\n/\n/g')
+    
+    # Parse LTE: +QGDCNT: received,sent
+    local lte=$(echo "$data" | grep "+QGDCNT:" | head -1 | sed 's/.*+QGDCNT:[[:space:]]*\([0-9,[:space:]]*\).*/\1/')
+    local lte_rx=$(echo "$lte" | cut -d',' -f1 | tr -d ' ')
+    local lte_tx=$(echo "$lte" | cut -d',' -f2 | tr -d ' ')
+    
+    # Parse NR: +QGDNRCNT: sent,received  
+    local nr=$(echo "$data" | grep "+QGDNRCNT:" | head -1 | sed 's/.*+QGDNRCNT:[[:space:]]*\([0-9,[:space:]]*\).*/\1/')
+    local nr_tx=$(echo "$nr" | cut -d',' -f1 | tr -d ' ')
+    local nr_rx=$(echo "$nr" | cut -d',' -f2 | tr -d ' ')
+    
+    # Calculate current totals
+    local curr_tx=$((${lte_tx:-0} + ${nr_tx:-0}))
+    local curr_rx=$((${lte_rx:-0} + ${nr_rx:-0}))
+    
+    # Get stored values
+    local stored_tx=$(get_config "STORED_UPLOAD")
+    local stored_rx=$(get_config "STORED_DOWNLOAD")
+    stored_tx=${stored_tx:-0}
+    stored_rx=${stored_rx:-0}
+    
+    qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Manual backup: current tx=$curr_tx rx=$curr_rx, stored tx=$stored_tx rx=$stored_rx"
+    
+    # Compare and update logic
+    local new_tx new_rx
+    
+    if [ "$stored_tx" -gt "$curr_tx" ]; then
+        # Counter reset detected - replace stored value
+        new_tx="$curr_tx"
+        qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "TX counter reset detected, replacing stored value"
     else
-        # Normal case: add session usage to stored totals (accumulate)
-        new_stored_download=$((stored_download + session_download))
-        qm_log_debug "$LOG_CATEGORY" "$SCRIPT_NAME" "Download accumulating: stored=$stored_download + session=$session_download = $new_stored_download"
+        # Normal case - add current to stored
+        new_tx=$((stored_tx + curr_tx))
+        qm_log_debug "$LOG_CATEGORY" "$SCRIPT_NAME" "TX accumulating: $stored_tx + $curr_tx = $new_tx"
+    fi
+    
+    if [ "$stored_rx" -gt "$curr_rx" ]; then
+        # Counter reset detected - replace stored value  
+        new_rx="$curr_rx"
+        qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "RX counter reset detected, replacing stored value"
+    else
+        # Normal case - add current to stored
+        new_rx=$((stored_rx + curr_rx))
+        qm_log_debug "$LOG_CATEGORY" "$SCRIPT_NAME" "RX accumulating: $stored_rx + $curr_rx = $new_rx"
     fi
     
     # Update stored values in config
-    set_config "STORED_UPLOAD" "$new_stored_upload"
-    set_config "STORED_DOWNLOAD" "$new_stored_download"
-    set_config "LAST_BACKUP" "$timestamp"
+    set_config "STORED_UPLOAD" "$new_tx"
+    set_config "STORED_DOWNLOAD" "$new_rx"
+    set_config "LAST_BACKUP" "$(date +%s)"
     
-    # Create backup file with the new totals
-    local backup_total=$((new_stored_upload + new_stored_download))
-    echo "{\"upload\":$new_stored_upload,\"download\":$new_stored_download,\"total\":$backup_total,\"timestamp\":$timestamp}" > "$backup_file"
-    
-    # Keep only last 10 backups
-    ls -t "$BACKUP_DIR"/backup_*.json 2>/dev/null | tail -n +11 | while read file; do
-        rm -f "$file" 2>/dev/null
-    done
-    
-    qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Created backup: $backup_file (session: up=$session_upload, down=$session_download, stored total: up=$new_stored_upload, down=$new_stored_download)"
+    qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Manual backup completed: stored tx=$new_tx rx=$new_rx"
 }
 
 # Handle POST requests for configuration updates
@@ -692,10 +738,11 @@ handle_post() {
     send_json_headers
     printf '{"success": true, "message": "Configuration updated successfully"}\n'
     
-    # Update cron jobs if backup interval or enabled status changed
+    # Restart backup daemon if backup interval or enabled status changed
     if [ -n "$enabled" ] || [ -n "$interval" ]; then
-        if [ -x "/www/cgi-bin/quecmanager/experimental/data_usage_tracking/cron_manager.sh" ]; then
-            /www/cgi-bin/quecmanager/experimental/data_usage_tracking/cron_manager.sh update >/dev/null 2>&1 &
+        if [ -x "/etc/init.d/quecmanager_data_usage" ]; then
+            qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Restarting backup daemon with new configuration"
+            /etc/init.d/quecmanager_data_usage restart >/dev/null 2>&1 &
         fi
     fi
 }
