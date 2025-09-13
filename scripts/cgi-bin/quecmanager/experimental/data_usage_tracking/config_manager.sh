@@ -3,6 +3,13 @@
 # Data Usage Configuration Manager for OpenWRT
 # Uses only built-in OpenWRT functions, no external dependencies
 
+# Source the centralized QuecManager logger
+. "/www/cgi-bin/services/quecmanager_logger.sh"
+
+# Script identification for logging
+SCRIPT_NAME="data_usage_config"
+LOG_CATEGORY="services"
+
 # Configuration file path
 CONFIG_DIR="/etc/quecmanager"
 CONFIG_FILE="$CONFIG_DIR/data_usage"
@@ -30,16 +37,11 @@ create_directories() {
 create_directories
 
 # Logging function
-log_message() {
-    local message="$1"
-    local level="${2:-info}"
-    echo "$(date '+%Y-%m-%d %H:%M:%S') [$level] $message" >> /tmp/data_usage_config.log
-}
-
 # Send HTTP error response
 send_error() {
     local message="$1"
     local code="${2:-500}"
+    qm_log_error "$LOG_CATEGORY" "$SCRIPT_NAME" "HTTP $code error: $message"
     echo "Status: $code"
     echo "Content-Type: application/json"
     echo ""
@@ -53,7 +55,21 @@ init_config() {
         # Ensure parent directory exists
         create_directories
         
-        # Try to create config file
+        # Get current session usage to initialize stored values
+        local current_session=$(get_session_usage)
+        qm_log_debug "$LOG_CATEGORY" "$SCRIPT_NAME" "Init session usage JSON: $current_session"
+        
+        local init_upload=$(echo "$current_session" | sed 's/.*"upload":\([0-9]*\).*/\1/')
+        local init_download=$(echo "$current_session" | sed 's/.*"download":\([0-9]*\).*/\1/')
+        local init_timestamp=$(date +%s)
+        
+        # Set defaults if parsing failed
+        init_upload=${init_upload:-0}
+        init_download=${init_download:-0}
+        
+        qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Initializing config with current usage: upload=$init_upload, download=$init_download from session: $current_session"
+        
+        # Try to create config file with current usage values
         if cat > "$CONFIG_FILE" 2>/dev/null << EOF
 # Data Usage Tracking Configuration
 # Generated on $(date)
@@ -63,20 +79,72 @@ MONTHLY_LIMIT=$DEFAULT_LIMIT
 BACKUP_INTERVAL=$DEFAULT_BACKUP_INTERVAL
 RESET_DAY=$DEFAULT_RESET_DAY
 WARNING_THRESHOLD=$DEFAULT_WARNING_THRESHOLD
-STORED_UPLOAD=0
-STORED_DOWNLOAD=0
-LAST_BACKUP=$(date +%s)
-LAST_RESET=0
+STORED_UPLOAD=$init_upload
+STORED_DOWNLOAD=$init_download
+LAST_BACKUP=$init_timestamp
 WARNING_SHOWN=false
 WARNING_THRESHOLD_SHOWN=false
 WARNING_OVERLIMIT_SHOWN=false
 EOF
         then
             chmod 644 "$CONFIG_FILE" 2>/dev/null
-            log_message "Initialized default configuration"
+            qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Initialized default configuration"
         else
-            log_message "Failed to create config file: $CONFIG_FILE" "error"
+            qm_log_error "$LOG_CATEGORY" "$SCRIPT_NAME" "Failed to create config file: $CONFIG_FILE"
         fi
+    fi
+}
+
+# Recreate config file (used when enabling/disabling feature)
+recreate_config() {
+    local enabled_state="${1:-$DEFAULT_ENABLED}"
+    
+    qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Recreating config file with enabled=$enabled_state"
+    
+    # Remove old config
+    rm -f "$CONFIG_FILE" 2>/dev/null
+    
+    # Get current session usage to initialize stored values
+    local current_session=$(get_session_usage)
+    qm_log_debug "$LOG_CATEGORY" "$SCRIPT_NAME" "Session usage JSON: $current_session"
+    
+    local init_upload=$(echo "$current_session" | sed 's/.*"upload":\([0-9]*\).*/\1/')
+    local init_download=$(echo "$current_session" | sed 's/.*"download":\([0-9]*\).*/\1/')
+    local init_timestamp=$(date +%s)
+    
+    # Set defaults if parsing failed
+    init_upload=${init_upload:-0}
+    init_download=${init_download:-0}
+    
+    qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Parsed values: upload=$init_upload, download=$init_download from session: $current_session"
+    
+    # Ensure parent directory exists
+    create_directories
+    
+    # Create new config file with current usage values
+    if cat > "$CONFIG_FILE" 2>/dev/null << EOF
+# Data Usage Tracking Configuration
+# Recreated on $(date)
+
+ENABLED=$enabled_state
+MONTHLY_LIMIT=$DEFAULT_LIMIT
+BACKUP_INTERVAL=$DEFAULT_BACKUP_INTERVAL
+RESET_DAY=$DEFAULT_RESET_DAY
+WARNING_THRESHOLD=$DEFAULT_WARNING_THRESHOLD
+STORED_UPLOAD=$init_upload
+STORED_DOWNLOAD=$init_download
+LAST_BACKUP=$init_timestamp
+WARNING_SHOWN=false
+WARNING_THRESHOLD_SHOWN=false
+WARNING_OVERLIMIT_SHOWN=false
+EOF
+    then
+        chmod 644 "$CONFIG_FILE" 2>/dev/null
+        qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Recreated configuration with current usage: upload=$init_upload, download=$init_download"
+        return 0
+    else
+        qm_log_error "$LOG_CATEGORY" "$SCRIPT_NAME" "Failed to recreate config file: $CONFIG_FILE"
+        return 1
     fi
 }
 
@@ -95,7 +163,7 @@ set_config() {
     
     # Ensure config file exists and is writable
     if [ ! -f "$CONFIG_FILE" ]; then
-        log_message "Config file does not exist, cannot set $key" "error"
+        qm_log_error "$LOG_CATEGORY" "$SCRIPT_NAME" "Config file does not exist, cannot set $key"
         return 1
     fi
     
@@ -105,23 +173,23 @@ set_config() {
         local temp_file="${CONFIG_FILE}.tmp.$$"
         if sed "s/^$key=.*/$key=$value/" "$CONFIG_FILE" > "$temp_file" 2>/dev/null; then
             if mv "$temp_file" "$CONFIG_FILE" 2>/dev/null; then
-                log_message "Updated $key=$value"
+                qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Updated $key=$value"
             else
-                log_message "Failed to update config file" "error"
+                qm_log_error "$LOG_CATEGORY" "$SCRIPT_NAME" "Failed to update config file"
                 rm -f "$temp_file" 2>/dev/null
                 return 1
             fi
         else
-            log_message "Failed to process config file" "error"
+            qm_log_error "$LOG_CATEGORY" "$SCRIPT_NAME" "Failed to process config file"
             rm -f "$temp_file" 2>/dev/null
             return 1
         fi
     else
         # Append new key-value pair
         if echo "$key=$value" >> "$CONFIG_FILE" 2>/dev/null; then
-            log_message "Added $key=$value"
+            qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Added $key=$value"
         else
-            log_message "Failed to append to config file" "error"
+            qm_log_error "$LOG_CATEGORY" "$SCRIPT_NAME" "Failed to append to config file"
             return 1
         fi
     fi
@@ -136,12 +204,140 @@ parse_json_value() {
     echo "$json" | sed -n "s/.*\"$key\"[[:space:]]*:[[:space:]]*\([^,}]*\).*/\1/p" | tr -d '"' | tr -d ' '
 }
 
-# Get current data usage from data_usage.json
-get_current_usage() {
+# Helper function to send JSON HTTP response headers
+send_json_headers() {
+    echo "Content-Type: application/json"
+    echo ""
+}
+
+# Helper function to build config+usage JSON response
+build_config_usage_response() {
+    local usage_data="$1"
+    local override_enabled="$2"  # Optional: override enabled state
+    
+    # Get all config values
+    local enabled=$(get_config "ENABLED")
+    local monthly_limit=$(get_config "MONTHLY_LIMIT")
+    local backup_interval=$(get_config "BACKUP_INTERVAL")
+    local reset_day=$(get_config "RESET_DAY")
+    local warning_threshold=$(get_config "WARNING_THRESHOLD")
+    local warning_shown=$(get_config "WARNING_SHOWN")
+    local warning_threshold_shown=$(get_config "WARNING_THRESHOLD_SHOWN")
+    local warning_overlimit_shown=$(get_config "WARNING_OVERLIMIT_SHOWN")
+    local last_backup=$(get_config "LAST_BACKUP")
+
+    # Override enabled state if provided
+    if [ -n "$override_enabled" ]; then
+        enabled="$override_enabled"
+    fi
+
+    # Set defaults - use constants when config file doesn't exist
+    if [ ! -f "$CONFIG_FILE" ]; then
+        enabled=${enabled:-false}
+        monthly_limit=${DEFAULT_LIMIT:-10737418240}
+        backup_interval=${DEFAULT_BACKUP_INTERVAL:-12}
+        reset_day=${DEFAULT_RESET_DAY:-1}
+        warning_threshold=${DEFAULT_WARNING_THRESHOLD:-90}
+    else
+        enabled=${enabled:-true}
+        monthly_limit=${monthly_limit:-10737418240}
+        backup_interval=${backup_interval:-12}
+        reset_day=${reset_day:-1}
+        warning_threshold=${warning_threshold:-90}
+    fi
+    
+    warning_shown=${warning_shown:-false}
+    warning_threshold_shown=${warning_threshold_shown:-false}
+    warning_overlimit_shown=${warning_overlimit_shown:-false}
+    last_backup=${last_backup:-0}
+
+    # Build complete JSON response
+    printf '{
+    "config": {
+        "enabled": %s,
+        "monthlyLimit": %s,
+        "backupInterval": %s,
+        "resetDay": %s,
+        "warningThreshold": %s,
+        "warningShown": %s,
+        "warningThresholdShown": %s,
+        "warningOverlimitShown": %s,
+        "lastBackup": %s
+    },
+    "usage": %s
+}' "$enabled" "$monthly_limit" "$backup_interval" "$reset_day" "$warning_threshold" "$warning_shown" "$warning_threshold_shown" "$warning_overlimit_shown" "$last_backup" "$usage_data"
+}
+
+# Helper function to send successful JSON response
+send_json_response() {
+    local usage_data="$1"
+    local override_enabled="$2"  # Optional: override enabled state
+    send_json_headers
+    build_config_usage_response "$usage_data" "$override_enabled"
+}
+
+# Helper function to handle GET actions based on query string
+handle_get_action() {
+    local query_string="$1"
+    
+    case "$query_string" in
+        *"action=reset"*)
+            set_config "STORED_UPLOAD" "0"
+            set_config "STORED_DOWNLOAD" "0"
+            set_config "WARNING_SHOWN" "false"
+            set_config "WARNING_THRESHOLD_SHOWN" "false"
+            set_config "WARNING_OVERLIMIT_SHOWN" "false"
+            send_json_headers
+            printf '{"success": true, "message": "Usage data reset successfully"}\n'
+            ;;
+        *"action=backup"*)
+            create_backup
+            send_json_headers
+            printf '{"success": true, "message": "Backup created successfully"}\n'
+            ;;
+        *"action=get_current_usage"*)
+            init_config
+            check_monthly_reset
+            local current_usage=$(get_current_usage)
+            send_json_response "$current_usage"
+            ;;
+        *"action=get_session_usage"*)
+            local session_usage=$(parse_modem_data)
+            send_json_response "$session_usage"
+            ;;
+        *"action=get_config"*)
+            # Return current configuration and usage (same as default)
+            handle_default_get
+            ;;
+        *)
+            # Default: return current configuration and usage
+            handle_default_get
+            ;;
+    esac
+}
+
+# Helper function to handle default GET request
+handle_default_get() {
+    # Check if config exists (feature enabled) or return disabled state
+    if [ ! -f "$CONFIG_FILE" ]; then
+        # Feature is disabled (no config file)
+        local disabled_usage='{"upload":0,"download":0,"total":0}'
+        send_json_response "$disabled_usage" "false"
+    else
+        # Feature is enabled, return actual config and usage
+        init_config
+        check_monthly_reset
+        local current_usage=$(get_current_usage)
+        send_json_response "$current_usage"
+    fi
+}
+
+# Parse modem data from data_usage.json file (shared function)
+parse_modem_data() {
     local logfile="/www/signal_graphs/data_usage.json"
     
     if [ ! -f "$logfile" ]; then
-        log_message "Data usage file not found: $logfile"
+        qm_log_warn "$LOG_CATEGORY" "$SCRIPT_NAME" "Data usage file not found: $logfile"
         printf '{"upload":0,"download":0,"total":0}'
         return
     fi
@@ -174,28 +370,28 @@ get_current_usage() {
     ' "$logfile")
     
     if [ -z "$last_entry" ]; then
-        log_message "No complete JSON entries found in data file"
+        qm_log_warn "$LOG_CATEGORY" "$SCRIPT_NAME" "No complete JSON entries found in data file"
         printf '{"upload":0,"download":0,"total":0}'
         return
     fi
     
-    log_message "Found complete entry (first 100 chars): $(echo "$last_entry" | head -c 100)..."
+    qm_log_debug "$LOG_CATEGORY" "$SCRIPT_NAME" "Found complete entry (first 100 chars): $(echo "$last_entry" | dd bs=100 count=1 2>/dev/null)..."
     
     # Extract the output field from the JSON entry
     local output_data=$(echo "$last_entry" | sed 's/.*"output"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/')
     
     if [ -z "$output_data" ] || [ "$output_data" = "$last_entry" ]; then
-        log_message "Failed to extract output data from JSON entry"
+        qm_log_error "$LOG_CATEGORY" "$SCRIPT_NAME" "Failed to extract output data from JSON entry"
         printf '{"upload":0,"download":0,"total":0}'
         return
     fi
     
-    log_message "Extracted output data (first 100 chars): $(echo "$output_data" | head -c 100)..."
+    qm_log_debug "$LOG_CATEGORY" "$SCRIPT_NAME" "Extracted output data (first 100 chars): $(echo "$output_data" | dd bs=100 count=1 2>/dev/null)..."
     
     # Convert escaped newlines to actual newlines for parsing
     output_data=$(echo "$output_data" | sed 's/\\r\\n/\n/g')
     
-    log_message "After newline conversion (first 100 chars): $(echo "$output_data" | head -c 100)..."
+    qm_log_debug "$LOG_CATEGORY" "$SCRIPT_NAME" "After newline conversion (first 100 chars): $(echo "$output_data" | dd bs=100 count=1 2>/dev/null)..."
     
     # Parse LTE data (QGDCNT) - format: +QGDCNT: received,sent
     local lte_line=$(echo "$output_data" | grep "+QGDCNT:" | head -1)
@@ -203,7 +399,7 @@ get_current_usage() {
     local lte_sent=0
     
     if [ -n "$lte_line" ]; then
-        log_message "Found LTE line: $lte_line"
+        qm_log_debug "$LOG_CATEGORY" "$SCRIPT_NAME" "Found LTE line: $lte_line"
         # Extract numbers after colon, handle spaces and commas
         local lte_numbers=$(echo "$lte_line" | sed 's/.*+QGDCNT:[[:space:]]*\([0-9,[:space:]]*\).*/\1/')
         lte_received=$(echo "$lte_numbers" | cut -d',' -f1 | tr -d ' ')
@@ -212,9 +408,9 @@ get_current_usage() {
         # Ensure we have valid numbers
         lte_received=${lte_received:-0}
         lte_sent=${lte_sent:-0}
-        log_message "LTE numbers: $lte_numbers -> received=$lte_received, sent=$lte_sent"
+        qm_log_debug "$LOG_CATEGORY" "$SCRIPT_NAME" "LTE numbers: $lte_numbers -> received=$lte_received, sent=$lte_sent"
     else
-        log_message "No LTE data found"
+        qm_log_debug "$LOG_CATEGORY" "$SCRIPT_NAME" "No LTE data found"
     fi
     
     # Parse NR data (QGDNRCNT) - format: +QGDNRCNT: sent,received  
@@ -223,7 +419,7 @@ get_current_usage() {
     local nr_received=0
     
     if [ -n "$nr_line" ]; then
-        log_message "Found NR line: $nr_line"
+        qm_log_debug "$LOG_CATEGORY" "$SCRIPT_NAME" "Found NR line: $nr_line"
         # Extract numbers after colon, handle spaces and commas
         local nr_numbers=$(echo "$nr_line" | sed 's/.*+QGDNRCNT:[[:space:]]*\([0-9,[:space:]]*\).*/\1/')
         nr_sent=$(echo "$nr_numbers" | cut -d',' -f1 | tr -d ' ')
@@ -232,9 +428,9 @@ get_current_usage() {
         # Ensure we have valid numbers
         nr_sent=${nr_sent:-0}
         nr_received=${nr_received:-0}
-        log_message "NR numbers: $nr_numbers -> sent=$nr_sent, received=$nr_received"
+        qm_log_debug "$LOG_CATEGORY" "$SCRIPT_NAME" "NR numbers: $nr_numbers -> sent=$nr_sent, received=$nr_received"
     else
-        log_message "No NR data found"
+        qm_log_debug "$LOG_CATEGORY" "$SCRIPT_NAME" "No NR data found"
     fi
     
     # Calculate totals (ensure arithmetic works with large numbers)
@@ -250,27 +446,47 @@ get_current_usage() {
         total_download=$((${lte_received:-0} + ${nr_received:-0}))
     fi
     
-    # Add stored values from previous sessions
-    local stored_upload=$(get_config "STORED_UPLOAD")
-    local stored_download=$(get_config "STORED_DOWNLOAD")
-    
-    stored_upload=${stored_upload:-0}
-    stored_download=${stored_download:-0}
-    
-    if command -v bc >/dev/null 2>&1; then
-        total_upload=$(echo "$total_upload + $stored_upload" | bc 2>/dev/null || echo $((total_upload + stored_upload)))
-        total_download=$(echo "$total_download + $stored_download" | bc 2>/dev/null || echo $((total_download + stored_download)))
-    else
-        total_upload=$((total_upload + stored_upload))
-        total_download=$((total_download + stored_download))
-    fi
-    
     local total_usage=$((total_upload + total_download))
     
     # Log the parsed values for debugging
-    log_message "Parsed LTE: received=$lte_received, sent=$lte_sent"
-    log_message "Parsed NR: sent=$nr_sent, received=$nr_received"
-    log_message "Total: upload=$total_upload, download=$total_download, total=$total_usage"
+    qm_log_debug "$LOG_CATEGORY" "$SCRIPT_NAME" "Parsed LTE: received=$lte_received, sent=$lte_sent"
+    qm_log_debug "$LOG_CATEGORY" "$SCRIPT_NAME" "Parsed NR: sent=$nr_sent, received=$nr_received"
+    qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Session totals: upload=$total_upload, download=$total_download"
+    
+    printf '{"upload":%s,"download":%s,"total":%s}' "$total_upload" "$total_download" "$total_usage"
+}
+
+# Get current session data usage (without stored values)
+get_session_usage() {
+    parse_modem_data
+}
+get_current_usage() {
+    # Get session usage
+    local session_usage=$(parse_modem_data)
+    
+    # Parse the JSON values from session
+    local session_upload=$(echo "$session_usage" | sed 's/.*"upload":\([0-9]*\).*/\1/')
+    local session_download=$(echo "$session_usage" | sed 's/.*"download":\([0-9]*\).*/\1/')
+    
+    # Get stored values from previous sessions
+    local stored_upload=$(get_config "STORED_UPLOAD")
+    local stored_download=$(get_config "STORED_DOWNLOAD")
+    
+    # Ensure we have valid numbers
+    session_upload=${session_upload:-0}
+    session_download=${session_download:-0}
+    stored_upload=${stored_upload:-0}
+    stored_download=${stored_download:-0}
+    
+    qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Session totals: upload=$session_upload, download=$session_download"
+    qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Stored values: upload=$stored_upload, download=$stored_download"
+    
+    # Calculate totals with stored values
+    local total_upload=$((session_upload + stored_upload))
+    local total_download=$((session_download + stored_download))
+    local total_usage=$((total_upload + total_download))
+    
+    qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Final totals (session + stored): upload=$total_upload, download=$total_download, total=$total_usage"
     
     printf '{"upload":%s,"download":%s,"total":%s}' "$total_upload" "$total_download" "$total_usage"
 }
@@ -278,48 +494,99 @@ get_current_usage() {
 # Check if monthly reset is needed
 check_monthly_reset() {
     local reset_day=$(get_config "RESET_DAY")
-    local last_reset=$(get_config "LAST_RESET")
-    local current_time=$(date +%s)
     local current_day=$(date +%d | sed 's/^0*//')
+    local current_time=$(date +%s)
     
-    # Simple check: if current day >= reset day and we haven't reset this month
-    local current_month_year=$(date +%Y%m)
-    local last_reset_month_year=""
+    reset_day=${reset_day:-1}
     
-    if [ -n "$last_reset" ] && [ "$last_reset" -gt 0 ]; then
-        last_reset_month_year=$(date -d "@$last_reset" +%Y%m 2>/dev/null || echo "")
-    fi
-    
-    # Reset if we're in a new month or past the reset day
-    if [ "$current_month_year" != "$last_reset_month_year" ] && [ "$current_day" -ge "${reset_day:-1}" ]; then
-        log_message "Performing monthly reset"
-        set_config "STORED_UPLOAD" "0"
-        set_config "STORED_DOWNLOAD" "0"
-        set_config "LAST_RESET" "$current_time"
-        set_config "WARNING_SHOWN" "false"
-        set_config "WARNING_THRESHOLD_SHOWN" "false"
-        set_config "WARNING_OVERLIMIT_SHOWN" "false"
-        return 0
+    # Simple monthly reset: only reset on the exact reset day of each month
+    # This prevents multiple resets in the same month
+    if [ "$current_day" -eq "$reset_day" ]; then
+        # Check if we already reset today by looking at stored values
+        local stored_upload=$(get_config "STORED_UPLOAD")
+        local stored_download=$(get_config "STORED_DOWNLOAD")
+        
+        # Only reset if we have non-zero stored values (indicating we haven't reset today)
+        if [ "${stored_upload:-0}" -gt 0 ] || [ "${stored_download:-0}" -gt 0 ]; then
+            qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Performing monthly reset on day $current_day (reset day: $reset_day)"
+            set_config "STORED_UPLOAD" "0"
+            set_config "STORED_DOWNLOAD" "0"
+            set_config "WARNING_SHOWN" "false"
+            set_config "WARNING_THRESHOLD_SHOWN" "false"
+            set_config "WARNING_OVERLIMIT_SHOWN" "false"
+            return 0
+        else
+            qm_log_debug "$LOG_CATEGORY" "$SCRIPT_NAME" "Monthly reset already performed today (day $current_day)"
+        fi
+    else
+        qm_log_debug "$LOG_CATEGORY" "$SCRIPT_NAME" "Monthly reset not needed (current day: $current_day, reset day: $reset_day)"
     fi
     
     return 1
 }
 
-# Create backup of current usage
+# Create backup of current usage with intelligent comparison logic
 create_backup() {
-    local current_usage=$(get_current_usage)
+    # Get current session usage (without stored values)
+    local session_usage_json=$(get_session_usage)
     local timestamp=$(date +%s)
     local backup_file="$BACKUP_DIR/backup_$timestamp.json"
     
-    echo "$current_usage" > "$backup_file"
+    # Parse current session usage values
+    local session_upload=$(echo "$session_usage_json" | sed 's/.*"upload":\([0-9]*\).*/\1/')
+    local session_download=$(echo "$session_usage_json" | sed 's/.*"download":\([0-9]*\).*/\1/')
+    
+    # Get current stored values (from previous backups)
+    local stored_upload=$(get_config "STORED_UPLOAD")
+    local stored_download=$(get_config "STORED_DOWNLOAD")
+    
+    # Set defaults if empty
+    stored_upload=${stored_upload:-0}
+    stored_download=${stored_download:-0}
+    session_upload=${session_upload:-0}
+    session_download=${session_download:-0}
+    
+    # Intelligent backup logic: compare stored values with current session
+    local new_stored_upload
+    local new_stored_download
+    
+    if [ "$stored_upload" -gt "$session_upload" ]; then
+        # Stored value is larger than current session (likely router reboot or counter reset)
+        # Replace stored value with current session value
+        new_stored_upload=$session_upload
+        qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Upload counter reset detected: stored=$stored_upload > session=$session_upload, replacing stored value"
+    else
+        # Normal case: add session usage to stored totals (accumulate)
+        new_stored_upload=$((stored_upload + session_upload))
+        qm_log_debug "$LOG_CATEGORY" "$SCRIPT_NAME" "Upload accumulating: stored=$stored_upload + session=$session_upload = $new_stored_upload"
+    fi
+    
+    if [ "$stored_download" -gt "$session_download" ]; then
+        # Stored value is larger than current session (likely router reboot or counter reset)
+        # Replace stored value with current session value
+        new_stored_download=$session_download
+        qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Download counter reset detected: stored=$stored_download > session=$session_download, replacing stored value"
+    else
+        # Normal case: add session usage to stored totals (accumulate)
+        new_stored_download=$((stored_download + session_download))
+        qm_log_debug "$LOG_CATEGORY" "$SCRIPT_NAME" "Download accumulating: stored=$stored_download + session=$session_download = $new_stored_download"
+    fi
+    
+    # Update stored values in config
+    set_config "STORED_UPLOAD" "$new_stored_upload"
+    set_config "STORED_DOWNLOAD" "$new_stored_download"
     set_config "LAST_BACKUP" "$timestamp"
+    
+    # Create backup file with the new totals
+    local backup_total=$((new_stored_upload + new_stored_download))
+    echo "{\"upload\":$new_stored_upload,\"download\":$new_stored_download,\"total\":$backup_total,\"timestamp\":$timestamp}" > "$backup_file"
     
     # Keep only last 10 backups
     ls -t "$BACKUP_DIR"/backup_*.json 2>/dev/null | tail -n +11 | while read file; do
         rm -f "$file" 2>/dev/null
     done
     
-    log_message "Created backup: $backup_file"
+    qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Created backup: $backup_file (session: up=$session_upload, down=$session_download, stored total: up=$new_stored_upload, down=$new_stored_download)"
 }
 
 # Handle POST requests for configuration updates
@@ -340,7 +607,7 @@ handle_post() {
         send_error "No POST data received" 400
     fi
     
-    log_message "Received POST data: $post_data"
+    qm_log_debug "$LOG_CATEGORY" "$SCRIPT_NAME" "Received POST data: $post_data"
     
     # Parse JSON fields using simple text processing
     local enabled=$(parse_json_value "$post_data" "enabled")
@@ -360,44 +627,77 @@ handle_post() {
             "false"|"0") enabled="false" ;;
             *) enabled="false" ;;
         esac
-        set_config "ENABLED" "$enabled"
+        
+        # Get current enabled state to detect changes
+        local current_enabled="false"
+        if [ -f "$CONFIG_FILE" ]; then
+            current_enabled=$(get_config "ENABLED")
+            current_enabled=${current_enabled:-false}
+        fi
+        
+        # Handle enable/disable state changes
+        if [ "$enabled" != "$current_enabled" ]; then
+            if [ "$enabled" = "false" ]; then
+                # Disabling: Remove the config file completely
+                qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Disabling feature, removing config file"
+                rm -f "$CONFIG_FILE" 2>/dev/null
+            else
+                # Enabling: Recreate config with current usage values
+                qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Enabling feature, recreating config with current usage baseline"
+                recreate_config "$enabled"
+            fi
+        else
+            # State hasn't changed, just update normally (but only if config exists)
+            if [ -f "$CONFIG_FILE" ]; then
+                set_config "ENABLED" "$enabled"
+            fi
+        fi
     fi
     
-    [ -n "$limit" ] && [ "$limit" -gt 0 ] && set_config "MONTHLY_LIMIT" "$limit"
-    [ -n "$interval" ] && [ "$interval" -gt 0 ] && set_config "BACKUP_INTERVAL" "$interval"
-    [ -n "$reset_day" ] && [ "$reset_day" -ge 1 ] && [ "$reset_day" -le 28 ] && set_config "RESET_DAY" "$reset_day"
-    [ -n "$warning_threshold" ] && [ "$warning_threshold" -ge 1 ] && [ "$warning_threshold" -le 100 ] && set_config "WARNING_THRESHOLD" "$warning_threshold"
-    
-    if [ -n "$warning_shown" ]; then
-        case "$warning_shown" in
-            "true"|"1") warning_shown="true" ;;
-            "false"|"0") warning_shown="false" ;;
-            *) warning_shown="false" ;;
-        esac
-        set_config "WARNING_SHOWN" "$warning_shown"
+    # Only update other settings if config file exists (feature is enabled)
+    if [ -f "$CONFIG_FILE" ]; then
+        [ -n "$limit" ] && [ "$limit" -gt 0 ] && set_config "MONTHLY_LIMIT" "$limit"
+        [ -n "$interval" ] && [ "$interval" -gt 0 ] && set_config "BACKUP_INTERVAL" "$interval"
+        [ -n "$reset_day" ] && [ "$reset_day" -ge 1 ] && [ "$reset_day" -le 28 ] && set_config "RESET_DAY" "$reset_day"
+        [ -n "$warning_threshold" ] && [ "$warning_threshold" -ge 1 ] && [ "$warning_threshold" -le 100 ] && set_config "WARNING_THRESHOLD" "$warning_threshold"
+        
+        if [ -n "$warning_shown" ]; then
+            case "$warning_shown" in
+                "true"|"1") warning_shown="true" ;;
+                "false"|"0") warning_shown="false" ;;
+                *) warning_shown="false" ;;
+            esac
+            set_config "WARNING_SHOWN" "$warning_shown"
+        fi
+        
+        if [ -n "$warning_threshold_shown" ]; then
+            case "$warning_threshold_shown" in
+                "true"|"1") warning_threshold_shown="true" ;;
+                "false"|"0") warning_threshold_shown="false" ;;
+                *) warning_threshold_shown="false" ;;
+            esac
+            set_config "WARNING_THRESHOLD_SHOWN" "$warning_threshold_shown"
+        fi
+        
+        if [ -n "$warning_overlimit_shown" ]; then
+            case "$warning_overlimit_shown" in
+                "true"|"1") warning_overlimit_shown="true" ;;
+                "false"|"0") warning_overlimit_shown="false" ;;
+                *) warning_overlimit_shown="false" ;;
+            esac
+            set_config "WARNING_OVERLIMIT_SHOWN" "$warning_overlimit_shown"
+        fi
     fi
     
-    if [ -n "$warning_threshold_shown" ]; then
-        case "$warning_threshold_shown" in
-            "true"|"1") warning_threshold_shown="true" ;;
-            "false"|"0") warning_threshold_shown="false" ;;
-            *) warning_threshold_shown="false" ;;
-        esac
-        set_config "WARNING_THRESHOLD_SHOWN" "$warning_threshold_shown"
-    fi
-    
-    if [ -n "$warning_overlimit_shown" ]; then
-        case "$warning_overlimit_shown" in
-            "true"|"1") warning_overlimit_shown="true" ;;
-            "false"|"0") warning_overlimit_shown="false" ;;
-            *) warning_overlimit_shown="false" ;;
-        esac
-        set_config "WARNING_OVERLIMIT_SHOWN" "$warning_overlimit_shown"
-    fi
-    
-    echo "Content-Type: application/json"
-    echo ""
+    send_json_headers
     printf '{"success": true, "message": "Configuration updated successfully"}\n'
+    
+    # Update cron jobs if backup interval or enabled status changed
+    if [ -n "$enabled" ] || [ -n "$interval" ]; then
+        if [ -x "/www/cgi-bin/quecmanager/experimental/data_usage_tracking/cron_manager.sh" ]; then
+            /www/cgi-bin/quecmanager/experimental/data_usage_tracking/cron_manager.sh update >/dev/null 2>&1 &
+        fi
+    fi
 }
 
 # Main execution function
@@ -407,57 +707,7 @@ main() {
             handle_post
             ;;
         "GET")
-            case "${QUERY_STRING}" in
-                *"action=reset"*)
-                    set_config "STORED_UPLOAD" "0"
-                    set_config "STORED_DOWNLOAD" "0"
-                    set_config "WARNING_SHOWN" "false"
-                    set_config "WARNING_THRESHOLD_SHOWN" "false"
-                    set_config "WARNING_OVERLIMIT_SHOWN" "false"
-                    echo "Content-Type: application/json"
-                    echo ""
-                    printf '{"success": true, "message": "Usage data reset successfully"}\n'
-                    ;;
-                *"action=backup"*)
-                    create_backup
-                    echo "Content-Type: application/json"
-                    echo ""
-                    printf '{"success": true, "message": "Backup created successfully"}\n'
-                    ;;
-                *)
-                    # Return current configuration and usage
-                    init_config
-                    check_monthly_reset
-                    
-                    local enabled=$(get_config "ENABLED")
-                    local limit=$(get_config "MONTHLY_LIMIT")
-                    local interval=$(get_config "BACKUP_INTERVAL")
-                    local reset_day=$(get_config "RESET_DAY")
-                    local warning_threshold=$(get_config "WARNING_THRESHOLD")
-                    local warning_shown=$(get_config "WARNING_SHOWN")
-                    local warning_threshold_shown=$(get_config "WARNING_THRESHOLD_SHOWN")
-                    local warning_overlimit_shown=$(get_config "WARNING_OVERLIMIT_SHOWN")
-                    local current_usage=$(get_current_usage)
-                    
-                    echo "Content-Type: application/json"
-                    echo ""
-                    
-                    # Build JSON response manually
-                    printf '{\n'
-                    printf '    "config": {\n'
-                    printf '        "enabled": %s,\n' "${enabled:-false}"
-                    printf '        "monthlyLimit": %s,\n' "${limit:-$DEFAULT_LIMIT}"
-                    printf '        "backupInterval": %s,\n' "${interval:-$DEFAULT_BACKUP_INTERVAL}"
-                    printf '        "resetDay": %s,\n' "${reset_day:-$DEFAULT_RESET_DAY}"
-                    printf '        "warningThreshold": %s,\n' "${warning_threshold:-$DEFAULT_WARNING_THRESHOLD}"
-                    printf '        "warningShown": %s,\n' "${warning_shown:-false}"
-                    printf '        "warningThresholdShown": %s,\n' "${warning_threshold_shown:-false}"
-                    printf '        "warningOverlimitShown": %s\n' "${warning_overlimit_shown:-false}"
-                    printf '    },\n'
-                    printf '    "usage": %s\n' "$current_usage"
-                    printf '}\n'
-                    ;;
-            esac
+            handle_get_action "${QUERY_STRING}"
             ;;
         *)
             send_error "Method not allowed" 405
