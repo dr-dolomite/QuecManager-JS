@@ -13,10 +13,8 @@ LOG_CATEGORY="services"
 # Configuration file path
 CONFIG_DIR="/etc/quecmanager"
 CONFIG_FILE="$CONFIG_DIR/data_usage"
-BACKUP_DIR="/tmp/data_usage_backups"
 
 # Default configuration values
-DEFAULT_ENABLED="false"
 DEFAULT_LIMIT="10737418240"  # 10GB in bytes
 DEFAULT_BACKUP_INTERVAL="12"  # hours
 DEFAULT_RESET_DAY="1"  # 1st day of month
@@ -26,17 +24,14 @@ DEFAULT_WARNING_THRESHOLD="90"  # 90% of limit
 create_directories() {
     # Try to create directories, ignore errors if they already exist or can't be created
     [ ! -d "$CONFIG_DIR" ] && mkdir -p "$CONFIG_DIR" 2>/dev/null
-    [ ! -d "$BACKUP_DIR" ] && mkdir -p "$BACKUP_DIR" 2>/dev/null
     
     # Set permissions if directories were created successfully
     [ -d "$CONFIG_DIR" ] && chmod 755 "$CONFIG_DIR" 2>/dev/null
-    [ -d "$BACKUP_DIR" ] && chmod 755 "$BACKUP_DIR" 2>/dev/null
 }
 
 # Initialize directories
 create_directories
 
-# Logging function
 # Send HTTP error response
 send_error() {
     local message="$1"
@@ -74,7 +69,7 @@ init_config() {
 # Data Usage Tracking Configuration
 # Generated on $(date)
 
-ENABLED=$DEFAULT_ENABLED
+ENABLED=false
 MONTHLY_LIMIT=$DEFAULT_LIMIT
 BACKUP_INTERVAL=$DEFAULT_BACKUP_INTERVAL
 RESET_DAY=$DEFAULT_RESET_DAY
@@ -97,7 +92,7 @@ EOF
 
 # Recreate config file (used when enabling/disabling feature)
 recreate_config() {
-    local enabled_state="${1:-$DEFAULT_ENABLED}"
+    local enabled_state="${1:-false}"
     
     qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Recreating config file with enabled=$enabled_state"
     
@@ -202,6 +197,16 @@ parse_json_value() {
     
     # Extract value for the given key using sed
     echo "$json" | sed -n "s/.*\"$key\"[[:space:]]*:[[:space:]]*\([^,}]*\).*/\1/p" | tr -d '"' | tr -d ' '
+}
+
+# Normalize boolean values to "true" or "false"
+normalize_boolean() {
+    local value="$1"
+    case "$value" in
+        "true"|"1") echo "true" ;;
+        "false"|"0") echo "false" ;;
+        *) echo "false" ;;
+    esac
 }
 
 # Helper function to send JSON HTTP response headers
@@ -728,11 +733,7 @@ handle_post() {
     # Validate and update configuration
     if [ -n "$enabled" ]; then
         # Normalize boolean values
-        case "$enabled" in
-            "true"|"1") enabled="true" ;;
-            "false"|"0") enabled="false" ;;
-            *) enabled="false" ;;
-        esac
+        enabled=$(normalize_boolean "$enabled")
         
         # Get current enabled state to detect changes
         local current_enabled="false"
@@ -768,39 +769,23 @@ handle_post() {
         [ -n "$warning_threshold" ] && [ "$warning_threshold" -ge 1 ] && [ "$warning_threshold" -le 100 ] && set_config "WARNING_THRESHOLD" "$warning_threshold"
         
         if [ -n "$warning_shown" ]; then
-            case "$warning_shown" in
-                "true"|"1") warning_shown="true" ;;
-                "false"|"0") warning_shown="false" ;;
-                *) warning_shown="false" ;;
-            esac
+            warning_shown=$(normalize_boolean "$warning_shown")
             set_config "WARNING_SHOWN" "$warning_shown"
         fi
         
         if [ -n "$warning_threshold_shown" ]; then
-            case "$warning_threshold_shown" in
-                "true"|"1") warning_threshold_shown="true" ;;
-                "false"|"0") warning_threshold_shown="false" ;;
-                *) warning_threshold_shown="false" ;;
-            esac
+            warning_threshold_shown=$(normalize_boolean "$warning_threshold_shown")
             set_config "WARNING_THRESHOLD_SHOWN" "$warning_threshold_shown"
         fi
         
         if [ -n "$warning_overlimit_shown" ]; then
-            case "$warning_overlimit_shown" in
-                "true"|"1") warning_overlimit_shown="true" ;;
-                "false"|"0") warning_overlimit_shown="false" ;;
-                *) warning_overlimit_shown="false" ;;
-            esac
+            warning_overlimit_shown=$(normalize_boolean "$warning_overlimit_shown")
             set_config "WARNING_OVERLIMIT_SHOWN" "$warning_overlimit_shown"
         fi
         
         # Handle automated backup enabled/disabled
         if [ -n "$auto_backup_enabled" ]; then
-            case "$auto_backup_enabled" in
-                "true"|"1") auto_backup_enabled="true" ;;
-                "false"|"0") auto_backup_enabled="false" ;;
-                *) auto_backup_enabled="false" ;;
-            esac
+            auto_backup_enabled=$(normalize_boolean "$auto_backup_enabled")
             set_config "AUTO_BACKUP_ENABLED" "$auto_backup_enabled"
         fi
     fi
