@@ -219,6 +219,7 @@ build_config_usage_response() {
     local enabled=$(get_config "ENABLED")
     local monthly_limit=$(get_config "MONTHLY_LIMIT")
     local backup_interval=$(get_config "BACKUP_INTERVAL")
+    local auto_backup_enabled=$(get_config "AUTO_BACKUP_ENABLED")
     local reset_day=$(get_config "RESET_DAY")
     local warning_threshold=$(get_config "WARNING_THRESHOLD")
     local warning_shown=$(get_config "WARNING_SHOWN")
@@ -236,12 +237,14 @@ build_config_usage_response() {
         enabled=${enabled:-false}
         monthly_limit=${DEFAULT_LIMIT:-10737418240}
         backup_interval=${DEFAULT_BACKUP_INTERVAL:-12}
+        auto_backup_enabled=${auto_backup_enabled:-false}
         reset_day=${DEFAULT_RESET_DAY:-1}
         warning_threshold=${DEFAULT_WARNING_THRESHOLD:-90}
     else
         enabled=${enabled:-true}
         monthly_limit=${monthly_limit:-10737418240}
         backup_interval=${backup_interval:-12}
+        auto_backup_enabled=${auto_backup_enabled:-false}
         reset_day=${reset_day:-1}
         warning_threshold=${warning_threshold:-90}
     fi
@@ -257,6 +260,7 @@ build_config_usage_response() {
         "enabled": %s,
         "monthlyLimit": %s,
         "backupInterval": %s,
+        "autoBackupEnabled": %s,
         "resetDay": %s,
         "warningThreshold": %s,
         "warningShown": %s,
@@ -265,7 +269,7 @@ build_config_usage_response() {
         "lastBackup": %s
     },
     "usage": %s
-}' "$enabled" "$monthly_limit" "$backup_interval" "$reset_day" "$warning_threshold" "$warning_shown" "$warning_threshold_shown" "$warning_overlimit_shown" "$last_backup" "$usage_data"
+}' "$enabled" "$monthly_limit" "$backup_interval" "$auto_backup_enabled" "$reset_day" "$warning_threshold" "$warning_shown" "$warning_threshold_shown" "$warning_overlimit_shown" "$last_backup" "$usage_data"
 }
 
 # Helper function to send successful JSON response
@@ -294,6 +298,21 @@ handle_get_action() {
             create_backup
             send_json_headers
             printf '{"success": true, "message": "Backup created successfully"}\n'
+            ;;
+        *"action=toggle_backup"*)
+            # Handle backup service toggle
+            local enabled_param
+            if echo "$query_string" | grep -q "enabled=true"; then
+                enabled_param="true"
+            elif echo "$query_string" | grep -q "enabled=false"; then
+                enabled_param="false"
+            else
+                send_json_headers
+                printf '{"success": false, "message": "Missing enabled parameter"}\n'
+                exit 1
+            fi
+            
+            toggle_backup_service "$enabled_param"
             ;;
         *"action=get_current_usage"*)
             init_config
@@ -635,6 +654,46 @@ create_backup() {
     qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Manual backup completed: stored tx=$new_tx rx=$new_rx"
 }
 
+# Toggle backup service (enable/disable procd service)
+toggle_backup_service() {
+    local enabled="$1"
+    
+    if [ "$enabled" = "true" ]; then
+        # Enable and start the service
+        if /etc/init.d/quecmanager_data_usage enable 2>/dev/null; then
+            qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Backup service enabled successfully"
+            
+            if /etc/init.d/quecmanager_data_usage start 2>/dev/null; then
+                qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Backup service started successfully"
+                send_json_headers
+                printf '{"success": true, "message": "Backup service enabled and started"}\n'
+            else
+                qm_log_warn "$LOG_CATEGORY" "$SCRIPT_NAME" "Backup service enabled but failed to start"
+                send_json_headers
+                printf '{"success": true, "message": "Backup service enabled but failed to start"}\n'
+            fi
+        else
+            qm_log_error "$LOG_CATEGORY" "$SCRIPT_NAME" "Failed to enable backup service"
+            send_json_headers
+            printf '{"success": false, "message": "Failed to enable backup service"}\n'
+        fi
+    else
+        # Stop and disable the service
+        /etc/init.d/quecmanager_data_usage stop 2>/dev/null
+        qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Backup service stopped"
+        
+        if /etc/init.d/quecmanager_data_usage disable 2>/dev/null; then
+            qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Backup service disabled successfully"
+            send_json_headers
+            printf '{"success": true, "message": "Backup service stopped and disabled"}\n'
+        else
+            qm_log_warn "$LOG_CATEGORY" "$SCRIPT_NAME" "Backup service stopped but failed to disable"
+            send_json_headers
+            printf '{"success": true, "message": "Backup service stopped but failed to disable"}\n'
+        fi
+    fi
+}
+
 # Handle POST requests for configuration updates
 handle_post() {
     # Read POST data from stdin
@@ -659,6 +718,7 @@ handle_post() {
     local enabled=$(parse_json_value "$post_data" "enabled")
     local limit=$(parse_json_value "$post_data" "monthlyLimit")
     local interval=$(parse_json_value "$post_data" "backupInterval")
+    local auto_backup_enabled=$(parse_json_value "$post_data" "autoBackupEnabled")
     local reset_day=$(parse_json_value "$post_data" "resetDay")
     local warning_threshold=$(parse_json_value "$post_data" "warningThreshold")
     local warning_shown=$(parse_json_value "$post_data" "warningShown")
@@ -732,6 +792,16 @@ handle_post() {
                 *) warning_overlimit_shown="false" ;;
             esac
             set_config "WARNING_OVERLIMIT_SHOWN" "$warning_overlimit_shown"
+        fi
+        
+        # Handle automated backup enabled/disabled
+        if [ -n "$auto_backup_enabled" ]; then
+            case "$auto_backup_enabled" in
+                "true"|"1") auto_backup_enabled="true" ;;
+                "false"|"0") auto_backup_enabled="false" ;;
+                *) auto_backup_enabled="false" ;;
+            esac
+            set_config "AUTO_BACKUP_ENABLED" "$auto_backup_enabled"
         fi
     fi
     

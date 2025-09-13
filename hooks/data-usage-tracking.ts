@@ -17,6 +17,7 @@ interface DataUsageConfig {
   enabled: boolean;
   monthlyLimit: number; // in bytes
   backupInterval: number; // in hours
+  autoBackupEnabled: boolean; // whether automated backups are enabled
   resetDay: number; // day of month (1-28)
   warningThreshold: number; // percentage (1-100)
   warningShown: boolean; // Legacy - keep for compatibility
@@ -41,6 +42,7 @@ const useDataUsageTracking = () => {
     enabled: false,
     monthlyLimit: 10737418240, // 10GB default
     backupInterval: 12,
+    autoBackupEnabled: false,
     resetDay: 1,
     warningThreshold: 90,
     warningShown: false,
@@ -142,6 +144,10 @@ const useDataUsageTracking = () => {
     try {
       setError(null);
       
+      // Check if autoBackupEnabled is being changed
+      const isBackupToggleChanged = 'autoBackupEnabled' in newConfig && 
+        newConfig.autoBackupEnabled !== config.autoBackupEnabled;
+      
       const response = await fetch("/cgi-bin/quecmanager/experimental/data_usage_tracking/config_manager.sh", {
         method: "POST",
         headers: {
@@ -157,6 +163,22 @@ const useDataUsageTracking = () => {
       const result = await response.json();
       
       if (result.success) {
+        // If backup toggle was changed, also call the service toggle API
+        if (isBackupToggleChanged) {
+          try {
+            const serviceResponse = await fetch(
+              `/cgi-bin/quecmanager/experimental/data_usage_tracking/config_manager.sh?action=toggle_backup&enabled=${newConfig.autoBackupEnabled}`,
+              { method: "GET" }
+            );
+            
+            if (!serviceResponse.ok) {
+              console.warn("Failed to toggle backup service, but config was saved");
+            }
+          } catch (serviceErr) {
+            console.warn("Error toggling backup service:", serviceErr);
+          }
+        }
+        
         // Update local state
         setConfig(prev => ({ ...prev, ...newConfig }));
         
@@ -181,7 +203,7 @@ const useDataUsageTracking = () => {
       
       return false;
     }
-  }, [toast]);
+  }, [toast, config.autoBackupEnabled]);
 
   // Reset usage data
   const resetUsage = useCallback(async (): Promise<boolean> => {

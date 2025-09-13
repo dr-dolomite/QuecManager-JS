@@ -239,6 +239,25 @@ const DataUsageTracking = () => {
                       />
                     </div>
 
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-1">
+                        <Label htmlFor="autoBackup">Automated Backups</Label>
+                        <p className="text-sm text-muted-foreground">
+                          Enable automatic data usage backups
+                        </p>
+                      </div>
+                      <Switch
+                        id="autoBackup"
+                        checked={tempConfig.autoBackupEnabled || false}
+                        onCheckedChange={(checked) =>
+                          setTempConfig({
+                            ...tempConfig,
+                            autoBackupEnabled: checked,
+                          })
+                        }
+                      />
+                    </div>
+
                     <div className="space-y-2">
                       <Label htmlFor="interval">Backup Interval</Label>
                       <Select
@@ -249,6 +268,7 @@ const DataUsageTracking = () => {
                             backupInterval: parseInt(value),
                           })
                         }
+                        disabled={!tempConfig.autoBackupEnabled}
                       >
                         <SelectTrigger>
                           <SelectValue />
