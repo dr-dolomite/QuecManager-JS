@@ -4,15 +4,16 @@
 # Independent service that provides real-time data usage accumulation
 # Updates /tmp/quecmanager/modem_counter.json every 65 seconds
 
+# Source centralized logging
+. "/www/cgi-bin/services/quecmanager_logger.sh"
+
 CONFIG_FILE="/etc/quecmanager/data_usage"
 DATA_FILE="/www/signal_graphs/data_usage.json"
 OUTPUT_FILE="/tmp/quecmanager/modem_counter.json"
-LOG_FILE="/tmp/quecmanager_modem_counter.log"
 
-# Simple logging
-log() {
-    echo "$(date '+%Y-%m-%d %H:%M:%S') [$$] $1" >> "$LOG_FILE"
-}
+# Logging configuration
+LOG_CATEGORY="daemon"
+SCRIPT_NAME="modem_counter_daemon"
 
 # Get config value
 get_config() {
@@ -106,7 +107,7 @@ update_counter() {
     # Check if data usage tracking is enabled
     local enabled=$(get_config "ENABLED")
     if [ "$enabled" != "true" ]; then
-        log "Data usage tracking disabled, creating empty response"
+        qm_log_debug "$LOG_CATEGORY" "$SCRIPT_NAME" "Data usage tracking disabled, creating empty response"
         printf '{"enabled":false,"upload":0,"download":0,"total":0,"timestamp":%s}\n' "$(date +%s)" > "$OUTPUT_FILE"
         return
     fi
@@ -124,8 +125,8 @@ update_counter() {
     session_upload=${session_upload:-0}
     session_download=${session_download:-0}
     
-    log "Session: upload=$session_upload, download=$session_download"
-    log "Stored: upload=$stored_upload, download=$stored_download"
+    qm_log_debug "$LOG_CATEGORY" "$SCRIPT_NAME" "Session: upload=$session_upload, download=$session_download"
+    qm_log_debug "$LOG_CATEGORY" "$SCRIPT_NAME" "Stored: upload=$stored_upload, download=$stored_download"
     
     # Apply the accumulation logic: if stored > session then add, else replace
     local final_upload
@@ -134,21 +135,21 @@ update_counter() {
     if [ "$stored_upload" -gt "$session_upload" ]; then
         # Counter reset detected - preserve stored + add session
         final_upload=$((stored_upload + session_upload))
-        log "Upload reset detected: $stored_upload + $session_upload = $final_upload"
+        qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Upload reset detected: $stored_upload + $session_upload = $final_upload"
     else
         # Normal case - use session total
         final_upload=$session_upload
-        log "Upload normal: $session_upload"
+        qm_log_debug "$LOG_CATEGORY" "$SCRIPT_NAME" "Upload normal: $session_upload"
     fi
     
     if [ "$stored_download" -gt "$session_download" ]; then
         # Counter reset detected - preserve stored + add session
         final_download=$((stored_download + session_download))
-        log "Download reset detected: $stored_download + $session_download = $final_download"
+        qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Download reset detected: $stored_download + $session_download = $final_download"
     else
         # Normal case - use session total
         final_download=$session_download
-        log "Download normal: $session_download"
+        qm_log_debug "$LOG_CATEGORY" "$SCRIPT_NAME" "Download normal: $session_download"
     fi
     
     local total_usage=$((final_upload + final_download))
@@ -158,16 +159,15 @@ update_counter() {
     printf '{"enabled":true,"upload":%s,"download":%s,"total":%s,"timestamp":%s}\n' \
         "$final_upload" "$final_download" "$total_usage" "$timestamp" > "$OUTPUT_FILE"
     
-    log "Updated counter: upload=$final_upload, download=$final_download, total=$total_usage"
+    qm_log_debug "$LOG_CATEGORY" "$SCRIPT_NAME" "Updated counter: upload=$final_upload, download=$final_download, total=$total_usage"
 }
 
 # Main loop
 main() {
-    log "QuecManager modem counter daemon started"
+    qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "QuecManager modem counter daemon started"
     
     # Create output directory
     mkdir -p "$(dirname "$OUTPUT_FILE")"
-    mkdir -p "$(dirname "$LOG_FILE")"
     
     # Initial update
     update_counter
@@ -180,7 +180,7 @@ main() {
 
 # Signal handlers for clean shutdown
 shutdown() {
-    log "QuecManager modem counter daemon shutting down"
+    qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "QuecManager modem counter daemon shutting down"
     rm -f "$OUTPUT_FILE"
     exit 0
 }

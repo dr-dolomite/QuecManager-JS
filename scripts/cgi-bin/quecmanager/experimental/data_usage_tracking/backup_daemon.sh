@@ -3,22 +3,23 @@
 # Simple Data Usage Backup Daemon
 # Periodically compares latest data_usage.json with stored config values
 
+# Source centralized logging
+. "/www/cgi-bin/services/quecmanager_logger.sh"
+
 CONFIG_FILE="/etc/quecmanager/data_usage"
 DATA_FILE="/www/signal_graphs/data_usage.json"
-LOG_FILE="/tmp/data_usage_daemon.log"
 PID_FILE="/var/run/data_usage_backup.pid"
+
+# Logging configuration
+LOG_CATEGORY="daemon"
+SCRIPT_NAME="backup_daemon"
 
 # Store PID
 echo $$ > "$PID_FILE"
 
-# Simple logging
-log() {
-    echo "$(date '+%Y-%m-%d %H:%M:%S') [$$] $1" >> "$LOG_FILE"
-}
-
 # Clean exit
 cleanup() {
-    log "Backup daemon shutting down"
+    qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Backup daemon shutting down"
     rm -f "$PID_FILE"
     exit 0
 }
@@ -73,7 +74,7 @@ get_latest_usage() {
     ' "$DATA_FILE")
     
     if [ -z "$last_entry" ]; then
-        log "No complete JSON entries found in data file"
+        qm_log_warn "$LOG_CATEGORY" "$SCRIPT_NAME" "No complete JSON entries found in data file"
         echo "0 0"
         return
     fi
@@ -82,7 +83,7 @@ get_latest_usage() {
     local output_data=$(echo "$last_entry" | sed 's/.*"output"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/')
     
     if [ -z "$output_data" ] || [ "$output_data" = "$last_entry" ]; then
-        log "Failed to extract output data from JSON entry"
+        qm_log_error "$LOG_CATEGORY" "$SCRIPT_NAME" "Failed to extract output data from JSON entry"
         echo "0 0"
         return
     fi
@@ -125,7 +126,7 @@ get_latest_usage() {
 
 # Perform backup logic
 do_backup() {
-    log "Performing backup check..."
+    qm_log_debug "$LOG_CATEGORY" "$SCRIPT_NAME" "Performing backup check..."
     
     # Get current modem usage
     local current=$(get_latest_usage)
@@ -138,7 +139,7 @@ do_backup() {
     stored_tx=${stored_tx:-0}
     stored_rx=${stored_rx:-0}
     
-    log "Current modem: tx=$curr_tx rx=$curr_rx, Stored: tx=$stored_tx rx=$stored_rx"
+    qm_log_debug "$LOG_CATEGORY" "$SCRIPT_NAME" "Current modem: tx=$curr_tx rx=$curr_rx, Stored: tx=$stored_tx rx=$stored_rx"
     
         # Compare and update logic
     local new_tx new_rx
@@ -146,21 +147,21 @@ do_backup() {
     if [ "$stored_tx" -gt "$curr_tx" ]; then
         # Counter reset detected (reboot) - preserve stored + add new session
         new_tx=$((stored_tx + curr_tx))
-        log "TX counter reset detected, preserving stored value: $stored_tx + $curr_tx = $new_tx"
+        qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "TX counter reset detected, preserving stored value: $stored_tx + $curr_tx = $new_tx"
     else
         # Normal case - just store current session total
         new_tx=$curr_tx
-        log "TX normal update: $curr_tx"
+        qm_log_debug "$LOG_CATEGORY" "$SCRIPT_NAME" "TX normal update: $curr_tx"
     fi
     
     if [ "$stored_rx" -gt "$curr_rx" ]; then
         # Counter reset detected (reboot) - preserve stored + add new session
         new_rx=$((stored_rx + curr_rx))
-        log "RX counter reset detected, preserving stored value: $stored_rx + $curr_rx = $new_rx"
+        qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "RX counter reset detected, preserving stored value: $stored_rx + $curr_rx = $new_rx"
     else
         # Normal case - just store current session total
         new_rx=$curr_rx
-        log "RX normal update: $curr_rx"
+        qm_log_debug "$LOG_CATEGORY" "$SCRIPT_NAME" "RX normal update: $curr_rx"
     fi
     
     # Update config
@@ -168,24 +169,24 @@ do_backup() {
     set_config "STORED_DOWNLOAD" "$new_rx"
     set_config "LAST_BACKUP" "$(date +%s)"
     
-    log "Backup completed: stored tx=$new_tx rx=$new_rx"
+    qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Backup completed: stored tx=$new_tx rx=$new_rx"
 }
 
 # Main loop
 main() {
-    log "Backup daemon started"
+    qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Backup daemon started"
     
     # Check if data usage tracking is enabled
     local enabled=$(get_config "ENABLED")
     if [ "$enabled" != "true" ]; then
-        log "Data usage tracking disabled, exiting"
+        qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Data usage tracking disabled, exiting"
         exit 0
     fi
     
     # Check if automated backup is enabled
     local auto_backup_enabled=$(get_config "AUTO_BACKUP_ENABLED")
     if [ "$auto_backup_enabled" != "true" ]; then
-        log "Automated backup disabled, exiting"
+        qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Automated backup disabled, exiting"
         exit 0
     fi
     
@@ -214,28 +215,28 @@ main() {
                 ;;
         esac
         
-        log "Sleeping for ${interval}h (${sleep_seconds}s)"
+        qm_log_debug "$LOG_CATEGORY" "$SCRIPT_NAME" "Sleeping for ${interval}h (${sleep_seconds}s)"
         
         sleep "$sleep_seconds"
         
         # Check if still enabled
         local enabled=$(get_config "ENABLED")
         if [ "$enabled" != "true" ]; then
-            log "Service disabled, exiting"
+            qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Service disabled, exiting"
             break
         fi
         
         # Check if automated backup is enabled
         local auto_backup_enabled=$(get_config "AUTO_BACKUP_ENABLED")
         if [ "$auto_backup_enabled" != "true" ]; then
-            log "Automated backup disabled, exiting"
+            qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Automated backup disabled, exiting"
             break
         fi
         
         do_backup
     done
     
-    log "Daemon exiting"
+    qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Daemon exiting"
 }
 
 # Create config directory if needed

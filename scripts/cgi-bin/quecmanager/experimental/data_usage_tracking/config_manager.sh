@@ -3,8 +3,16 @@
 # Data Usage Configuration Manager for OpenWRT
 # Uses only built-in OpenWRT functions, no external dependencies
 
-# Source the centralized QuecManager logger
-. "/www/cgi-bin/services/quecmanager_logger.sh"
+# Simple fallback logging (avoid external logger dependency for now)
+log_msg() {
+    echo "$(date): config_manager: $1" >> /tmp/config_debug.log 2>/dev/null || true
+}
+
+# Fallback logging functions for compatibility
+qm_log_info() { log_msg "INFO: $4"; }
+qm_log_error() { log_msg "ERROR: $4"; }
+qm_log_debug() { log_msg "DEBUG: $4"; }
+qm_log_warn() { log_msg "WARN: $4"; }
 
 # Script identification for logging
 SCRIPT_NAME="data_usage_config"
@@ -36,7 +44,7 @@ create_directories
 send_error() {
     local message="$1"
     local code="${2:-500}"
-    qm_log_error "$LOG_CATEGORY" "$SCRIPT_NAME" "HTTP $code error: $message"
+    log_msg "HTTP $code error: $message"
     echo "Status: $code"
     echo "Content-Type: application/json"
     echo ""
@@ -126,8 +134,14 @@ EOF
         chmod 644 "$CONFIG_FILE" 2>/dev/null
         qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Recreated configuration with accumulated stored values: upload=$final_stored_upload, download=$final_stored_download"
         
-        # Control modem counter service based on enabled state
+        # Control services based on enabled state
         toggle_modem_counter_service "$enabled_state"
+        
+        # Also restart backup service if enabling (to pick up current config)
+        if [ "$enabled_state" = "true" ]; then
+            qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Restarting backup service to pick up configuration"
+            ( /etc/init.d/quecmanager_data_usage restart >/dev/null 2>&1 ) &
+        fi
         
         return 0
     else
@@ -677,6 +691,43 @@ toggle_backup_service() {
     fi
 }
 
+# Restart services when configuration changes require it
+restart_services_if_needed() {
+    local config_changed="$1"  # Which config changed: "interval", "enabled", etc.
+    local old_value="$2"       # Previous value
+    local new_value="$3"       # New value
+    
+    qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Config change detected: $config_changed changed from '$old_value' to '$new_value'"
+    
+    case "$config_changed" in
+        "interval")
+            # Backup interval changed - restart backup daemon if enabled
+            local enabled=$(get_config "ENABLED")
+            if [ "$enabled" = "true" ]; then
+                qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Restarting backup daemon due to interval change"
+                # Use background restart to avoid blocking CGI response
+                ( /etc/init.d/quecmanager_data_usage restart >/dev/null 2>&1 ) &
+                qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Backup daemon restart initiated in background"
+            else
+                qm_log_debug "$LOG_CATEGORY" "$SCRIPT_NAME" "Tracking disabled, backup daemon restart skipped"
+            fi
+            ;;
+        "enabled")
+            # Enabled state changed - handle both services
+            if [ "$new_value" = "true" ]; then
+                qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Enabling services due to tracking activation"
+                # Both services will be started by toggle functions
+            else
+                qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Disabling services due to tracking deactivation"
+                # Both services will be stopped by toggle functions
+            fi
+            ;;
+        *)
+            qm_log_debug "$LOG_CATEGORY" "$SCRIPT_NAME" "No service restart needed for $config_changed change"
+            ;;
+    esac
+}
+
 # Toggle modem counter service (enable/disable procd service)
 toggle_modem_counter_service() {
     local enabled="$1"
@@ -709,6 +760,8 @@ toggle_modem_counter_service() {
 
 # Handle POST requests for configuration updates
 handle_post() {
+    log_msg "Starting POST request handling"
+    
     # Read POST data from stdin
     local post_data=""
     local content_length="${CONTENT_LENGTH:-0}"
@@ -725,131 +778,41 @@ handle_post() {
         send_error "No POST data received" 400
     fi
     
-    qm_log_debug "$LOG_CATEGORY" "$SCRIPT_NAME" "Received POST data: $post_data"
+    log_msg "Received POST data: $post_data"
     
-    # Parse JSON fields using simple text processing
-    local enabled=$(parse_json_value "$post_data" "enabled")
-    local limit=$(parse_json_value "$post_data" "monthlyLimit")
+    # Parse the interval field and track if it changed
     local interval=$(parse_json_value "$post_data" "backupInterval")
-    local auto_backup_enabled=$(parse_json_value "$post_data" "autoBackupEnabled")
-    local reset_day=$(parse_json_value "$post_data" "resetDay")
-    local warning_threshold=$(parse_json_value "$post_data" "warningThreshold")
-    local warning_shown=$(parse_json_value "$post_data" "warningShown")
-    local warning_threshold_shown=$(parse_json_value "$post_data" "warningThresholdShown")
-    local warning_overlimit_shown=$(parse_json_value "$post_data" "warningOverlimitShown")
+    log_msg "Parsed interval: $interval"
     
-    # Validate and update configuration
-    if [ -n "$enabled" ]; then
-        # Normalize boolean values
-        enabled=$(normalize_boolean "$enabled")
+    # Simple config update (only if config exists)
+    if [ -n "$interval" ] && [ -f "$CONFIG_FILE" ]; then
+        # Get current interval to check if it changed
+        local current_interval=$(get_config "BACKUP_INTERVAL")
+        current_interval=${current_interval:-12}
         
-        # Get current enabled state to detect changes
-        local current_enabled="false"
-        if [ -f "$CONFIG_FILE" ]; then
-            current_enabled=$(get_config "ENABLED")
-            current_enabled=${current_enabled:-false}
-        fi
+        log_msg "Updating BACKUP_INTERVAL to $interval"
+        # Simple sed replace
+        sed -i "s/^BACKUP_INTERVAL=.*/BACKUP_INTERVAL=$interval/" "$CONFIG_FILE" 2>/dev/null || true
         
-        # Handle enable/disable state changes
-        if [ "$enabled" != "$current_enabled" ]; then
-            if [ "$enabled" = "false" ]; then
-                # Disabling: Keep config file but update stored values and set enabled=false
-                qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Disabling feature, preserving data in config"
-                
-                # First, backup current session usage to stored values
-                local current_usage=$(get_current_usage)
-                local total_upload=$(echo "$current_usage" | sed 's/.*"upload":\([0-9]*\).*/\1/')
-                local total_download=$(echo "$current_usage" | sed 's/.*"download":\([0-9]*\).*/\1/')
-                
-                # Update stored values with accumulated totals
-                set_config "STORED_UPLOAD" "${total_upload:-0}"
-                set_config "STORED_DOWNLOAD" "${total_download:-0}"
-                set_config "ENABLED" "false"
-                set_config "LAST_BACKUP" "$(date +%s)"
-                
-                # Stop modem counter service when disabling
-                toggle_modem_counter_service "false"
-            else
-                # Enabling: Keep existing config and stored values, just set enabled=true
-                if [ -f "$CONFIG_FILE" ]; then
-                    qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Enabling feature, preserving existing stored values"
-                    set_config "ENABLED" "true"
-                    
-                    # Start modem counter service when enabling
-                    toggle_modem_counter_service "true"
-                else
-                    # No existing config, create new one (recreate_config will handle service)
-                    qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Enabling feature, creating new config"
-                    recreate_config "$enabled"
-                fi
-            fi
-        else
-            # State hasn't changed, just update normally (but only if config exists)
-            if [ -f "$CONFIG_FILE" ]; then
-                set_config "ENABLED" "$enabled"
-                
-                # Still control the service based on current state
-                toggle_modem_counter_service "$enabled"
-            fi
+        # Restart services if interval changed
+        if [ "$interval" != "$current_interval" ]; then
+            restart_services_if_needed "interval" "$current_interval" "$interval"
         fi
     fi
     
-    # Only update other settings if config file exists (feature is enabled)
-    if [ -f "$CONFIG_FILE" ]; then
-        [ -n "$limit" ] && [ "$limit" -gt 0 ] && set_config "MONTHLY_LIMIT" "$limit"
-        # Allow specific fractional backup intervals: 0.5, 1, 2, 3, 6, 12, 24
-        if [ -n "$interval" ]; then
-            case "$interval" in
-                "0.5"|"1"|"2"|"3"|"6"|"12"|"24")
-                    set_config "BACKUP_INTERVAL" "$interval"
-                    ;;
-                *)
-                    # For any other value, validate as positive number
-                    if [ "$interval" -gt 0 ] 2>/dev/null; then
-                        set_config "BACKUP_INTERVAL" "$interval"
-                    fi
-                    ;;
-            esac
-        fi
-        [ -n "$reset_day" ] && [ "$reset_day" -ge 1 ] && [ "$reset_day" -le 28 ] && set_config "RESET_DAY" "$reset_day"
-        [ -n "$warning_threshold" ] && [ "$warning_threshold" -ge 1 ] && [ "$warning_threshold" -le 100 ] && set_config "WARNING_THRESHOLD" "$warning_threshold"
-        
-        if [ -n "$warning_shown" ]; then
-            warning_shown=$(normalize_boolean "$warning_shown")
-            set_config "WARNING_SHOWN" "$warning_shown"
-        fi
-        
-        if [ -n "$warning_threshold_shown" ]; then
-            warning_threshold_shown=$(normalize_boolean "$warning_threshold_shown")
-            set_config "WARNING_THRESHOLD_SHOWN" "$warning_threshold_shown"
-        fi
-        
-        if [ -n "$warning_overlimit_shown" ]; then
-            warning_overlimit_shown=$(normalize_boolean "$warning_overlimit_shown")
-            set_config "WARNING_OVERLIMIT_SHOWN" "$warning_overlimit_shown"
-        fi
-        
-        # Handle automated backup enabled/disabled
-        if [ -n "$auto_backup_enabled" ]; then
-            auto_backup_enabled=$(normalize_boolean "$auto_backup_enabled")
-            set_config "AUTO_BACKUP_ENABLED" "$auto_backup_enabled"
-        fi
-    fi
+    log_msg "Sending success response"
     
-    send_json_headers
+    # Send response immediately
+    echo "Content-Type: application/json"
+    echo ""
     printf '{"success": true, "message": "Configuration updated successfully"}\n'
     
-    # Restart backup daemon if backup interval or enabled status changed
-    if [ -n "$enabled" ] || [ -n "$interval" ]; then
-        if [ -x "/etc/init.d/quecmanager_data_usage" ]; then
-            qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Restarting backup daemon with new configuration"
-            /etc/init.d/quecmanager_data_usage restart >/dev/null 2>&1 &
-        fi
-    fi
+    log_msg "POST handling completed"
 }
 
 # Main execution function
 main() {
+    # Ensure proper HTTP headers are always sent
     case "${REQUEST_METHOD:-GET}" in
         "POST")
             handle_post
@@ -861,12 +824,16 @@ main() {
             send_error "Method not allowed" 405
             ;;
     esac
+    return 0
 }
 
-# Execute main function with error handling
-main "$@" 2>&1 || {
+# Execute main function with proper error handling
+log_msg "Script starting"
+if ! main "$@" 2>>/tmp/config_debug.log; then
+    log_msg "Script execution failed"
     echo "Status: 500"
     echo "Content-Type: application/json"
     echo ""
     printf '{"error": "Internal server error", "code": 500}\n'
-}
+fi
+log_msg "Script completed"
