@@ -80,6 +80,7 @@ const DataUsageTracking = () => {
     closeWarning,
     refresh,
     formatBytes,
+    formatDate,
   } = useDataUsageTracking();
 
   const [tempConfig, setTempConfig] = useState(config);
@@ -311,8 +312,12 @@ const DataUsageTracking = () => {
                 <div className="flex items-center space-x-3">
                   <AlertTriangle className="size-6" />
                   <div>
-                    <p className="text-sm font-medium">Data usage tracking is currently disabled.</p>
-                    <p className="text-sm">Enable it in settings to start monitoring your usage.</p>
+                    <p className="text-sm font-medium">
+                      Data usage tracking is currently disabled.
+                    </p>
+                    <p className="text-sm">
+                      Enable it in settings to start monitoring your usage.
+                    </p>
                   </div>
                 </div>
               </CardContent>
@@ -340,7 +345,7 @@ const DataUsageTracking = () => {
               </div>
 
               {/* Usage Statistics */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                 <Card>
                   <CardContent className="p-4">
                     <div className="flex items-center space-x-3">
@@ -394,6 +399,12 @@ const DataUsageTracking = () => {
                     </div>
                   </CardContent>
                 </Card>
+              </div>
+
+              <div>
+                <CardDescription>
+                  Last Update: {formatDate(config.lastBackup)}
+                </CardDescription>
               </div>
 
               {/* Actions */}

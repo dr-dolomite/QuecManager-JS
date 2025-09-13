@@ -22,6 +22,7 @@ interface DataUsageConfig {
   warningShown: boolean; // Legacy - keep for compatibility
   warningThresholdShown: boolean; // Warning at threshold percentage
   warningOverlimitShown: boolean; // Warning when over 100%
+  lastBackup: number; // Unix timestamp of last backup/initialization
 }
 
 interface DataUsage {
@@ -45,6 +46,7 @@ const useDataUsageTracking = () => {
     warningShown: false,
     warningThresholdShown: false,
     warningOverlimitShown: false,
+    lastBackup: 0,
   });
 
   const [usage, setUsage] = useState<DataUsage>({
@@ -66,6 +68,12 @@ const useDataUsageTracking = () => {
     const sizes = ["Bytes", "KB", "MB", "GB", "TB"];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+  }, []);
+
+  // Format Unix timestamp to human readable date
+  const formatDate = useCallback((timestamp: number): string => {
+    if (timestamp === 0) return "Never";
+    return new Date(timestamp * 1000).toLocaleString();
   }, []);
 
   // Calculate usage percentage
@@ -325,6 +333,7 @@ const useDataUsageTracking = () => {
     closeWarning,
     refresh: fetchData,
     formatBytes,
+    formatDate,
   };
 };
 
