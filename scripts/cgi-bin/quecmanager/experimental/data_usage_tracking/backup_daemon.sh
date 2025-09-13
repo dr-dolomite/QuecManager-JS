@@ -33,9 +33,9 @@ get_config() {
 set_config() {
     local key="$1" value="$2"
     if grep -q "^$key=" "$CONFIG_FILE" 2>/dev/null; then
-        sed -i "s/^$key=.*/$key=\"$value\"/" "$CONFIG_FILE"
+        sed -i "s/^$key=.*/$key=$value/" "$CONFIG_FILE"
     else
-        echo "$key=\"$value\"" >> "$CONFIG_FILE"
+        echo "$key=$value" >> "$CONFIG_FILE"
     fi
 }
 
@@ -92,27 +92,27 @@ do_backup() {
     
     log "Current modem: tx=$curr_tx rx=$curr_rx, Stored: tx=$stored_tx rx=$stored_rx"
     
-    # Compare and update logic
+        # Compare and update logic
     local new_tx new_rx
     
     if [ "$stored_tx" -gt "$curr_tx" ]; then
-        # Counter reset detected - replace stored value
-        new_tx="$curr_tx"
-        log "TX counter reset detected, replacing stored value"
-    else
-        # Normal case - add current to stored
+        # Counter reset detected (reboot) - preserve stored + add new session
         new_tx=$((stored_tx + curr_tx))
-        log "TX accumulating: $stored_tx + $curr_tx = $new_tx"
+        log "TX counter reset detected, preserving stored value: $stored_tx + $curr_tx = $new_tx"
+    else
+        # Normal case - just store current session total
+        new_tx=$curr_tx
+        log "TX normal update: $curr_tx"
     fi
     
     if [ "$stored_rx" -gt "$curr_rx" ]; then
-        # Counter reset detected - replace stored value  
-        new_rx="$curr_rx"
-        log "RX counter reset detected, replacing stored value"
-    else
-        # Normal case - add current to stored
+        # Counter reset detected (reboot) - preserve stored + add new session
         new_rx=$((stored_rx + curr_rx))
-        log "RX accumulating: $stored_rx + $curr_rx = $new_rx"
+        log "RX counter reset detected, preserving stored value: $stored_rx + $curr_rx = $new_rx"
+    else
+        # Normal case - just store current session total
+        new_rx=$curr_rx
+        log "RX normal update: $curr_rx"
     fi
     
     # Update config
@@ -126,6 +126,20 @@ do_backup() {
 # Main loop
 main() {
     log "Backup daemon started"
+    
+    # Check if data usage tracking is enabled
+    local enabled=$(get_config "ENABLED")
+    if [ "$enabled" != "true" ]; then
+        log "Data usage tracking disabled, exiting"
+        exit 0
+    fi
+    
+    # Check if automated backup is enabled
+    local auto_backup_enabled=$(get_config "AUTO_BACKUP_ENABLED")
+    if [ "$auto_backup_enabled" != "true" ]; then
+        log "Automated backup disabled, exiting"
+        exit 0
+    fi
     
     # Initial backup
     do_backup
@@ -144,6 +158,13 @@ main() {
         local enabled=$(get_config "ENABLED")
         if [ "$enabled" != "true" ]; then
             log "Service disabled, exiting"
+            break
+        fi
+        
+        # Check if automated backup is enabled
+        local auto_backup_enabled=$(get_config "AUTO_BACKUP_ENABLED")
+        if [ "$auto_backup_enabled" != "true" ]; then
+            log "Automated backup disabled, exiting"
             break
         fi
         

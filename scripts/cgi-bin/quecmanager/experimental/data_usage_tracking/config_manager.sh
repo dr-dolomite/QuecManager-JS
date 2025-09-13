@@ -44,79 +44,68 @@ send_error() {
     exit 1
 }
 
-# Initialize default config if not exists
+# Initialize default config if not exists (only used for very first run)
 init_config() {
+    # This function should only be used for initial setup, not for regular operations
+    # Regular enable/disable should use recreate_config() instead
     if [ ! -f "$CONFIG_FILE" ]; then
-        # Ensure parent directory exists
-        create_directories
-        
-        # Get current session usage to initialize stored values
-        local current_session=$(get_session_usage)
-        qm_log_debug "$LOG_CATEGORY" "$SCRIPT_NAME" "Init session usage JSON: $current_session"
-        
-        local init_upload=$(echo "$current_session" | sed 's/.*"upload":\([0-9]*\).*/\1/')
-        local init_download=$(echo "$current_session" | sed 's/.*"download":\([0-9]*\).*/\1/')
-        local init_timestamp=$(date +%s)
-        
-        # Set defaults if parsing failed
-        init_upload=${init_upload:-0}
-        init_download=${init_download:-0}
-        
-        qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Initializing config with current usage: upload=$init_upload, download=$init_download from session: $current_session"
-        
-        # Try to create config file with current usage values
-        if cat > "$CONFIG_FILE" 2>/dev/null << EOF
-# Data Usage Tracking Configuration
-# Generated on $(date)
-
-ENABLED=false
-MONTHLY_LIMIT=$DEFAULT_LIMIT
-BACKUP_INTERVAL=$DEFAULT_BACKUP_INTERVAL
-RESET_DAY=$DEFAULT_RESET_DAY
-WARNING_THRESHOLD=$DEFAULT_WARNING_THRESHOLD
-STORED_UPLOAD=$init_upload
-STORED_DOWNLOAD=$init_download
-LAST_BACKUP=$init_timestamp
-WARNING_SHOWN=false
-WARNING_THRESHOLD_SHOWN=false
-WARNING_OVERLIMIT_SHOWN=false
-EOF
-        then
-            chmod 644 "$CONFIG_FILE" 2>/dev/null
-            qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Initialized default configuration"
-        else
-            qm_log_error "$LOG_CATEGORY" "$SCRIPT_NAME" "Failed to create config file: $CONFIG_FILE"
-        fi
+        qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Creating initial config file (first run)"
+        recreate_config "false"
     fi
 }
 
-# Recreate config file (used when enabling/disabling feature)
+# Recreate config file (primary function for enable/disable operations)
 recreate_config() {
     local enabled_state="${1:-false}"
     
-    qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Recreating config file with enabled=$enabled_state"
+    qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Creating config file with enabled=$enabled_state"
+    
+    # Get existing stored values before removing config (if any)
+    local existing_stored_upload=0
+    local existing_stored_download=0
+    if [ -f "$CONFIG_FILE" ]; then
+        existing_stored_upload=$(get_config "STORED_UPLOAD")
+        existing_stored_download=$(get_config "STORED_DOWNLOAD")
+        existing_stored_upload=${existing_stored_upload:-0}
+        existing_stored_download=${existing_stored_download:-0}
+        qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Preserving existing stored values: upload=$existing_stored_upload, download=$existing_stored_download"
+    fi
     
     # Remove old config
     rm -f "$CONFIG_FILE" 2>/dev/null
     
-    # Get current session usage to initialize stored values
+    # Get current session usage
     local current_session=$(get_session_usage)
     qm_log_debug "$LOG_CATEGORY" "$SCRIPT_NAME" "Session usage JSON: $current_session"
     
-    local init_upload=$(echo "$current_session" | sed 's/.*"upload":\([0-9]*\).*/\1/')
-    local init_download=$(echo "$current_session" | sed 's/.*"download":\([0-9]*\).*/\1/')
+    local session_upload=$(echo "$current_session" | sed 's/.*"upload":\([0-9]*\).*/\1/')
+    local session_download=$(echo "$current_session" | sed 's/.*"download":\([0-9]*\).*/\1/')
     local init_timestamp=$(date +%s)
     
     # Set defaults if parsing failed
-    init_upload=${init_upload:-0}
-    init_download=${init_download:-0}
+    session_upload=${session_upload:-0}
+    session_download=${session_download:-0}
     
-    qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Parsed values: upload=$init_upload, download=$init_download from session: $current_session"
+    # Calculate final stored values based on enabled state
+    local final_stored_upload
+    local final_stored_download
+    
+    if [ "$enabled_state" = "true" ]; then
+        # ENABLING: Store current session totals (this becomes the baseline for tracking)
+        final_stored_upload=$session_upload
+        final_stored_download=$session_download
+        qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Enabling: Setting stored values to current session totals: upload=$final_stored_upload, download=$final_stored_download"
+    else
+        # DISABLING: Accumulate existing + session (preserve all historical data)
+        final_stored_upload=$((existing_stored_upload + session_upload))
+        final_stored_download=$((existing_stored_download + session_download))
+        qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Disabling: Preserving accumulated totals: existing($existing_stored_upload + $existing_stored_download) + session($session_upload + $session_download) = total($final_stored_upload + $final_stored_download)"
+    fi
     
     # Ensure parent directory exists
     create_directories
     
-    # Create new config file with current usage values
+    # Create new config file with accumulated stored values
     if cat > "$CONFIG_FILE" 2>/dev/null << EOF
 # Data Usage Tracking Configuration
 # Recreated on $(date)
@@ -126,8 +115,8 @@ MONTHLY_LIMIT=$DEFAULT_LIMIT
 BACKUP_INTERVAL=$DEFAULT_BACKUP_INTERVAL
 RESET_DAY=$DEFAULT_RESET_DAY
 WARNING_THRESHOLD=$DEFAULT_WARNING_THRESHOLD
-STORED_UPLOAD=$init_upload
-STORED_DOWNLOAD=$init_download
+STORED_UPLOAD=$final_stored_upload
+STORED_DOWNLOAD=$final_stored_download
 LAST_BACKUP=$init_timestamp
 WARNING_SHOWN=false
 WARNING_THRESHOLD_SHOWN=false
@@ -135,7 +124,7 @@ WARNING_OVERLIMIT_SHOWN=false
 EOF
     then
         chmod 644 "$CONFIG_FILE" 2>/dev/null
-        qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Recreated configuration with current usage: upload=$init_upload, download=$init_download"
+        qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Recreated configuration with accumulated stored values: upload=$final_stored_upload, download=$final_stored_download"
         return 0
     else
         qm_log_error "$LOG_CATEGORY" "$SCRIPT_NAME" "Failed to recreate config file: $CONFIG_FILE"
@@ -146,7 +135,11 @@ EOF
 # Read configuration value
 get_config() {
     local key="$1"
-    init_config
+    # Don't auto-create config file, just return empty if it doesn't exist
+    if [ ! -f "$CONFIG_FILE" ]; then
+        echo ""
+        return 1
+    fi
     grep "^$key=" "$CONFIG_FILE" 2>/dev/null | cut -d'=' -f2- | tr -d '"' | head -1
 }
 
@@ -154,9 +147,8 @@ get_config() {
 set_config() {
     local key="$1"
     local value="$2"
-    init_config
     
-    # Ensure config file exists and is writable
+    # Only work with existing config files, don't auto-create
     if [ ! -f "$CONFIG_FILE" ]; then
         qm_log_error "$LOG_CATEGORY" "$SCRIPT_NAME" "Config file does not exist, cannot set $key"
         return 1
@@ -320,10 +312,16 @@ handle_get_action() {
             toggle_backup_service "$enabled_param"
             ;;
         *"action=get_current_usage"*)
-            init_config
-            check_monthly_reset
-            local current_usage=$(get_current_usage)
-            send_json_response "$current_usage"
+            # Only process if tracking is enabled (config file exists)
+            if [ -f "$CONFIG_FILE" ]; then
+                check_monthly_reset
+                local current_usage=$(get_current_usage)
+                send_json_response "$current_usage"
+            else
+                # Return disabled state
+                local disabled_usage='{"upload":0,"download":0,"total":0}'
+                send_json_response "$disabled_usage" "false"
+            fi
             ;;
         *"action=get_session_usage"*)
             local session_usage=$(parse_modem_data)
@@ -383,7 +381,6 @@ handle_default_get() {
         send_json_response "$disabled_usage" "false"
     else
         # Feature is enabled, return actual config and usage
-        init_config
         check_monthly_reset
         local current_usage=$(get_current_usage)
         send_json_response "$current_usage"
@@ -745,13 +742,29 @@ handle_post() {
         # Handle enable/disable state changes
         if [ "$enabled" != "$current_enabled" ]; then
             if [ "$enabled" = "false" ]; then
-                # Disabling: Remove the config file completely
-                qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Disabling feature, removing config file"
-                rm -f "$CONFIG_FILE" 2>/dev/null
+                # Disabling: Keep config file but update stored values and set enabled=false
+                qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Disabling feature, preserving data in config"
+                
+                # First, backup current session usage to stored values
+                local current_usage=$(get_current_usage)
+                local total_upload=$(echo "$current_usage" | sed 's/.*"upload":\([0-9]*\).*/\1/')
+                local total_download=$(echo "$current_usage" | sed 's/.*"download":\([0-9]*\).*/\1/')
+                
+                # Update stored values with accumulated totals
+                set_config "STORED_UPLOAD" "${total_upload:-0}"
+                set_config "STORED_DOWNLOAD" "${total_download:-0}"
+                set_config "ENABLED" "false"
+                set_config "LAST_BACKUP" "$(date +%s)"
             else
-                # Enabling: Recreate config with current usage values
-                qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Enabling feature, recreating config with current usage baseline"
-                recreate_config "$enabled"
+                # Enabling: Keep existing config and stored values, just set enabled=true
+                if [ -f "$CONFIG_FILE" ]; then
+                    qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Enabling feature, preserving existing stored values"
+                    set_config "ENABLED" "true"
+                else
+                    # No existing config, create new one
+                    qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Enabling feature, creating new config"
+                    recreate_config "$enabled"
+                fi
             fi
         else
             # State hasn't changed, just update normally (but only if config exists)
