@@ -106,27 +106,53 @@ const useDataUsageTracking = () => {
   const fetchData = useCallback(async () => {
     try {
       setError(null);
-      const response = await fetch("/cgi-bin/quecmanager/experimental/data_usage_tracking/config_manager.sh");
       
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+      // Fetch configuration
+      const configResponse = await fetch("/cgi-bin/quecmanager/experimental/data_usage_tracking/config_manager.sh");
+      
+      if (!configResponse.ok) {
+        throw new Error(`HTTP error! status: ${configResponse.status}`);
       }
 
-      const data: DataUsageResponse = await response.json();
+      const configData: DataUsageResponse = await configResponse.json();
+      setConfig(configData.config);
       
-      setConfig(data.config);
-      setUsage(data.usage);
+      // Fetch real-time usage from CGI script
+      let usageData = configData.usage; // fallback to config data
+      
+      try {
+        const usageResponse = await fetch("/cgi-bin/quecmanager/experimental/data_usage_tracking/fetch_realtime_usage.sh");
+        if (usageResponse.ok) {
+          const realtimeData = await usageResponse.json();
+          if (realtimeData.enabled !== undefined && !realtimeData.error) {
+            // Use real-time data if available and valid
+            usageData = {
+              upload: realtimeData.upload || 0,
+              download: realtimeData.download || 0,
+              total: realtimeData.total || 0
+            };
+          } else if (realtimeData.error) {
+            // Log the specific error but continue with fallback data
+            console.warn("Real-time usage data error:", realtimeData.error);
+          }
+        }
+      } catch (usageError) {
+        // Fall back to config data if real-time data unavailable
+        console.warn("Real-time usage data unavailable, using stored data:", usageError);
+      }
+      
+      setUsage(usageData);
 
       // Check if warning should be displayed
-      if (data.config.enabled) {
-        const percentage = (data.usage.total / data.config.monthlyLimit) * 100;
+      if (configData.config.enabled) {
+        const percentage = (usageData.total / configData.config.monthlyLimit) * 100;
         
         // Check for over-limit warning (100%+)
-        if (percentage >= 100 && !data.config.warningOverlimitShown) {
+        if (percentage >= 100 && !configData.config.warningOverlimitShown) {
           setShowWarning(true);
         }
         // Check for threshold warning (e.g., 90%) - only if not over limit
-        else if (percentage >= data.config.warningThreshold && !data.config.warningThresholdShown) {
+        else if (percentage >= configData.config.warningThreshold && !configData.config.warningThresholdShown) {
           setShowWarning(true);
         }
       }

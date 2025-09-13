@@ -125,6 +125,10 @@ EOF
     then
         chmod 644 "$CONFIG_FILE" 2>/dev/null
         qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Recreated configuration with accumulated stored values: upload=$final_stored_upload, download=$final_stored_download"
+        
+        # Control modem counter service based on enabled state
+        toggle_modem_counter_service "$enabled_state"
+        
         return 0
     else
         qm_log_error "$LOG_CATEGORY" "$SCRIPT_NAME" "Failed to recreate config file: $CONFIG_FILE"
@@ -673,6 +677,36 @@ toggle_backup_service() {
     fi
 }
 
+# Toggle modem counter service (enable/disable procd service)
+toggle_modem_counter_service() {
+    local enabled="$1"
+    
+    if [ "$enabled" = "true" ]; then
+        # Enable and start the modem counter service
+        if /etc/init.d/quecmanager_modem_counter enable 2>/dev/null; then
+            qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Modem counter service enabled successfully"
+            
+            if /etc/init.d/quecmanager_modem_counter start 2>/dev/null; then
+                qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Modem counter service started successfully"
+            else
+                qm_log_warn "$LOG_CATEGORY" "$SCRIPT_NAME" "Modem counter service enabled but failed to start"
+            fi
+        else
+            qm_log_error "$LOG_CATEGORY" "$SCRIPT_NAME" "Failed to enable modem counter service"
+        fi
+    else
+        # Stop and disable the modem counter service
+        /etc/init.d/quecmanager_modem_counter stop 2>/dev/null
+        qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Modem counter service stopped"
+        
+        if /etc/init.d/quecmanager_modem_counter disable 2>/dev/null; then
+            qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Modem counter service disabled successfully"
+        else
+            qm_log_warn "$LOG_CATEGORY" "$SCRIPT_NAME" "Modem counter service stopped but failed to disable"
+        fi
+    fi
+}
+
 # Handle POST requests for configuration updates
 handle_post() {
     # Read POST data from stdin
@@ -732,13 +766,19 @@ handle_post() {
                 set_config "STORED_DOWNLOAD" "${total_download:-0}"
                 set_config "ENABLED" "false"
                 set_config "LAST_BACKUP" "$(date +%s)"
+                
+                # Stop modem counter service when disabling
+                toggle_modem_counter_service "false"
             else
                 # Enabling: Keep existing config and stored values, just set enabled=true
                 if [ -f "$CONFIG_FILE" ]; then
                     qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Enabling feature, preserving existing stored values"
                     set_config "ENABLED" "true"
+                    
+                    # Start modem counter service when enabling
+                    toggle_modem_counter_service "true"
                 else
-                    # No existing config, create new one
+                    # No existing config, create new one (recreate_config will handle service)
                     qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Enabling feature, creating new config"
                     recreate_config "$enabled"
                 fi
@@ -747,6 +787,9 @@ handle_post() {
             # State hasn't changed, just update normally (but only if config exists)
             if [ -f "$CONFIG_FILE" ]; then
                 set_config "ENABLED" "$enabled"
+                
+                # Still control the service based on current state
+                toggle_modem_counter_service "$enabled"
             fi
         fi
     fi
@@ -754,7 +797,20 @@ handle_post() {
     # Only update other settings if config file exists (feature is enabled)
     if [ -f "$CONFIG_FILE" ]; then
         [ -n "$limit" ] && [ "$limit" -gt 0 ] && set_config "MONTHLY_LIMIT" "$limit"
-        [ -n "$interval" ] && [ "$interval" -gt 0 ] && set_config "BACKUP_INTERVAL" "$interval"
+        # Allow specific fractional backup intervals: 0.5, 1, 2, 3, 6, 12, 24
+        if [ -n "$interval" ]; then
+            case "$interval" in
+                "0.5"|"1"|"2"|"3"|"6"|"12"|"24")
+                    set_config "BACKUP_INTERVAL" "$interval"
+                    ;;
+                *)
+                    # For any other value, validate as positive number
+                    if [ "$interval" -gt 0 ] 2>/dev/null; then
+                        set_config "BACKUP_INTERVAL" "$interval"
+                    fi
+                    ;;
+            esac
+        fi
         [ -n "$reset_day" ] && [ "$reset_day" -ge 1 ] && [ "$reset_day" -le 28 ] && set_config "RESET_DAY" "$reset_day"
         [ -n "$warning_threshold" ] && [ "$warning_threshold" -ge 1 ] && [ "$warning_threshold" -le 100 ] && set_config "WARNING_THRESHOLD" "$warning_threshold"
         

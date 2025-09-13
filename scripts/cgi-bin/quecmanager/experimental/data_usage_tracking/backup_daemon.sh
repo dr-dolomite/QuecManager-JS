@@ -197,7 +197,23 @@ main() {
         local interval=$(get_config "BACKUP_INTERVAL")
         interval=${interval:-12}
         
-        local sleep_seconds=$((interval * 3600))
+        # Handle fractional hours (specifically 0.5 for 30 minutes)
+        local sleep_seconds
+        case "$interval" in
+            "0.5")
+                sleep_seconds=1800  # 30 minutes
+                ;;
+            "1")
+                sleep_seconds=3600  # 1 hour
+                ;;
+            "2")
+                sleep_seconds=7200  # 2 hours
+                ;;
+            *)
+                sleep_seconds=$((interval * 3600))
+                ;;
+        esac
+        
         log "Sleeping for ${interval}h (${sleep_seconds}s)"
         
         sleep "$sleep_seconds"

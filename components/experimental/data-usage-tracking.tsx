@@ -274,6 +274,9 @@ const DataUsageTracking = () => {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
+                          <SelectItem value="0.5">Every 30 minutes</SelectItem>
+                          <SelectItem value="1">Every 1 hour</SelectItem>
+                          <SelectItem value="2">Every 2 hours</SelectItem>
                           <SelectItem value="3">Every 3 hours</SelectItem>
                           <SelectItem value="6">Every 6 hours</SelectItem>
                           <SelectItem value="12">Every 12 hours</SelectItem>
