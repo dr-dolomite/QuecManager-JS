@@ -181,6 +181,22 @@ process_all_metrics() {
         chmod 644 "$logfile"
     fi
 
+    sleep 0.1
+
+    # Servingcell with time stamp
+    local servingcell_output=$(execute_at_command "AT+QENG=\"servingcell\"")
+    if [ -n "$servingcell_output" ] && echo "$servingcell_output" | grep -q "QENG"; then
+        local logfile="$LOGDIR/servingcell.json"
+        [ ! -s "$logfile" ] && echo "[]" > "$logfile"
+
+        local temp_file="${logfile}.tmp.$$"
+        jq --arg dt "$timestamp" \
+           --arg out "$servingcell_output" \
+           '. + [{"datetime": $dt, "output": $out}] | .[-'"$MAX_ENTRIES"':]' \
+           "$logfile" > "$temp_file" 2>/dev/null && mv "$temp_file" "$logfile"
+        chmod 644 "$logfile"
+    fi
+
     # Release token
     release_token "$metrics_id"
     logger -t at_queue -p daemon.info "Metrics processing completed"

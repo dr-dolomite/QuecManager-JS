@@ -3,22 +3,21 @@
 # Monitors qcainfo.json and generates network event interpretations
 # OpenWrt/BusyBox compatible version
 
+# Source centralized logging
+. "/www/cgi-bin/services/quecmanager_logger.sh"
+
 # Configuration
 QCAINFO_FILE="/www/signal_graphs/qcainfo.json"
+SERVINGCELL_FILE="/www/signal_graphs/servingcell.json"
 INTERPRETED_FILE="/tmp/interpreted_result.json"
 LAST_ENTRY_FILE="/tmp/last_qcainfo_entry.json"
+LAST_SERVINGCELL_ENTRY_FILE="/tmp/last_servingcell_entry.json"
 LOCKFILE="/tmp/network_interpreter.lock"
 MAX_INTERPRETATIONS=50
 
-# Logging function (OpenWrt compatible)
-log_message() {
-    if command -v logger >/dev/null 2>&1; then
-        logger -t network_interpreter -p daemon.info "$1"
-    else
-        # Use simpler date format for BusyBox
-        echo "$(date) [network_interpreter] $1" >&2
-    fi
-}
+# Logging configuration
+LOG_CATEGORY="services"
+SCRIPT_NAME="network_insights_interpreter"
 
 # Convert datetime to timestamp (OpenWrt/BusyBox compatible)
 datetime_to_timestamp() {
@@ -47,6 +46,71 @@ is_datetime_newer() {
     else
         # Fall back to string comparison (works for ISO format)
         [ "$datetime1" \> "$datetime2" ]
+    fi
+}
+
+# Parse servingcell output to extract PCI information for SA mode
+parse_servingcell_pci() {
+    local output="$1"
+    
+    # Clean up the output
+    local clean_output=$(echo "$output" | tr -d '\r' | sed 's/\\r//g; s/\\n/\n/g')
+    
+    # Extract PCI from servingcell for different modes
+    # SA mode: +QENG: "servingcell","NOCONN","NR5G-SA","FDD",<freq>,<band>,<earfcn>,<PCI>,...
+    # NSA mode might also have useful PCI info in servingcell
+    
+    local pci=""
+    
+    # Try to extract PCI from NR5G-SA format first
+    pci=$(echo "$clean_output" | grep '+QENG: "servingcell"' | grep 'NR5G-SA' | sed -n 's/.*+QENG: "servingcell","[^"]*","NR5G-SA","[^"]*",[^,]*,[^,]*,[^,]*,\([0-9]*\).*/\1/p' | head -1)
+    
+    # If no SA PCI found, try LTE format (for fallback)
+    if [ -z "$pci" ]; then
+        pci=$(echo "$clean_output" | grep '+QENG: "servingcell"' | grep 'LTE' | sed -n 's/.*+QENG: "servingcell","[^"]*","LTE","[^"]*",[^,]*,[^,]*,[^,]*,\([0-9]*\).*/\1/p' | head -1)
+    fi
+    
+    if [ -n "$pci" ]; then
+        echo "PCC:$pci"
+    fi
+}
+
+# Determine network mode from QCAINFO bands with enhanced SA detection
+determine_network_mode() {
+    local qcainfo_output="$1"
+    local servingcell_output="$2"
+    
+    # First check servingcell for explicit SA indication
+    if echo "$servingcell_output" | grep -q 'NR5G-SA'; then
+        qm_log_debug "$LOG_CATEGORY" "$SCRIPT_NAME" "SA mode detected from servingcell output"
+        echo "SA"
+        return
+    fi
+    
+    # Fall back to band-based detection from QCAINFO
+    local bands=$(parse_qcainfo_bands "$qcainfo_output")
+    local has_lte=false
+    local has_nr5g=false
+    
+    if echo "$bands" | grep -q "LTE:"; then
+        has_lte=true
+    fi
+    if echo "$bands" | grep -q "NR5G:"; then
+        has_nr5g=true
+    fi
+    
+    if [ "$has_lte" = true ] && [ "$has_nr5g" = true ]; then
+        qm_log_debug "$LOG_CATEGORY" "$SCRIPT_NAME" "NSA mode detected from band combination: LTE + NR5G"
+        echo "NSA"
+    elif [ "$has_lte" = true ]; then
+        qm_log_debug "$LOG_CATEGORY" "$SCRIPT_NAME" "LTE mode detected from bands"
+        echo "LTE"
+    elif [ "$has_nr5g" = true ]; then
+        # If only NR5G bands are present, it's likely SA
+        qm_log_debug "$LOG_CATEGORY" "$SCRIPT_NAME" "SA mode detected from NR5G-only bands"
+        echo "SA"
+    else
+        echo "NO_SIGNAL"
     fi
 }
 
@@ -153,7 +217,7 @@ compare_pci_configurations() {
     echo "$pci_interpretations"
 }
 
-# Get network mode from bands
+# Get network mode from bands (legacy function - kept for compatibility)
 get_network_mode() {
     local bands="$1"
     local has_lte=false
@@ -197,21 +261,42 @@ get_carrier_count() {
     echo "$bands" | wc -l
 }
 
-# Compare two band configurations and generate interpretation
+# Compare two band configurations and generate interpretation with SA support
 compare_configurations() {
-    local base_output="$1"
-    local new_output="$2"
-    local base_datetime="$3"
-    local new_datetime="$4"
+    local base_qcainfo_output="$1"
+    local new_qcainfo_output="$2"
+    local base_servingcell_output="$3"
+    local new_servingcell_output="$4"
+    local base_datetime="$5"
+    local new_datetime="$6"
     
     # Parse both configurations
-    local base_bands=$(parse_qcainfo_bands "$base_output")
-    local new_bands=$(parse_qcainfo_bands "$new_output")
-    local base_pci_list=$(parse_qcainfo_pci "$base_output")
-    local new_pci_list=$(parse_qcainfo_pci "$new_output")
+    local base_bands=$(parse_qcainfo_bands "$base_qcainfo_output")
+    local new_bands=$(parse_qcainfo_bands "$new_qcainfo_output")
     
-    local base_mode=$(get_network_mode "$base_bands")
-    local new_mode=$(get_network_mode "$new_bands")
+    # Determine network modes with enhanced detection
+    local base_mode=$(determine_network_mode "$base_qcainfo_output" "$base_servingcell_output")
+    local new_mode=$(determine_network_mode "$new_qcainfo_output" "$new_servingcell_output")
+    
+    # Get PCI information based on network mode
+    local base_pci_list=""
+    local new_pci_list=""
+    
+    if [ "$base_mode" = "SA" ]; then
+        base_pci_list=$(parse_servingcell_pci "$base_servingcell_output")
+        qm_log_debug "$LOG_CATEGORY" "$SCRIPT_NAME" "Base SA mode - using servingcell PCI: $base_pci_list"
+    else
+        base_pci_list=$(parse_qcainfo_pci "$base_qcainfo_output")
+        qm_log_debug "$LOG_CATEGORY" "$SCRIPT_NAME" "Base $base_mode mode - using qcainfo PCI: $base_pci_list"
+    fi
+    
+    if [ "$new_mode" = "SA" ]; then
+        new_pci_list=$(parse_servingcell_pci "$new_servingcell_output")
+        qm_log_debug "$LOG_CATEGORY" "$SCRIPT_NAME" "New SA mode - using servingcell PCI: $new_pci_list"
+    else
+        new_pci_list=$(parse_qcainfo_pci "$new_qcainfo_output")
+        qm_log_debug "$LOG_CATEGORY" "$SCRIPT_NAME" "New $new_mode mode - using qcainfo PCI: $new_pci_list"
+    fi
     
     local base_band_list=$(get_band_list "$base_bands")
     local new_band_list=$(get_band_list "$new_bands")
@@ -324,13 +409,14 @@ compare_configurations() {
             fi
         fi
         
-        # PCI changes - Check even when band configuration is the same
+        # PCI changes - Check even when band configuration is the same (Network Event)
         local pci_interpretation=$(compare_pci_configurations "$base_pci_list" "$new_pci_list")
         if [ -n "$pci_interpretation" ]; then
             if [ -n "$interpretations" ]; then
                 interpretations="$interpretations; "
             fi
-            interpretations="${interpretations}$pci_interpretation"
+            # Mark PCI changes as Network Events for better classification
+            interpretations="${interpretations}[Network Event] $pci_interpretation"
         fi
     fi
     
@@ -340,31 +426,74 @@ compare_configurations() {
     fi
 }
 
-# Add interpretation to JSON file
+# Add interpretation to JSON file with event type classification
 add_interpretation() {
     local datetime="$1"
     local interpretation="$2"
+    
+    # Determine event type based on interpretation content
+    local event_type="Configuration Change"
+    if echo "$interpretation" | grep -q "\[Network Event\]"; then
+        event_type="Network Event"
+        # Remove the event type prefix from the interpretation text
+        interpretation=$(echo "$interpretation" | sed 's/\[Network Event\] //')
+    fi
     
     # Initialize file if it doesn't exist
     if [ ! -f "$INTERPRETED_FILE" ]; then
         echo "[]" > "$INTERPRETED_FILE"
     fi
     
-    # Add new interpretation using jq
+    # Add new interpretation using jq with event type
     local temp_file="${INTERPRETED_FILE}.tmp.$$"
     jq --arg dt "$datetime" \
        --arg interp "$interpretation" \
-       '. + [{"datetime": $dt, "interpretation": $interp}] | .[-'"$MAX_INTERPRETATIONS"':]' \
+       --arg type "$event_type" \
+       '. + [{"datetime": $dt, "interpretation": $interp, "eventType": $type}] | .[-'"$MAX_INTERPRETATIONS"':]' \
        "$INTERPRETED_FILE" > "$temp_file" 2>/dev/null && mv "$temp_file" "$INTERPRETED_FILE"
     
     chmod 644 "$INTERPRETED_FILE"
-    log_message "Added interpretation: $interpretation"
+    qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Added interpretation ($event_type): $interpretation"
 }
 
-# Process QCAINFO entries and generate interpretations
+# Get corresponding servingcell entry by datetime
+get_servingcell_entry_by_datetime() {
+    local target_datetime="$1"
+    
+    if [ ! -f "$SERVINGCELL_FILE" ]; then
+        qm_log_debug "$LOG_CATEGORY" "$SCRIPT_NAME" "Servingcell file not found: $SERVINGCELL_FILE"
+        echo ""
+        return
+    fi
+    
+    # Find servingcell entry with closest datetime (within 2 minutes range)
+    # First try exact match, then closest within reasonable timeframe
+    local exact_match=$(jq -r --arg target "$target_datetime" '
+        map(select(.datetime == $target)) | first // empty
+    ' "$SERVINGCELL_FILE" 2>/dev/null)
+    
+    if [ -n "$exact_match" ] && [ "$exact_match" != "null" ]; then
+        echo "$exact_match"
+        return
+    fi
+    
+    # If no exact match, find closest entry within 2 minutes
+    jq -r --arg target "$target_datetime" '
+        map(select(.datetime)) | 
+        map(select(
+            (.datetime <= $target) and 
+            (($target | gsub("-|:| "; "") | tonumber) - 
+             (.datetime | gsub("-|:| "; "") | tonumber)) < 200
+        )) | 
+        sort_by(.datetime) | 
+        last // empty
+    ' "$SERVINGCELL_FILE" 2>/dev/null || echo ""
+}
+
+# Process QCAINFO entries and generate interpretations with servingcell support
 process_qcainfo_data() {
     if [ ! -f "$QCAINFO_FILE" ]; then
-        log_message "QCAINFO file not found: $QCAINFO_FILE"
+        qm_log_warn "$LOG_CATEGORY" "$SCRIPT_NAME" "QCAINFO file not found: $QCAINFO_FILE"
         return 1
     fi
     
@@ -372,7 +501,7 @@ process_qcainfo_data() {
     local total_entries=$(jq 'length' "$QCAINFO_FILE" 2>/dev/null || echo "0")
     
     if [ "$total_entries" -lt 2 ]; then
-        log_message "Not enough entries to compare ($total_entries)"
+        qm_log_debug "$LOG_CATEGORY" "$SCRIPT_NAME" "Not enough entries to compare ($total_entries)"
         return 0
     fi
     
@@ -390,8 +519,29 @@ process_qcainfo_data() {
         
         local base_datetime=$(echo "$base_entry" | jq -r '.datetime' 2>/dev/null)
         local next_datetime=$(echo "$next_entry" | jq -r '.datetime' 2>/dev/null)
-        local base_output=$(echo "$base_entry" | jq -r '.output' 2>/dev/null)
-        local next_output=$(echo "$next_entry" | jq -r '.output' 2>/dev/null)
+        local base_qcainfo_output=$(echo "$base_entry" | jq -r '.output' 2>/dev/null)
+        local next_qcainfo_output=$(echo "$next_entry" | jq -r '.output' 2>/dev/null)
+        
+        # Get corresponding servingcell entries
+        local base_servingcell_entry=$(get_servingcell_entry_by_datetime "$base_datetime")
+        local next_servingcell_entry=$(get_servingcell_entry_by_datetime "$next_datetime")
+        
+        local base_servingcell_output=""
+        local next_servingcell_output=""
+        
+        if [ -n "$base_servingcell_entry" ]; then
+            base_servingcell_output=$(echo "$base_servingcell_entry" | jq -r '.output' 2>/dev/null)
+            qm_log_debug "$LOG_CATEGORY" "$SCRIPT_NAME" "Found servingcell data for base datetime: $base_datetime"
+        else
+            qm_log_debug "$LOG_CATEGORY" "$SCRIPT_NAME" "No servingcell data found for base datetime: $base_datetime"
+        fi
+        
+        if [ -n "$next_servingcell_entry" ]; then
+            next_servingcell_output=$(echo "$next_servingcell_entry" | jq -r '.output' 2>/dev/null)
+            qm_log_debug "$LOG_CATEGORY" "$SCRIPT_NAME" "Found servingcell data for next datetime: $next_datetime"
+        else
+            qm_log_debug "$LOG_CATEGORY" "$SCRIPT_NAME" "No servingcell data found for next datetime: $next_datetime"
+        fi
         
         # Skip if this entry was already processed
         if [ -n "$last_processed" ] && [ "$next_datetime" = "$last_processed" ]; then
@@ -408,10 +558,12 @@ process_qcainfo_data() {
         fi
         
         # Compare configurations and generate interpretation
-        local interpretation=$(compare_configurations "$base_output" "$next_output" "$base_datetime" "$next_datetime")
+        local interpretation=$(compare_configurations "$base_qcainfo_output" "$next_qcainfo_output" "$base_servingcell_output" "$next_servingcell_output" "$base_datetime" "$next_datetime")
         
         if [ -n "$interpretation" ]; then
             add_interpretation "$next_datetime" "$interpretation"
+        else
+            qm_log_debug "$LOG_CATEGORY" "$SCRIPT_NAME" "No configuration changes detected between $base_datetime and $next_datetime"
         fi
         
         i=$((i + 1))
@@ -426,7 +578,7 @@ process_qcainfo_data() {
 
 # Check for new entries every 61 seconds
 monitor_qcainfo() {
-    log_message "Starting network insights interpreter monitoring"
+    qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Starting network insights interpreter monitoring"
     
     while true; do
         # Acquire lock (OpenWrt compatible)
@@ -439,7 +591,7 @@ monitor_qcainfo() {
             rm -f "$LOCKFILE"
             trap - INT TERM EXIT
         else
-            log_message "Another instance is running, skipping this cycle"
+            qm_log_warn "$LOG_CATEGORY" "$SCRIPT_NAME" "Another instance is running, skipping this cycle"
         fi
         
         sleep 61
@@ -449,15 +601,18 @@ monitor_qcainfo() {
 # Main execution
 case "${1:-monitor}" in
     "monitor")
+        qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Starting in monitor mode"
         monitor_qcainfo
         ;;
     "process")
+        qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Starting in process mode (single run)"
         process_qcainfo_data
         ;;
     *)
         echo "Usage: $0 {monitor|process}"
         echo "  monitor - Run continuous monitoring (default)"
         echo "  process - Process current data once"
+        qm_log_error "$LOG_CATEGORY" "$SCRIPT_NAME" "Invalid argument: $1"
         exit 1
         ;;
 esac

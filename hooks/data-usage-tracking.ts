@@ -334,11 +334,11 @@ const useDataUsageTracking = () => {
   useEffect(() => {
     fetchData();
     
-    // Poll every 30 seconds when enabled
+    // Poll every 66 seconds when enabled (modem counter updates every 65 seconds)
     let intervalId: NodeJS.Timeout;
     
     if (config.enabled) {
-      intervalId = setInterval(fetchData, 30000);
+      intervalId = setInterval(fetchData, 66000);
     }
 
     return () => {
