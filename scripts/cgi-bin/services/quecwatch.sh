@@ -44,6 +44,8 @@ update_status() {
     local message="$2"
     local retry="${3:-$CURRENT_RETRIES}"
     local max="${4:-$MAX_RETRIES}"
+    local latency="${5:-$CURRENT_LATENCY}"
+    local latency_ceiling="${6:-$LATENCY_CEILING}"
     
     # Create JSON status
     cat > "$STATUS_FILE" <<EOF
@@ -52,12 +54,14 @@ update_status() {
     "message": "$message",
     "retry": $retry,
     "maxRetries": $max,
+    "currentLatency": $latency,
+    "latencyCeiling": $latency_ceiling,
     "timestamp": $(date +%s)
 }
 EOF
     chmod 644 "$STATUS_FILE"
     
-    log_message "Status updated: $status - $message" "debug"
+    log_message "Status updated: $status - $message (latency: ${latency}ms)" "debug"
 }
 
 # Function to acquire token for AT commands
@@ -190,6 +194,63 @@ check_internet() {
         return 0
     else
         log_message "Internet connectivity check failed" "warn"
+        return 1
+    fi
+}
+
+# Function to check internet connectivity with latency measurement
+check_internet_with_latency() {
+    local ping_target
+    local ping_count=3
+    local ping_output
+    local status
+    
+    # Get ping target from UCI
+    config_load "$UCI_CONFIG"
+    config_get ping_target quecwatch ping_target
+    
+    if [ -z "$ping_target" ]; then
+        log_message "No ping target configured" "error"
+        CURRENT_LATENCY=0
+        return 1
+    fi
+    
+    log_message "Measuring latency to $ping_target" "debug"
+    
+    # Execute ping and capture output
+    ping_output=$(ping -c $ping_count "$ping_target" 2>&1)
+    status=$?
+    
+    if [ $status -eq 0 ]; then
+        # Extract average latency from ping output
+        # Look for patterns like "round-trip min/avg/max = 99.687/169.223/272.216 ms"
+        local stats_line=$(echo "$ping_output" | grep "round-trip min/avg/max")
+        if [ -n "$stats_line" ]; then
+            # Extract the average (second value) from min/avg/max
+            local avg_latency=$(echo "$stats_line" | cut -d'=' -f2 | cut -d'/' -f2)
+            if [ -n "$avg_latency" ]; then
+                # Convert to integer (remove decimal part)
+                CURRENT_LATENCY=$(echo "$avg_latency" | cut -d'.' -f1)
+                [ -z "$CURRENT_LATENCY" ] && CURRENT_LATENCY=0
+            else
+                CURRENT_LATENCY=0
+            fi
+        else
+            # Fallback: try to extract latency from individual ping lines
+            local latency_line=$(echo "$ping_output" | grep "time=" | head -1)
+            if [ -n "$latency_line" ]; then
+                CURRENT_LATENCY=$(echo "$latency_line" | grep -o 'time=[0-9.]*' | cut -d'=' -f2 | cut -d'.' -f1 | head -1)
+                [ -z "$CURRENT_LATENCY" ] && CURRENT_LATENCY=0
+            else
+                CURRENT_LATENCY=0
+            fi
+        fi
+        
+        log_message "Latency measurement successful: ${CURRENT_LATENCY}ms" "debug"
+        return 0
+    else
+        log_message "Latency measurement failed - no connectivity" "warn"
+        CURRENT_LATENCY=0
         return 1
     fi
 }
@@ -342,13 +403,30 @@ perform_connection_recovery() {
     # Reattach to network
     log_message "Reattaching to network" "debug"
     execute_at_command "AT+COPS=0" 15 "$token_id"
+    sleep 1
     
     # Release token
     release_token "$token_id"
     
     # Verify recovery
     sleep 10
-    if check_internet; then
+    local recovery_check=0
+    if [ "$HIGH_LATENCY_MONITORING" -eq 1 ]; then
+        if check_internet_with_latency; then
+            # Also check if latency is acceptable after recovery
+            if [ "$CURRENT_LATENCY" -le "$LATENCY_CEILING" ]; then
+                recovery_check=1
+            else
+                log_message "Recovery succeeded but latency still high: ${CURRENT_LATENCY}ms > ${LATENCY_CEILING}ms" "warn"
+            fi
+        fi
+    else
+        if check_internet; then
+            recovery_check=1
+        fi
+    fi
+    
+    if [ $recovery_check -eq 1 ]; then
         log_message "Connection recovery successful" "info"
         return 0
     else
@@ -369,6 +447,11 @@ load_config() {
     REFRESH_COUNT=3
     AUTO_SIM_FAILOVER=0
     SIM_FAILOVER_SCHEDULE=0
+    HIGH_LATENCY_MONITORING=0
+    LATENCY_CEILING=150
+    LATENCY_FAILURES=""
+    CURRENT_LATENCY=0
+    LATENCY_FAILURE_COUNT=0
     
     # Load from UCI
     config_load "$UCI_CONFIG"
@@ -384,6 +467,21 @@ load_config() {
     config_get_bool AUTO_SIM_FAILOVER quecwatch auto_sim_failover 0
     config_get SIM_FAILOVER_SCHEDULE quecwatch sim_failover_schedule 0
     
+    # Handle high latency monitoring (could be 'true'/'false' or '1'/'0')
+    local latency_monitoring_raw
+    config_get latency_monitoring_raw quecwatch high_latency_monitoring "false"
+    if [ "$latency_monitoring_raw" = "true" ] || [ "$latency_monitoring_raw" = "1" ]; then
+        HIGH_LATENCY_MONITORING=1
+    else
+        HIGH_LATENCY_MONITORING=0
+    fi
+    
+    config_get LATENCY_CEILING quecwatch latency_ceiling 150
+    config_get LATENCY_FAILURES quecwatch latency_failures 3
+    
+    # Debug logging for latency configuration
+    log_message "Loaded latency configuration: HIGH_LATENCY_MONITORING=$HIGH_LATENCY_MONITORING, LATENCY_CEILING=$LATENCY_CEILING, LATENCY_FAILURES=$LATENCY_FAILURES" "debug"
+    
     # Validate required settings
     if [ -z "$PING_TARGET" ]; then
         log_message "No ping target configured, using default (8.8.8.8)" "warn"
@@ -397,7 +495,7 @@ load_config() {
         CURRENT_RETRIES=$(cat "$RETRY_COUNT_FILE")
     fi
     
-    log_message "Configuration loaded: ping_target=$PING_TARGET, interval=$PING_INTERVAL, failures=$PING_FAILURES, max_retries=$MAX_RETRIES, current_retries=$CURRENT_RETRIES" "info"
+    log_message "Configuration loaded: ping_target=$PING_TARGET, interval=$PING_INTERVAL, failures=$PING_FAILURES, max_retries=$MAX_RETRIES, current_retries=$CURRENT_RETRIES, latency_monitoring=$HIGH_LATENCY_MONITORING, latency_ceiling=$LATENCY_CEILING" "info"
 }
 
 # Save retry count to both UCI and file
@@ -423,7 +521,7 @@ main() {
     load_config
     
     # Initial status update
-    update_status "active" "Monitoring started"
+    update_status "active" "Monitoring started" "$CURRENT_RETRIES" "$MAX_RETRIES" "$CURRENT_LATENCY" "$LATENCY_CEILING"
     
     # Track consecutive failures
     local failure_count=0
@@ -442,18 +540,75 @@ main() {
     
     # Main monitoring loop
     while true; do
-        log_message "Starting monitoring cycle" "debug"
+        log_message "Starting monitoring cycle (latency_monitoring=$HIGH_LATENCY_MONITORING)" "debug"
         
-        # Check internet connectivity
-        if ! check_internet; then
+        # Connection monitoring logic - two separate paths
+        local connectivity_ok=0
+        
+        if [ "$HIGH_LATENCY_MONITORING" -eq 1 ]; then
+            # HIGH LATENCY MONITORING MODE
+            # Use latency-aware ping - handles both connectivity AND latency
+            if check_internet_with_latency; then
+                # Ping succeeded - we have internet
+                # Now check if latency is acceptable
+                if [ "$CURRENT_LATENCY" -gt "$LATENCY_CEILING" ]; then
+                    LATENCY_FAILURE_COUNT=$((LATENCY_FAILURE_COUNT + 1))
+                    log_message "High latency detected: ${CURRENT_LATENCY}ms > ${LATENCY_CEILING}ms (failures: $LATENCY_FAILURE_COUNT/$LATENCY_FAILURES)" "warn"
+                    
+                    # Check if latency failure threshold is reached
+                    if [ $LATENCY_FAILURE_COUNT -ge $LATENCY_FAILURES ]; then
+                        log_message "Latency failure threshold reached ($LATENCY_FAILURE_COUNT/$LATENCY_FAILURES), treating as connectivity failure" "warn"
+                        connectivity_ok=0  # Treat as failure to trigger retry logic
+                        LATENCY_FAILURE_COUNT=0  # Reset latency failure counter
+                    else
+                        connectivity_ok=1  # Latency high but not threshold yet
+                    fi
+                else
+                    # Latency is acceptable
+                    connectivity_ok=1
+                    # Reset latency failure counter if latency is good
+                    if [ $LATENCY_FAILURE_COUNT -gt 0 ]; then
+                        log_message "Latency improved: ${CURRENT_LATENCY}ms <= ${LATENCY_CEILING}ms, resetting latency failure counter" "info"
+                        LATENCY_FAILURE_COUNT=0
+                    fi
+                fi
+            else
+                # Ping failed - no internet connectivity
+                log_message "No internet connectivity" "warn"
+                connectivity_ok=0
+                CURRENT_LATENCY=0
+            fi
+        else
+            # STANDARD CONNECTION MONITORING MODE
+            # Use standard ping - only checks connectivity
+            if check_internet; then
+                connectivity_ok=1
+                CURRENT_LATENCY=0  # No latency data when monitoring is disabled
+            else
+                connectivity_ok=0
+                CURRENT_LATENCY=0
+            fi
+        fi
+        
+        # Process connectivity results - unified logic for both modes
+        if [ $connectivity_ok -eq 0 ]; then
             failure_count=$((failure_count + 1))
-            log_message "Connectivity check failed ($failure_count/$PING_FAILURES)" "warn"
+            
+            # Use appropriate failure threshold based on monitoring mode
+            local failure_threshold
+            if [ $HIGH_LATENCY_MONITORING -eq 1 ]; then
+                failure_threshold=$LATENCY_FAILURES
+            else
+                failure_threshold=$PING_FAILURES
+            fi
+            
+            log_message "Connectivity check failed ($failure_count/$failure_threshold)" "warn"
             
             # Update status
-            update_status "warning" "Connection check failed: $failure_count/$PING_FAILURES failures"
+            update_status "warning" "Connection check failed: $failure_count/$failure_threshold failures" "$CURRENT_RETRIES" "$MAX_RETRIES" "$CURRENT_LATENCY" "$LATENCY_CEILING"
             
             # Check if failure threshold is reached
-            if [ $failure_count -ge $PING_FAILURES ]; then
+            if [ $failure_count -ge $failure_threshold ]; then
                 # Reset failure counter
                 failure_count=0
                 
@@ -462,7 +617,7 @@ main() {
                 save_retry_count $CURRENT_RETRIES
                 
                 log_message "Failure threshold reached. Current retry: $CURRENT_RETRIES/$MAX_RETRIES" "warn"
-                update_status "error" "Connection lost, attempt $CURRENT_RETRIES/$MAX_RETRIES to recover"
+                update_status "error" "Connection lost, attempt $CURRENT_RETRIES/$MAX_RETRIES to recover" "$CURRENT_RETRIES" "$MAX_RETRIES" "$CURRENT_LATENCY" "$LATENCY_CEILING"
                 
                 # Check if max retries reached
                 if [ $CURRENT_RETRIES -ge $MAX_RETRIES ]; then
@@ -473,7 +628,20 @@ main() {
                         log_message "Attempting SIM failover" "info"
                         update_status "failover" "Maximum retries reached, attempting SIM failover"
                         
-                        if switch_sim_card && check_internet; then
+                        local sim_failover_success=0
+                        if switch_sim_card; then
+                            if [ "$HIGH_LATENCY_MONITORING" -eq 1 ]; then
+                                if check_internet_with_latency && [ "$CURRENT_LATENCY" -le "$LATENCY_CEILING" ]; then
+                                    sim_failover_success=1
+                                fi
+                            else
+                                if check_internet; then
+                                    sim_failover_success=1
+                                fi
+                            fi
+                        fi
+                        
+                        if [ $sim_failover_success -eq 1 ]; then
                             log_message "SIM failover successful, connection restored" "info"
                             update_status "recovered" "Connection restored via SIM failover"
                             
@@ -484,6 +652,10 @@ main() {
                             log_message "SIM failover failed, system will reboot" "error"
                             update_status "rebooting" "SIM failover failed, system will reboot"
                             
+                            # Reset retry counter before reboot
+                            CURRENT_RETRIES=0
+                            save_retry_count $CURRENT_RETRIES
+                            
                             # Wait briefly and reboot
                             sleep 5
                             reboot
@@ -492,35 +664,76 @@ main() {
                         log_message "Auto SIM failover disabled, system will reboot" "error"
                         update_status "rebooting" "Maximum retries reached, system will reboot"
                         
+                        # Reset retry counter before reboot
+                        CURRENT_RETRIES=0
+                        save_retry_count $CURRENT_RETRIES
+                        
                         # Wait briefly and reboot
                         sleep 5
                         reboot
                     fi
                 else
-                    # Try connection recovery
-                    log_message "Attempting connection recovery" "info"
-                    update_status "recovering" "Attempting to restore connection"
-                    
-                    if perform_connection_recovery; then
-                        log_message "Connection recovery successful" "info"
-                        update_status "recovered" "Connection restored"
+                    # Handle connection refresh logic
+                    if [ $CURRENT_RETRIES -eq 1 ] && [ "$CONNECTION_REFRESH" -eq 1 ]; then
+                        # First retry with connection refresh enabled - attempt recovery
+                        log_message "First retry with connection refresh enabled, attempting connection recovery" "info"
+                        update_status "recovering" "Attempting to restore connection (connection refresh)"
                         
-                        # Reset retry counter
-                        CURRENT_RETRIES=0
-                        save_retry_count $CURRENT_RETRIES
+                        if perform_connection_recovery; then
+                            log_message "Connection recovery successful" "info"
+                            update_status "recovered" "Connection restored"
+                            
+                            # Reset retry counter
+                            CURRENT_RETRIES=0
+                            save_retry_count $CURRENT_RETRIES
+                        else
+                            log_message "Connection recovery failed, will wait for next cycle" "warn"
+                            update_status "error" "Connection recovery failed, attempt $CURRENT_RETRIES/$MAX_RETRIES"
+                        fi
+                    else
+                        # Either not first retry, or connection refresh disabled - just wait
+                        if [ "$CONNECTION_REFRESH" -eq 1 ]; then
+                            log_message "Connection refresh already attempted, waiting for recovery (attempt $CURRENT_RETRIES/$MAX_RETRIES)" "info"
+                            update_status "error" "Waiting for recovery, attempt $CURRENT_RETRIES/$MAX_RETRIES"
+                        else
+                            log_message "Connection refresh disabled, waiting for max retries (attempt $CURRENT_RETRIES/$MAX_RETRIES)" "info"
+                            update_status "error" "Connection refresh disabled, attempt $CURRENT_RETRIES/$MAX_RETRIES"
+                        fi
                     fi
                 fi
             fi
         else
             # Connection is good
-            if [ $failure_count -gt 0 ] || [ $CURRENT_RETRIES -gt 0 ]; then
-                log_message "Connection restored" "info"
-                update_status "stable" "Connection restored"
-                
-                # Reset counters
-                failure_count=0
-                CURRENT_RETRIES=0
-                save_retry_count $CURRENT_RETRIES
+            # For HIGH_LATENCY_MONITORING: only reset if latency is below ceiling
+            # For standard monitoring: reset on any successful ping
+            local should_reset=0
+            
+            if [ "$HIGH_LATENCY_MONITORING" -eq 1 ]; then
+                # Only reset if latency is acceptable
+                if [ "$CURRENT_LATENCY" -le "$LATENCY_CEILING" ]; then
+                    should_reset=1
+                fi
+            else
+                # Standard mode: reset on successful ping
+                should_reset=1
+            fi
+            
+            if [ $should_reset -eq 1 ]; then
+                if [ $failure_count -gt 0 ] || [ $CURRENT_RETRIES -gt 0 ]; then
+                    log_message "Connection restored" "info"
+                    update_status "stable" "Connection restored" "$CURRENT_RETRIES" "$MAX_RETRIES" "$CURRENT_LATENCY" "$LATENCY_CEILING"
+                    
+                    # Reset counters
+                    failure_count=0
+                    CURRENT_RETRIES=0
+                    save_retry_count $CURRENT_RETRIES
+                else
+                    # Update status even when connection is consistently good to refresh latency data
+                    update_status "stable" "Connection stable" "$CURRENT_RETRIES" "$MAX_RETRIES" "$CURRENT_LATENCY" "$LATENCY_CEILING"
+                fi
+            else
+                # High latency mode with latency still above ceiling - don't reset counters
+                update_status "stable" "Connection active but latency high" "$CURRENT_RETRIES" "$MAX_RETRIES" "$CURRENT_LATENCY" "$LATENCY_CEILING"
             fi
             
             # Scheduled SIM failover check
@@ -538,7 +751,20 @@ main() {
                         update_status "switchback" "Attempting to switch back to primary SIM"
                         
                         # Try switching back
-                        if switch_sim_card && check_internet; then
+                        local switchback_success=0
+                        if switch_sim_card; then
+                            if [ "$HIGH_LATENCY_MONITORING" -eq 1 ]; then
+                                if check_internet_with_latency && [ "$CURRENT_LATENCY" -le "$LATENCY_CEILING" ]; then
+                                    switchback_success=1
+                                fi
+                            else
+                                if check_internet; then
+                                    switchback_success=1
+                                fi
+                            fi
+                        fi
+                        
+                        if [ $switchback_success -eq 1 ]; then
                             log_message "Successfully switched back to primary SIM" "info"
                             update_status "stable" "Successfully switched back to primary SIM"
                         else

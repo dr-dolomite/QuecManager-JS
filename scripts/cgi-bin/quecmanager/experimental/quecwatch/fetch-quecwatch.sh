@@ -52,6 +52,8 @@ get_current_status() {
     local message="Status not available"
     local retry="0"
     local maxRetries="0"
+    local currentLatency="0"
+    local latencyCeiling="0"
     local timestamp=$(date +%s)
     
     if [ -f "$STATUS_FILE" ]; then
@@ -61,6 +63,8 @@ get_current_status() {
             message=$(cat "$STATUS_FILE" | jsonfilter -e '@.message' 2>/dev/null)
             retry=$(cat "$STATUS_FILE" | jsonfilter -e '@.retry' 2>/dev/null)
             maxRetries=$(cat "$STATUS_FILE" | jsonfilter -e '@.maxRetries' 2>/dev/null)
+            currentLatency=$(cat "$STATUS_FILE" | jsonfilter -e '@.currentLatency' 2>/dev/null)
+            latencyCeiling=$(cat "$STATUS_FILE" | jsonfilter -e '@.latencyCeiling' 2>/dev/null)
             timestamp=$(cat "$STATUS_FILE" | jsonfilter -e '@.timestamp' 2>/dev/null)
         fi
     fi
@@ -70,9 +74,11 @@ get_current_status() {
     [ -z "$message" ] && message="Status not available"
     [ -z "$retry" ] && retry="0"
     [ -z "$maxRetries" ] && maxRetries="0"
+    [ -z "$currentLatency" ] && currentLatency="0"
+    [ -z "$latencyCeiling" ] && latencyCeiling="0"
     [ -z "$timestamp" ] && timestamp=$(date +%s)
     
-    echo "{\"status\":\"$status\",\"message\":\"$message\",\"retry\":$retry,\"maxRetries\":$maxRetries,\"timestamp\":$timestamp}"
+    echo "{\"status\":\"$status\",\"message\":\"$message\",\"retry\":$retry,\"maxRetries\":$maxRetries,\"currentLatency\":$currentLatency,\"latencyCeiling\":$latencyCeiling,\"timestamp\":$timestamp}"
 }
 
 # Load QuecManager configuration
@@ -106,6 +112,9 @@ connection_refresh=$(format_boolean $(get_uci_value "connection_refresh" "false"
 refresh_count=$(get_uci_value "refresh_count" "3")
 auto_sim_failover=$(format_boolean $(get_uci_value "auto_sim_failover" "false"))
 sim_failover_schedule=$(get_uci_value "sim_failover_schedule" "0")
+high_latency_monitoring=$(format_boolean $(get_uci_value "high_latency_monitoring" "false"))
+latency_ceiling=$(get_uci_value "latency_ceiling" "150")
+latency_failures=$(get_uci_value "latency_failures" "3")
 
 # Determine the overall status
 status="inactive"
@@ -132,7 +141,10 @@ cat <<EOF
         "connectionRefresh": $connection_refresh,
         "refreshCount": $refresh_count,
         "autoSimFailover": $auto_sim_failover,
-        "simFailoverSchedule": $sim_failover_schedule
+        "simFailoverSchedule": $sim_failover_schedule,
+        "highLatencyMonitoring": $high_latency_monitoring,
+        "latencyCeiling": $latency_ceiling,
+        "latencyFailures": $latency_failures
     },
     "lastActivity": "$last_log"
 }

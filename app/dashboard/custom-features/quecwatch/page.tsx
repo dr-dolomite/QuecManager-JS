@@ -56,22 +56,18 @@ interface QuecWatchConfig {
   connectionRefresh: boolean;
   autoSimFailover: boolean;
   simFailoverSchedule: number;
+  highLatencyMonitoring: boolean;
+  latencyCeiling: number;
+  latencyFailures: number;
   currentRetries?: number;
   refreshCount?: number;
 }
 
-interface CurrentStatus {
-  status: string;
-  message: string;
-  retry: number;
-  maxRetries: number;
-  timestamp: number;
-}
+
 
 interface QuecWatchResponse {
   status: string;
   serviceStatus?: string;
-  currentStatus?: CurrentStatus;
   config?: QuecWatchConfig;
   lastActivity?: string;
   message?: string;
@@ -87,6 +83,9 @@ const QuecWatchPage = () => {
     connectionRefresh: false,
     autoSimFailover: false,
     simFailoverSchedule: 30,
+    highLatencyMonitoring: false,
+    latencyCeiling: 150,
+    latencyFailures: 3,
   });
 
   const [status, setStatus] = useState<QuecWatchStatus>("loading");
@@ -115,6 +114,9 @@ const QuecWatchPage = () => {
             connectionRefresh: Boolean(data.config.connectionRefresh),
             autoSimFailover: Boolean(data.config.autoSimFailover),
             simFailoverSchedule: data.config.simFailoverSchedule || 30,
+            highLatencyMonitoring: Boolean(data.config.highLatencyMonitoring),
+            latencyCeiling: data.config.latencyCeiling || 150,
+            latencyFailures: data.config.latencyFailures || 3,
           };
           setConfig(newConfig);
 
@@ -234,6 +236,9 @@ const QuecWatchPage = () => {
             connectionRefresh: config.connectionRefresh,
             autoSimFailover: config.autoSimFailover,
             simFailoverSchedule: config.simFailoverSchedule,
+            highLatencyMonitoring: config.highLatencyMonitoring,
+            latencyCeiling: config.latencyCeiling,
+            latencyFailures: config.latencyFailures,
           }),
         }
       );
@@ -514,6 +519,89 @@ const QuecWatchPage = () => {
                 }))
               }
             />
+          </div>
+          
+          <div className="rounded-lg border p-4 grid gap-y-6">
+            <div className="flex flex-row items-center justify-between">
+              <div className="space-y-0.5 grid">
+                <Label className="text-base">High Latency Monitoring</Label>
+                <Label className="text-sm font-normal text-muted-foreground">
+                  Monitor ping latency and trigger recovery actions when latency exceeds threshold.
+                </Label>
+              </div>
+              <Switch
+                checked={config.highLatencyMonitoring}
+                disabled={status === "active" || status === "maxRetries"}
+                onCheckedChange={(checked) =>
+                  setConfig((prev) => ({
+                    ...prev,
+                    highLatencyMonitoring: checked,
+                  }))
+                }
+              />
+            </div>
+
+            <div className="grid grid-flow-row lg:grid-cols-2 grid-cols-1 gap-4">
+              <div className="grid w-full items-center gap-1.5">
+                <Label htmlFor="latency-ceiling">Latency Ceiling (ms)</Label>
+                <Select
+                  value={config.latencyCeiling.toString()}
+                  disabled={
+                    status === "active" ||
+                    status === "maxRetries" ||
+                    !config.highLatencyMonitoring
+                  }
+                  onValueChange={(value) =>
+                    setConfig((prev) => ({
+                      ...prev,
+                      latencyCeiling: parseInt(value),
+                    }))
+                  }
+                >
+                  <SelectTrigger id="latency-ceiling">
+                    <SelectValue placeholder="Select Latency Ceiling" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {[50, 100, 150, 200, 300, 500, 750, 1000, 1500, 2000].map(
+                      (ceiling) => (
+                        <SelectItem key={ceiling} value={ceiling.toString()}>
+                          {ceiling}ms
+                        </SelectItem>
+                      )
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="grid w-full items-center gap-1.5">
+                <Label htmlFor="latency-failures">Latency Failures</Label>
+                <Select
+                  value={config.latencyFailures.toString()}
+                  disabled={
+                    status === "active" ||
+                    status === "maxRetries" ||
+                    !config.highLatencyMonitoring
+                  }
+                  onValueChange={(value) =>
+                    setConfig((prev) => ({
+                      ...prev,
+                      latencyFailures: parseInt(value),
+                    }))
+                  }
+                >
+                  <SelectTrigger id="latency-failures">
+                    <SelectValue placeholder="Select Latency Failures" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {[1, 2, 3, 5, 8, 10].map((failures) => (
+                      <SelectItem key={failures} value={failures.toString()}>
+                        {failures} failure{failures !== 1 ? "s" : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
           </div>
 
           <div className=" rounded-lg border p-4 grid gap-y-6">
