@@ -1,97 +1,26 @@
-# QuecManager Release Notes
+# Changelog
 
-## Version 2.3.3
-*Release Date: September 10, 2025*
+All notable changes to this project will be documented in this file.
 
-### 🔧 Improvements
+## [Unreleased]
 
-#### Connection Monitoring Optimization
-- **Smart Connection Monitoring**: Implemented intelligent connection monitoring with ping integration
-  - Automatically detects when ping monitoring is active and stops redundant connection checks
-  - Displays "Ping Active" status when ping monitoring handles connectivity
-  - Eliminates duplicate network requests, saving cellular data usage
-  - Smart refresh cycle management - pauses automatic polling when optimization is active
-  - Manual refresh capability to restart monitoring cycle when needed
+### Added
 
-#### Network Insights Enhancement
-- **Enhanced PCI Change Detection**: Improved network insights interpreter with comprehensive PCI tracking
-  - Detects primary cell PCI changes (cell handoffs) even when bands remain the same
-  - Tracks secondary cell PCI changes in carrier aggregation scenarios
-  - Identifies network events previously missed when band configuration was stable
-  - Provides detailed interpretations for cell tower changes and CA updates
-  - Maintains existing band change and network mode detection capabilities
+- **Data Usage Tracking**: New experimental feature to monitor and track cellular data consumption with real-time statistics and usage history
+- **Network Latency Monitoring**: Enhanced QuecWatch with high latency monitoring capabilities, allowing automatic recovery actions when ping latency exceeds configurable thresholds
+- **PCI Change Monitoring**: Improved monitoring for SA (Standalone) network mode with better detection of Physical Cell Identifier changes
 
-### 🛠️ Technical Improvements
-- **Intelligent Resource Management**: Optimized polling system to reduce unnecessary network requests and improve performance
-- **Enhanced Hook Management**: Improved React hook lifecycle with smart interval control
-- **Advanced Network Monitoring**: Enhanced network insights interpreter with comprehensive cellular event detection
+### Improved
 
-### 📱 User Experience
-- **Cleaner Status Display**: Concise "Ping Active" status replaces longer text for better UI
-- **Reduced Data Usage**: Automatic optimization when multiple monitoring systems are active
-- **Maintained Control**: Manual refresh always available to restart monitoring cycle
-- **Enhanced Network Insights**: More comprehensive network event detection including cell handoffs and tower changes
+- QuecWatch service now supports dual monitoring modes (standard connectivity and latency-aware monitoring)
+- Enhanced configuration system for latency failure thresholds and ceiling settings
+- Better error handling and status reporting in QuecWatch service
+- Unified failure counting logic when latency monitoring is enabled
+- Automatic retry counter reset before system reboot to prevent reboot loops
 
+### Fixed
 
----
-
-## Previous Releases
-
-### Version 2.3.2 - Release Candidate
-*Release Date: September 7, 2025*
-
-- Enhanced Auth Token System with improved security and session management
-- AT Queue Manager Logging Integration for better visibility into command processing
-- Enhanced Logs Page with newest/oldest first dropdown selection
-- Mobile View Fixes for cellular basic settings and cell locking
-- Improved authentication token handling and mobile responsive layouts
-
-### Version 2.3.1
-*Previous stable release*
-
-### Version 2.3.0
-*Major release with core functionality*
-
----
-
-## Installation & Upgrade Notes
-
-### For New Installations
-1. Deploy the QuecManager package to your OpenWRT device
-2. Ensure all dependencies are installed
-3. Configure initial authentication settings
-4. Access the web interface and complete setup
-
-### For Upgrades from 2.3.2
-1. Backup current configuration
-2. Deploy new version
-3. The smart connection monitoring optimization will be automatically activated
-4. Verify that "Ping Active" status displays correctly when ping monitoring is enabled
-5. Test the optimized resource management functionality
-
-### For Upgrades from 2.3.1
-1. Backup current configuration
-2. Deploy new version
-3. The new auth token system will be automatically activated
-4. Verify logging functionality is working correctly
-5. Test mobile interface on cellular settings pages
-
-### System Requirements
-- OpenWRT compatible device
-- Quectel cellular modem
-- Web browser with JavaScript enabled
-- Minimum 16MB available storage
-
----
-
-## Known Issues
-- None reported in this release
-
-## Support & Documentation
-- GitHub Repository: [QuecManager-JS](https://github.com/dr-dolomite/QuecManager-JS)
-- Issues: Report bugs via GitHub Issues
-- Documentation: Available in `/docs` directory
-
----
-
-**Note**: This release includes smart connection monitoring optimization for improved performance and reduced cellular data usage.
+- Resolved conflicting retry count logic between latency and connectivity monitoring
+- Fixed boolean configuration parsing issues in QuecWatch service
+- Corrected hardcoded latency failure thresholds that were ignoring user configuration
+- Improved connection refresh logic to execute only on first retry when enabled
