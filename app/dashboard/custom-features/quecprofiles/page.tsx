@@ -119,7 +119,7 @@ const QuecProfilesPage = () => {
   const [lastToastStatus, setLastToastStatus] = useState<string>("");
   // New state for fetching ICCID and IMEI
   const [fetchingDeviceInfo, setFetchingDeviceInfo] = useState(false);
-  const [deviceInfo, setDeviceInfo] = useState({ iccid: "", imei: "" });
+  const [deviceInfo, setDeviceInfo] = useState({ iccid: "", imei: "", simSlot: "" });
 
   // Form state with fields
   const [formData, setFormData] = useState<Profile>({
@@ -168,6 +168,7 @@ const QuecProfilesPage = () => {
 
       let iccid = "";
       let imei = "";
+      let simSlot = "";
 
       // Extract ICCID from AT+ICCID response
       const iccidResponse = data.find((item) => item.command === "AT+ICCID");
@@ -189,10 +190,20 @@ const QuecProfilesPage = () => {
         }
       }
 
-      console.log("Extracted device info - ICCID:", iccid, "IMEI:", imei);
+      // Extract SIM slot from AT+QUIMSLOT? response
+      const simSlotResponse = data.find((item) => item.command === "AT+QUIMSLOT?");
+      if (simSlotResponse && simSlotResponse.status === "success") {
+        // Response format: +QUIMSLOT: 1 or +QUIMSLOT: 2
+        const match = simSlotResponse.response.match(/\+QUIMSLOT:\s*(\d+)/);
+        if (match) {
+          simSlot = match[1];
+        }
+      }
+
+      console.log("Extracted device info - ICCID:", iccid, "IMEI:", imei, "SIM Slot:", simSlot);
 
       // Update state and also immediately set values in form data
-      setDeviceInfo({ iccid, imei });
+      setDeviceInfo({ iccid, imei, simSlot });
 
       // Directly update the form with the fetched values
       setFormData((prev) => ({
@@ -368,6 +379,9 @@ const QuecProfilesPage = () => {
   const handleOpenCreateDialog = () => {
     setModalMode("create");
     setErrorMessage(null);
+
+    // Fetch latest device info including SIM slot
+    fetchDeviceInfo();
 
     // Reset form with empty values except for device info
     setFormData({
@@ -906,16 +920,16 @@ const QuecProfilesPage = () => {
                   Add New Profile
                 </Button>
               </DialogTrigger>
-              <DialogContent>
+              <DialogContent className="xl:max-w-xl">
                 <DialogHeader>
                   <DialogTitle>
                     {modalMode === "create"
-                      ? "Add New Profile"
+                      ? `Add New Profile for SIM ${deviceInfo.simSlot || "?"}`
                       : "Edit Profile"}
                   </DialogTitle>
                   <DialogDescription>
                     {modalMode === "create"
-                      ? "Create a new profile for your SIM card to manage connectivity settings and network preferences."
+                      ? "Create a new profile for your SIM card."
                       : "Update the settings for this profile."}
                   </DialogDescription>
                 </DialogHeader>
@@ -930,7 +944,9 @@ const QuecProfilesPage = () => {
 
                 <div className="grid grid-cols-2 gap-y-5 gap-x-4 py-4">
                   <div className="col-span-2 grid gap-1.5">
-                    <Label htmlFor="name">Profile Name</Label>
+                    <Label htmlFor="name">
+                      <span className="text-red-500 mr-1">*</span>Profile Name
+                    </Label>
                     <Input
                       id="name"
                       placeholder="My Network Profile"
@@ -941,7 +957,9 @@ const QuecProfilesPage = () => {
                   </div>
 
                   <div className="grid gap-1.5">
-                    <Label htmlFor="iccid">ICCID</Label>
+                    <Label htmlFor="iccid">
+                      <span className="text-red-500 mr-1">*</span>ICCID
+                    </Label>
                     <Input
                       id="iccid"
                       placeholder="SIM ICCID"
@@ -1088,17 +1106,16 @@ const QuecProfilesPage = () => {
                       />
                     </div>
                   </div>
-
                 </div>
                 <DialogFooter>
-                  <div className="flex items-center gap-4">
-                    <Button
+                  {/* <div className="flex items-center gap-4"> */}
+                    {/* <Button
                       variant="secondary"
                       onClick={() => setShowModal(false)}
                       disabled={isSubmitting}
                     >
                       Cancel
-                    </Button>
+                    </Button> */}
                     <Button
                       onClick={
                         modalMode === "create" ? createProfile : editProfile
@@ -1121,7 +1138,7 @@ const QuecProfilesPage = () => {
                         </>
                       )}
                     </Button>
-                  </div>
+                  {/* </div> */}
                 </DialogFooter>
               </DialogContent>
             </Dialog>
@@ -1384,10 +1401,10 @@ const QuecProfilesPage = () => {
                   <div className="mx-auto w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-4">
                     <UserRoundPen className="h-6 w-6 text-muted-foreground" />
                   </div>
-                  <h3 className="font-medium text-lg mb-1">
-                    No Profiles Found
+                  <h3 className="font-medium text-md mb-1">
+                    No Profiles Found for SIM {deviceInfo.simSlot || "?"}
                   </h3>
-                  <p className="text-muted-foreground mb-4">
+                  <p className="text-muted-foreground text-sm mb-4">
                     Simplify network management with profiles that automatically
                     apply your preferred settings.
                   </p>
