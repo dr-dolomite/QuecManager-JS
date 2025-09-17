@@ -95,19 +95,34 @@ recreate_config() {
     session_download=${session_download:-0}
     
     # Calculate final stored values based on enabled state
-    local final_stored_upload
-    local final_stored_download
+    local final_stored_upload=0
+    local final_stored_download=0
     
     if [ "$enabled_state" = "true" ]; then
-        # ENABLING: Store current session totals (this becomes the baseline for tracking)
-        final_stored_upload=$session_upload
-        final_stored_download=$session_download
-        qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Enabling: Setting stored values to current session totals: upload=$final_stored_upload, download=$final_stored_download"
+        # ENABLING: Start fresh tracking - modem counter daemon will handle accumulation
+        final_stored_upload=0
+        final_stored_download=0
+        qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Enabling: Starting fresh tracking, modem counter daemon will handle accumulation"
     else
-        # DISABLING: Accumulate existing + session (preserve all historical data)
-        final_stored_upload=$((existing_stored_upload + session_upload))
-        final_stored_download=$((existing_stored_download + session_download))
-        qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Disabling: Preserving accumulated totals: existing($existing_stored_upload + $existing_stored_download) + session($session_upload + $session_download) = total($final_stored_upload + $final_stored_download)"
+        # DISABLING: Preserve the final accumulated totals from modem counter daemon
+        local counter_file="/tmp/quecmanager/modem_counter.json"
+        if [ -f "$counter_file" ] && [ -r "$counter_file" ]; then
+            local counter_data=$(cat "$counter_file" 2>/dev/null)
+            if [ -n "$counter_data" ]; then
+                final_stored_upload=$(echo "$counter_data" | sed 's/.*"upload":\([0-9]*\).*/\1/')
+                final_stored_download=$(echo "$counter_data" | sed 's/.*"download":\([0-9]*\).*/\1/')
+                final_stored_upload=${final_stored_upload:-0}
+                final_stored_download=${final_stored_download:-0}
+                qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Disabling: Preserving final totals from modem counter: upload=$final_stored_upload, download=$final_stored_download"
+            fi
+        fi
+        
+        # Fallback to previous logic if counter daemon data not available
+        if [ "$final_stored_upload" -eq 0 ] && [ "$final_stored_download" -eq 0 ]; then
+            final_stored_upload=$((existing_stored_upload + session_upload))
+            final_stored_download=$((existing_stored_download + session_download))
+            qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Disabling: Fallback preservation: existing($existing_stored_upload + $existing_stored_download) + session($session_upload + $session_download) = total($final_stored_upload + $final_stored_download)"
+        fi
     fi
     
     # Ensure parent directory exists
@@ -534,34 +549,43 @@ get_session_usage() {
     parse_modem_data
 }
 get_current_usage() {
-    # Get session usage
+    # The modem counter daemon already handles accumulation and counter resets
+    # We just need to read the current accumulated values from it
+    local counter_file="/tmp/quecmanager/modem_counter.json"
+    
+    if [ -f "$counter_file" ] && [ -r "$counter_file" ]; then
+        # Read the accumulated data from modem counter daemon
+        local counter_data=$(cat "$counter_file" 2>/dev/null)
+        
+        if [ -n "$counter_data" ] && echo "$counter_data" | grep -q '"enabled":true'; then
+            # Extract values from counter daemon (these are already accumulated)
+            local daemon_upload=$(echo "$counter_data" | sed 's/.*"upload":\([0-9]*\).*/\1/')
+            local daemon_download=$(echo "$counter_data" | sed 's/.*"download":\([0-9]*\).*/\1/')
+            local daemon_total=$(echo "$counter_data" | sed 's/.*"total":\([0-9]*\).*/\1/')
+            
+            # Use daemon values as they already handle accumulation properly
+            daemon_upload=${daemon_upload:-0}
+            daemon_download=${daemon_download:-0}
+            daemon_total=${daemon_total:-0}
+            
+            qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Using accumulated values from modem counter daemon: upload=$daemon_upload, download=$daemon_download, total=$daemon_total"
+            
+            printf '{"upload":%s,"download":%s,"total":%s}' "$daemon_upload" "$daemon_download" "$daemon_total"
+            return
+        fi
+    fi
+    
+    # Fallback: if counter daemon is not available, use session data without additional accumulation
     local session_usage=$(parse_modem_data)
     
     # Parse the JSON values from session
     local session_upload=$(echo "$session_usage" | sed 's/.*"upload":\([0-9]*\).*/\1/')
     local session_download=$(echo "$session_usage" | sed 's/.*"download":\([0-9]*\).*/\1/')
+    local session_total=$((${session_upload:-0} + ${session_download:-0}))
     
-    # Get stored values from previous sessions
-    local stored_upload=$(get_config "STORED_UPLOAD")
-    local stored_download=$(get_config "STORED_DOWNLOAD")
+    qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Fallback to session data: upload=$session_upload, download=$session_download, total=$session_total"
     
-    # Ensure we have valid numbers
-    session_upload=${session_upload:-0}
-    session_download=${session_download:-0}
-    stored_upload=${stored_upload:-0}
-    stored_download=${stored_download:-0}
-    
-    qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Session totals: upload=$session_upload, download=$session_download"
-    qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Stored values: upload=$stored_upload, download=$stored_download"
-    
-    # Calculate totals with stored values
-    local total_upload=$((session_upload + stored_upload))
-    local total_download=$((session_download + stored_download))
-    local total_usage=$((total_upload + total_download))
-    
-    qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Final totals (session + stored): upload=$total_upload, download=$total_download, total=$total_usage"
-    
-    printf '{"upload":%s,"download":%s,"total":%s}' "$total_upload" "$total_download" "$total_usage"
+    printf '{"upload":%s,"download":%s,"total":%s}' "$session_upload" "$session_download" "$session_total"
 }
 
 # Check if monthly reset is needed
