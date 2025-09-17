@@ -69,17 +69,17 @@ get_latest_session() {
     # Convert escaped newlines to actual newlines for parsing
     output_data=$(echo "$output_data" | sed 's/\\r\\n/\n/g')
     
-    # Parse LTE data (QGDCNT) - format: +QGDCNT: received,sent
+    # Parse LTE data (QGDCNT) - format: +QGDCNT: sent,received
     local lte_line=$(echo "$output_data" | grep "+QGDCNT:" | head -1)
-    local lte_rx=0
     local lte_tx=0
+    local lte_rx=0
     
     if [ -n "$lte_line" ]; then
         local lte_numbers=$(echo "$lte_line" | sed 's/.*+QGDCNT:[[:space:]]*\([0-9,[:space:]]*\).*/\1/')
-        lte_rx=$(echo "$lte_numbers" | cut -d',' -f1 | tr -d ' ')
-        lte_tx=$(echo "$lte_numbers" | cut -d',' -f2 | tr -d ' ')
-        lte_rx=${lte_rx:-0}
+        lte_tx=$(echo "$lte_numbers" | cut -d',' -f1 | tr -d ' ')
+        lte_rx=$(echo "$lte_numbers" | cut -d',' -f2 | tr -d ' ')
         lte_tx=${lte_tx:-0}
+        lte_rx=${lte_rx:-0}
     fi
     
     # Parse NR data (QGDNRCNT) - format: +QGDNRCNT: sent,received  

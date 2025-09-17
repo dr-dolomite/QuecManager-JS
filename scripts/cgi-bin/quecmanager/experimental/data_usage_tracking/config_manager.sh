@@ -466,22 +466,22 @@ parse_modem_data() {
     
     qm_log_debug "$LOG_CATEGORY" "$SCRIPT_NAME" "After newline conversion (first 100 chars): $(echo "$output_data" | dd bs=100 count=1 2>/dev/null)..."
     
-    # Parse LTE data (QGDCNT) - format: +QGDCNT: received,sent
+    # Parse LTE data (QGDCNT) - format: +QGDCNT: sent,received
     local lte_line=$(echo "$output_data" | grep "+QGDCNT:" | head -1)
-    local lte_received=0
     local lte_sent=0
+    local lte_received=0
     
     if [ -n "$lte_line" ]; then
         qm_log_debug "$LOG_CATEGORY" "$SCRIPT_NAME" "Found LTE line: $lte_line"
         # Extract numbers after colon, handle spaces and commas
         local lte_numbers=$(echo "$lte_line" | sed 's/.*+QGDCNT:[[:space:]]*\([0-9,[:space:]]*\).*/\1/')
-        lte_received=$(echo "$lte_numbers" | cut -d',' -f1 | tr -d ' ')
-        lte_sent=$(echo "$lte_numbers" | cut -d',' -f2 | tr -d ' ')
+        lte_sent=$(echo "$lte_numbers" | cut -d',' -f1 | tr -d ' ')
+        lte_received=$(echo "$lte_numbers" | cut -d',' -f2 | tr -d ' ')
         
         # Ensure we have valid numbers
-        lte_received=${lte_received:-0}
         lte_sent=${lte_sent:-0}
-        qm_log_debug "$LOG_CATEGORY" "$SCRIPT_NAME" "LTE numbers: $lte_numbers -> received=$lte_received, sent=$lte_sent"
+        lte_received=${lte_received:-0}
+        qm_log_debug "$LOG_CATEGORY" "$SCRIPT_NAME" "LTE numbers: $lte_numbers -> sent=$lte_sent, received=$lte_received"
     else
         qm_log_debug "$LOG_CATEGORY" "$SCRIPT_NAME" "No LTE data found"
     fi
@@ -522,7 +522,7 @@ parse_modem_data() {
     local total_usage=$((total_upload + total_download))
     
     # Log the parsed values for debugging
-    qm_log_debug "$LOG_CATEGORY" "$SCRIPT_NAME" "Parsed LTE: received=$lte_received, sent=$lte_sent"
+    qm_log_debug "$LOG_CATEGORY" "$SCRIPT_NAME" "Parsed LTE: sent=$lte_sent, received=$lte_received"
     qm_log_debug "$LOG_CATEGORY" "$SCRIPT_NAME" "Parsed NR: sent=$nr_sent, received=$nr_received"
     qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Session totals: upload=$total_upload, download=$total_download"
     
