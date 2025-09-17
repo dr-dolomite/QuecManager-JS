@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 
 // Components
@@ -69,9 +70,16 @@ interface newBands {
 
 const HomePage = () => {
   const { toast } = useToast();
+  const router = useRouter();
   const [noSimDialogOpen, setNoSimDialogOpen] = useState(false);
+  const [profileSetupDialogOpen, setProfileSetupDialogOpen] = useState(false);
   const [hideSensitiveData, setHideSensitiveData] = useState(false);
-  const { data: homeData, isLoading, refresh: refreshHomeData, isPublicIPLoading } = useHomeData();
+  const {
+    data: homeData,
+    isLoading,
+    refresh: refreshHomeData,
+    isPublicIPLoading,
+  } = useHomeData();
   const {
     dataConnectionState,
     isStateLoading,
@@ -99,6 +107,85 @@ const HomePage = () => {
     refresh: refreshTrafficStats,
   } = useTrafficStats();
 
+  // Check if there's a profile for the current SIM
+  const checkProfileForCurrentSim = useCallback(async () => {
+    if (!homeData?.simCard?.iccid) return;
+
+    try {
+      // First check if profile dialog is enabled in settings
+      const dialogSettingsResponse = await fetch(
+        "/cgi-bin/quecmanager/settings/profile_dialog.sh"
+      );
+      if (dialogSettingsResponse.ok) {
+        const dialogSettings = await dialogSettingsResponse.json();
+        if (dialogSettings.status === "success" && dialogSettings.data && !dialogSettings.data.enabled) {
+          // Dialog is disabled in settings, don't show
+          return;
+        }
+      }
+
+      // Check if user clicked "Maybe Later" and if 6 hours haven't passed yet
+      const maybeLaterKey = `profile-maybe-later-${homeData.simCard.iccid}`;
+      const maybeLaterTimestamp = localStorage.getItem(maybeLaterKey);
+      if (maybeLaterTimestamp) {
+        const sixHoursInMs = 6 * 60 * 60 * 1000;
+        const timePassed = Date.now() - parseInt(maybeLaterTimestamp);
+        if (timePassed < sixHoursInMs) {
+          return; // Don't show dialog if less than 6 hours have passed
+        }
+      }
+
+      // Check if there are profiles for the current SIM
+      const response = await fetch(
+        "/cgi-bin/quecmanager/profiles/list_profiles.sh"
+      );
+      if (!response.ok) return;
+
+      const data = await response.json();
+
+      // Handle both array response and object with profiles array
+      let profiles = data;
+      if (data && typeof data === "object" && !Array.isArray(data)) {
+        profiles = data.profiles || [];
+      }
+
+      // Ensure profiles is an array
+      if (!Array.isArray(profiles)) {
+        console.warn("Profiles response is not an array:", data);
+        return;
+      }
+
+      // Check if any profile matches the current SIM's ICCID
+      const currentIccid = homeData.simCard.iccid;
+      const hasMatchingProfile = profiles.some(
+        (profile: any) => profile.iccid === currentIccid
+      );
+
+      // Show dialog if no matching profile found and SIM is inserted
+      if (!hasMatchingProfile && homeData.simCard.state === "Inserted") {
+        setProfileSetupDialogOpen(true);
+      }
+    } catch (error) {
+      console.error("Error checking profiles:", error);
+    }
+  }, [homeData?.simCard?.iccid, homeData?.simCard?.state]);
+
+  // Effect to check for profile when home data changes
+  useEffect(() => {
+    if (homeData && !isLoading) {
+      checkProfileForCurrentSim();
+    }
+  }, [homeData, isLoading, checkProfileForCurrentSim]);
+
+  // Handle "Maybe Later" - show again after 6 hours
+  const handleMaybeLater = useCallback(() => {
+    if (homeData?.simCard?.iccid) {
+      const maybeLaterKey = `profile-maybe-later-${homeData.simCard.iccid}`;
+      localStorage.setItem(maybeLaterKey, Date.now().toString());
+    }
+    setProfileSetupDialogOpen(false);
+  }, [homeData?.simCard?.iccid]);
+
   const sendChangeSimSlot = async () => {
     try {
       // Get the current SIM slot through AT+QUIMSLOT? command
@@ -108,7 +195,7 @@ const HomePage = () => {
         .split("\n")[1]
         .split(":")[1]
         .trim();
-      const command = 
+      const command =
         currentSimSlot === "1" ? "AT+QUIMSLOT=2" : "AT+QUIMSLOT=1";
 
       // Use atCommandSender instead of direct fetch
@@ -520,6 +607,76 @@ const HomePage = () => {
         monthlyLimit={formattedLimit}
         remaining={remaining}
       />
+
+      {/* Profile Setup Dialog */}
+      <Dialog
+        open={profileSetupDialogOpen}
+        onOpenChange={setProfileSetupDialogOpen}
+      >
+        <DialogContent className="lg:max-w-xl max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckCircle2 className="h-5 w-5 text-blue-500" />
+              Set Up Your QuecProfile
+            </DialogTitle>
+            <DialogDescription>
+              We noticed you don&apos;t have a profile configured for your
+              current SIM card.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <Card className="border-primary p-4 space-y-4">
+              <h2 className="font-medium text-primary">
+                Setting up a profile will save you time by automatically
+                applying your preferred network settings, APN configuration, and
+                other cellular preferences.
+              </h2>
+              {/* <div className="space-y-2">
+                <h4 className="font-medium">
+                  Benefits of setting up a profile:
+                </h4>
+                <ul className="text-sm space-y-1">
+                  <li>• Automatic network configuration</li>
+                  <li>• Quick switching between SIM cards</li>
+                  <li>• Backup and restore your settings</li>
+                  <li>• Optimized performance for your carrier</li>
+                </ul>
+              </div> */}
+            </Card>
+
+            <div className="flex flex-col gap-2 mt-4">
+              <Button
+                onClick={() => {
+                  setProfileSetupDialogOpen(false);
+                  router.push("/dashboard/custom-features/quecprofiles");
+                }}
+                className="w-full"
+              >
+                Set Up Profile Now
+              </Button>
+              <Button
+                variant="outline"
+                onClick={handleMaybeLater}
+                className="w-full"
+              >
+                Maybe Later
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setProfileSetupDialogOpen(false);
+                  router.push("/dashboard/settings/personalization");
+                }}
+                className="w-full text-muted-foreground"
+                size="sm"
+              >
+                Disable this dialog in Settings
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
