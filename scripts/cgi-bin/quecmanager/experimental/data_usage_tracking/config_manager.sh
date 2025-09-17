@@ -219,10 +219,10 @@ normalize_boolean() {
     esac
 }
 
-# Helper function to send JSON HTTP response headers
+# Helper function to send JSON HTTP response headers (now just a placeholder)
 send_json_headers() {
-    echo "Content-Type: application/json"
-    echo ""
+    # Headers already sent by main function
+    return 0
 }
 
 # Helper function to build config+usage JSON response
@@ -307,12 +307,12 @@ handle_get_action() {
             set_config "WARNING_THRESHOLD_SHOWN" "false"
             set_config "WARNING_OVERLIMIT_SHOWN" "false"
             send_json_headers
-            printf '{"success": true, "message": "Usage data reset successfully"}\n'
+            printf '{"status": "success", "message": "Usage data reset successfully"}\n'
             ;;
         *"action=backup"*)
             create_backup
             send_json_headers
-            printf '{"success": true, "message": "Backup created successfully"}\n'
+            printf '{"status": "success", "message": "Backup created successfully"}\n'
             ;;
         *"action=toggle_backup"*)
             # Handle backup service toggle
@@ -323,7 +323,7 @@ handle_get_action() {
                 enabled_param="false"
             else
                 send_json_headers
-                printf '{"success": false, "message": "Missing enabled parameter"}\n'
+                printf '{"status": "error", "message": "Missing enabled parameter"}\n'
                 exit 1
             fi
             
@@ -657,36 +657,36 @@ toggle_backup_service() {
     
     if [ "$enabled" = "true" ]; then
         # Enable and start the service
-        if /etc/init.d/quecmanager_data_usage enable 2>/dev/null; then
+        if /etc/init.d/quecmanager_data_usage enable >/dev/null 2>&1; then
             qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Backup service enabled successfully"
             
-            if /etc/init.d/quecmanager_data_usage start 2>/dev/null; then
+            if /etc/init.d/quecmanager_data_usage start >/dev/null 2>&1; then
                 qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Backup service started successfully"
                 send_json_headers
-                printf '{"success": true, "message": "Backup service enabled and started"}\n'
+                printf '{"status": "success", "message": "Backup service enabled and started"}\n'
             else
                 qm_log_warn "$LOG_CATEGORY" "$SCRIPT_NAME" "Backup service enabled but failed to start"
                 send_json_headers
-                printf '{"success": true, "message": "Backup service enabled but failed to start"}\n'
+                printf '{"status": "success", "message": "Backup service enabled but failed to start"}\n'
             fi
         else
             qm_log_error "$LOG_CATEGORY" "$SCRIPT_NAME" "Failed to enable backup service"
             send_json_headers
-            printf '{"success": false, "message": "Failed to enable backup service"}\n'
+            printf '{"status": "error", "message": "Failed to enable backup service"}\n'
         fi
     else
         # Stop and disable the service
-        /etc/init.d/quecmanager_data_usage stop 2>/dev/null
+        /etc/init.d/quecmanager_data_usage stop >/dev/null 2>&1
         qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Backup service stopped"
         
-        if /etc/init.d/quecmanager_data_usage disable 2>/dev/null; then
+        if /etc/init.d/quecmanager_data_usage disable >/dev/null 2>&1; then
             qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Backup service disabled successfully"
             send_json_headers
-            printf '{"success": true, "message": "Backup service stopped and disabled"}\n'
+            printf '{"status": "success", "message": "Backup service stopped and disabled"}\n'
         else
             qm_log_warn "$LOG_CATEGORY" "$SCRIPT_NAME" "Backup service stopped but failed to disable"
             send_json_headers
-            printf '{"success": true, "message": "Backup service stopped but failed to disable"}\n'
+            printf '{"status": "success", "message": "Backup service stopped but failed to disable"}\n'
         fi
     fi
 }
@@ -734,10 +734,10 @@ toggle_modem_counter_service() {
     
     if [ "$enabled" = "true" ]; then
         # Enable and start the modem counter service
-        if /etc/init.d/quecmanager_modem_counter enable 2>/dev/null; then
+        if /etc/init.d/quecmanager_modem_counter enable >/dev/null 2>&1; then
             qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Modem counter service enabled successfully"
             
-            if /etc/init.d/quecmanager_modem_counter start 2>/dev/null; then
+            if /etc/init.d/quecmanager_modem_counter start >/dev/null 2>&1; then
                 qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Modem counter service started successfully"
             else
                 qm_log_warn "$LOG_CATEGORY" "$SCRIPT_NAME" "Modem counter service enabled but failed to start"
@@ -747,10 +747,10 @@ toggle_modem_counter_service() {
         fi
     else
         # Stop and disable the modem counter service
-        /etc/init.d/quecmanager_modem_counter stop 2>/dev/null
+        /etc/init.d/quecmanager_modem_counter stop >/dev/null 2>&1
         qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Modem counter service stopped"
         
-        if /etc/init.d/quecmanager_modem_counter disable 2>/dev/null; then
+        if /etc/init.d/quecmanager_modem_counter disable >/dev/null 2>&1; then
             qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Modem counter service disabled successfully"
         else
             qm_log_warn "$LOG_CATEGORY" "$SCRIPT_NAME" "Modem counter service stopped but failed to disable"
@@ -780,39 +780,89 @@ handle_post() {
     
     log_msg "Received POST data: $post_data"
     
-    # Parse the interval field and track if it changed
+    # Parse configuration fields from POST data
+    local enabled=$(parse_json_value "$post_data" "enabled")
     local interval=$(parse_json_value "$post_data" "backupInterval")
-    log_msg "Parsed interval: $interval"
+    local monthly_limit=$(parse_json_value "$post_data" "monthlyLimit")
+    local warning_threshold=$(parse_json_value "$post_data" "warningThreshold")
+    local auto_backup_enabled=$(parse_json_value "$post_data" "autoBackupEnabled")
+    local reset_day=$(parse_json_value "$post_data" "resetDay")
     
-    # Simple config update (only if config exists)
-    if [ -n "$interval" ] && [ -f "$CONFIG_FILE" ]; then
-        # Get current interval to check if it changed
-        local current_interval=$(get_config "BACKUP_INTERVAL")
-        current_interval=${current_interval:-12}
+    log_msg "Parsed values: enabled=$enabled, interval=$interval, limit=$monthly_limit, threshold=$warning_threshold, auto_backup=$auto_backup_enabled, reset_day=$reset_day"
+    
+    # Handle enabled state change (enable/disable tracking)
+    if [ -n "$enabled" ]; then
+        # Normalize boolean value
+        enabled=$(normalize_boolean "$enabled")
+        log_msg "Processing enabled state change to: $enabled"
         
-        log_msg "Updating BACKUP_INTERVAL to $interval"
-        # Simple sed replace
-        sed -i "s/^BACKUP_INTERVAL=.*/BACKUP_INTERVAL=$interval/" "$CONFIG_FILE" 2>/dev/null || true
+        # Use recreate_config to properly handle enable/disable
+        if recreate_config "$enabled"; then
+            log_msg "Successfully recreated config with enabled=$enabled"
+        else
+            log_msg "Failed to recreate config"
+            send_error "Failed to update enabled state" 500
+        fi
+    fi
+    
+    # Update other configuration fields (only if config exists)
+    if [ -f "$CONFIG_FILE" ]; then
+        if [ -n "$interval" ]; then
+            # Get current interval to check if it changed
+            local current_interval=$(get_config "BACKUP_INTERVAL")
+            current_interval=${current_interval:-12}
+            
+            log_msg "Updating BACKUP_INTERVAL to $interval"
+            sed -i "s/^BACKUP_INTERVAL=.*/BACKUP_INTERVAL=$interval/" "$CONFIG_FILE" 2>/dev/null || true
+            
+            # Restart services if interval changed
+            if [ "$interval" != "$current_interval" ]; then
+                restart_services_if_needed "interval" "$current_interval" "$interval"
+            fi
+        fi
         
-        # Restart services if interval changed
-        if [ "$interval" != "$current_interval" ]; then
-            restart_services_if_needed "interval" "$current_interval" "$interval"
+        if [ -n "$monthly_limit" ]; then
+            log_msg "Updating MONTHLY_LIMIT to $monthly_limit"
+            sed -i "s/^MONTHLY_LIMIT=.*/MONTHLY_LIMIT=$monthly_limit/" "$CONFIG_FILE" 2>/dev/null || true
+        fi
+        
+        if [ -n "$warning_threshold" ]; then
+            log_msg "Updating WARNING_THRESHOLD to $warning_threshold"
+            sed -i "s/^WARNING_THRESHOLD=.*/WARNING_THRESHOLD=$warning_threshold/" "$CONFIG_FILE" 2>/dev/null || true
+        fi
+        
+        if [ -n "$auto_backup_enabled" ]; then
+            auto_backup_enabled=$(normalize_boolean "$auto_backup_enabled")
+            log_msg "Updating AUTO_BACKUP_ENABLED to $auto_backup_enabled"
+            
+            # Check if this field exists in config, if not add it
+            if grep -q "^AUTO_BACKUP_ENABLED=" "$CONFIG_FILE" 2>/dev/null; then
+                sed -i "s/^AUTO_BACKUP_ENABLED=.*/AUTO_BACKUP_ENABLED=$auto_backup_enabled/" "$CONFIG_FILE" 2>/dev/null || true
+            else
+                echo "AUTO_BACKUP_ENABLED=$auto_backup_enabled" >> "$CONFIG_FILE" 2>/dev/null || true
+            fi
+        fi
+        
+        if [ -n "$reset_day" ]; then
+            log_msg "Updating RESET_DAY to $reset_day"
+            sed -i "s/^RESET_DAY=.*/RESET_DAY=$reset_day/" "$CONFIG_FILE" 2>/dev/null || true
         fi
     fi
     
     log_msg "Sending success response"
     
     # Send response immediately
-    echo "Content-Type: application/json"
-    echo ""
-    printf '{"success": true, "message": "Configuration updated successfully"}\n'
+    printf '{"status": "success", "message": "Configuration updated successfully"}\n'
     
     log_msg "POST handling completed"
 }
 
 # Main execution function
 main() {
-    # Ensure proper HTTP headers are always sent
+    # Ensure proper HTTP headers are always sent first
+    echo "Content-Type: application/json"
+    echo ""
+    
     case "${REQUEST_METHOD:-GET}" in
         "POST")
             handle_post
@@ -821,7 +871,8 @@ main() {
             handle_get_action "${QUERY_STRING}"
             ;;
         *)
-            send_error "Method not allowed" 405
+            printf '{"status": "error", "message": "Method not allowed"}\n'
+            exit 1
             ;;
     esac
     return 0
@@ -831,9 +882,7 @@ main() {
 log_msg "Script starting"
 if ! main "$@" 2>>/tmp/config_debug.log; then
     log_msg "Script execution failed"
-    echo "Status: 500"
-    echo "Content-Type: application/json"
-    echo ""
-    printf '{"error": "Internal server error", "code": 500}\n'
+    # If main fails, we can't send headers again, just output JSON error
+    printf '{"status": "error", "message": "Internal server error"}\n'
 fi
 log_msg "Script completed"

@@ -186,9 +186,20 @@ const useDataUsageTracking = () => {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const result = await response.json();
+      // Log the raw response text for debugging
+      const responseText = await response.text();
+      console.log("Raw response from config_manager:", responseText);
       
-      if (result.success) {
+      let result;
+      try {
+        result = JSON.parse(responseText);
+      } catch (parseErr) {
+        console.error("Failed to parse response as JSON:", parseErr);
+        console.error("Response text was:", responseText);
+        throw new Error("Invalid JSON response from server");
+      }
+      
+      if (result.status === "success") {
         // If backup toggle was changed, also call the service toggle API
         if (isBackupToggleChanged) {
           try {
@@ -244,7 +255,7 @@ const useDataUsageTracking = () => {
 
       const result = await response.json();
       
-      if (result.success) {
+      if (result.status === "success") {
         // Reset local usage state
         setUsage({ upload: 0, download: 0, total: 0 });
         setShowWarning(false);
@@ -285,7 +296,7 @@ const useDataUsageTracking = () => {
 
       const result = await response.json();
       
-      if (result.success) {
+      if (result.status === "success") {
         toast({
           title: "Success",
           description: "Backup created successfully",
