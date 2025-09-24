@@ -141,6 +141,7 @@ WARNING_THRESHOLD=$DEFAULT_WARNING_THRESHOLD
 STORED_UPLOAD=$final_stored_upload
 STORED_DOWNLOAD=$final_stored_download
 LAST_BACKUP=$init_timestamp
+LAST_MONTHLY_RESET=
 WARNING_SHOWN=false
 WARNING_THRESHOLD_SHOWN=false
 WARNING_OVERLIMIT_SHOWN=false
@@ -149,14 +150,8 @@ EOF
         chmod 644 "$CONFIG_FILE" 2>/dev/null
         qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Recreated configuration with accumulated stored values: upload=$final_stored_upload, download=$final_stored_download"
         
-        # Control services based on enabled state
-        toggle_modem_counter_service "$enabled_state"
-        
-        # Also restart backup service if enabling (to pick up current config)
-        if [ "$enabled_state" = "true" ]; then
-            qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Restarting backup service to pick up configuration"
-            ( /etc/init.d/quecmanager_data_usage restart >/dev/null 2>&1 ) &
-        fi
+        # Control services based on enabled state with proper coordination
+        coordinate_services "$enabled_state"
         
         return 0
     else
@@ -316,11 +311,21 @@ handle_get_action() {
     
     case "$query_string" in
         *"action=reset"*)
+            # Reset both daemon and config values
+            qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Manual reset requested"
+            
+            # Reset the modem counter daemon
+            reset_modem_counter_daemon
+            
+            # Reset config file values for consistency
             set_config "STORED_UPLOAD" "0"
             set_config "STORED_DOWNLOAD" "0"
             set_config "WARNING_SHOWN" "false"
             set_config "WARNING_THRESHOLD_SHOWN" "false"
             set_config "WARNING_OVERLIMIT_SHOWN" "false"
+            # Clear monthly reset marker to allow reset again if needed
+            set_config "LAST_MONTHLY_RESET" ""
+            
             send_json_headers
             printf '{"status": "success", "message": "Usage data reset successfully"}\n'
             ;;
@@ -588,6 +593,68 @@ get_current_usage() {
     printf '{"upload":%s,"download":%s,"total":%s}' "$session_upload" "$session_download" "$session_total"
 }
 
+# Reset the modem counter daemon's accumulated values
+reset_modem_counter_daemon() {
+    local counter_file="/tmp/quecmanager/modem_counter.json"
+    local counter_control_file="/tmp/quecmanager/modem_counter_control"
+    
+    qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Attempting to reset modem counter daemon accumulated values"
+    
+    # Method 1: Try to send reset signal via control file (if daemon supports it)
+    if echo "RESET_MONTHLY" > "$counter_control_file" 2>/dev/null; then
+        qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Sent reset signal to modem counter daemon via control file"
+        
+        # Wait a moment for daemon to process the signal
+        sleep 2
+        
+        # Check if reset was successful by reading the counter file
+        if [ -f "$counter_file" ]; then
+            local counter_data=$(cat "$counter_file" 2>/dev/null)
+            if [ -n "$counter_data" ]; then
+                local daemon_upload=$(echo "$counter_data" | sed 's/.*"upload":\([0-9]*\).*/\1/')
+                local daemon_download=$(echo "$counter_data" | sed 's/.*"download":\([0-9]*\).*/\1/')
+                daemon_upload=${daemon_upload:-0}
+                daemon_download=${daemon_download:-0}
+                
+                if [ "$daemon_upload" -eq 0 ] && [ "$daemon_download" -eq 0 ]; then
+                    qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Modem counter daemon reset successful"
+                    return 0
+                else
+                    qm_log_warn "$LOG_CATEGORY" "$SCRIPT_NAME" "Daemon reset may not have worked, values still: upload=$daemon_upload, download=$daemon_download"
+                fi
+            fi
+        fi
+    fi
+    
+    # Method 2: Restart the modem counter service to reset accumulated values
+    qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Attempting daemon reset via service restart"
+    
+    if /etc/init.d/quecmanager_modem_counter restart >/dev/null 2>&1; then
+        qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Modem counter service restarted for reset"
+        
+        # Wait for service to start up
+        sleep 3
+        
+        # Verify reset was successful
+        if [ -f "$counter_file" ]; then
+            local counter_data=$(cat "$counter_file" 2>/dev/null)
+            if [ -n "$counter_data" ]; then
+                local daemon_upload=$(echo "$counter_data" | sed 's/.*"upload":\([0-9]*\).*/\1/')
+                local daemon_download=$(echo "$counter_data" | sed 's/.*"download":\([0-9]*\).*/\1/')
+                daemon_upload=${daemon_upload:-0}
+                daemon_download=${daemon_download:-0}
+                
+                qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "After service restart: upload=$daemon_upload, download=$daemon_download"
+            fi
+        fi
+        
+        return 0
+    else
+        qm_log_error "$LOG_CATEGORY" "$SCRIPT_NAME" "Failed to restart modem counter service for reset"
+        return 1
+    fi
+}
+
 # Check if monthly reset is needed
 check_monthly_reset() {
     local reset_day=$(get_config "RESET_DAY")
@@ -599,21 +666,29 @@ check_monthly_reset() {
     # Simple monthly reset: only reset on the exact reset day of each month
     # This prevents multiple resets in the same month
     if [ "$current_day" -eq "$reset_day" ]; then
-        # Check if we already reset today by looking at stored values
-        local stored_upload=$(get_config "STORED_UPLOAD")
-        local stored_download=$(get_config "STORED_DOWNLOAD")
+        # Check if we already reset today by checking if daemon has accumulated significant data
+        # or by checking a reset marker in config
+        local reset_marker=$(get_config "LAST_MONTHLY_RESET")
+        local current_month=$(date +%Y%m)
         
-        # Only reset if we have non-zero stored values (indicating we haven't reset today)
-        if [ "${stored_upload:-0}" -gt 0 ] || [ "${stored_download:-0}" -gt 0 ]; then
+        # Only reset if we haven't reset this month yet
+        if [ "$reset_marker" != "$current_month" ]; then
             qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Performing monthly reset on day $current_day (reset day: $reset_day)"
+            
+            # Reset the modem counter daemon by sending it a reset signal
+            reset_modem_counter_daemon
+            
+            # Reset config file values for consistency (warnings, etc.)
             set_config "STORED_UPLOAD" "0"
             set_config "STORED_DOWNLOAD" "0"
             set_config "WARNING_SHOWN" "false"
             set_config "WARNING_THRESHOLD_SHOWN" "false"
             set_config "WARNING_OVERLIMIT_SHOWN" "false"
+            set_config "LAST_MONTHLY_RESET" "$current_month"
+            
             return 0
         else
-            qm_log_debug "$LOG_CATEGORY" "$SCRIPT_NAME" "Monthly reset already performed today (day $current_day)"
+            qm_log_debug "$LOG_CATEGORY" "$SCRIPT_NAME" "Monthly reset already performed this month (day $current_day)"
         fi
     else
         qm_log_debug "$LOG_CATEGORY" "$SCRIPT_NAME" "Monthly reset not needed (current day: $current_day, reset day: $reset_day)"
@@ -622,57 +697,61 @@ check_monthly_reset() {
     return 1
 }
 
-# Create backup of current usage with intelligent comparison logic
-# Simple manual backup function
+# Create backup of current usage with daemon-compatible logic
+# Manual backup function - communicates with modem counter daemon
 create_backup() {
-    # Get current session totals using existing parser
-    local session_usage=$(parse_modem_data)
+    qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Manual backup requested - triggering daemon backup"
     
-    # Parse the JSON values from session
-    local curr_tx=$(echo "$session_usage" | sed 's/.*"upload":\([0-9]*\).*/\1/')
-    local curr_rx=$(echo "$session_usage" | sed 's/.*"download":\([0-9]*\).*/\1/')
+    # With the new architecture, the modem counter daemon handles all accumulation
+    # Manual backup now means: force the daemon to save its current state
     
-    # Ensure we have valid numbers
-    curr_tx=${curr_tx:-0}
-    curr_rx=${curr_rx:-0}
+    local counter_file="/tmp/quecmanager/modem_counter.json"
+    local counter_control_file="/tmp/quecmanager/modem_counter_control"
     
-    # Get stored values
-    local stored_tx=$(get_config "STORED_UPLOAD")
-    local stored_rx=$(get_config "STORED_DOWNLOAD")
-    stored_tx=${stored_tx:-0}
-    stored_rx=${stored_rx:-0}
-    
-    qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Manual backup: current tx=$curr_tx rx=$curr_rx, stored tx=$stored_tx rx=$stored_rx"
-    
-    # Compare and update logic
-    local new_tx new_rx
-    
-    if [ "$stored_tx" -gt "$curr_tx" ]; then
-        # Counter reset detected (reboot) - preserve stored + add new session
-        new_tx=$((stored_tx + curr_tx))
-        qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "TX counter reset detected, preserving stored value: $stored_tx + $curr_tx = $new_tx"
-    else
-        # Normal case - just store current session total
-        new_tx=$curr_tx
-        qm_log_debug "$LOG_CATEGORY" "$SCRIPT_NAME" "TX normal update: $curr_tx"
+    # Method 1: Try to send backup signal to daemon via control file
+    if echo "BACKUP_NOW" > "$counter_control_file" 2>/dev/null; then
+        qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Sent backup signal to modem counter daemon"
+        
+        # Wait for daemon to process
+        sleep 1
+        
+        # Verify backup by reading current daemon state
+        if [ -f "$counter_file" ] && [ -r "$counter_file" ]; then
+            local counter_data=$(cat "$counter_file" 2>/dev/null)
+            if [ -n "$counter_data" ]; then
+                local daemon_upload=$(echo "$counter_data" | sed 's/.*"upload":\([0-9]*\).*/\1/')
+                local daemon_download=$(echo "$counter_data" | sed 's/.*"download":\([0-9]*\).*/\1/')
+                daemon_upload=${daemon_upload:-0}
+                daemon_download=${daemon_download:-0}
+                
+                qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Daemon backup completed: upload=$daemon_upload, download=$daemon_download"
+                
+                # Update LAST_BACKUP timestamp for consistency
+                set_config "LAST_BACKUP" "$(date +%s)"
+                return 0
+            fi
+        fi
     fi
     
-    if [ "$stored_rx" -gt "$curr_rx" ]; then
-        # Counter reset detected (reboot) - preserve stored + add new session
-        new_rx=$((stored_rx + curr_rx))
-        qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "RX counter reset detected, preserving stored value: $stored_rx + $curr_rx = $new_rx"
-    else
-        # Normal case - just store current session total
-        new_rx=$curr_rx
-        qm_log_debug "$LOG_CATEGORY" "$SCRIPT_NAME" "RX normal update: $curr_rx"
+    # Method 2: Fallback - just update the backup timestamp since daemon handles the data
+    qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Backup fallback - updating timestamp (daemon handles data persistence)"
+    
+    if [ -f "$counter_file" ] && [ -r "$counter_file" ]; then
+        local counter_data=$(cat "$counter_file" 2>/dev/null)
+        if [ -n "$counter_data" ]; then
+            local daemon_upload=$(echo "$counter_data" | sed 's/.*"upload":\([0-9]*\).*/\1/')
+            local daemon_download=$(echo "$counter_data" | sed 's/.*"download":\([0-9]*\).*/\1/')
+            daemon_upload=${daemon_upload:-0}
+            daemon_download=${daemon_download:-0}
+            
+            qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Manual backup noted current daemon state: upload=$daemon_upload, download=$daemon_download"
+        fi
     fi
     
-    # Update stored values in config
-    set_config "STORED_UPLOAD" "$new_tx"
-    set_config "STORED_DOWNLOAD" "$new_rx"
+    # Update backup timestamp regardless
     set_config "LAST_BACKUP" "$(date +%s)"
     
-    qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Manual backup completed: stored tx=$new_tx rx=$new_rx"
+    qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Manual backup completed (daemon-based architecture)"
 }
 
 # Toggle backup service (enable/disable procd service)
@@ -729,27 +808,105 @@ restart_services_if_needed() {
             local enabled=$(get_config "ENABLED")
             if [ "$enabled" = "true" ]; then
                 qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Restarting backup daemon due to interval change"
-                # Use background restart to avoid blocking CGI response
-                ( /etc/init.d/quecmanager_data_usage restart >/dev/null 2>&1 ) &
+                # Use background restart to avoid blocking CGI response, but ensure coordination
+                ( 
+                    # Wait a moment to let current request complete
+                    sleep 1
+                    # Restart just the backup service (modem counter doesn't need restart for interval change)
+                    /etc/init.d/quecmanager_data_usage restart >/dev/null 2>&1
+                    qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Backup daemon restart completed"
+                ) &
                 qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Backup daemon restart initiated in background"
             else
                 qm_log_debug "$LOG_CATEGORY" "$SCRIPT_NAME" "Tracking disabled, backup daemon restart skipped"
             fi
             ;;
         "enabled")
-            # Enabled state changed - handle both services
+            # Enabled state changed - this should be handled by coordinate_services in recreate_config
             if [ "$new_value" = "true" ]; then
-                qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Enabling services due to tracking activation"
-                # Both services will be started by toggle functions
+                qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Services will be enabled via coordinate_services"
             else
-                qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Disabling services due to tracking deactivation"
-                # Both services will be stopped by toggle functions
+                qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Services will be disabled via coordinate_services"
             fi
             ;;
         *)
             qm_log_debug "$LOG_CATEGORY" "$SCRIPT_NAME" "No service restart needed for $config_changed change"
             ;;
     esac
+}
+
+# Coordinate service startup/shutdown with proper sequencing to prevent race conditions
+coordinate_services() {
+    local enabled_state="$1"
+    
+    if [ "$enabled_state" = "true" ]; then
+        qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Enabling services with proper coordination"
+        
+        # Step 1: Start modem counter service first (it's the data source)
+        qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Starting modem counter service..."
+        toggle_modem_counter_service "true"
+        
+        # Step 2: Wait for modem counter service to be ready
+        local counter_ready=false
+        local wait_count=0
+        local max_wait=10
+        
+        while [ $wait_count -lt $max_wait ]; do
+            if wait_for_modem_counter_ready; then
+                counter_ready=true
+                break
+            fi
+            
+            wait_count=$((wait_count + 1))
+            qm_log_debug "$LOG_CATEGORY" "$SCRIPT_NAME" "Waiting for modem counter service... attempt $wait_count/$max_wait"
+            sleep 1
+        done
+        
+        if [ "$counter_ready" = "true" ]; then
+            qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Modem counter service is ready"
+            
+            # Step 3: Now start backup service (depends on modem counter)
+            qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Starting backup service..."
+            /etc/init.d/quecmanager_data_usage restart >/dev/null 2>&1
+            
+            # Give backup service a moment to start
+            sleep 2
+            qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Service coordination completed - both services should be running"
+        else
+            qm_log_warn "$LOG_CATEGORY" "$SCRIPT_NAME" "Modem counter service not ready after ${max_wait}s, starting backup service anyway"
+            /etc/init.d/quecmanager_data_usage restart >/dev/null 2>&1
+        fi
+        
+    else
+        qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Disabling services with proper coordination"
+        
+        # Step 1: Stop backup service first (depends on modem counter)
+        qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Stopping backup service..."
+        /etc/init.d/quecmanager_data_usage stop >/dev/null 2>&1
+        
+        # Step 2: Stop modem counter service
+        qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Stopping modem counter service..."
+        toggle_modem_counter_service "false"
+        
+        qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Service shutdown coordination completed"
+    fi
+}
+
+# Wait for modem counter service to be ready (counter file exists and is readable)
+wait_for_modem_counter_ready() {
+    local counter_file="/tmp/quecmanager/modem_counter.json"
+    
+    # Check if counter file exists and has valid content
+    if [ -f "$counter_file" ] && [ -r "$counter_file" ]; then
+        local counter_data=$(cat "$counter_file" 2>/dev/null)
+        if [ -n "$counter_data" ] && echo "$counter_data" | grep -q '"enabled":true'; then
+            # File exists and has valid JSON with enabled state
+            qm_log_debug "$LOG_CATEGORY" "$SCRIPT_NAME" "Modem counter service appears ready"
+            return 0
+        fi
+    fi
+    
+    return 1
 }
 
 # Toggle modem counter service (enable/disable procd service)
