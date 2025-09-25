@@ -51,6 +51,16 @@ const ExperimentalLayout = ({ children }: ExperimentalLayoutProps) => {
           >
             Scheduled Reboot
           </Link>
+                    <Link
+            href="/dashboard/experimental/logs"
+            className={`${
+              currentPathName === "/dashboard/experimental/logs/"
+                ? "font-semibold text-primary"
+                : "text-sm"
+            }`}
+          >
+            Logs
+          </Link>
         </nav>
         {children}
       </div>

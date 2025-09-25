@@ -36,6 +36,46 @@ const useHomeData = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const [retryCount, setRetryCount] = useState(0);
+  const [isPublicIPLoading, setIsPublicIPLoading] = useState(true);
+
+  // Separate function to fetch public IP
+  const fetchPublicIP = useCallback(async () => {
+    try {
+      setIsPublicIPLoading(true);
+      const publicIPResponse = await fetch(
+        "/cgi-bin/quecmanager/home/fetch_public_ip.sh"
+      );
+
+      let publicIP = "Can't fetch public IP";
+      if (publicIPResponse.ok) {
+        const publicIPData = await publicIPResponse.json();
+        publicIP = publicIPData.error
+          ? "No Internet"
+          : publicIPData.public_ip || "-";
+      }
+
+      // Update only the public IP in the existing data
+      setData(prevData => prevData ? {
+        ...prevData,
+        networkAddressing: {
+          ...prevData.networkAddressing,
+          publicIPv4: publicIP
+        }
+      } : null);
+    } catch (error) {
+      console.error("Error fetching public IP:", error);
+      // Set fallback value for public IP
+      setData(prevData => prevData ? {
+        ...prevData,
+        networkAddressing: {
+          ...prevData.networkAddressing,
+          publicIPv4: "Can't fetch public IP"
+        }
+      } : null);
+    } finally {
+      setIsPublicIPLoading(false);
+    }
+  }, []);
 
   // Automated recovery function
   const handleErrorWithRetry = useCallback(
@@ -132,22 +172,32 @@ const useHomeData = () => {
       }
 
       const rawData = await response.json();
-      console.log(rawData); //
+      // console.log(rawData);
       // Add type annotation for rawData
-      if (rawData.some((x: {response: string}) => x.response.toLowerCase().includes("failed"))) {
-        console.error("SMS tool failure detected in modem response. Attempting service restart via reset-at-bridge.sh.");
-        await fetch("/cgi-bin/quecmanager/reset-at-bridge.sh")
+      if (
+        rawData.some((x: { response: string }) =>
+          x.response.toLowerCase().includes("failed")
+        )
+      ) {
+        console.error(
+          "SMS tool failure detected in modem response. Attempting service restart via reset-at-bridge.sh."
+        );
+        await fetch("/cgi-bin/quecmanager/reset-at-bridge.sh");
       }
-      // fetch public ip from /cgi-bin/quecmanager/home/fetch_public_ip.sh
-      const publicIPResponse = await fetch(
-        "/cgi-bin/quecmanager/home/fetch_public_ip.sh"
-      );
 
-      // Process the raw data into the HomeData format
+      // Process the raw data into the HomeData format (without public IP)
       const processedData: HomeData = {
         simCard: {
           slot: parseField(rawData[0].response, 1, 1, 0),
-          state: rawData[6].response.includes("READY") ? "Inserted" : rawData[6].response.includes("PIN") ? "Waiting for PIN" : rawData[6].response.includes("PUK") ? "Waiting for Password" : rawData[6].response.toLowerCase().includes("failed") ? "SMS-Tool Failed Token" : "Unknown",
+          state: rawData[6].response.includes("READY")
+            ? "Inserted"
+            : rawData[6].response.includes("PIN")
+            ? "Waiting for PIN"
+            : rawData[6].response.includes("PUK")
+            ? "Waiting for Password"
+            : rawData[6].response.toLowerCase().includes("failed")
+            ? "SMS-Tool Failed Token"
+            : "Unknown",
           provider: parseField(rawData[2].response, 1, 1, 2),
           phoneNumber: parseField(rawData[1].response, 1, 1, 1),
           imsi: parseField(rawData[3].response, 1, 0, 0),
@@ -194,11 +244,39 @@ const useHomeData = () => {
         },
         cellularInfo: {
           // The TAC and CellID are providing a data map for the network type to correlate to which index to use for the parsing
-          cellId: extractValueByNetworkType(rawData[10]?.response, getNetworkType(rawData[13]?.response), { "NR5G-SA": 1, "NR5G-NSA": 2, "LTE": 1 }, { "NR5G-SA": 6, "NR5G-NSA": 4, "LTE": 6 }, false),
-          trackingAreaCode: extractValueByNetworkType(rawData[10]?.response, getNetworkType(rawData[13]?.response), { "NR5G-SA": 1, "NR5G-NSA": 2, "LTE": 1 }, { "NR5G-SA": 8, "NR5G-NSA": 10, "LTE": 12 }, false),
-          cellIdRaw: extractValueByNetworkType(rawData[10]?.response, getNetworkType(rawData[13]?.response), { "NR5G-SA": 1, "NR5G-NSA": 2, "LTE": 1 }, { "NR5G-SA": 6, "NR5G-NSA": 4, "LTE": 6 }, true),
-          trackingAreaCodeRaw: extractValueByNetworkType(rawData[10]?.response, getNetworkType(rawData[13]?.response), { "NR5G-SA": 1, "NR5G-NSA": 2, "LTE": 1 }, { "NR5G-SA": 8, "NR5G-NSA": 10, "LTE": 12 }, true),
-          physicalCellId: getCurrentBandsPCI(rawData[13].response, getNetworkType(rawData[13].response)).join(", ") || "Unknown",
+          cellId: extractValueByNetworkType(
+            rawData[10]?.response,
+            getNetworkType(rawData[13]?.response),
+            { "NR5G-SA": 1, "NR5G-NSA": 2, LTE: 1 },
+            { "NR5G-SA": 6, "NR5G-NSA": 4, LTE: 6 },
+            false
+          ),
+          trackingAreaCode: extractValueByNetworkType(
+            rawData[10]?.response,
+            getNetworkType(rawData[13]?.response),
+            { "NR5G-SA": 1, "NR5G-NSA": 2, LTE: 1 },
+            { "NR5G-SA": 8, "NR5G-NSA": 10, LTE: 12 },
+            false
+          ),
+          cellIdRaw: extractValueByNetworkType(
+            rawData[10]?.response,
+            getNetworkType(rawData[13]?.response),
+            { "NR5G-SA": 1, "NR5G-NSA": 2, LTE: 1 },
+            { "NR5G-SA": 6, "NR5G-NSA": 4, LTE: 6 },
+            true
+          ),
+          trackingAreaCodeRaw: extractValueByNetworkType(
+            rawData[10]?.response,
+            getNetworkType(rawData[13]?.response),
+            { "NR5G-SA": 1, "NR5G-NSA": 2, LTE: 1 },
+            { "NR5G-SA": 8, "NR5G-NSA": 10, LTE: 12 },
+            true
+          ),
+          physicalCellId:
+            getCurrentBandsPCI(
+              rawData[13].response,
+              getNetworkType(rawData[13].response)
+            ).join(", ") || "Unknown",
           earfcn: getCurrentBandsEARFCN(rawData[13].response).join(", "),
           mcc: getNetworkCode(
             rawData[10]?.response,
@@ -240,9 +318,7 @@ const useHomeData = () => {
           ) || ["Unknown"],
         },
         networkAddressing: {
-          publicIPv4: publicIPResponse.ok
-            ? (await publicIPResponse.json()).public_ip || "-"
-            : "Can't fetch public IP",
+          publicIPv4: "Loading...", // Placeholder, will be updated by fetchPublicIP
           // Extract IPv4 address from QMAP="WWAN" response
           cellularIPv4: extractIPAddress(rawData, "IPV4"),
           cellularIPv6: extractIPAddress(rawData, "IPV6"),
@@ -285,10 +361,14 @@ const useHomeData = () => {
           nrTimeAdvance: parseField(rawData[22]?.response, 1, 1, 2),
         },
       };
+      
       setData(processedData);
       setRetryCount(0);
       setError(null);
-      console.log("Processed home data:", processedData); //
+      // console.log("Processed home data:", processedData); //
+      
+      // Fetch public IP separately (non-blocking)
+      fetchPublicIP();
     } catch (error) {
       console.error("Error fetching home data:", error);
       handleErrorWithRetry(
@@ -297,11 +377,12 @@ const useHomeData = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [handleErrorWithRetry]);
+  }, [handleErrorWithRetry, fetchPublicIP]);
 
   useEffect(() => {
     let isMounted = true;
     let intervalId: NodeJS.Timeout;
+    let publicIPIntervalId: NodeJS.Timeout;
 
     const loadData = async () => {
       if (!isMounted) return;
@@ -314,17 +395,23 @@ const useHomeData = () => {
     // Initial load
     loadData();
 
-    // Set up polling interval
+    // Set up polling interval for main data
     intervalId = setInterval(() => {
       fetchHomeData();
     }, 15000);
+
+    // Set up separate polling for public IP (every 30 seconds)
+    publicIPIntervalId = setInterval(() => {
+      fetchPublicIP();
+    }, 30000);
 
     // Cleanup function
     return () => {
       isMounted = false;
       clearInterval(intervalId);
+      clearInterval(publicIPIntervalId);
     };
-  }, [fetchHomeData]);
+  }, [fetchHomeData, fetchPublicIP]);
 
   const refresh = useCallback(async () => {
     setIsLoading(true);
@@ -332,7 +419,7 @@ const useHomeData = () => {
     setIsLoading(false);
   }, [fetchHomeData]);
 
-  return { data, isLoading, error, refresh };
+  return { data, isLoading, error, refresh, isPublicIPLoading };
 };
 
 // Helper functions for data processing

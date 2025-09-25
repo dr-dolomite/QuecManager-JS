@@ -3,17 +3,14 @@
  *
  * This hook handles:
  * - User authentication state management
- * - Server heartbeat monitoring
  * - Session token generation and validation
  * - Session expiration and renewal
  * - Login and logout operations
  *
  * Sessions are maintained in localStorage and expire after 30 minutes of inactivity.
- * The hook also periodically checks server status and logs out the user if the server becomes unreachable.
  *
  * @returns An object containing authentication state and methods
  * @property {boolean} isAuthenticated - Whether the user is currently authenticated
- * @property {boolean} isServerAlive - Whether the server is currently reachable
  * @property {function} login - Authenticates a user with their password
  * @property {function} logout - Logs out the current user and redirects to login page
  * @property {function} checkAuth - Checks if the current session is valid
@@ -42,8 +39,6 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
 const SESSION_DURATION = 30 * 60 * 1000; // 30 minutes in milliseconds
-// const HEARTBEAT_INTERVAL = 5 * 1000; // Check server every 5 seconds
-// ! HEARTBEAT_INTERVAL is not used in this version
 
 interface SessionData {
   token: string;

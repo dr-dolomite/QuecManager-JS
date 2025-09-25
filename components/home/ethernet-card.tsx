@@ -13,10 +13,12 @@ interface EthernetData {
   link_status: string;
   link_speed: string;
   auto_negotiation: string;
+  connected?: boolean;
 }
 
 const formatSpeed = (speed: string): string => {
-  if (speed === "Unknown!") return "-";
+  if (speed === "Unknown!" || speed === "Not Connected" || speed === "Unknown")
+    return speed === "Not Connected" ? "Not Connected" : "-";
 
   // Extract the numeric value using regex
   const match = speed.match(/(\d+)/);
@@ -38,15 +40,17 @@ const EthernetCard = () => {
     link_status: "Loading...",
     link_speed: "Loading...",
     auto_negotiation: "Loading...",
+    connected: undefined,
   });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchEthernetInfo = async () => {
+      // Uncomment this block to use real CGI script instead of mock data
       try {
         const response = await fetch(
-          "/cgi-bin/quecmanager/home/fetch_hw_details.sh?type=eth",
+          "/cgi-bin/quecmanager/home/fetch_hw_details.sh",
           {
             method: "GET",
             cache: "no-store",
@@ -96,10 +100,15 @@ const EthernetCard = () => {
       <CardContent>
         <div className="grid lg:grid-cols-3 grid-cols-1 grid-flow-row gap-4 place-items-center">
           <div className="flex justify-center items-center rounded-full bg-gray-100 dark:bg-gray-800 w-36 h-36  lg:p-6 p-4">
-            {ethernetData.link_status === "yes" ? (
+            {isLoading ? (
+              <EthernetPortIcon className="size-full text-gray-400 animate-pulse" />
+            ) : ethernetData.connected === false ||
+              ethernetData.link_status === "no" ? (
+              <EthernetPortIcon className="size-full text-red-500" />
+            ) : ethernetData.link_status === "yes" ? (
               <EthernetPortIcon className="size-full text-emerald-500 animate-pulse" />
             ) : (
-              <EthernetPortIcon className="size-full text-red-500 animate-pulse" />
+              <EthernetPortIcon className="size-full text-yellow-500" />
             )}
           </div>
 
@@ -109,10 +118,14 @@ const EthernetCard = () => {
               <span className="text-base font-bold">
                 {isLoading ? (
                   <Skeleton className="h-8 w-full" />
+                ) : ethernetData.connected === false ? (
+                  "Not Connected"
                 ) : ethernetData.link_status === "yes" ? (
                   "Active"
-                ) : (
+                ) : ethernetData.link_status === "no" ? (
                   "Inactive"
+                ) : (
+                  "Unknown"
                 )}
               </span>
             </div>
@@ -135,10 +148,14 @@ const EthernetCard = () => {
               <span className="text-base font-bold">
                 {isLoading ? (
                   <Skeleton className="h-8 w-full" />
+                ) : ethernetData.connected === false ? (
+                  "Not Available"
                 ) : ethernetData.auto_negotiation === "on" ? (
                   "Active"
-                ) : (
+                ) : ethernetData.auto_negotiation === "off" ? (
                   "Inactive"
+                ) : (
+                  "Unknown"
                 )}
               </span>
             </div>

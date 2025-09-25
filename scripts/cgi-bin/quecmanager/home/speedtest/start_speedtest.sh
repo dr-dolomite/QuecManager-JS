@@ -19,7 +19,7 @@ chmod 644 $STATUS_FILE
 # Run speedtest in background and pipe output to status file
 (
     export HOME=/tmp/home
-    /usr/bin/speedtest --accept-license -f json -p yes --progress-update-interval=100 | \
+    /usr/bin/speedtest --accept-license --accept-gdpr -f json -p yes --progress-update-interval=100 | \
     while IFS= read -r line; do
         # Update status file with latest JSON data
         echo "$line" > $STATUS_FILE

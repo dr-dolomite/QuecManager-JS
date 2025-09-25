@@ -19,7 +19,6 @@ import { calculateSignalPercentage } from "@/utils/signalMetrics";
 import { ArrowRightIcon } from "@radix-ui/react-icons";
 
 import { useAuth } from "@/hooks/auth";
-import heartbeat from "@/hooks/heartbeat";
 
 interface ModemResponse {
   response: string;
@@ -43,7 +42,9 @@ interface SignalData {
 
 const processSignalValues = (matches: string[] | null): number | null => {
   if (!matches) return null;
-  const validValues = matches.map(Number).filter((val) => val !== -32768 && val !== 5 && val !== -140);
+  const validValues = matches
+    .map(Number)
+    .filter((val) => val !== -32768 && val !== 5 && val !== -140);
   if (validValues.length === 0) return null;
   const sum = validValues.reduce((acc, curr) => acc + curr, 0);
   return Math.round(sum / validValues.length);
@@ -61,14 +62,12 @@ export default function ChartPreviewSignal() {
   const [initialLoading, setInitialLoading] = useState(true);
   const previousData = useRef<SignalData | null>(null);
   const { logout } = useAuth();
-  const { isServerAlive } = heartbeat();
   useEffect(() => {
-    if (!isServerAlive) {
-      logout();
-    }
     const fetchStats = async () => {
       try {
-        const response = await fetch("/cgi-bin/quecmanager/at_cmd/fetch_data.sh?set=5");
+        const response = await fetch(
+          "/cgi-bin/quecmanager/at_cmd/fetch_data.sh?set=5"
+        );
         const data: ModemResponse[] = await response.json();
         console.log(data);
 
@@ -131,7 +130,7 @@ export default function ChartPreviewSignal() {
 
     const intervalId = setInterval(fetchStats, 2000);
     return () => clearInterval(intervalId);
-  }, [initialLoading, isServerAlive, logout]);
+  }, [initialLoading, logout]);
 
   const chartData: ChartDataItem[] = [
     {
@@ -302,12 +301,22 @@ export default function ChartPreviewSignal() {
             </div>
           </div>
         </div>
-        <Button asChild>
-          <Link href="/login">
-            Login to QuecManager
-            <ArrowRightIcon className="w-4 h-4" />
-          </Link>
-        </Button>
+        <div className="grid lg:grid-cols-2 grid-flow-row gap-4">
+          <Button asChild>
+            <Link href="/login">
+              Login to QuecManager
+              <ArrowRightIcon className="w-4 h-4" />
+            </Link>
+          </Button>
+
+          <Button variant="secondary" asChild>
+            {/* Redirect to luci */}
+            <a href="/cgi-bin/luci">
+              Login to Luci Interface
+              <ArrowRightIcon className="w-4 h-4" />
+            </a>
+          </Button>
+        </div>
       </CardFooter>
     </Card>
   );

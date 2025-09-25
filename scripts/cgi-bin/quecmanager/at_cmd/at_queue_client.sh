@@ -2,10 +2,10 @@
 # AT Queue Client for OpenWRT
 # Located in /www/cgi-bin/services/at_queue_client
 
-AUTH_FILE="/tmp/auth_success"
 QUEUE_DIR="/tmp/at_queue"
 RESULTS_DIR="$QUEUE_DIR/results"
-QUEUE_MANAGER="/www/cgi-bin/services/at_queue_manager.sh"
+HOST_DIR=$(pwd)
+QUEUE_MANAGER="${HOST_DIR}/cgi-bin/services/at_queue_manager.sh"
 POLL_INTERVAL=0.01
 
 usage() {
@@ -28,13 +28,13 @@ output_json() {
 urldecode() {
     local encoded="$1"
     logger -t at_queue -p daemon.debug "urldecode: input='$encoded'"
-    
+
     # Handle %2B -> + and %22 -> " conversions
     local decoded="${encoded//%2B/+}"
     decoded="${decoded//%22/\"}"
     # Then handle other encoded characters
     decoded=$(printf '%b' "${decoded//%/\\x}")
-    
+
     logger -t at_queue -p daemon.debug "urldecode: output='$decoded'"
     echo "$decoded"
 }
@@ -43,28 +43,28 @@ urldecode() {
 get_command_id() {
     local response="$1"
     echo "DEBUG: Raw response: '$response'" >&2
-    
+
     # Strip any headers from response
     local json_response=$(echo "$response" | sed -n '/^{/,$p')
     echo "DEBUG: JSON portion: '$json_response'" >&2
-    
+
     # Try to extract command_id using grep and sed instead of jsonfilter
     local cmd_id=$(echo "$json_response" | grep -o '"command_id":"[^"]*"' | sed 's/"command_id":"//;s/"$//')
-    
+
     if [ -n "$cmd_id" ]; then
         echo "$cmd_id"
         return 0
     fi
-    
+
     # Fallback to jsonfilter if available
     echo "DEBUG: Trying jsonfilter as fallback" >&2
     local cmd_id_jsonfilter=$(echo "$json_response" | jsonfilter -e '@.command_id' 2>/dev/null)
-    
+
     if [ -n "$cmd_id_jsonfilter" ]; then
         echo "$cmd_id_jsonfilter"
         return 0
     fi
-    
+
     echo "ERROR: Failed to extract command ID from response" >&2
     return 1
 }
@@ -73,19 +73,19 @@ get_command_id() {
 normalize_at_command() {
     local cmd="$1"
     logger -t at_queue -p daemon.debug "normalize: input='$cmd'"
-    
+
     # URL decode the command
     cmd=$(urldecode "$cmd")
     logger -t at_queue -p daemon.debug "normalize: after urldecode='$cmd'"
-    
+
     # Remove any carriage returns or newlines
     cmd=$(echo "$cmd" | tr -d '\r\n')
     logger -t at_queue -p daemon.debug "normalize: after cleanup='$cmd'"
-    
+
     # Trim leading/trailing whitespace while preserving quotes
     cmd=$(echo "$cmd" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
     logger -t at_queue -p daemon.debug "normalize: final output='$cmd'"
-    
+
     echo "$cmd"
 }
 
@@ -93,12 +93,12 @@ normalize_at_command() {
 submit_command() {
     local cmd="$1"
     local priority=10
-    
+
     # Set high priority for QSCAN commands for faster processing
     if echo "$cmd" | grep -qi "AT+QSCAN"; then
         priority=1
     fi
-    
+
     # Submit using appropriate method
     if [ "${SCRIPT_NAME}" != "" ]; then
         # CGI mode - direct execution
@@ -114,7 +114,7 @@ submit_command() {
 check_result() {
     local cmd_id="$1"
     local show_headers="${2:-1}"  # Add parameter for header control
-    
+
     if [ -f "$RESULTS_DIR/$cmd_id.json" ]; then
         local result_content=$(cat "$RESULTS_DIR/$cmd_id.json")
         if [ -z "$result_content" ]; then
@@ -137,37 +137,37 @@ wait_for_completion() {
     local timeout="$2"
     local show_headers="${3:-1}"
     local result_file="$RESULTS_DIR/$cmd_id.json"
-    
+
     if [ -z "$cmd_id" ]; then
         local error_json="{\"error\":\"Invalid command ID\"}"
         output_json "$error_json" "$show_headers"
         return 1
     fi
-    
+
     # First quick check
     if [ -f "$result_file" ]; then
         output_json "$(cat "$result_file")" "$show_headers"
         return 0
     fi
-    
+
     # Wait with shorter polling interval
     local start_time=$(date +%s)
     local current_time
-    
+
     while true; do
         if [ -f "$result_file" ]; then
             output_json "$(cat "$result_file")" "$show_headers"
             return 0
         fi
-        
+
         current_time=$(date +%s)
         if [ $((current_time - start_time)) -ge "$timeout" ]; then
             break
         fi
-        
+
         sleep $POLL_INTERVAL
     done
-    
+
     local error_json=$(cat << EOF
 {
     "error": "Timeout waiting for completion",
@@ -183,33 +183,19 @@ EOF
 # CGI request handling
 if [ "${SCRIPT_NAME}" != "" ]; then
     # Output headers only once at the beginning
-    echo "Content-Type: application/json"
+    echo "Content-Type: application/json"   
     echo ""
-    # Get Token from Authorization Header
-    TOKEN="${HTTP_AUTHORIZATION}"
-    if [ ! -f $AUTH_FILE  ]; then
-        output_json "{\"error\":\"Unauthenticated Request\"}" "0"
+
+    # Check for Authorization Header
+    if [ -z "${HTTP_AUTHORIZATION}" ]; then
+        output_json "{\"error\":\"Unauthorized\"}" "0"
         exit 1
     fi
-
-    if [ -z "$TOKEN" ] || "${TOKEN}" = "" || [ $(grep "${TOKEN}" "${AUTH_FILE}" | wc -l) -eq 0 ]; then
-        output_json "{\"response\": { \"status\": \"error\", \"raw_output\": \"Not Authorized\" }, \"command\": {\"timestamp\": \"$(date +%Y%m%d'T'%H%M%S)\"}, \"error\":\"Not Authorized\"}" "0"
-
-        exit 1
-    fi
-
-    # Check if token is within 2 hours
-    TOKEN_LINE=$(grep "${TOKEN}" "${AUTH_FILE}")
-    TOKEN_DATE=$(echo "$TOKEN_LINE" | awk '{print $1}' | sed 's/T/ /')
-    TOKEN_TIME=$(date -d "$TOKEN_DATE" +%s 2>/dev/null)
-    NOW_TIME=$(date +%s)
-    MAX_AGE=$((2 * 3600)) # 2 hours in seconds
-
-    if [ -z "$TOKEN_TIME" ] || [ $((NOW_TIME - TOKEN_TIME)) -gt $MAX_AGE ]; then
-        output_json "{ \"response\": { \"status\": \"error\", \"raw_output\": \"Token expired. Reauthenticate to get new token.\" }, \"command\": {\"timestamp\": \"$(date +%Y%m%d'T'%H%M%S)\"}, \"error\":\"Token expired\"}" "0"
-        # Cleanup/Remove token from file
-        sed -i -e "s/.*${TOKEN}.*//g" /tmp/auth_success 2>/dev/null
-        exit 1
+    AUTH_RESPONSE=$(/bin/sh ${HOST_DIR}/cgi-bin/quecmanager/auth-token.sh process "${HTTP_AUTHORIZATION}")
+    AUTH_RESPONSE_STATUS=$?
+    if [ $AUTH_RESPONSE_STATUS -ne 0 ]; then
+        output_json $AUTH_RESPONSE "0"
+        exit $AUTH_RESPONSE_STATUS
     fi
 
     # Parse query string
