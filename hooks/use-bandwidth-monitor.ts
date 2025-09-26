@@ -174,11 +174,11 @@ export const useBandwidthMonitor = (): UseBandwidthMonitorReturn => {
                         if (data.download !== undefined && data.upload !== undefined) {
                             // Generate timestamp if not provided
                             const timestamp = data.timestamp || new Date().toISOString();
-                            addDataPoint(data.download, data.upload, timestamp);
+                            addDataPoint(data.downloadSpeed, data.uploadSpeed, timestamp);
                         } else if (data.type === 'bandwidth' && data.data) {
                             // Handle wrapped format
                             const bandwidth = data.data as BandwidthData;
-                            addDataPoint(bandwidth.download, bandwidth.upload, bandwidth.timestamp);
+                            addDataPoint(bandwidth.downloadSpeed, bandwidth.uploadSpeed, bandwidth.timestamp);
                         }
                     } catch (jsonError) {
                         // Handle plain text messages that aren't JSON

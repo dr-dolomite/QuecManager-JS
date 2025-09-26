@@ -391,8 +391,8 @@ export interface BandwidthDataPoint {
 
 export interface BandwidthData {
   timestamp: string;
-  download: number; // in bytes/second
-  upload: number; // in bytes/second
+  downloadSpeed: number; // in bytes/second
+  uploadSpeed: number; // in bytes/second
   totalDownload: number; // total bytes downloaded
   totalUpload: number; // total bytes uploaded
   latency?: number; // in milliseconds

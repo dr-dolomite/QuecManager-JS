@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 # Improved websocat server for bandwidth monitoring with error handling
 # This script provides a more robust websocat server setup
@@ -50,11 +50,11 @@ ulimit -u 2048  # Increase process limit
 
 # Option 1: Basic broadcast server (most stable)
 echo "Starting websocat server - Basic broadcast mode..."
-websocat -t \
+websocat -E -t \
     --max-messages-rev 1000 \
     --max-messages 1000 \
-    --ping-interval 30 \
-    --ping-timeout 10 \
+    --ping-interval 10 \
+    --ping-timeout 30 \
     ws-l:$BIND_ADDRESS:$PORT \
     broadcast:mirror: \
     2>&1 | tee "$LOG_FILE" &
