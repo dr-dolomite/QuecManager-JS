@@ -54,6 +54,8 @@ import { atCommandSender } from "@/utils/at-command";
 import NetworkInfoCard from "@/components/home/network-info-card";
 import ApproxDistanceCard from "@/components/home/approx-distance-card";
 import WebSocketComponent from "@/components/home/websocket";
+import BandwidthMonitorCard from "@/components/home/bandwidth-monitor-card";
+import BandwidthMonitorCompactCard from "@/components/home/bandwidth-monitor-compact-card";
 
 interface newBands {
   id: number;
@@ -95,7 +97,7 @@ const HomePage = () => {
         .split("\n")[1]
         .split(":")[1]
         .trim();
-      const command = 
+      const command =
         currentSimSlot === "1" ? "AT+QUIMSLOT=2" : "AT+QUIMSLOT=1";
 
       // Use atCommandSender instead of direct fetch
@@ -440,8 +442,9 @@ const HomePage = () => {
             <SignalChart />
           </div>
           <div>
-            <WebSocketComponent />
+            <BandwidthMonitorCard />
           </div>
+          {/* <div><WebSocketComponent /></div> */}
           <div className="grid gap-2 lg:grid-cols-2 grid-cols-1 grid-flow-row">
             {/* <EthernetCard /> */}
             <ApproxDistanceCard
@@ -450,6 +453,7 @@ const HomePage = () => {
               isLoading={isLoading}
               networkType={homeData?.connection?.networkType}
             />
+            <BandwidthMonitorCompactCard />
             <MemoryCard />
             <SpeedtestStream />
             <PingCard />
@@ -486,7 +490,7 @@ const HomePage = () => {
             isLoading={isLoading}
             isPublicIPLoading={isPublicIPLoading}
             hideSensitiveData={hideSensitiveData}
-            // onRefresh={refreshData}
+          // onRefresh={refreshData}
           />
         </div>
       </div>

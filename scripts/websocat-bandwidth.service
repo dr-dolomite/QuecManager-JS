@@ -1,0 +1,42 @@
+[Unit]
+Description=WebSocket Bandwidth Monitor (websocat)
+After=network.target
+
+[Service]
+Type=simple
+User=nobody
+Group=nogroup
+
+# Improved websocat command with stability options
+ExecStart=/usr/bin/websocat -t \
+    --max-messages 1000 \
+    --max-messages-rev 1000 \
+    --ping-interval 30 \
+    --ping-timeout 10 \
+    --buffer-size 32768 \
+    ws-l:0.0.0.0:8838 \
+    broadcast:mirror:
+
+# Restart policy for handling I/O failures
+Restart=always
+RestartSec=5
+StartLimitBurst=5
+StartLimitIntervalSec=300
+
+# Resource limits to prevent issues
+LimitNOFILE=4096
+LimitNPROC=1024
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=websocat-bandwidth
+
+# Security
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target
