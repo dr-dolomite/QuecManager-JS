@@ -1,0 +1,62 @@
+#!/bin/sh /etc/rc.common
+
+# QuecManager Modem Counter Service
+# Provides real-time data usage accumulation independent of backup functionality
+
+START=51
+STOP=10
+
+USE_PROCD=1
+PROG="/www/cgi-bin/quecmanager/experimental/data_usage_tracking/modem_counter_daemon.sh"
+CONFIG_FILE="/etc/quecmanager/data_usage"
+
+service_triggers() {
+    procd_add_config_trigger "config.change" "/etc/quecmanager/data_usage" /etc/init.d/quecmanager_modem_counter reload
+}
+
+start_service() {
+    # Check if data usage tracking is enabled
+    local enabled
+    if [ -f "$CONFIG_FILE" ]; then
+        enabled=$(grep "^ENABLED=" "$CONFIG_FILE" 2>/dev/null | cut -d'=' -f2- | tr -d '"')
+    fi
+    
+    if [ "$enabled" != "true" ]; then
+        echo "Data usage tracking disabled, not starting modem counter service"
+        return 0
+    fi
+    
+    if [ ! -x "$PROG" ]; then
+        echo "Modem counter daemon not found or not executable: $PROG"
+        return 1
+    fi
+    
+    echo "Starting QuecManager modem counter service"
+    
+    procd_open_instance "modem_counter"
+    procd_set_param command "$PROG"
+    procd_set_param respawn ${respawn_threshold:-3600} ${respawn_timeout:-5} ${respawn_retry:-5}
+    procd_set_param stdout 1
+    procd_set_param stderr 1
+    procd_set_param pidfile /var/run/quecmanager_modem_counter.pid
+    procd_close_instance
+}
+
+stop_service() {
+    echo "Stopping QuecManager modem counter service"
+    
+    # Clean up output file
+    rm -f /tmp/quecmanager/modem_counter.json
+}
+
+reload_service() {
+    echo "Reloading QuecManager modem counter service"
+    stop
+    start
+}
+
+boot() {
+    # Delay start until system is fully booted
+    sleep 30
+    start
+}

@@ -50,12 +50,14 @@ const useTrafficStats = () => {
     }
 
     // Parse LTE data usage (QGDCNT)
-    const [LTEreceived, LTEsent] = qgdcntLine
+    // Position 1 is UPLOAD (sent), Position 2 is DOWNLOAD (received)
+    const [LTEsent, LTEreceived] = qgdcntLine
       .replace("+QGDCNT:", "")
       .split(",")
       .map(num => parseInt(num.trim()));
 
     // Parse NR data usage (QGDNRCNT)
+    // Position 1 is UPLOAD (sent), Position 2 is DOWNLOAD (received)
     const [NRsent, NRreceived] = qgdnrcntLine
       .replace("+QGDNRCNT:", "")
       .split(",")

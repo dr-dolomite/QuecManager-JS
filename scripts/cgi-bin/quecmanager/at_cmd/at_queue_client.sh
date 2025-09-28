@@ -27,7 +27,6 @@ output_json() {
 # URL decode function
 urldecode() {
     local encoded="$1"
-    logger -t at_queue -p daemon.debug "urldecode: input='$encoded'"
 
     # Handle %2B -> + and %22 -> " conversions
     local decoded="${encoded//%2B/+}"
@@ -35,7 +34,6 @@ urldecode() {
     # Then handle other encoded characters
     decoded=$(printf '%b' "${decoded//%/\\x}")
 
-    logger -t at_queue -p daemon.debug "urldecode: output='$decoded'"
     echo "$decoded"
 }
 
@@ -72,19 +70,15 @@ get_command_id() {
 # Normalize AT command
 normalize_at_command() {
     local cmd="$1"
-    logger -t at_queue -p daemon.debug "normalize: input='$cmd'"
 
     # URL decode the command
     cmd=$(urldecode "$cmd")
-    logger -t at_queue -p daemon.debug "normalize: after urldecode='$cmd'"
 
     # Remove any carriage returns or newlines
     cmd=$(echo "$cmd" | tr -d '\r\n')
-    logger -t at_queue -p daemon.debug "normalize: after cleanup='$cmd'"
 
     # Trim leading/trailing whitespace while preserving quotes
     cmd=$(echo "$cmd" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
-    logger -t at_queue -p daemon.debug "normalize: final output='$cmd'"
 
     echo "$cmd"
 }
@@ -118,7 +112,6 @@ check_result() {
     if [ -f "$RESULTS_DIR/$cmd_id.json" ]; then
         local result_content=$(cat "$RESULTS_DIR/$cmd_id.json")
         if [ -z "$result_content" ]; then
-            logger -t at_queue -p daemon.error "Empty result file for command ID: $cmd_id"
             local error_json="{\"error\":\"Empty result file\",\"command_id\":\"$cmd_id\"}"
             output_json "$error_json" "$show_headers"
             return 1

@@ -51,7 +51,7 @@ const ExperimentalLayout = ({ children }: ExperimentalLayoutProps) => {
           >
             Scheduled Reboot
           </Link>
-                    <Link
+          <Link
             href="/dashboard/experimental/logs"
             className={`${
               currentPathName === "/dashboard/experimental/logs/"
@@ -60,6 +60,16 @@ const ExperimentalLayout = ({ children }: ExperimentalLayoutProps) => {
             }`}
           >
             Logs
+          </Link>
+          <Link
+            href="/dashboard/experimental/data-usage-tracking"
+            className={`${
+              currentPathName === "/dashboard/experimental/data-usage-tracking/"
+                ? "font-semibold text-primary"
+                : "text-sm"
+            }`}
+          >
+            Data Usage Tracking
           </Link>
         </nav>
         {children}

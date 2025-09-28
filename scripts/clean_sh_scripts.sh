@@ -33,7 +33,7 @@ clean_file() {
     
     # Check if file contains Windows line endings
     if grep -q $'\r' "$file"; then
-        print_status "Cleaning: $file"
+        print_status "Cleaning line endings: $file"
         
         # Try dos2unix first (if available)
         if command -v dos2unix > /dev/null 2>&1; then
@@ -45,13 +45,40 @@ clean_file() {
         
         # Verify the file was cleaned
         if ! grep -q $'\r' "$file"; then
-            print_success "✓ Cleaned: $file"
+            print_success "✓ Cleaned line endings: $file"
             return 0
         else
-            print_error "✗ Failed to clean: $file"
+            print_error "✗ Failed to clean line endings: $file"
             return 1
         fi
     fi
+    return 0
+}
+
+# Function to clean Zone.Identifier files
+clean_zone_identifier_files() {
+    local dir="$1"
+    local removed=0
+    
+    print_status "Searching for Zone.Identifier files in: $dir"
+    
+    # Find and remove all Zone.Identifier files
+    while IFS= read -r -d '' file; do
+        print_status "Removing Zone.Identifier file: $file"
+        if rm "$file" 2>/dev/null; then
+            print_success "✓ Removed: $file"
+            ((removed++))
+        else
+            print_error "✗ Failed to remove: $file"
+        fi
+    done < <(find "$dir" -type f -name "*Zone.Identifier" -print0)
+    
+    if [[ $removed -gt 0 ]]; then
+        print_success "Removed $removed Zone.Identifier files from $dir"
+    else
+        print_status "No Zone.Identifier files found in $dir"
+    fi
+    
     return 0
 }
 
@@ -80,13 +107,17 @@ process_directory() {
     done < <(find "$dir" -type f -name "*.sh" -print0)
     
     print_status "Processed $processed .sh files in $dir"
+    
+    # Clean Zone.Identifier files after processing .sh files
+    clean_zone_identifier_files "$dir"
+    
     return 0
 }
 
 # Main execution
 main() {
     print_status "Starting shell script cleanup process..."
-    print_status "Looking for Windows line endings (^M or \\r) in .sh files..."
+    print_status "Looking for Windows line endings (^M or \\r) in .sh files and Zone.Identifier files..."
     echo
     
     # Check if we have the necessary tools
@@ -94,22 +125,18 @@ main() {
         print_warning "dos2unix not found, using sed as fallback"
     fi
     
-    # Define the 3 folders to process (modify these as needed)
-    # You can change these folder names to match your actual directories
-    folders=("folder1" "folder2" "folder3")
+    # Handle folder arguments dynamically
+    local folders=()
     
-    # Check if user wants to specify different folder names
-    if [[ $# -eq 3 ]]; then
-        folders=("$1" "$2" "$3")
-        print_status "Using custom folders: ${folders[*]}"
-    elif [[ $# -gt 0 && $# -ne 3 ]]; then
-        print_error "Usage: $0 [folder1] [folder2] [folder3]"
-        print_error "Either provide no arguments (uses default: folder1, folder2, folder3)"
-        print_error "Or provide exactly 3 folder names"
-        exit 1
-    else
+    if [[ $# -eq 0 ]]; then
+        # Default folders if no arguments provided
+        folders=("folder1" "folder2" "folder3")
         print_status "Using default folders: ${folders[*]}"
-        print_warning "To specify different folders, run: $0 <folder1> <folder2> <folder3>"
+        print_warning "To specify different folders, run: $0 <folder1> [folder2] [folder3] ..."
+    else
+        # Use provided arguments as folder names
+        folders=("$@")
+        print_status "Using custom folders: ${folders[*]}"
     fi
     
     echo

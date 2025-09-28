@@ -241,7 +241,7 @@ const PingCard = () => {
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle>Ping Latency</CardTitle>
+        <CardTitle>Ping Monitoring</CardTitle>
         {!config.enabled ? (
           <MonitorOffIcon className="h-4 w-4 text-red-500" />
         ) : currentLatency !== null ? (
@@ -342,6 +342,12 @@ const PingCard = () => {
             </AreaChart>
           </ChartContainer>
         )}
+        
+        {/* {config.enabled && (
+          <div className="mt-2 text-xs text-muted-foreground text-center">
+            💡 Connection monitoring optimized via ping service
+          </div>
+        )} */}
       </CardContent>
     </Card>
   );

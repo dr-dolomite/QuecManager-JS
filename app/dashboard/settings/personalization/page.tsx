@@ -88,6 +88,15 @@ interface MemorySettingsResponse {
   };
 }
 
+interface ProfileDialogResponse {
+  status: string;
+  message: string;
+  data?: {
+    enabled: boolean;
+    isDefault: boolean;
+  };
+}
+
 const PersonalizationPage = () => {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -106,6 +115,12 @@ const PersonalizationPage = () => {
   const [memoryInterval, setMemoryInterval] = useState<number>(1);
   const [isMemoryLoading, setIsMemoryLoading] = useState<boolean>(false);
   const [isMemoryDefault, setIsMemoryDefault] = useState<boolean>(true);
+  const [profileDialogEnabled, setProfileDialogEnabled] =
+    useState<boolean>(true);
+  const [isProfileDialogLoading, setIsProfileDialogLoading] =
+    useState<boolean>(false);
+  const [isProfileDialogDefault, setIsProfileDialogDefault] =
+    useState<boolean>(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Cache keys for localStorage
@@ -119,6 +134,7 @@ const PersonalizationPage = () => {
     fetchMeasurementUnit();
     fetchPingSettings();
     fetchMemorySettings();
+    fetchProfileDialogSettings();
   }, []);
 
   const loadCachedImage = () => {
@@ -879,6 +895,108 @@ const PersonalizationPage = () => {
     }
   };
 
+  // Profile dialog settings functions
+  const fetchProfileDialogSettings = async () => {
+    try {
+      setIsProfileDialogLoading(true);
+      const response = await fetch(
+        "/cgi-bin/quecmanager/settings/profile_dialog.sh"
+      );
+      const data: ProfileDialogResponse = await response.json();
+
+      if (data.status === "success" && data.data) {
+        setProfileDialogEnabled(data.data.enabled);
+        setIsProfileDialogDefault(data.data.isDefault);
+      }
+    } catch (error) {
+      console.error("Error fetching profile dialog settings:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load profile dialog settings.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsProfileDialogLoading(false);
+    }
+  };
+
+  const updateProfileDialogSettings = async (enabled: boolean) => {
+    try {
+      setIsProfileDialogLoading(true);
+      const response = await fetch(
+        "/cgi-bin/quecmanager/settings/profile_dialog.sh",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ enabled }),
+        }
+      );
+      const data: ProfileDialogResponse = await response.json();
+
+      if (data.status === "success") {
+        setProfileDialogEnabled(enabled);
+        setIsProfileDialogDefault(false);
+        toast({
+          title: "Setting Updated",
+          description: `Profile setup dialog has been ${
+            enabled ? "enabled" : "disabled"
+          }.`,
+        });
+      } else {
+        throw new Error(
+          data.message || "Failed to update profile dialog settings"
+        );
+      }
+    } catch (error) {
+      console.error("Error updating profile dialog settings:", error);
+      toast({
+        title: "Update Failed",
+        description: error instanceof Error ? error.message : "Unknown error",
+        variant: "destructive",
+      });
+    } finally {
+      setIsProfileDialogLoading(false);
+    }
+  };
+
+  const resetProfileDialogSettings = async () => {
+    try {
+      setIsProfileDialogLoading(true);
+      const response = await fetch(
+        "/cgi-bin/quecmanager/settings/profile_dialog.sh",
+        {
+          method: "DELETE",
+        }
+      );
+      const data: ProfileDialogResponse = await response.json();
+
+      if (data.status === "success" && data.data) {
+        setProfileDialogEnabled(data.data.enabled);
+        setIsProfileDialogDefault(true);
+        toast({
+          title: "Setting Reset",
+          description:
+            "Profile dialog setting reset to system default (enabled).",
+        });
+      } else {
+        throw new Error(
+          data.message || "Failed to reset profile dialog settings"
+        );
+      }
+    } catch (error) {
+      console.error("Error resetting profile dialog settings:", error);
+      toast({
+        title: "Reset Failed",
+        description: error instanceof Error ? error.message : "Unknown error",
+        variant: "destructive",
+      });
+    } finally {
+      setIsProfileDialogLoading(false);
+    }
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -1021,6 +1139,61 @@ const PersonalizationPage = () => {
               </div>
             </div>
 
+            <div className="lg:col-span-2 col-span-1">
+              <div className="grid w-full max-w-sm items-center gap-2">
+                <Label htmlFor="ProfileDialogSettings">
+                  Profile Setup Dialog
+                </Label>
+                {isProfileDialogLoading ? (
+                  <Skeleton className="h-8" />
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    <div className="flex flex-row gap-2 items-center">
+                      <Select
+                        disabled={isProfileDialogLoading}
+                        value={profileDialogEnabled ? "enabled" : "disabled"}
+                        onValueChange={(value: string) =>
+                          updateProfileDialogSettings(value === "enabled")
+                        }
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue>
+                            {profileDialogEnabled
+                              ? "Show Dialog"
+                              : "Hide Dialog"}
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectGroup>
+                            <SelectLabel>Profile Setup Dialog</SelectLabel>
+                            <SelectItem value="enabled">
+                              Show profile setup dialog
+                            </SelectItem>
+                            <SelectItem value="disabled">
+                              Hide profile setup dialog
+                            </SelectItem>
+                          </SelectGroup>
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        disabled={
+                          isProfileDialogLoading || isProfileDialogDefault
+                        }
+                        onClick={resetProfileDialogSettings}
+                      >
+                        <Undo2Icon className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                <p className="text-sm text-muted-foreground">
+                  Controls whether to show the profile setup on the home page.
+                </p>
+              </div>
+            </div>
+
             <div className="grid w-full max-w-sm items-center gap-2">
               <Label htmlFor="PingSettings">Network Latency Testing</Label>
               {isPingLoading ? (
@@ -1103,7 +1276,9 @@ const PersonalizationPage = () => {
                     <Button
                       variant="outline"
                       size="icon"
-                      disabled={isPingLoading || pingInterval === 5 || isPingDefault}
+                      disabled={
+                        isPingLoading || pingInterval === 5 || isPingDefault
+                      }
                       onClick={() => updatePingSettings(pingEnabled, 5)}
                     >
                       <Undo2Icon className="h-4 w-4" />
@@ -1200,7 +1375,11 @@ const PersonalizationPage = () => {
                     <Button
                       variant="outline"
                       size="icon"
-                      disabled={isMemoryLoading || memoryInterval === 1 || isMemoryDefault}
+                      disabled={
+                        isMemoryLoading ||
+                        memoryInterval === 1 ||
+                        isMemoryDefault
+                      }
                       onClick={() => updateMemorySettings(memoryEnabled, 1)}
                     >
                       <Undo2Icon className="h-4 w-4" />
