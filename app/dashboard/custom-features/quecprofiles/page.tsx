@@ -68,6 +68,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { InfoCircledIcon } from "@radix-ui/react-icons";
+import confetti from "canvas-confetti";
 
 // Updated Type definitions for our profile data
 interface Profile {
@@ -119,7 +120,11 @@ const QuecProfilesPage = () => {
   const [lastToastStatus, setLastToastStatus] = useState<string>("");
   // New state for fetching ICCID and IMEI
   const [fetchingDeviceInfo, setFetchingDeviceInfo] = useState(false);
-  const [deviceInfo, setDeviceInfo] = useState({ iccid: "", imei: "", simSlot: "" });
+  const [deviceInfo, setDeviceInfo] = useState({
+    iccid: "",
+    imei: "",
+    simSlot: "",
+  });
 
   // Form state with fields
   const [formData, setFormData] = useState<Profile>({
@@ -191,7 +196,9 @@ const QuecProfilesPage = () => {
       }
 
       // Extract SIM slot from AT+QUIMSLOT? response
-      const simSlotResponse = data.find((item) => item.command === "AT+QUIMSLOT?");
+      const simSlotResponse = data.find(
+        (item) => item.command === "AT+QUIMSLOT?"
+      );
       if (simSlotResponse && simSlotResponse.status === "success") {
         // Response format: +QUIMSLOT: 1 or +QUIMSLOT: 2
         const match = simSlotResponse.response.match(/\+QUIMSLOT:\s*(\d+)/);
@@ -200,7 +207,14 @@ const QuecProfilesPage = () => {
         }
       }
 
-      console.log("Extracted device info - ICCID:", iccid, "IMEI:", imei, "SIM Slot:", simSlot);
+      console.log(
+        "Extracted device info - ICCID:",
+        iccid,
+        "IMEI:",
+        imei,
+        "SIM Slot:",
+        simSlot
+      );
 
       // Update state and also immediately set values in form data
       setDeviceInfo({ iccid, imei, simSlot });
@@ -753,6 +767,35 @@ const QuecProfilesPage = () => {
     }
   };
 
+  const handleConfettiClick = () => {
+    const duration = 3 * 1000;
+    const animationEnd = Date.now() + duration;
+    const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 0 };
+
+    const randomInRange = (min: number, max: number) =>
+      Math.random() * (max - min) + min;
+
+    const interval = window.setInterval(() => {
+      const timeLeft = animationEnd - Date.now();
+
+      if (timeLeft <= 0) {
+        return clearInterval(interval);
+      }
+
+      const particleCount = 50 * (timeLeft / duration);
+      confetti({
+        ...defaults,
+        particleCount,
+        origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 },
+      });
+      confetti({
+        ...defaults,
+        particleCount,
+        origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 },
+      });
+    }, 250);
+  };
+
   // Function to show edit modal with profile data
   const handleEditClick = (profile: Profile) => {
     setModalMode("edit");
@@ -981,7 +1024,9 @@ const QuecProfilesPage = () => {
                   </div>
 
                   <div className="grid gap-1.5">
-                    <Label htmlFor="apn">APN</Label>
+                    <Label htmlFor="apn">
+                      <span className="text-red-500 mr-1">*</span>APN
+                    </Label>
                     <Input
                       id="apn"
                       placeholder="internet"
@@ -1108,14 +1153,44 @@ const QuecProfilesPage = () => {
                   </div>
                 </div>
                 <DialogFooter>
-                  {/* <div className="flex items-center gap-4"> */}
-                    {/* <Button
-                      variant="secondary"
-                      onClick={() => setShowModal(false)}
-                      disabled={isSubmitting}
+                  {/* If there are no profiles show Save button with confetti and if there are profiles show regular Save button */}
+                  {profiles.length === 0 ? (
+                    <Button
+                      onClick={() => {
+                        if (modalMode === "create") {
+                          createProfile();
+                          handleConfettiClick();
+                        } else {
+                          editProfile();
+                        }
+                      }}
+                      // Disable button while submitting and if required fields are empty
+                      disabled={
+                        isSubmitting ||
+                        !formData.name ||
+                        !formData.iccid ||
+                        !formData.apn
+                      }
                     >
-                      Cancel
-                    </Button> */}
+                      {isSubmitting ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          {modalMode === "create"
+                            ? "Creating..."
+                            : "Updating..."}
+                        </>
+                      ) : (
+                        <>
+                          {/* <ConfettiButton> */}
+                          <Save className="h-4 w-4" />
+                          {modalMode === "create"
+                            ? "Save Profile"
+                            : "Update Profile"}
+                          {/* </ConfettiButton> */}
+                        </>
+                      )}
+                    </Button>
+                  ) : (
                     <Button
                       onClick={
                         modalMode === "create" ? createProfile : editProfile
@@ -1138,6 +1213,8 @@ const QuecProfilesPage = () => {
                         </>
                       )}
                     </Button>
+                  )}
+
                   {/* </div> */}
                 </DialogFooter>
               </DialogContent>
@@ -1204,10 +1281,13 @@ const QuecProfilesPage = () => {
                             <MenuIcon className="h-4 w-4" />
                           </PopoverTrigger>
                           <PopoverContent className="w-48">
-                            <div className="grid gap-2">
-                              <Button onClick={() => handleEditClick(profile)}>
+                            <div className="grid grid-cols-3 grid-flow-row gap-2">
+                              <Button
+                                size="icon"
+                                className="text-primary"
+                                onClick={() => handleEditClick(profile)}
+                              >
                                 <PencilLine className="h-4 w-4" />
-                                Edit Profile
                               </Button>
 
                               <Button
@@ -1226,16 +1306,15 @@ const QuecProfilesPage = () => {
                                   profile.paused === "0" &&
                                     "bg-orange-500 hover:bg-orange-600 text-white"
                                 )}
+                                size="icon"
                               >
                                 {profile.paused === "1" ? (
                                   <>
                                     <PlayCircle className="h-4 w-4" />
-                                    Resume Profile
                                   </>
                                 ) : (
                                   <>
                                     <PauseCircle className="h-4 w-4" />
-                                    Pause Profile
                                   </>
                                 )}
                               </Button>
@@ -1247,9 +1326,9 @@ const QuecProfilesPage = () => {
                                 onClick={() =>
                                   deleteProfile(profile.iccid, profile.name)
                                 }
+                                size="icon"
                               >
                                 <Trash2Icon className="h-4 w-4" />
-                                Delete Profile
                               </Button>
                             </div>
                           </PopoverContent>
