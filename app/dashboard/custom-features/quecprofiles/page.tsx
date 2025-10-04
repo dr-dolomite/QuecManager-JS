@@ -1071,7 +1071,7 @@ const QuecProfilesPage = () => {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="col-span-2 grid gap-1.5 col-span-2 md:col-span-1">
+                  <div className="col-span-2 grid gap-1.5 md:col-span-1">
                     <Label htmlFor="lte_bands">LTE Bands</Label>
                     <div className="grid gap-0.5">
                       <Input
