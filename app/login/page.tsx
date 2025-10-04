@@ -10,11 +10,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
-import { ArrowLeftIcon } from "lucide-react";
+import { ArrowLeftIcon, Eye, EyeOff } from "lucide-react";
 
 const LoginPage = () => {
   const { toast } = useToast();
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const { login, logout } = useAuth();
   const { luciLogin } = useLuci();
@@ -75,13 +76,28 @@ const LoginPage = () => {
               <div className="flex flex-col gap-6">
                 <div className="grid gap-3">
                   <Label htmlFor="email">Password</Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                  />
+                  <div className="relative">
+                    <Input
+                      id="password"
+                      type={showPassword ? "text" : "password"}
+                      required
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="pr-10"
+                    />
+                    <button
+                      type="button"
+                      aria-label={showPassword ? "Hide password" : "Show password"}
+                      onClick={() => setShowPassword((s) => !s)}
+                      className="absolute inset-y-0 right-0 pr-2 flex items-center"
+                    >
+                      {showPassword ? (
+                        <EyeOff className="h-4 w-4 text-muted-foreground" />
+                      ) : (
+                        <Eye className="h-4 w-4 text-muted-foreground" />
+                      )}
+                    </button>
+                  </div>
                 </div>
                 <div className="grid gap-2">
                   <Button type="submit" className="w-full">

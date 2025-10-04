@@ -32,6 +32,16 @@ const ExperimentalLayout = ({ children }: ExperimentalLayoutProps) => {
             Network Insights
           </Link>
           <Link
+            href="/dashboard/experimental/internet-quality"
+            className={`${
+              currentPathName === "/dashboard/experimental/internet-quality/"
+                ? "font-semibold text-primary"
+                : "text-sm"
+            }`}
+          >
+            Internet Quality
+          </Link>
+          <Link
             href="/dashboard/experimental/keep-alive"
             className={`${
               currentPathName === "/dashboard/experimental/keep-alive/"
