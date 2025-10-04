@@ -419,7 +419,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
           >
             Experimental
           </Link>
-          {/* <Link
+          <Link
             href="/dashboard/about/"
             className={`${
               currentPathName.includes("/dashboard/about/")
@@ -428,7 +428,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
             } transition-colors hover:text-foreground`}
           >
             About
-          </Link> */}
+          </Link>
         </nav>
         <Sheet>
           <SheetTrigger asChild>
@@ -492,7 +492,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                 </Link>
               </SheetClose>
 
-                            <SheetClose asChild>
+              <SheetClose asChild>
                 <Link
                   href="/dashboard/custom-features/"
                   className={`${
@@ -515,6 +515,19 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                   } transition-colors hover:text-foreground`}
                 >
                   Experimental
+                </Link>
+              </SheetClose>
+
+              <SheetClose asChild>
+                <Link
+                  href="/dashboard/about/"
+                  className={`${
+                    currentPathName === "/dashboard/about/"
+                      ? "text-foreground"
+                      : "text-muted-foreground"
+                  } transition-colors hover:text-foreground`}
+                >
+                  About
                 </Link>
               </SheetClose>
 
@@ -595,9 +608,9 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                   Support
                 </a>
               </DropdownMenuItem>
-              <DropdownMenuItem asChild>
+              {/* <DropdownMenuItem asChild>
                 <Link href="/dashboard/about">About</Link>
-              </DropdownMenuItem>
+              </DropdownMenuItem> */}
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleReconnect}>
                 {isReconnecting ? "Reconnecting..." : "Reconnect"}
