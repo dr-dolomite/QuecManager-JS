@@ -8,12 +8,24 @@ import {
   CardTitle,
   CardDescription,
 } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import useAboutData from "@/hooks/about-data";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 // import PropagateLoader from "react-spinners/PropagateLoader";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Eye, EyeOff } from "lucide-react";
+import { SiKofi } from "react-icons/si";
+import { FaPaypal } from "react-icons/fa";
+import { BiDonateHeart } from "react-icons/bi";
 
 const AboutPage = () => {
   const { data, isLoading } = useAboutData();
@@ -328,6 +340,51 @@ const AboutPage = () => {
                     here
                   </a>
                 </p>
+                <div className="mt-4 flex flex-col gap-2 items-start">
+                  <p className="text-lg font-semibold">
+                    Finding QuecManager helpful? Your support keeps it going!
+                  </p>
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button
+                        variant="secondary"
+                        className="border-none bg-green-600 hover:bg-green-700"
+                      >
+                        <BiDonateHeart className="size-6" />
+                        Consider Donating
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle className="mb-4 text-lg">
+                          Donate to QuecManager
+                        </DialogTitle>
+                        <DialogDescription className="text-md">
+                          Hey there, Rus here! 👋 QuecManager is just a small
+                          part of Cameron’s toolkit project, and I work on it
+                          for free in my spare time. If you find it useful and
+                          want to support its development, a small donation
+                          would mean a lot—it helps me keep improving features
+                          and fixing bugs. Thanks so much for your support! 💙
+                        </DialogDescription>
+                      </DialogHeader>
+                      <DialogFooter className="mt-2">
+                        <a href="https://paypal.me/iamrusss" target="_blank">
+                          <Button className="bg-blue-600 hover:bg-blue-700 border-none">
+                            <FaPaypal className="size-4" />
+                            Donate via Paypal
+                          </Button>
+                        </a>
+                        <a href="https://ko-fi.com/P5P7TQKGH" target="_blank">
+                          <Button className="border-none">
+                            <SiKofi className="size-4" />
+                            Buy me a Coffee
+                          </Button>
+                        </a>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                </div>
               </div>
             </div>
           </CardContent>

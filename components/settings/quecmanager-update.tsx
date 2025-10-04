@@ -186,7 +186,7 @@ const QuecManagerUpdate = () => {
           </CardDescription>
         </CardHeader>
         <CardContent className="flex items-center justify-center py-8">
-          <Loader2Icon className="h-8 w-8 animate-spin text-muted-foreground" />
+          <Skeleton className="h-64 w-full" />
         </CardContent>
       </Card>
     );
