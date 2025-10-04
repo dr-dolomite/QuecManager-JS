@@ -2,6 +2,8 @@
 
 # Memory Settings Configuration Script
 # Manages memory service (enable/disable) and daemon settings with dynamic service management
+# Uses UCI configuration for OpenWRT integration
+# Date: 2025-10-03
 
 # Handle OPTIONS request first
 if [ "${REQUEST_METHOD:-GET}" = "OPTIONS" ]; then
@@ -21,13 +23,11 @@ echo "Access-Control-Allow-Methods: GET, POST, DELETE, OPTIONS"
 echo "Access-Control-Allow-Headers: Content-Type"
 echo ""
 
-# Configuration paths
-CONFIG_DIR="/etc/quecmanager/settings"
-CONFIG_FILE="$CONFIG_DIR/memory_settings.conf"
-FALLBACK_CONFIG_DIR="/tmp/quecmanager/settings"
-FALLBACK_CONFIG_FILE="$FALLBACK_CONFIG_DIR/memory_settings.conf"
+# Configuration
 LOG_FILE="/tmp/memory_settings.log"
 SERVICES_INIT="/etc/init.d/quecmanager_services"
+UCI_CONFIG="quecmanager"
+UCI_SECTION="memory_daemon"
 
 # Logging function
 log_message() {
@@ -55,57 +55,69 @@ send_success() {
     fi
 }
 
-# Get current configuration
+# Initialize UCI configuration
+init_uci_config() {
+    # Ensure quecmanager config exists
+    touch /etc/config/quecmanager 2>/dev/null || true
+    
+    # Create section if it doesn't exist
+    if ! uci -q get quecmanager.memory_daemon >/dev/null 2>&1; then
+        uci set quecmanager.memory_daemon=service
+        uci commit quecmanager
+        log_message "Initialized UCI config section"
+    fi
+}
+
+# Get current configuration from UCI
 get_config() {
     # Defaults
     ENABLED="false"
     INTERVAL="1"
 
-    # Try primary config first, then fallback
-    local config_to_read=""
-    if [ -f "$CONFIG_FILE" ]; then
-        config_to_read="$CONFIG_FILE"
-    elif [ -f "$FALLBACK_CONFIG_FILE" ]; then
-        config_to_read="$FALLBACK_CONFIG_FILE"
-    fi
+    # Initialize UCI if needed
+    init_uci_config
 
-    if [ -n "$config_to_read" ]; then
-        local enabled_val=$(grep "^MEMORY_ENABLED=" "$config_to_read" 2>/dev/null | tail -n1 | cut -d'=' -f2)
-        local interval_val=$(grep "^MEMORY_INTERVAL=" "$config_to_read" 2>/dev/null | tail -n1 | cut -d'=' -f2)
-        
-        case "$enabled_val" in
-            true|1|on|yes|enabled) ENABLED="true" ;;
+    # Read from UCI
+    local uci_enabled=$(uci -q get quecmanager.memory_daemon.enabled)
+    if [ -n "$uci_enabled" ]; then
+        case "$uci_enabled" in
+            1|true|on|yes|enabled) ENABLED="true" ;;
             *) ENABLED="false" ;;
         esac
-        
-        if echo "$interval_val" | grep -qE '^[0-9]+$' && [ "$interval_val" -ge 1 ] && [ "$interval_val" -le 10 ]; then
-            INTERVAL="$interval_val"
+    fi
+
+    local uci_interval=$(uci -q get quecmanager.memory_daemon.interval)
+    if [ -n "$uci_interval" ] && echo "$uci_interval" | grep -qE '^[0-9]+$'; then
+        if [ "$uci_interval" -ge 1 ] && [ "$uci_interval" -le 10 ]; then
+            INTERVAL="$uci_interval"
         fi
     fi
 }
 
-# Save configuration
+# Save configuration to UCI
 save_config() {
     local enabled="$1"
     local interval="$2"
 
-    # Try primary location first
-    if mkdir -p "$CONFIG_DIR" 2>/dev/null && [ -w "$CONFIG_DIR" ]; then
-        {
-            echo "MEMORY_ENABLED=$enabled"
-            echo "MEMORY_INTERVAL=$interval"
-        } > "$CONFIG_FILE" && chmod 644 "$CONFIG_FILE" 2>/dev/null
-        log_message "Saved config to primary location: enabled=$enabled, interval=$interval"
-        return 0
+    # Initialize UCI if needed
+    init_uci_config
+
+    # Convert boolean to UCI format (1/0)
+    local uci_enabled="0"
+    [ "$enabled" = "true" ] && uci_enabled="1"
+
+    # Set UCI values
+    uci set quecmanager.memory_daemon.enabled="$uci_enabled"
+    uci set quecmanager.memory_daemon.interval="$interval"
+
+    # Commit changes
+    if ! uci commit quecmanager; then
+        log_message "ERROR: Failed to commit UCI changes"
+        return 1
     fi
 
-    # Fallback to tmp
-    mkdir -p "$FALLBACK_CONFIG_DIR" 2>/dev/null
-    {
-        echo "MEMORY_ENABLED=$enabled"
-        echo "MEMORY_INTERVAL=$interval"  
-    } > "$FALLBACK_CONFIG_FILE" && chmod 644 "$FALLBACK_CONFIG_FILE" 2>/dev/null
-    log_message "Saved config to fallback location: enabled=$enabled, interval=$interval"
+    log_message "Saved config via UCI: enabled=$enabled, interval=$interval"
+    return 0
 }
 
 # Add memory daemon to services init script
@@ -279,8 +291,12 @@ handle_delete() {
     remove_memory_daemon_from_services
     restart_services
     
-    # Remove config files
-    rm -f "$CONFIG_FILE" "$FALLBACK_CONFIG_FILE" 2>/dev/null
+    # Remove UCI configuration
+    if uci -q get quecmanager.memory_daemon >/dev/null 2>&1; then
+        uci delete quecmanager.memory_daemon
+        uci commit quecmanager
+        log_message "Deleted memory_daemon UCI section"
+    fi
     
     send_success "Memory setting reset to default (disabled)" "{\"enabled\":false,\"interval\":1,\"running\":false,\"isDefault\":true}"
 }

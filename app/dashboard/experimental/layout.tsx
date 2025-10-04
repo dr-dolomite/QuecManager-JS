@@ -32,6 +32,16 @@ const ExperimentalLayout = ({ children }: ExperimentalLayoutProps) => {
             Network Insights
           </Link>
           <Link
+            href="/dashboard/experimental/internet-quality"
+            className={`${
+              currentPathName === "/dashboard/experimental/internet-quality/"
+                ? "font-semibold text-primary"
+                : "text-sm"
+            }`}
+          >
+            Internet Quality
+          </Link>
+          <Link
             href="/dashboard/experimental/keep-alive"
             className={`${
               currentPathName === "/dashboard/experimental/keep-alive/"
@@ -61,7 +71,7 @@ const ExperimentalLayout = ({ children }: ExperimentalLayoutProps) => {
           >
             Logs
           </Link>
-          <Link
+          {/* <Link
             href="/dashboard/experimental/data-usage-tracking"
             className={`${
               currentPathName === "/dashboard/experimental/data-usage-tracking/"
@@ -70,7 +80,7 @@ const ExperimentalLayout = ({ children }: ExperimentalLayoutProps) => {
             }`}
           >
             Data Usage Tracking
-          </Link>
+          </Link> */}
         </nav>
         {children}
       </div>

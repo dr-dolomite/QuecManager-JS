@@ -41,6 +41,16 @@ const SettingsPageLayout = ({ children }: SettingsPageLayoutProps) => {
           >
             Security
           </Link>
+          <Link
+            href="/dashboard/settings/update"
+            className={`${
+              currentPathName === "/dashboard/settings/update/"
+                ? "font-semibold text-primary"
+                : "text-sm"
+            }`}
+          >
+            Update
+          </Link>
         </nav>
         {children}
       </div>

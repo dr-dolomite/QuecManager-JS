@@ -1,14 +1,14 @@
 #!/bin/sh
 # Profile Dialog Settings Management Script
 # Manages the display of profile setup dialog on home page
+# Uses UCI configuration for OpenWRT integration
+# Date: 2025-10-03
 
-CONFIG_DIR="/etc/quecmanager/settings"
-CONFIG_FILE="$CONFIG_DIR/profile_dialog.conf"
+# Configuration
+UCI_CONFIG="quecmanager"
+UCI_SECTION="profile_dialog"
 
-# Ensure config directory exists
-mkdir -p "$CONFIG_DIR"
-
-# Default setting is ENABLED
+# Default setting is ENABLED 
 DEFAULT_SETTING="ENABLED"
 
 # HTTP headers
@@ -16,25 +16,53 @@ echo "Content-Type: application/json"
 echo "Cache-Control: no-cache"
 echo ""
 
-# Function to read current setting
+# Initialize UCI configuration
+init_uci_config() {
+    # Ensure quecmanager config exists
+    touch /etc/config/quecmanager 2>/dev/null || true
+    
+    # Create section if it doesn't exist
+    if ! uci -q get quecmanager.profile_dialog >/dev/null 2>&1; then
+        uci set quecmanager.profile_dialog=settings
+        uci commit quecmanager
+    fi
+}
+
+# Function to read current setting from UCI
 read_setting() {
-    if [ -f "$CONFIG_FILE" ]; then
-        local setting=$(cat "$CONFIG_FILE" 2>/dev/null | tr -d '\n\r' | tr '[:lower:]' '[:upper:]')
-        if [ "$setting" = "ENABLED" ] || [ "$setting" = "DISABLED" ]; then
-            echo "$setting"
-        else
-            echo "$DEFAULT_SETTING"
-        fi
+    # Initialize UCI if needed
+    init_uci_config
+    
+    # Read from UCI
+    local setting=$(uci -q get quecmanager.profile_dialog.enabled)
+    
+    if [ -n "$setting" ]; then
+        # Convert UCI format to ENABLED/DISABLED
+        case "$setting" in
+            1|true|on|yes|enabled|ENABLED) echo "ENABLED" ;;
+            *) echo "DISABLED" ;;
+        esac
     else
         echo "$DEFAULT_SETTING"
     fi
 }
 
-# Function to write setting
+# Function to write setting to UCI
 write_setting() {
     local setting="$1"
-    echo "$setting" > "$CONFIG_FILE"
-    chmod 644 "$CONFIG_FILE"
+    
+    # Initialize UCI if needed
+    init_uci_config
+    
+    # Convert ENABLED/DISABLED to UCI format (1/0)
+    local uci_value="0"
+    [ "$setting" = "ENABLED" ] && uci_value="1"
+    
+    # Set UCI value
+    uci set quecmanager.profile_dialog.enabled="$uci_value"
+    
+    # Commit changes
+    uci commit quecmanager
 }
 
 # Function to return JSON response
@@ -67,8 +95,8 @@ case "$REQUEST_METHOD" in
             enabled="false"
         fi
         
-        # Check if it's default (file doesn't exist or contains default value)
-        if [ ! -f "$CONFIG_FILE" ] || [ "$current_setting" = "$DEFAULT_SETTING" ]; then
+        # Check if it's default (UCI option doesn't exist or contains default value)
+        if ! uci -q get quecmanager.profile_dialog.enabled >/dev/null 2>&1 || [ "$current_setting" = "$DEFAULT_SETTING" ]; then
             is_default="true"
         else
             is_default="false"
@@ -101,9 +129,10 @@ case "$REQUEST_METHOD" in
         ;;
         
     "DELETE")
-        # Reset to default (remove config file)
-        if [ -f "$CONFIG_FILE" ]; then
-            rm -f "$CONFIG_FILE"
+        # Reset to default (remove UCI option)
+        if uci -q get quecmanager.profile_dialog.enabled >/dev/null 2>&1; then
+            uci delete quecmanager.profile_dialog.enabled
+            uci commit quecmanager
         fi
         
         current_setting=$(read_setting)
