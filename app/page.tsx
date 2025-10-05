@@ -1,7 +1,4 @@
-"use client"
-
-import { cn } from "@/lib/utils"
-import { InteractiveGridPattern } from "@/registry/magicui/interactive-grid-pattern"
+"use client";
 
 import ChartPreviewSignal from "@/components/pages/chart-preview";
 import { LightRays } from "@/components/ui/light-rays";
@@ -12,12 +9,7 @@ export default function Home() {
       <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start ">
         <ChartPreviewSignal />
       </main>
-            <InteractiveGridPattern
-        className={cn(
-          "[mask-image:radial-gradient(400px_circle_at_center,white,transparent)]",
-          "inset-x-0 inset-y-[-30%] h-[200%] skew-y-12"
-        )}
-      />
+      <LightRays />
     </div>
   );
 }
