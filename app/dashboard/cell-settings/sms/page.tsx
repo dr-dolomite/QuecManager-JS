@@ -40,6 +40,7 @@ const SMSPage = () => {
   const [messages, setMessages] = useState<SMSMessage[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedMessages, setSelectedMessages] = useState<number[]>([]);
+  const [isSelectAllChecked, setIsSelectAllChecked] = useState(false);
   // const [showSendDialog, setShowSendDialog] = useState(false);
   const [sendTo, setSendTo] = useState("");
   const [newMessage, setNewMessage] = useState("");
@@ -242,6 +243,7 @@ const SMSPage = () => {
       const parsed = parseSMSMessages(data);
       setMessages(parsed);
       setSelectedMessages([]); // Clear selections after refresh
+      setIsSelectAllChecked(false); // Clear select all state
     } catch (error) {
       console.error("Failed to refresh SMS:", error);
       setMessages([]);
@@ -329,23 +331,19 @@ const SMSPage = () => {
       return;
     }
     
-    // Check if all messages are selected
-    const allIndices = messages.flatMap(
-      (msg) => msg.originalIndices || [msg.index]
-    );
-    const allSelected = 
-      selectedMessages.length === allIndices.length &&
-      allIndices.every((index) => selectedMessages.includes(index));
-    
-    // Use "all" parameter if all messages are selected
-    if (allSelected) {
+    // If "Select All" checkbox is checked, send "all" to backend
+    if (isSelectAllChecked) {
       deleteMessages("all");
     } else {
+      // Otherwise send the specific selected indexes
       deleteMessages(selectedMessages);
     }
   };
 
   const handleSelectMessage = (indices: number[]) => {
+    // When manually selecting/deselecting, uncheck "Select All"
+    setIsSelectAllChecked(false);
+    
     setSelectedMessages((prev) => {
       const currentSelectedSet = new Set(prev);
       const allSelected = indices.every((index) =>
@@ -363,6 +361,8 @@ const SMSPage = () => {
   };
 
   const handleSelectAll = (checked: boolean) => {
+    setIsSelectAllChecked(checked);
+    
     if (checked) {
       const allIndices = messages.flatMap(
         (msg) => msg.originalIndices || [msg.index]
