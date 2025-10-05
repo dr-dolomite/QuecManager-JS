@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
 import { ArrowLeftIcon, Eye, EyeOff } from "lucide-react";
+import { LightRays } from "@/components/ui/light-rays";
 
 const LoginPage = () => {
   const { toast } = useToast();
@@ -36,7 +37,7 @@ const LoginPage = () => {
   // };
 
   return (
-    <div className="bg-background flex min-h-svh flex-col items-center justify-center gap-6 p-6 md:p-10">
+    <div className="bg-background flex min-h-svh flex-col items-center justify-center gap-6 p-6 md:p-10 relative overflow-hidden">
       <div className="w-full max-w-sm">
         <div className="flex flex-col gap-6">
           <div className="flex flex-col gap-6">
@@ -153,6 +154,7 @@ const LoginPage = () => {
           </div>
         </div>
       </div>
+      <LightRays />
     </div>
   );
 };

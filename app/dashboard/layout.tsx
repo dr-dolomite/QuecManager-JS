@@ -57,6 +57,7 @@ import {
 } from "@/components/ui/sheet";
 import { useToast } from "@/hooks/use-toast";
 import { usePathname } from "next/navigation";
+import { LightRays } from "@/components/ui/light-rays";
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -677,8 +678,9 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
           </DropdownMenu>
         </div>
       </header>
-      <main className="flex min-h-[calc(100vh_-_theme(spacing.16))] flex-1 flex-col gap-4 bg-muted/40 p-4 md:gap-8 md:p-10">
+      <main className="flex min-h-[calc(100vh_-_theme(spacing.16))] flex-1 flex-col gap-4 bg-muted/40 p-4 md:gap-8 md:p-10 relative overflow-hidden">
         <ProtectedRoute>{children}</ProtectedRoute>
+        <LightRays />
       </main>
     </div>
   );

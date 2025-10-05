@@ -172,7 +172,8 @@ export default function ChartPreviewSignal() {
   ];
 
   return (
-    <Card className="xl:max-w-xl xl:w-[800px] max-w-sm">
+    // <div className="relative overflow-hidden">
+          <Card className="xl:max-w-xl xl:w-[800px] max-w-sm">
       <CardHeader>
         <div className="flex flex-row justify-between items-center">
           <CardTitle>QuecManager Quick Stats</CardTitle>
@@ -319,5 +320,8 @@ export default function ChartPreviewSignal() {
         </div>
       </CardFooter>
     </Card>
+    // <LightRays />
+    // </div>
+
   );
 }
