@@ -15,6 +15,7 @@ import { CircleCheck, TriangleAlert } from "lucide-react";
 import { FaRunning } from "react-icons/fa";
 import { Toggle } from "@/components/ui/toggle";
 import { useToast } from "@/hooks/use-toast";
+import { Button } from "@/components/ui/button";
 
 interface KeepAliveStatus {
   enabled: number;
@@ -268,18 +269,17 @@ const KeepAliveCard = () => {
         </div>
       </CardContent>
       <CardFooter className="border-t py-4">
-        <Toggle
-          pressed={enabled}
-          onPressedChange={handleToggle}
+        <Button
+          onClick={() => handleToggle(!enabled)}
           disabled={loading || !startTime || !endTime || !interval}
         >
-          <FaRunning className="h-4 w-4 mr-2" />
+          <FaRunning className="h-4 w-4" />
           {loading
             ? "Processing..."
             : enabled
             ? "Disable Keep Alive"
             : "Enable Keep Alive"}
-        </Toggle>
+        </Button>
       </CardFooter>
     </Card>
   );

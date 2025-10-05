@@ -62,11 +62,11 @@ export const description =
 const chartConfig = {
   latency: {
     label: "Latency",
-    color: "hsl(var(--chart-2))",
+    color: "hsl(var(--chart-3))",
   },
   packet_loss: {
     label: "Packet Loss",
-    color: "hsl(var(--chart-3))",
+    color: "hsl(var(--chart-5))",
   },
 } satisfies ChartConfig;
 
