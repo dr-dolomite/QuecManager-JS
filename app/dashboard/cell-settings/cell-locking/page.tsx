@@ -997,6 +997,7 @@ const CellLockingPage = () => {
               !nr5gState.NRBAND
             }
             className="data-[state=on]:border-none data-[state=on]:bg-blue-600 data-[state=on]:text-white"
+            variant="outline"
           >
             <Save className="h-4 w-4" />
             Persistent

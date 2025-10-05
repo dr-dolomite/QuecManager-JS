@@ -71,7 +71,6 @@ const QuecManagerUpdate = () => {
   const [error, setError] = useState<string | null>(null);
   const [releases, setReleases] = useState<GitHubRelease[]>([]);
   const [isLoadingReleases, setIsLoadingReleases] = useState(true);
-  const [lastUpdateTime, setLastUpdateTime] = useState<string | null>(null);
   const { toast } = useToast();
 
   // Fetch GitHub releases
@@ -161,11 +160,6 @@ const QuecManagerUpdate = () => {
       const updateData = await updatePackageList(true);
 
       if (updateData.status === "success") {
-        // Update last check time if data was fresh
-        if (!updateData.cached) {
-          setLastUpdateTime(new Date().toLocaleTimeString());
-        }
-
         // Show appropriate message based on cache status
         const cacheAgeMinutes = Math.floor(updateData.cache_age_seconds / 60);
         const cacheAgeSeconds = updateData.cache_age_seconds % 60;
@@ -292,12 +286,7 @@ const QuecManagerUpdate = () => {
     const initializeData = async () => {
       try {
         // Try to update package list (will use cache if recent)
-        const updateData = await updatePackageList(false);
-
-        if (updateData.status === "success" && !updateData.cached) {
-          // Set last update time if we got fresh data
-          setLastUpdateTime(new Date().toLocaleTimeString());
-        }
+        await updatePackageList(false);
       } catch (err) {
         // Silently fail - we'll try to fetch package info anyway
         console.log("Package list update skipped or failed:", err);
@@ -496,56 +485,97 @@ const QuecManagerUpdate = () => {
             <div className="space-y-4">
               <Skeleton className="h-8 w-3/4" />
               <Skeleton className="h-24 w-full" />
-              <Skeleton className="h-8 w-3/4" />
-              <Skeleton className="h-24 w-full" />
             </div>
           ) : releases.length > 0 ? (
             <div className="space-y-6">
-              {releases.slice(0, 5).map((release) => (
-                <div key={release.id} className="border-b pb-4 last:border-b-0">
-                  <div className="flex items-start justify-between mb-2">
-                    <div>
-                      <h3 className="text-lg font-semibold flex items-center gap-2">
-                        {release.name || release.tag_name}
-                        {release.prerelease && (
-                          <span className="text-xs bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 px-2 py-0.5 rounded-full">
-                            Beta
-                          </span>
-                        )}
-                      </h3>
-                      <p className="text-sm text-muted-foreground">
-                        {new Date(release.published_at).toLocaleDateString(
-                          "en-US",
-                          {
-                            year: "numeric",
-                            month: "long",
-                            day: "numeric",
-                          }
-                        )}
-                      </p>
-                    </div>
+              {(() => {
+                // Get installed version (remove 'v' prefix if present for comparison)
+                const installedVersion = packageInfo?.installed.version?.replace(/^v/, '');
+                
+                // Find the latest release
+                const latestRelease = releases[0];
+                
+                // Find the release matching the current installed version
+                const currentRelease = releases.find(
+                  (r) => r.tag_name.replace(/^v/, '') === installedVersion
+                );
+                
+                // Determine which releases to show
+                const releasesToShow: GitHubRelease[] = [];
+                
+                if (latestRelease) {
+                  releasesToShow.push(latestRelease);
+                }
+                
+                // If current version is different from latest, show it too
+                if (
+                  currentRelease &&
+                  currentRelease.id !== latestRelease?.id
+                ) {
+                  releasesToShow.push(currentRelease);
+                }
+                
+                return releasesToShow.map((release) => {
+                  const isCurrentVersion = release.tag_name.replace(/^v/, '') === installedVersion;
+                  const isLatestVersion = release.id === latestRelease?.id;
+                  
+                  return (
+                    <div key={release.id} className="border-b pb-4 last:border-b-0">
+                      <div className="flex items-start justify-between mb-2">
+                        <div>
+                          <h3 className="text-lg font-semibold flex items-center gap-2">
+                            {release.name || release.tag_name}
+                            {release.prerelease && (
+                              <span className="text-xs bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 px-2 py-0.5 rounded-full">
+                                Beta
+                              </span>
+                            )}
+                            {isLatestVersion && (
+                              <span className="text-xs bg-blue-500/10 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded-full">
+                                Latest
+                              </span>
+                            )}
+                            {isCurrentVersion && (
+                              <span className="text-xs bg-green-500/10 text-green-600 dark:text-green-400 px-2 py-0.5 rounded-full">
+                                Installed
+                              </span>
+                            )}
+                          </h3>
+                          <p className="text-sm text-muted-foreground">
+                            {new Date(release.published_at).toLocaleDateString(
+                              "en-US",
+                              {
+                                year: "numeric",
+                                month: "long",
+                                day: "numeric",
+                              }
+                            )}
+                          </p>
+                        </div>
 
-                    <a
-                      href={release.html_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      <Button variant="secondary" size="sm">
-                        <FaGithub className="size-4" />
-                        View on GitHub
-                      </Button>
-                    </a>
-                  </div>
-                  <div
-                    className="text-sm leading-relaxed"
-                    dangerouslySetInnerHTML={{
-                      __html: formatReleaseNotes(
-                        release.body || "No release notes available."
-                      ),
-                    }}
-                  />
-                </div>
-              ))}
+                        <a
+                          href={release.html_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          <Button variant="secondary" size="sm">
+                            <FaGithub className="size-4" />
+                            View on GitHub
+                          </Button>
+                        </a>
+                      </div>
+                      <div
+                        className="text-sm leading-relaxed"
+                        dangerouslySetInnerHTML={{
+                          __html: formatReleaseNotes(
+                            release.body || "No release notes available."
+                          ),
+                        }}
+                      />
+                    </div>
+                  );
+                });
+              })()}
             </div>
           ) : (
             <Empty className="from-muted/50 to-background h-full bg-gradient-to-b from-30%">

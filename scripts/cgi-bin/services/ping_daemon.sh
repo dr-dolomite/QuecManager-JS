@@ -117,7 +117,6 @@ save_state() {
   cat > "$STATE_FILE" <<EOF
 last_minutely_hour=$1
 last_hourly_day=$2
-last_daily_month=$3
 EOF
 }
 
@@ -128,7 +127,6 @@ load_state() {
   else
     last_minutely_hour=""
     last_hourly_day=""
-    last_daily_month=""
   fi
 }
 
@@ -139,7 +137,7 @@ collect_minutely() {
   # Load state
   load_state
   
-  # If we're in a new hour, aggregate the PREVIOUS hour's real-time data
+  # If we're in a new hour, aggregate the PREVIOUS hour's real-time data into hourly
   if [ "$current_hourly_id" != "${last_minutely_hour:-}" ]; then
     if [ -f "$REALTIME_JSON" ]; then
       # Calculate average from all real-time entries in the PREVIOUS hour
@@ -158,7 +156,7 @@ collect_minutely() {
         fi
       done < "$REALTIME_JSON"
       
-      # Create minutely entry if we have data
+      # Create hourly entry directly (skip minutely aggregation)
       if [ "$valid_count" -gt 0 ]; then
         avg_latency=$((total_latency / valid_count))
         avg_packet_loss=$((total_packet_loss / valid_count))
@@ -166,17 +164,17 @@ collect_minutely() {
         # Use the START of the previous hour
         prev_hour_ts=$(date -u -d "-1 hour" +"%Y-%m-%dT%H:00:00Z" 2>/dev/null || date -u +"%Y-%m-%dT%H:00:00Z")
         
-        minutely_json="{\"timestamp\":\"$prev_hour_ts\",\"host\":\"$HOST\",\"latency\":$avg_latency,\"packet_loss\":$avg_packet_loss,\"sample_count\":$valid_count}"
+        hourly_json="{\"timestamp\":\"$prev_hour_ts\",\"host\":\"$HOST\",\"latency\":$avg_latency,\"packet_loss\":$avg_packet_loss,\"sample_count\":$valid_count}"
         
-        echo "$minutely_json" >> "$MINUTELY_JSON" 2>/dev/null || true
-        log "Collected minutely entry for previous hour: $minutely_json"
+        echo "$hourly_json" >> "$HOURLY_JSON" 2>/dev/null || true
+        log "Created hourly entry from realtime data: $hourly_json"
         
-        trim_file "$MINUTELY_JSON" "$MAX_MINUTELY_ENTRIES"
+        trim_file "$HOURLY_JSON" "$MAX_HOURLY_ENTRIES"
       fi
     fi
     
     # Update state
-    save_state "$current_hourly_id" "${last_hourly_day:-}" "${last_daily_month:-}"
+    save_state "$current_hourly_id" "${last_hourly_day:-}"
   fi
 }
 
@@ -187,67 +185,13 @@ aggregate_hourly() {
   # Load state
   load_state
   
-  # If we're in a new day, aggregate the PREVIOUS day's minutely data
+  # If we're in a new day, aggregate the PREVIOUS day's hourly data into daily
   if [ "$current_day_id" != "${last_hourly_day:-}" ]; then
-    if [ -f "$MINUTELY_JSON" ]; then
-      # We need at least a few minutely entries to make an hourly aggregate
-      line_count=$(wc -l < "$MINUTELY_JSON" 2>/dev/null || echo "0")
-      
-      if [ "$line_count" -ge 6 ]; then  # At least 6 minutely samples (10 minutes worth if collecting every minute)
-        total_latency=0
-        total_packet_loss=0
-        valid_count=0
-        
-        while IFS= read -r line; do
-          latency=$(echo "$line" | grep -oE '"latency":[0-9]+' | cut -d':' -f2)
-          packet_loss=$(echo "$line" | grep -oE '"packet_loss":[0-9]+' | cut -d':' -f2)
-          
-          if [ -n "$latency" ]; then
-            total_latency=$((total_latency + latency))
-            total_packet_loss=$((total_packet_loss + packet_loss))
-            valid_count=$((valid_count + 1))
-          fi
-        done < "$MINUTELY_JSON"
-        
-        if [ "$valid_count" -gt 0 ]; then
-          avg_latency=$((total_latency / valid_count))
-          avg_packet_loss=$((total_packet_loss / valid_count))
-          
-          # Use the START of the previous day
-          prev_day_ts=$(date -u -d "-1 day" +"%Y-%m-%dT00:00:00Z" 2>/dev/null || date -u +"%Y-%m-%dT00:00:00Z")
-          
-          hourly_json="{\"timestamp\":\"$prev_day_ts\",\"host\":\"$HOST\",\"latency\":$avg_latency,\"packet_loss\":$avg_packet_loss,\"sample_count\":$valid_count}"
-          
-          echo "$hourly_json" >> "$HOURLY_JSON" 2>/dev/null || true
-          log "Created hourly aggregate for previous day: $hourly_json"
-          
-          trim_file "$HOURLY_JSON" "$MAX_HOURLY_ENTRIES"
-          
-          # Clear minutely data after successful aggregation
-          > "$MINUTELY_JSON" 2>/dev/null || true
-        fi
-      fi
-    fi
-    
-    # Update state
-    save_state "${last_minutely_hour:-}" "$current_day_id" "${last_daily_month:-}"
-  fi
-}
-
-aggregate_daily() {
-  # Get current month identifier (YYYY-MM)
-  current_month_id=$(date -u +"%Y-%m")
-  
-  # Load state
-  load_state
-  
-  # If we're in a new month, aggregate the PREVIOUS month's hourly data
-  if [ "$current_month_id" != "${last_daily_month:-}" ]; then
     if [ -f "$HOURLY_JSON" ]; then
       line_count=$(wc -l < "$HOURLY_JSON" 2>/dev/null || echo "0")
       
-      # Need at least 12 hourly entries to make a meaningful daily aggregate
-      if [ "$line_count" -ge 12 ]; then
+      # Need at least 6 hourly entries to make a meaningful daily aggregate
+      if [ "$line_count" -ge 6 ]; then
         total_latency=0
         total_packet_loss=0
         valid_count=0
@@ -267,13 +211,13 @@ aggregate_daily() {
           avg_latency=$((total_latency / valid_count))
           avg_packet_loss=$((total_packet_loss / valid_count))
           
-          # Use the first day of the previous month
-          prev_month_ts=$(date -u -d "-1 month" +"%Y-%m-01T00:00:00Z" 2>/dev/null || date -u +"%Y-%m-01T00:00:00Z")
+          # Use the START of the previous day
+          prev_day_ts=$(date -u -d "-1 day" +"%Y-%m-%dT00:00:00Z" 2>/dev/null || date -u +"%Y-%m-%dT00:00:00Z")
           
-          daily_json="{\"timestamp\":\"$prev_month_ts\",\"host\":\"$HOST\",\"latency\":$avg_latency,\"packet_loss\":$avg_packet_loss,\"sample_count\":$valid_count}"
+          daily_json="{\"timestamp\":\"$prev_day_ts\",\"host\":\"$HOST\",\"latency\":$avg_latency,\"packet_loss\":$avg_packet_loss,\"sample_count\":$valid_count}"
           
           echo "$daily_json" >> "$DAILY_JSON" 2>/dev/null || true
-          log "Created daily aggregate for previous month: $daily_json"
+          log "Created daily aggregate from hourly data: $daily_json"
           
           trim_file "$DAILY_JSON" "$MAX_DAILY_ENTRIES"
         fi
@@ -281,9 +225,11 @@ aggregate_daily() {
     fi
     
     # Update state
-    save_state "${last_minutely_hour:-}" "${last_hourly_day:-}" "$current_month_id"
+    save_state "${last_minutely_hour:-}" "$current_day_id"
   fi
 }
+
+
 
 ensure_tmp_dir
 log "Starting ping daemon"
@@ -327,9 +273,8 @@ while true; do
   log "Wrote: $json"
   
   # Perform aggregations (these check internally if it's time to aggregate)
-  collect_minutely
-  aggregate_hourly
-  aggregate_daily
+  collect_minutely  # Creates hourly data from realtime (every hour)
+  aggregate_hourly  # Creates daily data from hourly (every day)
   
   sleep "$INTERVAL"
 done

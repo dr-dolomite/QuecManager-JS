@@ -1110,9 +1110,9 @@ const QuecProfilesPage = () => {
                         value={formData.sa_nr5g_bands}
                         onChange={handleInputChange}
                       />
-                      <p className="text-xs text-muted-foreground italic">
+                      {/* <p className="text-xs text-muted-foreground italic">
                         Comma-separated list of SA bands.
-                      </p>
+                      </p> */}
                     </div>
                   </div>
 
