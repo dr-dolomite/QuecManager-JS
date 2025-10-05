@@ -26,6 +26,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/hooks/use-toast";
 import { PhoneInput } from "@/components/sms/phone-input";
+import { ShineBorder } from "@/components/ui/shine-border";
 
 interface SMSMessage {
   index: number;
@@ -294,7 +295,9 @@ const SMSPage = () => {
         console.log("Parsed delete response:", data);
       } catch (parseError) {
         console.error("Failed to parse JSON response:", parseError);
-        throw new Error(`Invalid response format: ${responseText.substring(0, 100)}`);
+        throw new Error(
+          `Invalid response format: ${responseText.substring(0, 100)}`
+        );
       }
 
       // Check status from JSON response
@@ -330,7 +333,7 @@ const SMSPage = () => {
       });
       return;
     }
-    
+
     // If "Select All" checkbox is checked, send "all" to backend
     if (isSelectAllChecked) {
       deleteMessages("all");
@@ -343,7 +346,7 @@ const SMSPage = () => {
   const handleSelectMessage = (indices: number[]) => {
     // When manually selecting/deselecting, uncheck "Select All"
     setIsSelectAllChecked(false);
-    
+
     setSelectedMessages((prev) => {
       const currentSelectedSet = new Set(prev);
       const allSelected = indices.every((index) =>
@@ -362,7 +365,7 @@ const SMSPage = () => {
 
   const handleSelectAll = (checked: boolean) => {
     setIsSelectAllChecked(checked);
-    
+
     if (checked) {
       const allIndices = messages.flatMap(
         (msg) => msg.originalIndices || [msg.index]

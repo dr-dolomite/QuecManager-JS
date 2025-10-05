@@ -26,6 +26,8 @@ import { Eye, EyeOff } from "lucide-react";
 import { SiKofi } from "react-icons/si";
 import { FaPaypal } from "react-icons/fa";
 import { BiDonateHeart } from "react-icons/bi";
+import { Lens } from "@/components/ui/lens";
+import { AspectRatio } from "@/components/ui/aspect-ratio";
 
 const AboutPage = () => {
   const { data, isLoading } = useAboutData();
@@ -68,6 +70,21 @@ const AboutPage = () => {
             </CardDescription>
           </CardHeader>
           <CardContent>
+            <div className="mb-4">
+              <Lens
+                zoomFactor={2}
+                lensSize={150}
+                isStatic={false}
+                ariaLabel="Zoom Area"
+              >
+                <img
+                  src="/rm551e.png"
+                  alt="QuecManager Logo"
+                  className="rounded-lg object-cover size-32"
+                />
+              </Lens>
+            </div>
+
             <ScrollArea className="w-full">
               <div className="grid md:gap-2 gap-4">
                 <div className="flex md:flex-row flex-col md:items-center justify-between">
@@ -340,7 +357,7 @@ const AboutPage = () => {
                     here
                   </a>
                 </p>
-                <div className="mt-4 flex flex-col gap-2 items-start">
+                <div className="mt-8 flex flex-col gap-2 items-start">
                   <p className="text-lg font-semibold">
                     Finding QuecManager helpful? Your support keeps it going!
                   </p>

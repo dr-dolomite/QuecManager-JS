@@ -19,6 +19,8 @@ import { calculateSignalPercentage } from "@/utils/signalMetrics";
 import { ArrowRightIcon } from "@radix-ui/react-icons";
 
 import { useAuth } from "@/hooks/auth";
+import { BorderBeam } from "../ui/border-beam";
+import { ShineBorder } from "../ui/shine-border";
 
 interface ModemResponse {
   response: string;
@@ -172,8 +174,7 @@ export default function ChartPreviewSignal() {
   ];
 
   return (
-    // <div className="relative overflow-hidden">
-          <Card className="xl:max-w-xl xl:w-[800px] max-w-sm">
+    <Card className="xl:max-w-2xl xl:w-[1200px] max-w-sm w-full border-none">
       <CardHeader>
         <div className="flex flex-row justify-between items-center">
           <CardTitle>QuecManager Quick Stats</CardTitle>
@@ -320,8 +321,5 @@ export default function ChartPreviewSignal() {
         </div>
       </CardFooter>
     </Card>
-    // <LightRays />
-    // </div>
-
   );
 }
