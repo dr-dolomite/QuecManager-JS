@@ -227,13 +227,12 @@ const QuecManagerUpdate = () => {
     }
   };
 
-
-
   // Initial load - smart package list update
   useEffect(() => {
     toast({
       title: "Checking for Updates",
-      description: "Please wait...",
+      description: "Please wait while we fetch the latest package information...",
+      duration: 4000,
     });
 
     const initializeData = async () => {

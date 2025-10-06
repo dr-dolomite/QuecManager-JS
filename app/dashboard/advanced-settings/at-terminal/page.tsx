@@ -236,6 +236,11 @@ const ATTerminalPage = () => {
             );
             const data: QueueResponse = await response.json();
 
+            // Check if response has proper structure
+            if (!data || !data.command) {
+              throw new Error("Invalid response from server. Check command syntax.");
+            }
+
             // Format output
             let outputText = `> ${previousCommand}\n`;
             if (data.response?.raw_output) {
@@ -326,6 +331,11 @@ const ATTerminalPage = () => {
               }
       );
       const data: QueueResponse = await response.json();
+
+      // Check if response has proper structure
+      if (!data || !data.command) {
+        throw new Error("Invalid response from server. Check command syntax.");
+      }
 
       // Format output
       let outputText = `> ${command}\n`;

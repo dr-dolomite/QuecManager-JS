@@ -172,10 +172,11 @@ COMMAND_SET_6='AT+CEREG=2;+CEREG? AT+C5GREG=2;+C5GREG? AT+CPIN? AT+CGDCONT? AT+C
 COMMAND_SET_7='AT+QNWPREFCFG="policy_band" AT+QNWPREFCFG="lte_band";+QNWPREFCFG="nsa_nr5g_band";+QNWPREFCFG="nr5g_band"'
 COMMAND_SET_8='AT+QNWLOCK="common/4g" AT+QNWLOCK="common/5g" AT+QNWLOCK="save_ctrl"'
 COMMAND_SET_9='AT+ICCID AT+CGSN AT+QUIMSLOT? '
+COMMAND_SET_10='AT+QNWPREFCFG="rat_acq_order"'
 
 # Get command set from query string with validation
-COMMAND_SET=$(echo "$QUERY_STRING" | grep -o 'set=[1-9]' | cut -d'=' -f2 | tr -cd '0-9')
-if [ -z "$COMMAND_SET" ] || [ "$COMMAND_SET" -lt 1 ] || [ "$COMMAND_SET" -gt 9 ]; then
+COMMAND_SET=$(echo "$QUERY_STRING" | grep -o 'set=[0-9]\+' | cut -d'=' -f2 | tr -cd '0-9')
+if [ -z "$COMMAND_SET" ] || [ "$COMMAND_SET" -lt 1 ] || [ "$COMMAND_SET" -gt 10 ]; then
     COMMAND_SET=1
 fi
 
@@ -190,6 +191,7 @@ case "$COMMAND_SET" in
 7) COMMANDS="$COMMAND_SET_7" ;;
 8) COMMANDS="$COMMAND_SET_8" ;;
 9) COMMANDS="$COMMAND_SET_9" ;;
+10) COMMANDS="$COMMAND_SET_10" ;;
 esac
 
 # Set priority based on content
