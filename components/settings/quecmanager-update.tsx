@@ -12,7 +12,6 @@ import {
 
 import {
   AlertCircleIcon,
-  BellDotIcon,
   CloudDownloadIcon,
   Loader2Icon,
   RefreshCcwIcon,
@@ -29,7 +28,7 @@ import {
 } from "@/components/ui/empty";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "../ui/skeleton";
-import { FaGithub } from "react-icons/fa";
+import UpdateReleaseNotes from "./update-release-notes";
 
 interface PackageInfo {
   installed: {
@@ -105,11 +104,6 @@ const QuecManagerUpdate = () => {
 
   // Fetch package information
   const fetchPackageInfo = async () => {
-    toast({
-      title: "Checking for Updates",
-      description: "Please wait...",
-    });
-
     try {
       const response = await fetch(
         "/cgi-bin/quecmanager/settings/check_package_info.sh"
@@ -233,56 +227,15 @@ const QuecManagerUpdate = () => {
     }
   };
 
-  // Format markdown-style text to HTML
-  const formatReleaseNotes = (markdown: string) => {
-    // First, normalize line endings
-    let formatted = markdown.trim();
 
-    // Handle headings (## and ###)
-    formatted = formatted
-      .replace(
-        /^### (.*?)$/gm,
-        '<h3 class="text-base font-semibold mt-4 mb-2 text-foreground">$1</h3>'
-      )
-      .replace(
-        /^## (.*?)$/gm,
-        '<h2 class="text-lg font-bold mt-6 mb-3 text-foreground">$1</h2>'
-      )
-      .replace(
-        /^# (.*?)$/gm,
-        '<h1 class="text-xl font-bold mt-8 mb-4 text-foreground">$1</h1>'
-      );
-
-    // Handle bold and italic (but not in list markers)
-    formatted = formatted
-      .replace(/\*\*(.+?)\*\*/g, '<strong class="font-semibold">$1</strong>')
-      .replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, "<em>$1</em>");
-
-    // Handle inline code
-    formatted = formatted.replace(
-      /`(.+?)`/g,
-      '<code class="bg-muted px-1.5 py-0.5 rounded text-sm font-mono">$1</code>'
-    );
-
-    // Handle list items (both - and * for bullets)
-    formatted = formatted.replace(
-      /^[\*\-]\s+(.+)$/gm,
-      '<li class="ml-6 mb-2 leading-relaxed">$1</li>'
-    );
-
-    // Wrap consecutive list items in ul tags
-    formatted = formatted.replace(/(<li.*?<\/li>\s*)+/g, (match) => {
-      return `<ul class="list-disc space-y-2 my-3 ml-2">${match}</ul>`;
-    });
-
-    // Handle line breaks between sections
-    formatted = formatted.replace(/\n\n+/g, '<div class="mb-4"></div>');
-
-    return formatted;
-  };
 
   // Initial load - smart package list update
   useEffect(() => {
+    toast({
+      title: "Checking for Updates",
+      description: "Please wait...",
+    });
+
     const initializeData = async () => {
       try {
         // Try to update package list (will use cache if recent)
@@ -327,20 +280,12 @@ const QuecManagerUpdate = () => {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              Release Notes
-            </CardTitle>
-            <CardDescription>
-              Stay informed about the latest changes and improvements in each
-              release.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Skeleton className="h-64 w-full" />
-          </CardContent>
-        </Card>
+        <UpdateReleaseNotes 
+          releases={[]} 
+          isLoading={true} 
+          installedVersion={undefined}
+          packageType={undefined}
+        />
       </div>
     );
   }
@@ -470,128 +415,12 @@ const QuecManagerUpdate = () => {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            Release Notes
-          </CardTitle>
-          <CardDescription>
-            Stay informed about the latest changes and improvements in each
-            release.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {isLoadingReleases ? (
-            <div className="space-y-4">
-              <Skeleton className="h-8 w-3/4" />
-              <Skeleton className="h-24 w-full" />
-            </div>
-          ) : releases.length > 0 ? (
-            <div className="space-y-6">
-              {(() => {
-                // Get installed version (remove 'v' prefix if present for comparison)
-                const installedVersion = packageInfo?.installed.version?.replace(/^v/, '');
-                
-                // Find the latest release
-                const latestRelease = releases[0];
-                
-                // Find the release matching the current installed version
-                const currentRelease = releases.find(
-                  (r) => r.tag_name.replace(/^v/, '') === installedVersion
-                );
-                
-                // Determine which releases to show
-                const releasesToShow: GitHubRelease[] = [];
-                
-                if (latestRelease) {
-                  releasesToShow.push(latestRelease);
-                }
-                
-                // If current version is different from latest, show it too
-                if (
-                  currentRelease &&
-                  currentRelease.id !== latestRelease?.id
-                ) {
-                  releasesToShow.push(currentRelease);
-                }
-                
-                return releasesToShow.map((release) => {
-                  const isCurrentVersion = release.tag_name.replace(/^v/, '') === installedVersion;
-                  const isLatestVersion = release.id === latestRelease?.id;
-                  
-                  return (
-                    <div key={release.id} className="border-b pb-4 last:border-b-0">
-                      <div className="flex items-start justify-between mb-2">
-                        <div>
-                          <h3 className="text-lg font-semibold flex items-center gap-2">
-                            {release.name || release.tag_name}
-                            {release.prerelease && (
-                              <span className="text-xs bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 px-2 py-0.5 rounded-full">
-                                Beta
-                              </span>
-                            )}
-                            {isLatestVersion && (
-                              <span className="text-xs bg-blue-500/10 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded-full">
-                                Latest
-                              </span>
-                            )}
-                            {isCurrentVersion && (
-                              <span className="text-xs bg-green-500/10 text-green-600 dark:text-green-400 px-2 py-0.5 rounded-full">
-                                Installed
-                              </span>
-                            )}
-                          </h3>
-                          <p className="text-sm text-muted-foreground">
-                            {new Date(release.published_at).toLocaleDateString(
-                              "en-US",
-                              {
-                                year: "numeric",
-                                month: "long",
-                                day: "numeric",
-                              }
-                            )}
-                          </p>
-                        </div>
-
-                        <a
-                          href={release.html_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          <Button variant="secondary" size="sm">
-                            <FaGithub className="size-4" />
-                            View on GitHub
-                          </Button>
-                        </a>
-                      </div>
-                      <div
-                        className="text-sm leading-relaxed"
-                        dangerouslySetInnerHTML={{
-                          __html: formatReleaseNotes(
-                            release.body || "No release notes available."
-                          ),
-                        }}
-                      />
-                    </div>
-                  );
-                });
-              })()}
-            </div>
-          ) : (
-            <Empty className="from-muted/50 to-background h-full bg-gradient-to-b from-30%">
-              <EmptyHeader>
-                <EmptyMedia variant="icon">
-                  <AlertCircleIcon />
-                </EmptyMedia>
-                <EmptyTitle>No Release Notes Available</EmptyTitle>
-                <EmptyDescription>
-                  Unable to fetch release notes from GitHub.
-                </EmptyDescription>
-              </EmptyHeader>
-            </Empty>
-          )}
-        </CardContent>
-      </Card>
+      <UpdateReleaseNotes 
+        releases={releases} 
+        isLoading={isLoadingReleases} 
+        installedVersion={packageInfo?.installed.version}
+        packageType={packageInfo?.installed.type}
+      />
     </div>
   );
 };
