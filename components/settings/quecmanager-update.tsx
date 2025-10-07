@@ -27,7 +27,7 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { useToast } from "@/hooks/use-toast";
-import { Skeleton } from "../ui/skeleton";
+import { Skeleton } from "@/components/ui/skeleton";
 import UpdateReleaseNotes from "./update-release-notes";
 
 interface PackageInfo {
@@ -231,7 +231,8 @@ const QuecManagerUpdate = () => {
   useEffect(() => {
     toast({
       title: "Checking for Updates",
-      description: "Please wait while we fetch the latest package information...",
+      description:
+        "Please wait while we fetch the latest package information...",
       duration: 4000,
     });
 
@@ -279,9 +280,9 @@ const QuecManagerUpdate = () => {
           </CardContent>
         </Card>
 
-        <UpdateReleaseNotes 
-          releases={[]} 
-          isLoading={true} 
+        <UpdateReleaseNotes
+          releases={[]}
+          isLoading={true}
           installedVersion={undefined}
           packageType={undefined}
         />
@@ -334,7 +335,7 @@ const QuecManagerUpdate = () => {
                   </EmptyDescription>
                 </EmptyHeader>
                 <EmptyContent>
-                  <div className="flex gap-2">
+                  <div className="grid grid-flow-row md:grid-cols-2 grid-cols-1 gap-2">
                     <Button onClick={performUpgrade} disabled={isUpgrading}>
                       {isUpgrading ? (
                         <>
@@ -414,9 +415,9 @@ const QuecManagerUpdate = () => {
         </CardContent>
       </Card>
 
-      <UpdateReleaseNotes 
-        releases={releases} 
-        isLoading={isLoadingReleases} 
+      <UpdateReleaseNotes
+        releases={releases}
+        isLoading={isLoadingReleases}
         installedVersion={packageInfo?.installed.version}
         packageType={packageInfo?.installed.type}
       />

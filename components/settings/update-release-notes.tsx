@@ -97,26 +97,26 @@ const UpdateReleaseNotes: React.FC<UpdateReleaseNotesProps> = ({
       .replace(/^v/, "") // Remove v prefix
       .trim()
       .toLowerCase();
-    
+
     // For BETA packages: convert "2.3.3" to "2.3-beta.3" if "-beta" isn't already present
     // For STABLE packages: keep as "2.3.3" (no -beta conversion)
     if (packageType === "beta" && !normalized.includes("-beta")) {
       normalized = normalized.replace(/\.(\d+)$/, "-beta.$1");
     }
-    
+
     return normalized;
   };
 
   const normalizedInstalled = normalizeVersion(installedVersion || "");
 
   // Debug logging
-//   console.log("[UpdateReleaseNotes] Package type:", packageType);
-//   console.log("[UpdateReleaseNotes] Raw installed version:", installedVersion);
-//   console.log("[UpdateReleaseNotes] Normalized installed:", normalizedInstalled);
-//   console.log("[UpdateReleaseNotes] Available releases:", releases.map(r => ({
-//     tag: r.tag_name,
-//     normalized: normalizeVersion(r.tag_name)
-//   })));
+  //   console.log("[UpdateReleaseNotes] Package type:", packageType);
+  //   console.log("[UpdateReleaseNotes] Raw installed version:", installedVersion);
+  //   console.log("[UpdateReleaseNotes] Normalized installed:", normalizedInstalled);
+  //   console.log("[UpdateReleaseNotes] Available releases:", releases.map(r => ({
+  //     tag: r.tag_name,
+  //     normalized: normalizeVersion(r.tag_name)
+  //   })));
 
   // Filter releases to show
   const getReleasesToShow = () => {
@@ -126,16 +126,16 @@ const UpdateReleaseNotes: React.FC<UpdateReleaseNotesProps> = ({
     const currentRelease = releases.find((r) => {
       const normalizedRelease = normalizeVersion(r.tag_name);
       const isMatch = normalizedRelease === normalizedInstalled;
-      
-    //   if (isMatch) {
-    //     console.log("[UpdateReleaseNotes] ✅ Match found:", {
-    //       release: r.tag_name,
-    //       normalizedRelease,
-    //       installedVersion,
-    //       normalizedInstalled
-    //     });
-    //   }
-      
+
+      //   if (isMatch) {
+      //     console.log("[UpdateReleaseNotes] ✅ Match found:", {
+      //       release: r.tag_name,
+      //       normalizedRelease,
+      //       installedVersion,
+      //       normalizedInstalled
+      //     });
+      //   }
+
       return isMatch;
     });
 
@@ -157,7 +157,7 @@ const UpdateReleaseNotes: React.FC<UpdateReleaseNotesProps> = ({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">Release Notes</CardTitle>
+        <CardTitle>Release Notes</CardTitle>
         <CardDescription>
           Stay informed about the latest changes and improvements in each
           release.
@@ -180,8 +180,10 @@ const UpdateReleaseNotes: React.FC<UpdateReleaseNotesProps> = ({
                 <div key={release.id} className="border-b pb-4 last:border-b-0">
                   <div className="flex items-start justify-between mb-2">
                     <div>
-                      <h3 className="text-lg font-semibold flex items-center gap-2">
-                        {release.name || release.tag_name}
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-lg font-semibold ">
+                          {release.name || release.tag_name}
+                        </h3>
                         {release.prerelease && (
                           <span className="text-xs bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 px-2 py-0.5 rounded-full">
                             Beta
@@ -197,7 +199,7 @@ const UpdateReleaseNotes: React.FC<UpdateReleaseNotesProps> = ({
                             Installed
                           </span>
                         )}
-                      </h3>
+                      </div>
                       <p className="text-sm text-muted-foreground">
                         {new Date(release.published_at).toLocaleDateString(
                           "en-US",
@@ -214,6 +216,7 @@ const UpdateReleaseNotes: React.FC<UpdateReleaseNotesProps> = ({
                       href={release.html_url}
                       target="_blank"
                       rel="noopener noreferrer"
+                      className="hidden lg:block"
                     >
                       <Button variant="secondary" size="sm">
                         <FaGithub className="size-4" />
