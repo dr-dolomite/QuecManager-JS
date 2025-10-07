@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# QuecWatch Daemon
+# QuecWatch Daemon with Atomic Token Operations
 # Monitors cellular connectivity and performs recovery actions
 
 # Load UCI configuration functions
@@ -9,14 +9,17 @@
 # Configuration
 QUEUE_DIR="/tmp/at_queue"
 TOKEN_FILE="$QUEUE_DIR/token"
+TOKEN_LOCK_DIR="$QUEUE_DIR/token.lock"
 LOG_DIR="/tmp/log/quecwatch"
 LOG_FILE="$LOG_DIR/quecwatch.log"
 PID_FILE="/var/run/quecwatch.pid"
 STATUS_FILE="/tmp/quecwatch_status.json"
 RETRY_COUNT_FILE="/tmp/quecwatch_retry_count"
 UCI_CONFIG="quecmanager"
-MAX_TOKEN_WAIT=10  # Maximum seconds to wait for token acquisition
-TOKEN_PRIORITY=15  # Medium priority (between profiles and metrics)
+MAX_TOKEN_ATTEMPTS=10  # Maximum attempts to acquire token
+TOKEN_TIMEOUT=30       # Token timeout in seconds
+TOKEN_LOCK_TIMEOUT=100 # 10 seconds for token lock acquisition
+TOKEN_PRIORITY=15      # Medium priority (between profiles and metrics)
 
 # Ensure directories exist
 mkdir -p "$LOG_DIR" "$QUEUE_DIR"
@@ -64,83 +67,146 @@ EOF
     log_message "Status updated: $status - $message (latency: ${latency}ms)" "debug"
 }
 
-# Function to acquire token for AT commands
+# Atomic lock functions for token operations
+acquire_token_lock() {
+    local attempt=0
+    
+    while [ $attempt -lt $TOKEN_LOCK_TIMEOUT ]; do
+        if mkdir "$TOKEN_LOCK_DIR" 2>/dev/null; then
+            log_message "Token lock acquired" "debug"
+            return 0
+        fi
+        
+        sleep 0.1
+        attempt=$((attempt + 1))
+    done
+    
+    log_message "Failed to acquire token lock after timeout" "error"
+    return 1
+}
+
+release_token_lock() {
+    if [ -d "$TOKEN_LOCK_DIR" ]; then
+        rmdir "$TOKEN_LOCK_DIR" 2>/dev/null
+        log_message "Token lock released" "debug"
+        return 0
+    fi
+    
+    log_message "Token lock directory doesn't exist during release" "warn"
+    return 1
+}
+
+# Function to acquire token with atomic operations
 acquire_token() {
     local requestor_id="QUECWATCH_$(date +%s)_$$"
     local priority="$TOKEN_PRIORITY"
-    local max_attempts=$MAX_TOKEN_WAIT
     local attempt=0
     
     log_message "Attempting to acquire token with priority $priority" "debug"
     
-    while [ $attempt -lt $max_attempts ]; do
+    while [ $attempt -lt $MAX_TOKEN_ATTEMPTS ]; do
+        # Acquire atomic lock for token operations
+        if ! acquire_token_lock; then
+            log_message "Failed to acquire token lock" "error"
+            return 1
+        fi
+        
+        # Now we have exclusive access to token file
+        local should_create_token=0
+        
         # Check if token file exists
         if [ -f "$TOKEN_FILE" ]; then
-            local current_holder=$(cat "$TOKEN_FILE" | jsonfilter -e '@.id' 2>/dev/null)
-            local current_priority=$(cat "$TOKEN_FILE" | jsonfilter -e '@.priority' 2>/dev/null)
-            local timestamp=$(cat "$TOKEN_FILE" | jsonfilter -e '@.timestamp' 2>/dev/null)
+            local current_holder=$(cat "$TOKEN_FILE" 2>/dev/null | jsonfilter -e '@.id' 2>/dev/null)
+            local current_priority=$(cat "$TOKEN_FILE" 2>/dev/null | jsonfilter -e '@.priority' 2>/dev/null)
+            local timestamp=$(cat "$TOKEN_FILE" 2>/dev/null | jsonfilter -e '@.timestamp' 2>/dev/null)
             local current_time=$(date +%s)
             
-            # Check for expired token (> 30 seconds old)
-            if [ $((current_time - timestamp)) -gt 30 ] || [ -z "$current_holder" ]; then
-                # Remove expired token
+            # Check for expired token (> TOKEN_TIMEOUT seconds)
+            if [ $((current_time - timestamp)) -gt $TOKEN_TIMEOUT ] || [ -z "$current_holder" ]; then
                 log_message "Found expired token from $current_holder, removing" "debug"
                 rm -f "$TOKEN_FILE" 2>/dev/null
+                should_create_token=1
             elif [ $priority -lt $current_priority ]; then
-                # Preempt lower priority token
-                log_message "Preempting token from $current_holder (priority: $current_priority)" "debug"
+                log_message "Preempting token from $current_holder (priority: $current_priority)" "info"
                 rm -f "$TOKEN_FILE" 2>/dev/null
+                should_create_token=1
             else
-                # Check if the token is held by a QuecProfile or cell scan
+                # Token held by higher/equal priority, release lock and retry
+                release_token_lock
+                
+                # Log more descriptive waiting messages
                 if echo "$current_holder" | grep -q "CELL_SCAN"; then
-                    log_message "Token held by cell scan (priority: $current_priority), waiting..." "debug"
+                    log_message "Token held by cell scan (priority: $current_priority), waiting (attempt $attempt)..." "debug"
                 elif echo "$current_holder" | grep -q "QUECPROFILES"; then
-                    log_message "Token held by profile application (priority: $current_priority), waiting..." "debug"
+                    log_message "Token held by profile application (priority: $current_priority), waiting (attempt $attempt)..." "debug"
+                elif echo "$current_holder" | grep -q "AT_CLIENT"; then
+                    log_message "Token held by frontend request (priority: $current_priority), waiting (attempt $attempt)..." "debug"
                 else
-                    log_message "Token held by $current_holder with priority $current_priority, retrying..." "debug"
+                    log_message "Token held by $current_holder with priority $current_priority, waiting (attempt $attempt)..." "debug"
                 fi
                 
                 sleep 0.5
                 attempt=$((attempt + 1))
                 continue
             fi
+        else
+            should_create_token=1
         fi
         
-        # Try to create token file
-        echo "{\"id\":\"$requestor_id\",\"priority\":$priority,\"timestamp\":$(date +%s)}" > "$TOKEN_FILE" 2>/dev/null
-        chmod 644 "$TOKEN_FILE" 2>/dev/null
-        
-        # Verify we got the token
-        local holder=$(cat "$TOKEN_FILE" 2>/dev/null | jsonfilter -e '@.id' 2>/dev/null)
-        if [ "$holder" = "$requestor_id" ]; then
-            log_message "Successfully acquired token with ID $requestor_id" "debug"
-            echo "$requestor_id"
-            return 0
+        # Create token if we should
+        if [ $should_create_token -eq 1 ]; then
+            printf '{"id":"%s","priority":%d,"timestamp":%d}' \
+                "$requestor_id" "$priority" "$(date +%s)" > "$TOKEN_FILE" 2>/dev/null
+            chmod 644 "$TOKEN_FILE" 2>/dev/null
+            
+            # Verify we got the token (read back atomically)
+            local holder=$(cat "$TOKEN_FILE" 2>/dev/null | jsonfilter -e '@.id' 2>/dev/null)
+            
+            if [ "$holder" = "$requestor_id" ]; then
+                log_message "Successfully acquired token with ID $requestor_id (priority: $priority)" "debug"
+                release_token_lock
+                echo "$requestor_id"
+                return 0
+            else
+                log_message "Token verification failed, holder: $holder, expected: $requestor_id" "warn"
+            fi
         fi
         
+        # Release lock before retry
+        release_token_lock
         sleep 0.5
         attempt=$((attempt + 1))
     done
     
-    log_message "Failed to acquire token after $max_attempts attempts" "error"
+    log_message "Failed to acquire token after $MAX_TOKEN_ATTEMPTS attempts" "error"
     return 1
 }
 
-# Function to release token
+# Function to release token with atomic operations
 release_token() {
     local requestor_id="$1"
     
+    # Acquire atomic lock for token operations
+    if ! acquire_token_lock; then
+        log_message "Failed to acquire token lock for release" "error"
+        return 1
+    fi
+    
     if [ -f "$TOKEN_FILE" ]; then
-        local current_holder=$(cat "$TOKEN_FILE" | jsonfilter -e '@.id' 2>/dev/null)
+        local current_holder=$(cat "$TOKEN_FILE" 2>/dev/null | jsonfilter -e '@.id' 2>/dev/null)
         if [ "$current_holder" = "$requestor_id" ]; then
             rm -f "$TOKEN_FILE" 2>/dev/null
             log_message "Released token $requestor_id" "debug"
+            release_token_lock
             return 0
+        else
+            log_message "Token held by $current_holder, not by us ($requestor_id)" "warn"
         fi
-        log_message "Token held by $current_holder, not by us ($requestor_id)" "warn"
     else
         log_message "Token file doesn't exist, nothing to release" "debug"
     fi
+    
+    release_token_lock
     return 1
 }
 
@@ -515,7 +581,7 @@ save_retry_count() {
 
 # Main monitoring function
 main() {
-    log_message "QuecWatch daemon starting (PID: $$)" "info"
+    log_message "QuecWatch daemon starting with Atomic Token Operations (PID: $$)" "info"
     
     # Load configuration
     load_config
@@ -790,8 +856,8 @@ main() {
     done
 }
 
-# Set up trap for clean shutdown
-trap 'log_message "Received signal, exiting" "info"; update_status "stopped" "Daemon stopped"; rm -f "$PID_FILE"; exit 0' INT TERM
+# Set up trap for clean shutdown and cleanup
+trap 'log_message "Received signal, exiting" "info"; update_status "stopped" "Daemon stopped"; rm -f "$PID_FILE"; rmdir "$TOKEN_LOCK_DIR" 2>/dev/null; exit 0' INT TERM
 
 # Start the main function
 main

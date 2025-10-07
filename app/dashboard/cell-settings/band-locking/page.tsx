@@ -328,9 +328,9 @@ const BandLocking = () => {
           true
         );
 
-        if (nsaResult.response?.status !== "success") {
+        if (nsaResult.status !== "success") {
           throw new Error(
-            nsaResult.response?.raw_output || "Failed to lock NSA bands"
+            nsaResult.response || "Failed to lock NSA bands"
           );
         }
 
@@ -341,9 +341,9 @@ const BandLocking = () => {
             true
           );
 
-          if (saResult.response?.status !== "success") {
+          if (saResult.status !== "success") {
             throw new Error(
-              saResult.response?.raw_output || "Failed to restore SA bands"
+              saResult.response || "Failed to restore SA bands"
             );
           }
         } else {
@@ -354,9 +354,9 @@ const BandLocking = () => {
             true
           );
 
-          if (saResult.response?.status !== "success") {
+          if (saResult.status !== "success") {
             throw new Error(
-              saResult.response?.raw_output || "Failed to set default SA bands"
+              saResult.response || "Failed to set default SA bands"
             );
           }
         }
@@ -374,9 +374,9 @@ const BandLocking = () => {
           true
         );
 
-        if (result.response?.status !== "success") {
+        if (result.status !== "success") {
           throw new Error(
-            result.response?.raw_output ||
+            result.response ||
               `Failed to lock ${bandType.toUpperCase()} bands`
           );
         }
@@ -444,9 +444,9 @@ const BandLocking = () => {
           true
         );
 
-        if (nsaResult.response?.status !== "success") {
+        if (nsaResult.status !== "success") {
           throw new Error(
-            nsaResult.response?.raw_output || "Failed to reset NSA bands"
+            nsaResult.response || "Failed to reset NSA bands"
           );
         }
 
@@ -458,9 +458,9 @@ const BandLocking = () => {
             true
           );
 
-          if (saResult.response?.status !== "success") {
+          if (saResult.status !== "success") {
             throw new Error(
-              saResult.response?.raw_output || "Failed to preserve SA bands"
+              saResult.response || "Failed to preserve SA bands"
             );
           }
         }
@@ -470,9 +470,9 @@ const BandLocking = () => {
           true
         );
 
-        if (result.response?.status !== "success") {
+        if (result.status !== "success") {
           throw new Error(
-            result.response?.raw_output ||
+            result.response ||
               `Failed to reset ${bandType.toUpperCase()} bands`
           );
         }

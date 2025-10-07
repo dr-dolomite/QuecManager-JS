@@ -225,7 +225,7 @@ const ConnectivitySettingsPage = () => {
     try {
       const rebootResult = await atCommandSender("AT+QPOWD=1", true);
 
-      if (rebootResult.response?.status === "success") {
+      if (rebootResult.status === "success") {
         toast({
           title: "Success",
           description: "Settings saved and device is rebooting...",
@@ -237,7 +237,7 @@ const ConnectivitySettingsPage = () => {
         }, 90000);
       } else {
         throw new Error(
-          rebootResult.response?.raw_output || "Failed to reboot device"
+          rebootResult.response || "Failed to reboot device"
         );
       }
     } catch (err) {
@@ -270,10 +270,10 @@ const ConnectivitySettingsPage = () => {
       // Use atCommandSender instead of direct fetch
       const result = await atCommandSender(pendingCommand, true);
 
-      // Fix the property access to match the actual ATQueueResponse type
-      if (result.response?.status !== "success") {
+      // Check the flat response structure
+      if (result.status !== "success") {
         throw new Error(
-          result.response?.raw_output || "Command execution failed"
+          result.response || "Command execution failed"
         );
       }
 

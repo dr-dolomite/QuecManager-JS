@@ -190,8 +190,8 @@ const HomePage = () => {
     try {
       // Get the current SIM slot through AT+QUIMSLOT? command
       const currentSimSlotResponse = await atCommandSender("AT+QUIMSLOT?");
-      // Extract the current SIM slot number from the response raw_output
-      const currentSimSlot = currentSimSlotResponse.response?.raw_output
+      // Extract the current SIM slot number from the response
+      const currentSimSlot = currentSimSlotResponse.response
         .split("\n")[1]
         .split(":")[1]
         .trim();
@@ -201,10 +201,7 @@ const HomePage = () => {
       // Use atCommandSender instead of direct fetch
       const response = await atCommandSender(command);
 
-      if (
-        response.status === "error" ||
-        response.response?.status === "error"
-      ) {
+      if (response.status === "error") {
         throw new Error("Failed to change SIM slot");
       }
 
