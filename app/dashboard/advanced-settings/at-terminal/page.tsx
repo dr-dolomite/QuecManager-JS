@@ -43,8 +43,6 @@ interface CommandHistoryItem {
   response: string;
   timestamp: string;
   status: string;
-  duration?: number;
-  commandId?: string;
 }
 
 interface ATCommand {
@@ -53,17 +51,10 @@ interface ATCommand {
 }
 
 interface QueueResponse {
-  command: {
-    id: string;
-    text: string;
-    timestamp: string;
-  };
-  response: {
-    status: string;
-    raw_output: string;
-    completion_time: string;
-    duration_ms: number;
-  };
+  command: string;
+  response: string;
+  status: string;
+  error?: string;
 }
 
 const ATTerminalPage = () => {
@@ -226,7 +217,7 @@ const ATTerminalPage = () => {
           try {
             const encodedCommand = encodeURIComponent(previousCommand);
             const response = await fetch(
-              `/cgi-bin/quecmanager/at_cmd/at_queue_client.sh?command=${encodedCommand}&wait=1`,
+              `/cgi-bin/quecmanager/at_cmd/at_queue_client.sh?command=${encodedCommand}`,
               {
                 method: "GET",
                 headers: {
@@ -236,43 +227,39 @@ const ATTerminalPage = () => {
             );
             const data: QueueResponse = await response.json();
 
+            // Check for error in response
+            if (data.error) {
+              throw new Error(data.error);
+            }
+
             // Check if response has proper structure
-            if (!data || !data.command) {
+            if (!data.command || data.status === undefined) {
               throw new Error("Invalid response from server. Check command syntax.");
             }
 
             // Format output
             let outputText = `> ${previousCommand}\n`;
-            if (data.response?.raw_output) {
-              outputText += data.response.raw_output;
+            if (data.response) {
+              outputText += data.response;
             }
             setOutput(outputText);
 
             // Create new history item
             const newHistoryItem: CommandHistoryItem = {
               command: previousCommand,
-              response: data.response.raw_output || "No output",
-              timestamp: data.command.timestamp,
-              status: data.response.status,
-              duration: data.response.duration_ms,
-              commandId: data.command.id,
+              response: data.response || "No output",
+              timestamp: new Date().toISOString(),
+              status: data.status,
             };
 
             // Update command history
             setCommandHistory((prev) => [newHistoryItem, ...prev]);
 
             // Show toast for errors
-            if (
-              data?.response?.status === "error" ||
-              data?.response?.status === "timeout"
-            ) {
+            if (data.status === "error") {
               toast({
-                title: `Command ${
-                  data?.response?.status === "timeout" ? "Timeout" : "Error"
-                }`,
-                description:
-                  data?.response?.raw_output ||
-                  `Command execution ${data?.response?.status}`,
+                title: "Command Error",
+                description: data.response || "Command execution failed",
                 variant: "destructive",
               });
             }
@@ -319,10 +306,10 @@ const ATTerminalPage = () => {
     setOutput(`> ${command}\nExecuting command, please wait...`);
 
     try {
-      // Send command to queue client with wait flag
+      // Send command to queue client (no wait flag needed - always synchronous)
       const encodedCommand = encodeURIComponent(command);
       const response = await fetch(
-        `/cgi-bin/quecmanager/at_cmd/at_queue_client.sh?command=${encodedCommand}&wait=1`,
+        `/cgi-bin/quecmanager/at_cmd/at_queue_client.sh?command=${encodedCommand}`,
               {
                 method: "GET",
                 headers: {
@@ -332,26 +319,29 @@ const ATTerminalPage = () => {
       );
       const data: QueueResponse = await response.json();
 
+      // Check for error in response
+      if (data.error) {
+        throw new Error(data.error);
+      }
+
       // Check if response has proper structure
-      if (!data || !data.command) {
+      if (!data.command || data.status === undefined) {
         throw new Error("Invalid response from server. Check command syntax.");
       }
 
       // Format output
       let outputText = `> ${command}\n`;
-      if (data?.response?.raw_output) {
-        outputText += data?.response?.raw_output;
+      if (data.response) {
+        outputText += data.response;
       }
       setOutput(outputText);
-
+ 
       // Create new history item
       const newHistoryItem: CommandHistoryItem = {
         command: command,
-        response: data?.response?.raw_output || "No output",
-        timestamp: data.command.timestamp,
-        status: data?.response?.status,
-        duration: data?.response?.duration_ms,
-        commandId: data.command.id,
+        response: data.response || "No output",
+        timestamp: new Date().toISOString(),
+        status: data.status,
       };
 
       // Update command history
@@ -359,24 +349,17 @@ const ATTerminalPage = () => {
 
       // Update previous commands for successful executions
       if (
-        data.response.status === "success" &&
+        data.status === "success" &&
         !previousCommands.includes(command)
       ) {
         setPreviousCommands((prev) => [...prev, command]);
       }
 
       // Show toast for errors
-      if (
-        data?.response?.status === "error" ||
-        data?.response?.status === "timeout"
-      ) {
+      if (data.status === "error") {
         toast({
-          title: `Command ${
-            data?.response?.status === "timeout" ? "Timeout" : "Error"
-          }`,
-          description:
-            data?.response?.raw_output ||
-            `Command execution ${data?.response?.status}`,
+          title: "Command Error",
+          description: data.response || "Command execution failed",
           variant: "destructive",
         });
       }
@@ -583,14 +566,10 @@ const ATTerminalPage = () => {
                                     className={`${
                                       item.status === "success"
                                         ? "bg-primary text-foreground"
-                                        : item.status === "timeout"
-                                        ? "bg-yellow-500 text-foreground"
                                         : "bg-red-500 text-red-foreground"
                                     }`}
                                   >
-                                    {item.status} -{" "}
-                                    {item.duration !== undefined &&
-                                      `${item.duration}ms`}
+                                    {item.status}
                                   </Badge>
                                 </div>
                                 {item.response &&

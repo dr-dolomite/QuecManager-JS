@@ -1,30 +1,21 @@
 /**
  * at-command.ts
  * Utility functions for interacting with the AT command queue system
+ * Updated for simplified at_queue_client.sh response format
  */
 
 interface ATQueueResponse {
-  command_id?: string;
-  status?: string;
-  error?: string;
-  response?: {
-    status: string;
-    raw_output: string;
-    completion_time: string;
-    duration_ms: number;
-  };
-  command?: {
-    id: string;
-    text: string;
-    timestamp: string;
-  };
+  command: string;      // The AT command that was executed
+  response: string;     // The response from the modem
+  status: string;       // "success" or "error"
+  error?: string;       // Error message if status is error
 }
 
 /**
  * Sends AT commands using the queue system client
  * @param command The AT command to send
- * @param waitForResponse Whether to wait for command execution to complete
- * @param timeout Timeout in seconds (default: 30)
+ * @param waitForResponse Deprecated - commands now always execute synchronously
+ * @param timeout Timeout in seconds (default: 30) - passed to backend
  * @returns Response from the AT queue system
  */
 export const atCommandSender = async (
@@ -41,12 +32,13 @@ export const atCommandSender = async (
     // Encode the command for URL safety
     const encodedCommand = encodeURIComponent(normalizedCommand);
 
-    // Build the URL with appropriate parameters
+    // Build the URL with timeout parameter
+    // Note: wait parameter removed as all commands now execute synchronously
     let url = `/cgi-bin/quecmanager/at_cmd/at_queue_client.sh?command=${encodedCommand}`;
-
-    // Add wait parameter if needed
-    if (waitForResponse) {
-      url += `&wait=1&timeout=${timeout}`;
+    
+    // Add timeout if specified
+    if (timeout !== 30) {
+      url += `&timeout=${timeout}`;
     }
 
     // Make the request
@@ -54,7 +46,7 @@ export const atCommandSender = async (
       method: "GET",
       headers: {
         Accept: "application/json",
-        Authorization: `${localStorage.getItem("authToken")}`, // Use auth token from local storage
+        Authorization: `${localStorage.getItem("authToken")}`,
       },
       // Set timeout for the fetch request itself
       signal: AbortSignal.timeout(timeout * 1000 + 5000), // Add 5s buffer
@@ -72,9 +64,9 @@ export const atCommandSender = async (
       throw new Error(`AT queue error: ${data.error}`);
     }
 
-    // If we're waiting for response, check for completion
-    if (waitForResponse && data.response?.status === "timeout") {
-      throw new Error(`AT command timed out after ${timeout} seconds`);
+    // Check if command failed
+    if (data.status === "error") {
+      throw new Error(`AT command failed: ${data.response || "Unknown error"}`);
     }
 
     return data;
@@ -101,35 +93,10 @@ export const sendHighPriorityCommand = async (
 };
 
 /**
- * Gets the result of a previously executed command by its ID
- * @param commandId The command ID to check
- * @returns The command result
+ * Note: getCommandResult has been removed as the new at_queue_client.sh
+ * implementation executes commands synchronously with direct sms_tool execution.
+ * All commands now return results immediately.
  */
-export const getCommandResult = async (
-  commandId: string
-): Promise<ATQueueResponse> => {
-  try {
-    const response = await fetch(
-      `/cgi-bin/quecmanager/at_cmd/at_queue_client.sh?command_id=${commandId}`,
-      {
-        method: "GET",
-        headers: {
-          Accept: "application/json",
-          Authorization: `${localStorage.getItem("authToken")}`, // Use auth token from local storage
-        },
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error(`Failed to get command result: ${response.status}`);
-    }
-
-    return await response.json();
-  } catch (error) {
-    console.error("Error getting command result:", error);
-    throw error;
-  }
-};
 
 /**
  * Extracts clean output from an AT command response
@@ -139,16 +106,16 @@ export const getCommandResult = async (
 export const extractATCommandOutput = (
   response: ATQueueResponse
 ): string | null => {
-  if (!response || !response.response || !response.response.raw_output) {
+  if (!response || !response.response) {
     return null;
   }
 
-  const rawOutput = response.response.raw_output;
+  const rawOutput = response.response;
 
   // Process the output to remove AT command, OK, and ERROR markers
   let cleanOutput = rawOutput
     .split("\n")
-    .filter((line) => {
+    .filter((line: string) => {
       // Filter out empty lines, echoed commands, and standard responses
       const trimmedLine = line.trim();
       return (
@@ -169,5 +136,5 @@ export const extractATCommandOutput = (
  * @returns Boolean indicating success
  */
 export const isATCommandSuccessful = (response: ATQueueResponse): boolean => {
-  return response?.response?.status === "success";
+  return response?.status === "success";
 };
