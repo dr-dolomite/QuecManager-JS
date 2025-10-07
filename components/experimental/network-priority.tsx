@@ -95,21 +95,13 @@ const NetworkPriorityComponent = () => {
       console.log("Executing AT command:", command);
       const response = await atCommandSender(command);
 
-      if (response.status === "error") {
-        throw new Error(response.status || "Command execution failed");
-      }
-
-      if (
-        response.response?.status === "error" ||
-        response.response?.status === "timeout"
-      ) {
+      if (response.status === "error" || response.status === "timeout") {
         throw new Error(
-          response.response.raw_output ||
-            `Command execution ${response.response.status}`
+          response.response || "Command execution failed"
         );
       }
 
-      return response.response?.status === "success";
+      return response.status === "success";
     } catch (error) {
       console.error("AT command execution error:", error);
       throw error;

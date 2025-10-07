@@ -328,9 +328,9 @@ const CellLockingPage = () => {
 
       console.log("Lock command result:", lockResult);
 
-      if (lockResult.response?.status !== "success") {
+      if (lockResult.status !== "success") {
         throw new Error(
-          lockResult.response?.raw_output || "Failed to lock LTE cells"
+          lockResult.response || "Failed to lock LTE cells"
         );
       }
 
@@ -343,9 +343,9 @@ const CellLockingPage = () => {
         true
       );
 
-      if (saveResult.response?.status !== "success") {
+      if (saveResult.status !== "success") {
         throw new Error(
-          saveResult.response?.raw_output ||
+          saveResult.response ||
             "Failed to save LTE lock configuration"
         );
       }
@@ -392,9 +392,9 @@ const CellLockingPage = () => {
 
       const lockResult = await atCommandSender(lockCommand, true);
 
-      if (lockResult.response?.status !== "success") {
+      if (lockResult.status !== "success") {
         throw new Error(
-          lockResult.response?.raw_output || "Failed to lock NR5G cell"
+          lockResult.response || "Failed to lock NR5G cell"
         );
       }
 
@@ -407,9 +407,9 @@ const CellLockingPage = () => {
         true
       );
 
-      if (saveResult.response?.status !== "success") {
+      if (saveResult.status !== "success") {
         throw new Error(
-          saveResult.response?.raw_output ||
+          saveResult.response ||
             "Failed to save NR5G lock configuration"
         );
       }
@@ -447,9 +447,9 @@ const CellLockingPage = () => {
         true
       );
 
-      if (resetResult.response?.status !== "success") {
+      if (resetResult.status !== "success") {
         throw new Error(
-          resetResult.response?.raw_output || "Failed to reset LTE lock"
+          resetResult.response || "Failed to reset LTE lock"
         );
       }
 
@@ -462,9 +462,9 @@ const CellLockingPage = () => {
         true
       );
 
-      if (saveResult.response?.status !== "success") {
+      if (saveResult.status !== "success") {
         throw new Error(
-          saveResult.response?.raw_output ||
+          saveResult.response ||
             "Failed to save LTE reset configuration"
         );
       }
@@ -472,9 +472,9 @@ const CellLockingPage = () => {
       // Reset COPS
       const copsOffResult = await atCommandSender("AT+COPS=2", true);
 
-      if (copsOffResult.response?.status !== "success") {
+      if (copsOffResult.status !== "success") {
         throw new Error(
-          copsOffResult.response?.raw_output ||
+          copsOffResult.response ||
             "Failed to disconnect from network"
         );
       }
@@ -482,9 +482,9 @@ const CellLockingPage = () => {
       // Reconnect to network
       const copsOnResult = await atCommandSender("AT+COPS=0", true);
 
-      if (copsOnResult.response?.status !== "success") {
+      if (copsOnResult.status !== "success") {
         throw new Error(
-          copsOnResult.response?.raw_output || "Failed to reconnect to network"
+          copsOnResult.response || "Failed to reconnect to network"
         );
       }
 
@@ -522,9 +522,9 @@ const CellLockingPage = () => {
         true
       );
 
-      if (resetResult.response?.status !== "success") {
+      if (resetResult.status !== "success") {
         throw new Error(
-          resetResult.response?.raw_output || "Failed to reset NR5G lock"
+          resetResult.response || "Failed to reset NR5G lock"
         );
       }
 
@@ -534,9 +534,9 @@ const CellLockingPage = () => {
         true
       );
 
-      if (saveResult.response?.status !== "success") {
+      if (saveResult.status !== "success") {
         throw new Error(
-          saveResult.response?.raw_output ||
+          saveResult.response ||
             "Failed to save NR5G reset configuration"
         );
       }
@@ -544,9 +544,9 @@ const CellLockingPage = () => {
       // Reset COPS
       const copsOffResult = await atCommandSender("AT+COPS=2", true);
 
-      if (copsOffResult.response?.status !== "success") {
+      if (copsOffResult.status !== "success") {
         throw new Error(
-          copsOffResult.response?.raw_output ||
+          copsOffResult.response ||
             "Failed to disconnect from network"
         );
       }
@@ -557,9 +557,9 @@ const CellLockingPage = () => {
       // Reconnect to network
       const copsOnResult = await atCommandSender("AT+COPS=0", true);
 
-      if (copsOnResult.response?.status !== "success") {
+      if (copsOnResult.status !== "success") {
         throw new Error(
-          copsOnResult.response?.raw_output || "Failed to reconnect to network"
+          copsOnResult.response || "Failed to reconnect to network"
         );
       }
 
@@ -595,9 +595,9 @@ const CellLockingPage = () => {
         true
       );
 
-      if (toggleResult.response?.status !== "success") {
+      if (toggleResult.status !== "success") {
         throw new Error(
-          toggleResult.response?.raw_output ||
+          toggleResult.response ||
             "Failed to update LTE persist setting"
         );
       }
@@ -634,9 +634,9 @@ const CellLockingPage = () => {
         true
       );
 
-      if (toggleResult.response?.status !== "success") {
+      if (toggleResult.status !== "success") {
         throw new Error(
-          toggleResult.response?.raw_output ||
+          toggleResult.response ||
             "Failed to update NR5G persist setting"
         );
       }

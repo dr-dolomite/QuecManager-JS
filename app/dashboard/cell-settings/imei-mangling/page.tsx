@@ -193,16 +193,16 @@ const IMEIManglingPage = () => {
       const command = `AT+EGMR=1,7,"${newIMEI}"`;
       const result = await atCommandSender(command, true);
 
-      if (result.response?.status !== "success") {
-        throw new Error(result.response?.raw_output || "Failed to update IMEI");
+      if (result.status !== "success") {
+        throw new Error(result.response || "Failed to update IMEI");
       }
 
       // If IMEI update successful, reboot the device
       const rebootResult = await atCommandSender("AT+QPOWD=1", true);
 
-      if (rebootResult.response?.status !== "success") {
+      if (rebootResult.status !== "success") {
         throw new Error(
-          rebootResult.response?.raw_output || "Failed to reboot device"
+          rebootResult.response || "Failed to reboot device"
         );
       }
 
