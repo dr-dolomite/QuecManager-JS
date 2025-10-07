@@ -1,10 +1,12 @@
 #!/bin/sh
-# Updated QuecProfiles daemon with enhanced SA/NSA NR5G band management and TTL support
-# Including profile application functions and fixed comparison logic
+# QuecProfiles daemon with Atomic Token Operations
+# Enhanced SA/NSA NR5G band management and TTL support
+# Located in /www/cgi-bin/services/quecprofiles_daemon.sh
 
 # Configuration
 QUEUE_DIR="/tmp/at_queue"
 TOKEN_FILE="$QUEUE_DIR/token"
+TOKEN_LOCK_DIR="$QUEUE_DIR/token.lock"
 TRACK_FILE="/tmp/quecprofiles_active"
 CHECK_TRIGGER="/tmp/quecprofiles_check"
 STATUS_FILE="/tmp/quecprofiles_status.json"
@@ -14,11 +16,13 @@ DETAILED_LOG="/tmp/quecprofiles_detailed.log"
 DEFAULT_CHECK_INTERVAL=60 # Default check interval in seconds
 COMMAND_TIMEOUT=10        # Default timeout for AT commands in seconds
 QUEUE_PRIORITY=3          # Medium-high priority (1 is highest for cell scan)
-MAX_TOKEN_WAIT=15         # Maximum seconds to wait for token acquisition
+MAX_TOKEN_ATTEMPTS=15     # Maximum attempts to acquire token
+TOKEN_TIMEOUT=30          # Token timeout in seconds
+TOKEN_LOCK_TIMEOUT=100    # 10 seconds for token lock acquisition
 
-# Initialize log file
-echo "$(date) - Starting QuecProfiles daemon with SA/NSA NR5G and TTL support (PID: $$)" >"$DEBUG_LOG"
-echo "$(date) - Starting QuecProfiles daemon with SA/NSA NR5G and TTL support (PID: $$)" >"$DETAILED_LOG"
+# Initialize log files
+echo "$(date) - Starting QuecProfiles daemon with SA/NSA NR5G, TTL support, and Atomic Operations (PID: $$)" >"$DEBUG_LOG"
+echo "$(date) - Starting QuecProfiles daemon with SA/NSA NR5G, TTL support, and Atomic Operations (PID: $$)" >"$DETAILED_LOG"
 chmod 644 "$DEBUG_LOG" "$DETAILED_LOG"
 
 # Function to log messages
@@ -39,7 +43,36 @@ log_message() {
     fi
 }
 
-# Function to update track file with status - IMPROVED VERSION
+# Atomic lock functions for token operations
+acquire_token_lock() {
+    local attempt=0
+    
+    while [ $attempt -lt $TOKEN_LOCK_TIMEOUT ]; do
+        if mkdir "$TOKEN_LOCK_DIR" 2>/dev/null; then
+            log_message "Token lock acquired" "debug"
+            return 0
+        fi
+        
+        sleep 0.1
+        attempt=$((attempt + 1))
+    done
+    
+    log_message "Failed to acquire token lock after timeout" "error"
+    return 1
+}
+
+release_token_lock() {
+    if [ -d "$TOKEN_LOCK_DIR" ]; then
+        rmdir "$TOKEN_LOCK_DIR" 2>/dev/null
+        log_message "Token lock released" "debug"
+        return 0
+    fi
+    
+    log_message "Token lock directory doesn't exist during release" "warn"
+    return 1
+}
+
+# Function to update track file with status
 update_track() {
     local status="$1"
     local message="$2"
@@ -97,7 +130,7 @@ find_profile_by_iccid() {
     return 1
 }
 
-# Function to normalize and compare values - handles format differences
+# Function to normalize and compare values
 compare_values() {
     local current="$1"
     local desired="$2"
@@ -163,7 +196,7 @@ is_profile_applied() {
 
         # Check if the applied profile matches current one
         if [ "$applied_iccid" = "$iccid" ] && [ "$applied_name" = "$profile_name" ]; then
-            log_message "Profile '$profile_name' already applied at $(date -d @$applied_time)" "info"
+            log_message "Profile '$profile_name' already applied at $(date -d @$applied_time 2>/dev/null || date)" "info"
             return 0 # Profile already applied
         fi
     fi
@@ -188,76 +221,106 @@ escape_json() {
     printf '%s' "$1" | sed 's/\\/\\\\/g' | sed 's/"/\\"/g' | tr -d '\n' | sed 's/\r//g'
 }
 
-# Function to acquire token directly with retries
+# Function to acquire token with atomic operations
 acquire_token() {
     local lock_id="QUECPROFILES_$(date +%s)_$$"
     local priority="$QUEUE_PRIORITY"
-    local max_attempts=$MAX_TOKEN_WAIT
     local attempt=0
 
     log_message "Attempting to acquire AT queue token with priority $priority" "debug"
 
-    while [ $attempt -lt $max_attempts ]; do
+    while [ $attempt -lt $MAX_TOKEN_ATTEMPTS ]; do
+        # Acquire atomic lock for token operations
+        if ! acquire_token_lock; then
+            log_message "Failed to acquire token lock" "error"
+            return 1
+        fi
+
+        # Now we have exclusive access to token file
+        local should_create_token=0
+
         # Check if token file exists
         if [ -f "$TOKEN_FILE" ]; then
-            local current_holder=$(cat "$TOKEN_FILE" | jsonfilter -e '@.id' 2>/dev/null)
-            local current_priority=$(cat "$TOKEN_FILE" | jsonfilter -e '@.priority' 2>/dev/null)
-            local timestamp=$(cat "$TOKEN_FILE" | jsonfilter -e '@.timestamp' 2>/dev/null)
+            local current_holder=$(cat "$TOKEN_FILE" 2>/dev/null | jsonfilter -e '@.id' 2>/dev/null)
+            local current_priority=$(cat "$TOKEN_FILE" 2>/dev/null | jsonfilter -e '@.priority' 2>/dev/null)
+            local timestamp=$(cat "$TOKEN_FILE" 2>/dev/null | jsonfilter -e '@.timestamp' 2>/dev/null)
             local current_time=$(date +%s)
 
-            # Check for expired token (> 30 seconds old)
-            if [ $((current_time - timestamp)) -gt 30 ] || [ -z "$current_holder" ]; then
-                # Remove expired token
+            # Check for expired token (> TOKEN_TIMEOUT seconds)
+            if [ $((current_time - timestamp)) -gt $TOKEN_TIMEOUT ] || [ -z "$current_holder" ]; then
                 log_message "Found expired token from $current_holder, removing" "debug"
                 rm -f "$TOKEN_FILE" 2>/dev/null
+                should_create_token=1
             elif [ $priority -lt $current_priority ]; then
-                # Preempt lower priority token
-                log_message "Preempting token from $current_holder (priority: $current_priority)" "debug"
+                log_message "Preempting token from $current_holder (priority: $current_priority)" "info"
                 rm -f "$TOKEN_FILE" 2>/dev/null
+                should_create_token=1
             else
-                # Try again - higher priority token exists
-                log_message "Token held by $current_holder with priority $current_priority, retrying..." "debug"
+                # Token held by higher/equal priority, release lock and retry
+                release_token_lock
+                log_message "Token held by $current_holder with priority $current_priority, waiting (attempt $attempt)" "debug"
                 sleep 0.5
                 attempt=$((attempt + 1))
                 continue
             fi
+        else
+            should_create_token=1
         fi
 
-        # Try to create token file
-        echo "{\"id\":\"$lock_id\",\"priority\":$priority,\"timestamp\":$(date +%s)}" >"$TOKEN_FILE" 2>/dev/null
-        chmod 644 "$TOKEN_FILE" 2>/dev/null
+        # Create token if we should
+        if [ $should_create_token -eq 1 ]; then
+            printf '{"id":"%s","priority":%d,"timestamp":%d}' \
+                "$lock_id" "$priority" "$(date +%s)" > "$TOKEN_FILE" 2>/dev/null
+            chmod 644 "$TOKEN_FILE" 2>/dev/null
 
-        # Verify we got the token
-        local holder=$(cat "$TOKEN_FILE" 2>/dev/null | jsonfilter -e '@.id' 2>/dev/null)
-        if [ "$holder" = "$lock_id" ]; then
-            log_message "Successfully acquired token with ID $lock_id" "debug"
-            echo "$lock_id"
-            return 0
+            # Verify we got the token (read back atomically)
+            local holder=$(cat "$TOKEN_FILE" 2>/dev/null | jsonfilter -e '@.id' 2>/dev/null)
+
+            if [ "$holder" = "$lock_id" ]; then
+                log_message "Successfully acquired token with ID $lock_id (priority: $priority)" "debug"
+                release_token_lock
+                echo "$lock_id"
+                return 0
+            else
+                log_message "Token verification failed, holder: $holder, expected: $lock_id" "warn"
+            fi
         fi
 
+        # Release lock before retry
+        release_token_lock
         sleep 0.5
         attempt=$((attempt + 1))
     done
 
-    log_message "Failed to acquire token after $max_attempts attempts" "error"
+    log_message "Failed to acquire token after $MAX_TOKEN_ATTEMPTS attempts" "error"
     return 1
 }
 
-# Function to release token
+# Function to release token with atomic operations
 release_token() {
     local lock_id="$1"
 
+    # Acquire atomic lock for token operations
+    if ! acquire_token_lock; then
+        log_message "Failed to acquire token lock for release" "error"
+        return 1
+    fi
+
     if [ -f "$TOKEN_FILE" ]; then
-        local current_holder=$(cat "$TOKEN_FILE" | jsonfilter -e '@.id' 2>/dev/null)
+        local current_holder=$(cat "$TOKEN_FILE" 2>/dev/null | jsonfilter -e '@.id' 2>/dev/null)
         if [ "$current_holder" = "$lock_id" ]; then
             rm -f "$TOKEN_FILE" 2>/dev/null
             log_message "Released token $lock_id" "debug"
+            release_token_lock
             return 0
+        else
+            log_message "Token held by $current_holder, not by us ($lock_id)" "warn"
         fi
-        log_message "Token held by $current_holder, not by us ($lock_id)" "warn"
     else
         log_message "Token file doesn't exist, nothing to release" "debug"
     fi
+
+    release_token_lock
     return 1
 }
 
@@ -443,7 +506,7 @@ extract_lte_bands() {
     return 0
 }
 
-# Updated: Function to extract both SA and NSA NR5G bands from modem data
+# Function to extract both SA and NSA NR5G bands from modem data
 extract_nr5g_bands() {
     local modem_data="$1"
     local bands_type="$2" # "sa" or "nsa"
@@ -589,7 +652,7 @@ get_current_ttl() {
     return 0
 }
 
-# Updated function to apply profile settings with separate SA/NSA NR5G bands and TTL support
+# Function to apply profile settings with separate SA/NSA NR5G bands and TTL support
 apply_profile_settings() {
     local profile_name="$1"
     local network_type="$2"
@@ -817,15 +880,13 @@ apply_profile_settings() {
         fi
     fi
 
-    # Apply unique rule setup for Verizon, but also handle "Other" Mobile Providers because of MPDN_rule shenanigans
-    # Probably requires reboot
+    # Apply unique rule setup for Verizon and Other providers
     output_check=$(execute_at_command "AT+QMAP=\"mpdn_rule\"")
-    sleep 1 # Short delay to ensure command is processed
+    sleep 1
     qmap_rule0=$(echo "$output_check" | grep '+QMAP: "MPDN_rule",0,')
     qmap_ippt_rule0=$(echo "$qmap_rule0" | cut -d',' -f5)
     if [ $apply_success -eq 1 ] && [ -n "$mobile_provider" ]; then
         if [ "$mobile_provider" = "Verizon" ]; then
-            # If Verizon, data call should be set to rule 3, AT+QMAP="mpdn_rule",0,3,0,0,1
             if echo "$qmap_rule0" | awk -F',' '{exit !($2==0 && $3==3 && $6==1)}'; then
                 log_message "Verizon rule already set correctly, no changes needed" "info"
             else
@@ -833,10 +894,9 @@ apply_profile_settings() {
                 update_track "applying" "Setting Verizon data call rule to 3" "$profile_name" "100"
                 verizon_cmd="AT+QMAP=\"mpdn_rule\",0,3,0,$qmap_ippt_rule0,1"
                 execute_at_command "$verizon_cmd" 10 "$token_id" >/dev/null
-                sleep 1 # Short delay to ensure command is processed
+                sleep 1
             fi
         elif [ "$mobile_provider" = "Other" ]; then
-            # Check if MPDN_rule 0 is already set to all zeros
             if echo "$qmap_rule0" | awk -F',' '{exit !($2==0 && $3==0 && $6==0)}'; then
                 log_message "Default rule already set correctly, no changes needed" "info"
             else
@@ -844,15 +904,15 @@ apply_profile_settings() {
                 update_track "applying" "Setting Default data call mpdn_rule to 0" "$profile_name" "100"
                 def_cmd1="AT+QMAP=\"mpdn_rule\",0"
                 execute_at_command "$def_cmd1" 10 "$token_id"
-                sleep 1 # Short delay to ensure command is processed
+                sleep 1
                 def_cmd2="AT+QMAP=\"mpdn_rule\",0,1,0,$qmap_ippt_rule0,1"
                 execute_at_command "$def_cmd2" 10 "$token_id"
-                sleep 1 # Short delay to ensure command is processed
+                sleep 1
                 if [ "$qmap_ippt_rule0" = "0" ]; then
                     log_message "IPPT is disabled for rule, release the MPDN_rule" "info"
                     def_cmd3="AT+QMAP=\"mpdn_rule\",0"
                     execute_at_command "$def_cmd3" 10 "$token_id"
-                    sleep 1 # Short delay to ensure command is processed
+                    sleep 1
                     if [ "$(cat /sys/devices/soc0/machine)" = "SDXPINN" ]; then
                         requires_reboot=1
                         change_for_reboot="MPDN_rule"
@@ -867,6 +927,7 @@ apply_profile_settings() {
 
     # Release token
     release_token "$token_id"
+
     # Mark profile as applied if changes were made
     if [ $changes_made -eq 1 ]; then
         mark_profile_applied "$iccid" "$profile_name"
@@ -874,7 +935,7 @@ apply_profile_settings() {
 
     # If IMEI was changed, need to reboot
     if [ $requires_reboot -eq 1 ]; then
-        log_message "IMEI change requires reboot, scheduling reboot..." "info"
+        log_message "$change_for_reboot change requires reboot, scheduling reboot..." "info"
         update_track "rebooting" "Device is rebooting to apply $change_for_reboot change" "$profile_name" "100"
         sleep 2
         reboot &
@@ -944,7 +1005,7 @@ check_profile() {
     profile_index=$(find_profile_by_iccid "$current_iccid")
     local profile_result=$?
 
-    # CRITICAL FIX: Early return if no profile is found
+    # Early return if no profile is found
     if [ $profile_result -ne 0 ]; then
         log_message "No profile found for ICCID $current_iccid, nothing to apply" "info"
         update_track "idle" "No profile exists for current SIM card. Create a profile to configure network settings." "$current_iccid" "0"
@@ -968,7 +1029,7 @@ check_profile() {
 
     # Check if profile is paused
     local paused=$(uci -q get quecprofiles.$profile_index.paused)
-    paused="${paused:-0}" # Default to not paused if not set
+    paused="${paused:-0}"
 
     # Skip applying paused profiles
     if [ "$paused" = "1" ]; then
@@ -1010,7 +1071,7 @@ check_profile() {
     # Apply profile if forced or if autoswitch is enabled
     local enable_autoswitch
     enable_autoswitch=$(uci -q get quecprofiles.settings.enable_autoswitch)
-    enable_autoswitch="${enable_autoswitch:-1}" # Default to enabled
+    enable_autoswitch="${enable_autoswitch:-1}"
 
     if [ "$forced" = "1" ] || [ "$enable_autoswitch" = "1" ]; then
         log_message "Applying profile settings..." "info"
@@ -1045,7 +1106,7 @@ check_profile() {
 
 # Main function
 main() {
-    log_message "QuecProfiles daemon starting with SA/NSA NR5G and TTL support (PID: $$)" "info"
+    log_message "QuecProfiles daemon starting with SA/NSA NR5G, TTL support, and Atomic Operations (PID: $$)" "info"
 
     # Clear status files at startup
     rm -f "$TRACK_FILE" "$CHECK_TRIGGER"
@@ -1059,7 +1120,7 @@ main() {
     # Check autoswitch setting
     local enable_autoswitch
     enable_autoswitch=$(uci -q get quecprofiles.settings.enable_autoswitch)
-    enable_autoswitch="${enable_autoswitch:-1}" # Default to enabled
+    enable_autoswitch="${enable_autoswitch:-1}"
 
     log_message "Daemon configured with check_interval=$check_interval seconds, enable_autoswitch=$enable_autoswitch" "info"
 
@@ -1100,9 +1161,9 @@ main() {
     done
 }
 
-# Set up trap handlers for clean shutdown
-trap 'log_message "Received SIGTERM, exiting"; update_track "idle" "Daemon stopped" "none" "0"; exit 0' TERM
-trap 'log_message "Received SIGINT, exiting"; update_track "idle" "Daemon stopped" "none" "0"; exit 0' INT
+# Set up trap handlers for clean shutdown and cleanup
+trap 'log_message "Received SIGTERM, exiting" "info"; update_track "idle" "Daemon stopped" "none" "0"; rmdir "$TOKEN_LOCK_DIR" 2>/dev/null; exit 0' TERM
+trap 'log_message "Received SIGINT, exiting" "info"; update_track "idle" "Daemon stopped" "none" "0"; rmdir "$TOKEN_LOCK_DIR" 2>/dev/null; exit 0' INT
 
 # Start the main function
 main
