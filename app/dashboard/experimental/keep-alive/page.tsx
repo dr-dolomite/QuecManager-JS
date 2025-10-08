@@ -193,10 +193,7 @@ const KeepAliveCard = () => {
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle>Keep Alive</CardTitle>
-        </div>
-
+        <CardTitle>Keep Alive</CardTitle>
         <CardDescription>
           Ensure uninterrupted connectivity by downloading test files at
           scheduled intervals to keep your connection alive.

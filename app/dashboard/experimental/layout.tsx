@@ -62,6 +62,16 @@ const ExperimentalLayout = ({ children }: ExperimentalLayoutProps) => {
             Keep Alive
           </Link>
           <Link
+            href="/dashboard/experimental/tailscale-settings"
+            className={`${
+              currentPathName === "/dashboard/experimental/tailscale-settings/"
+                ? "font-semibold text-primary"
+                : "text-sm"
+            }`}
+          >
+            TailScale
+          </Link>
+          <Link
             href="/dashboard/experimental/scheduled-reboot"
             className={`${
               currentPathName === "/dashboard/experimental/scheduled-reboot/"
