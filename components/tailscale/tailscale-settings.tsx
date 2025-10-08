@@ -60,6 +60,7 @@ import {
   LogInIcon,
   ArrowRightIcon,
   ArrowRightCircleIcon,
+  LogOutIcon,
 } from "lucide-react";
 import { Skeleton } from "../ui/skeleton";
 import { Separator } from "../ui/separator";
@@ -528,11 +529,34 @@ const TailScaleSettingsComponent = () => {
                       <div className="flex flex-col lg:flex-row lg:justify-between items-center">
                         <p className="font-medium">Connected Account</p>
                         <div className="flex items-center gap-x-2">
-                          <LogOut
-                            className="size-4 hover:text-primary cursor-pointer transition-colors"
-                            onClick={handleLogout}
-                            aria-label="Logout from Tailscale"
-                          />
+                          <AlertDialog>
+                            <AlertDialogTrigger>
+                              <LogOut
+                                className="size-4 hover:text-primary cursor-pointer transition-colors"
+                                aria-label="Logout from Tailscale"
+                              />
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>
+                                  Log out from Tailscale?
+                                </AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Logging out will disconnect this device from
+                                  your Tailscale network. You will need to
+                                  re-authenticate to connect again.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction onClick={handleLogout}>
+                                  <LogOutIcon className="h-4 w-4" />
+                                  Logout
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+
                           <p className="font-medium">{tailscaleStatus.email}</p>
                         </div>
                       </div>
