@@ -81,10 +81,10 @@ main() {
     # No need to manually start tailscaled - it starts when needed
     if is_logged_out; then
         # User is logged out, use 'tailscale login'
-        tailscale login --accept-routes > "$temp_file" 2>&1 &
+        tailscale login > "$temp_file" 2>&1 &
     else
         # User is not logged out (might be needs re-auth), use 'tailscale up'
-        tailscale up --reset --accept-routes > "$temp_file" 2>&1 &
+        tailscale up > "$temp_file" 2>&1 &
     fi
     
     # 4. Wait for auth URL to appear in the file (max 5 seconds)

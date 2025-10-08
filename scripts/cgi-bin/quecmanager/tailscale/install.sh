@@ -1,5 +1,5 @@
 #!/bin/sh
-# Tailscale Installation Script - Install luci-app-tailscale and dependencies
+# Tailscale Installation Script - Fixed cache check
 
 # Set proper content type
 echo "Content-Type: application/json"
@@ -36,41 +36,40 @@ is_package_installed() {
 
 # Function to check internet connectivity
 check_internet() {
-    if ping -c 1 -W 3 8.8.8.8 >/dev/null 2>&1; then
-        return 0
-    fi
-    return 1
+    ping -c 1 -W 3 8.8.8.8 >/dev/null 2>&1
 }
 
-# Function to check if package lists are fresh (updated within last hour)
+# Fixed function to check if package lists are fresh (BusyBox compatible)
 are_package_lists_fresh() {
     local lists_dir="/var/opkg-lists"
     
-    # Check if lists directory exists
+    # Check if directory exists
     if [ ! -d "$lists_dir" ]; then
+        log_step "Package lists directory not found"
         return 1
     fi
     
-    # Check if any list files exist
-    local list_count
-    list_count=$(find "$lists_dir" -type f 2>/dev/null | wc -l)
-    if [ "$list_count" -eq 0 ]; then
+    # Check if any files exist
+    if ! ls "$lists_dir"/* >/dev/null 2>&1; then
+        log_step "No package list files found"
         return 1
     fi
     
-    # Find the newest list file
+    # Get the newest file using ls -t (BusyBox compatible)
     local newest_file
-    newest_file=$(find "$lists_dir" -type f -printf '%T@ %p\n' 2>/dev/null | sort -rn | head -n1 | cut -d' ' -f2-)
+    newest_file=$(ls -t "$lists_dir"/* 2>/dev/null | head -n 1)
     
-    if [ -z "$newest_file" ]; then
+    if [ -z "$newest_file" ] || [ ! -f "$newest_file" ]; then
+        log_step "Could not find newest package list file"
         return 1
     fi
     
-    # Get file modification time (seconds since epoch)
+    # Get file modification time
     local file_time
     file_time=$(stat -c %Y "$newest_file" 2>/dev/null)
     
     if [ -z "$file_time" ]; then
+        log_step "Could not read file timestamp"
         return 1
     fi
     
@@ -83,54 +82,89 @@ are_package_lists_fresh() {
     
     # Consider fresh if updated within last hour (3600 seconds)
     if [ "$age" -lt 3600 ]; then
-        log_step "Package lists are fresh (${age}s old), skipping update"
+        log_step "Package lists are fresh (${age}s old) - skipping update"
         return 0
     fi
     
+    log_step "Package lists are stale (${age}s old) - will update"
     return 1
 }
 
 # Function to update package lists
 update_package_lists() {
-    # Check if lists are already fresh
+    # Check if lists are fresh first
     if are_package_lists_fresh; then
+        log_step "Using cached package lists"
         return 0
     fi
     
     log_step "Updating package lists..."
     
-    if ! opkg update >/dev/null 2>&1; then
+    # Create temp file for exit status
+    local tmp_status="/tmp/opkg_update_status.$$"
+    
+    # Run opkg update with real-time logging
+    ( opkg update 2>&1 || echo $? > "$tmp_status" ) | logger -t "tailscale-install"
+    
+    # Check if error occurred
+    if [ -f "$tmp_status" ]; then
+        local exit_code
+        exit_code=$(cat "$tmp_status")
+        rm -f "$tmp_status"
+        log_step "Package update failed with exit code: $exit_code"
         return 1
     fi
     
+    log_step "Package lists updated successfully"
     return 0
 }
 
-# Function to install package
+# Optimized install function with real-time progress
 install_package() {
     local package="$1"
     
-    log_step "Installing $package..."
+    log_step "Preparing to install $package..."
     
-    # Install the package
-    local output
-    output=$(opkg install "$package" 2>&1)
-    local result=$?
+    # Quick check if already installed
+    if is_package_installed "$package"; then
+        log_step "$package is already installed"
+        return 0
+    fi
     
-    if [ $result -ne 0 ]; then
-        # Check if package is already installed (not an error)
-        if echo "$output" | grep -q "already installed"; then
+    # Create temp file for exit status
+    local tmp_status="/tmp/opkg_install_status.$$"
+    
+    log_step "Downloading and installing $package (this may take 2-5 minutes)..."
+    log_step "=== Installation progress ==="
+    
+    # Install with real-time logging
+    ( opkg install "$package" 2>&1 || echo $? > "$tmp_status" ) | while IFS= read -r line; do
+        # Log everything
+        logger -t "tailscale-install" "$line"
+    done
+    
+    # Check exit status
+    if [ -f "$tmp_status" ]; then
+        local exit_code
+        exit_code=$(cat "$tmp_status")
+        rm -f "$tmp_status"
+        
+        # Double-check if actually installed despite error
+        if is_package_installed "$package"; then
+            log_step "$package installed successfully (ignored exit code $exit_code)"
             return 0
         fi
+        
+        log_step "Failed to install $package (exit code: $exit_code)"
         return 1
     fi
     
+    log_step "=== Installation completed successfully ==="
     return 0
 }
 
 # Function to get available storage space
 get_available_space() {
-    # Get available space in /tmp or root filesystem (in KB)
     df / | tail -n 1 | awk '{print $4}'
 }
 
@@ -152,44 +186,42 @@ main() {
         exit 1
     fi
     
-    # Check available storage space (need at least 10MB = 10240KB)
+    # Check available storage
     local available_space
     available_space=$(get_available_space)
+    log_step "Available storage: ${available_space}KB"
     
-    if [ "$available_space" -lt 10240 ]; then
-        log_step "Insufficient storage space: ${available_space}KB available"
-        send_json_response "error" "Insufficient storage space. At least 10MB required." "0" "Only ${available_space}KB available"
+    if [ "$available_space" -lt 20480 ]; then
+        log_step "Insufficient storage: ${available_space}KB (need at least 20MB)"
+        send_json_response "error" "Insufficient storage space. At least 20MB required." "0" "Only ${available_space}KB available"
         exit 1
     fi
     
-    log_step "Available storage: ${available_space}KB"
-    
-    # Update package lists
+    # Update package lists (or use cache if fresh)
+    log_step "Checking package lists..."
     if ! update_package_lists; then
         log_step "Failed to update package lists"
         send_json_response "error" "Failed to update package lists. Please try again." "20" "opkg update failed"
         exit 1
     fi
     
-    log_step "Package lists updated successfully"
+    log_step "Package lists ready"
     
-    # Install luci-app-tailscale (this will also install tailscale as a dependency)
+    # Install luci-app-tailscale
     if ! install_package "luci-app-tailscale"; then
-        log_step "Failed to install luci-app-tailscale package"
-        send_json_response "error" "Failed to install Tailscale package. Check system logs for details." "50" "opkg install luci-app-tailscale failed"
+        log_step "Installation FAILED"
+        send_json_response "error" "Failed to install Tailscale. Check logs: logread | grep tailscale-install" "50" "opkg install failed"
         exit 1
     fi
     
-    log_step "Tailscale and LuCI app installed successfully (with dependencies)"
-    
     # Verify installation
     if is_package_installed "tailscale" && command -v tailscale >/dev/null 2>&1; then
-        log_step "Tailscale installation completed successfully"
-        send_json_response "success" "Tailscale installed successfully! Use the toggle to enable and configure it." "100" "Installation complete. Ready to use."
+        log_step "Tailscale verified and ready to use"
+        send_json_response "success" "Tailscale installed successfully!" "100" "Ready to configure"
         exit 0
     else
         log_step "Installation verification failed"
-        send_json_response "error" "Installation completed but verification failed. Please check system logs." "90" "Verification failed"
+        send_json_response "error" "Installation completed but verification failed." "90" "Verification failed"
         exit 1
     fi
 }

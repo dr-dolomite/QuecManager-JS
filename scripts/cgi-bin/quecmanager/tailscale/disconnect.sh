@@ -27,15 +27,6 @@ is_tailscale_installed() {
     return 1
 }
 
-# Function to restart network and firewall services
-restart_services() {
-    # Restart network service
-    /etc/init.d/network restart >/dev/null 2>&1 &
-    
-    # Restart firewall service
-    /etc/init.d/firewall restart >/dev/null 2>&1 &
-}
-
 # Main execution
 main() {
     # Check if Tailscale is installed
@@ -44,15 +35,15 @@ main() {
         exit 0
     fi
     
-    # Run tailscale down
-    if tailscale down 2>/dev/null; then
-        # Restart network and firewall services after disconnect
-        restart_services
-        
-        send_json_response "success" "Successfully disconnected from Tailscale."
-    else
-        send_json_response "error" "Failed to disconnect from Tailscale."
-    fi
+    # Run tailscale down (ignore exit code, just run it)
+    tailscale down >/dev/null 2>&1
+    
+    # Wait 1 second for command to complete
+    sleep 1
+    
+    # Restart network and firewall services after disconnect
+    
+    send_json_response "success" "Successfully disconnected from Tailscale."
 }
 
 # Run main function

@@ -107,6 +107,16 @@ main() {
     local email=""
     local dns_name=""
     
+    # First, check if Tailscale is stopped by checking text output
+    local status_text
+    status_text=$(tailscale status 2>&1)
+    
+    if echo "$status_text" | grep -q "Tailscale is stopped"; then
+        # Tailscale is explicitly stopped (after disconnect)
+        send_json_response "success" "Tailscale is stopped." "$is_installed" "false" "false" "Stopped" "" "" "" ""
+        exit 0
+    fi
+    
     # Primary check: If we can get an IP, Tailscale is authenticated and running
     ip_address=$(get_tailscale_ip)
     
@@ -143,9 +153,9 @@ main() {
         
         if [ "$backend_state" = "NeedsLogin" ]; then
             is_running="true"
-            send_json_response "success" "Tailscale is running but needs authentication." "$is_installed" "$is_running" "$is_authenticated" "$backend_state" "" ""
+            send_json_response "success" "Tailscale is running but needs authentication." "$is_installed" "$is_running" "$is_authenticated" "$backend_state" "" "" "" ""
         else
-            send_json_response "success" "Tailscale is installed but not running." "$is_installed" "$is_running" "$is_authenticated" "$backend_state" "" ""
+            send_json_response "success" "Tailscale is installed but not running." "$is_installed" "$is_running" "$is_authenticated" "$backend_state" "" "" "" ""
         fi
     fi
 }

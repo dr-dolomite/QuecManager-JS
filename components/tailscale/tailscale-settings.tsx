@@ -148,7 +148,7 @@ const TailScaleSettingsComponent = () => {
   };
 
   // Setup Tailscale (start and get auth URL)
-  const handleSetup = async () => {
+  const handleSetup = async (skipRefresh: boolean = false) => {
     setIsSettingUp(true);
     setAuthUrl("");
 
@@ -168,8 +168,10 @@ const TailScaleSettingsComponent = () => {
           });
         }
 
-        // Refresh status after setup
-        await fetchStatus();
+        // Refresh status after setup (unless caller handles it)
+        if (!skipRefresh) {
+          await fetchStatus();
+        }
       } else {
         toast({
           title: "Error",
@@ -216,14 +218,6 @@ const TailScaleSettingsComponent = () => {
     await fetchStatus();
   };
 
-  // Combined refresh function for status and peers
-  const handleRefreshAll = async () => {
-    await fetchStatus();
-    if (tailscaleStatus?.is_authenticated) {
-      await fetchPeers();
-    }
-  };
-
   // Logout from Tailscale
   const handleLogout = async () => {
     try {
@@ -264,13 +258,14 @@ const TailScaleSettingsComponent = () => {
       const data = await response.json();
 
       if (data.status === "success") {
-        toast({
-          title: "Disconnected",
-          description: data.message,
-        });
 
-        // Refresh status after disconnect
+        // Refresh status after services restart
         await fetchStatus();
+
+        toast({
+          title: "Success",
+          description: "Tailscale disconnected successfully.",
+        });
       } else {
         toast({
           title: "Disconnect Failed",
@@ -336,7 +331,25 @@ const TailScaleSettingsComponent = () => {
         title: "Setting Up Tailscale",
         description: "Starting Tailscale. Please wait...",
       });
-      await handleSetup();
+      
+      // Call setup without immediate refresh
+      await handleSetup(true);
+      
+      // Wait 3 seconds for Tailscale to fully start
+      toast({
+        title: "Starting Services",
+        description: "Waiting for Tailscale services to start...",
+        duration: 4500,
+      });
+      await new Promise(resolve => setTimeout(resolve, 5000));
+      
+      // Refresh status after services have started
+      await fetchStatus();
+      
+      toast({
+        title: "Success",
+        description: "Tailscale started successfully.",
+      });
     } else {
       toast({
         title: "Disconnecting",
@@ -417,7 +430,7 @@ const TailScaleSettingsComponent = () => {
                   </EmptyDescription>
                 </EmptyHeader>
                 <EmptyContent>
-                  <Button onClick={handleSetup} disabled={isSettingUp}>
+                  <Button onClick={() => handleSetup()} disabled={isSettingUp}>
                     {isSettingUp ? (
                       <Spinner className="h-4 w-4" />
                     ) : (
@@ -435,9 +448,13 @@ const TailScaleSettingsComponent = () => {
               <div className="flex items-center space-x-4">
                 <Switch
                   id="enable-tailscale"
-                  checked={tailscaleStatus.is_authenticated || tailscaleStatus.is_running || false}
+                  checked={
+                    tailscaleStatus.is_authenticated ||
+                    tailscaleStatus.is_running ||
+                    false
+                  }
                   onCheckedChange={handleToggle}
-                  disabled={isSettingUp || !tailscaleStatus.is_authenticated}
+                  disabled={isSettingUp}
                 />
                 <Label htmlFor="enable-tailscale" className="font-medium">
                   Enable TailScale
@@ -552,7 +569,7 @@ const TailScaleSettingsComponent = () => {
       </Card>
 
       {/* Device Peers Table */}
-      {tailscaleStatus?.is_authenticated && (
+      {tailscaleStatus?.is_authenticated && tailscaleStatus?.is_running && (
         <Card>
           <CardHeader>
             <CardTitle>Device Peers</CardTitle>
