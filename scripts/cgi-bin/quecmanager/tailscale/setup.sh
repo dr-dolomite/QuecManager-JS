@@ -72,23 +72,24 @@ main() {
     # No need to manually start tailscaled - it starts when needed
     if is_logged_out; then
         # User is logged out, use 'tailscale login'
-        tailscale login > "$temp_file" 2>&1 &
+        tailscale login --accept-routes > "$temp_file" 2>&1 &
     else
         # User is not logged out (might be needs re-auth), use 'tailscale up'
-        tailscale up > "$temp_file" 2>&1 &
+        tailscale up --reset --accept-routes > "$temp_file" 2>&1 &
     fi
     
-    # 4. Wait for auth URL to appear in the file (max 5 seconds)
+    # 4. Wait for auth URL to appear in the file (max 20 seconds)
     count=0
     auth_url=""
     
-    while [ $count -lt 10 ]; do
+    # 40 iterations × 0.5 seconds = 20 seconds total timeout
+    while [ $count -lt 40 ]; do
         # Check if file exists and has content
         if [ -f "$temp_file" ] && [ -s "$temp_file" ]; then
             # Try to extract auth URL
             auth_url=$(grep -o 'https://login.tailscale.com/a/[^[:space:]]*' "$temp_file" 2>/dev/null | head -n 1)
             
-            # If found, break
+            # If found, break immediately
             if [ -n "$auth_url" ]; then
                 break
             fi
@@ -100,12 +101,13 @@ main() {
     
     # 5. Return the auth URL to GUI
     if [ -n "$auth_url" ]; then        
-        # Leave tailscale up running in background for authentication
+        # Leave tailscale login/up running in background for authentication
         # The temp file will be cleaned up by the cleanup script
         send_json_response "success" "Authentication required. Please use the provided URL." "$auth_url" "true" "true"
     else        
+        # If no auth URL found after 20 seconds, something went wrong
         rm -f "$temp_file"
-        send_json_response "success" "Tailscale is running. Checking authentication status..." "" "true" "true"
+        send_json_response "error" "Timeout waiting for authentication URL. Please try again." "" "true" "false"
     fi
 }
 

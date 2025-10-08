@@ -28,13 +28,13 @@ is_tailscale_installed() {
 }
 
 # Function to restart network and firewall services
-restart_services() {
-    # Restart network service
-    /etc/init.d/network restart >/dev/null 2>&1 &
+# restart_services() {
+#     # Restart network service
+#     /etc/init.d/network restart >/dev/null 2>&1 &
     
-    # Restart firewall service
-    /etc/init.d/firewall restart >/dev/null 2>&1 &
-}
+#     # Restart firewall service
+#     /etc/init.d/firewall restart >/dev/null 2>&1 &
+# }
 
 # Main execution
 main() {
@@ -47,7 +47,7 @@ main() {
     # Run tailscale logout
     if tailscale logout 2>/dev/null; then
         # Restart network and firewall services after logout
-        restart_services
+        # restart_services
         
         send_json_response "success" "Successfully logged out from Tailscale."
     else

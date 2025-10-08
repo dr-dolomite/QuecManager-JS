@@ -58,6 +58,8 @@ import {
   CopyIcon,
   LogOut,
   LogInIcon,
+  ArrowRightIcon,
+  ArrowRightCircleIcon,
 } from "lucide-react";
 import { Skeleton } from "../ui/skeleton";
 import { Separator } from "../ui/separator";
@@ -101,6 +103,7 @@ const TailScaleSettingsComponent = () => {
   const [isLoadingPeers, setIsLoadingPeers] = useState(false);
   const [authUrl, setAuthUrl] = useState<string>("");
   const [showAuthDialog, setShowAuthDialog] = useState(false);
+  const [hasClickedAuth, setHasClickedAuth] = useState(false);
 
   // Fetch Tailscale peers
   const fetchPeers = async () => {
@@ -134,6 +137,10 @@ const TailScaleSettingsComponent = () => {
 
       // Fetch peers if authenticated
       if (data.is_authenticated) {
+        setIsLoadingPeers(true);
+
+        // Add a slight delay to ensure Tailscale is fully ready
+        await new Promise((resolve) => setTimeout(resolve, 1000));
         await fetchPeers();
       }
     } catch (error) {
@@ -143,7 +150,9 @@ const TailScaleSettingsComponent = () => {
         description: "Failed to fetch Tailscale status.",
         variant: "destructive",
       });
+    } finally {
       setIsLoading(false);
+      setIsLoadingPeers(false);
     }
   };
 
@@ -151,6 +160,7 @@ const TailScaleSettingsComponent = () => {
   const handleSetup = async (skipRefresh: boolean = false) => {
     setIsSettingUp(true);
     setAuthUrl("");
+    setHasClickedAuth(false);
 
     try {
       const response = await fetch("/cgi-bin/quecmanager/tailscale/setup.sh");
@@ -195,12 +205,14 @@ const TailScaleSettingsComponent = () => {
   const handleOpenAuthUrl = () => {
     if (authUrl) {
       window.open(authUrl, "_blank");
+      setHasClickedAuth(true);
     }
   };
 
   // Handle dialog completion and cleanup
   const handleAuthComplete = async () => {
     setShowAuthDialog(false);
+    setHasClickedAuth(false);
 
     // Call cleanup script to remove temp file
     try {
@@ -221,6 +233,12 @@ const TailScaleSettingsComponent = () => {
   // Logout from Tailscale
   const handleLogout = async () => {
     try {
+      setIsLoading(true);
+      toast({
+        title: "Logging Out",
+        description: "Logging out from Tailscale...",
+      });
+
       const response = await fetch("/cgi-bin/quecmanager/tailscale/logout.sh");
       const data = await response.json();
 
@@ -246,6 +264,8 @@ const TailScaleSettingsComponent = () => {
         description: "Failed to logout from Tailscale.",
         variant: "destructive",
       });
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -465,112 +485,105 @@ const TailScaleSettingsComponent = () => {
                 )}
 
               {/* Status Display */}
-              {tailscaleStatus.is_running && (
-                <Card className="space-y-2 p-4">
-                  {tailscaleStatus.is_authenticated && (
-                    <>
-                      {tailscaleStatus.ip_address && (
-                        <div className="flex flex-col lg:flex-row lg:justify-between items-center">
+              {tailscaleStatus.is_running &&
+                tailscaleStatus.is_authenticated && (
+                  <Card className="space-y-2 p-4">
+                    {tailscaleStatus.ip_address && (
+                      <div className="flex flex-col lg:flex-row lg:justify-between items-center">
+                        <p className="font-medium">Device Virtual IP Address</p>
+                        <div className="flex items-center gap-x-2">
+                          <CopyIcon
+                            className="h-4 w-4 cursor-pointer hover:text-primary transition-colors"
+                            onClick={() => {
+                              navigator.clipboard.writeText(
+                                tailscaleStatus.ip_address || ""
+                              );
+                              toast({
+                                title: "Copied to Clipboard",
+                                description:
+                                  "Tailscale IP address copied successfully.",
+                              });
+                            }}
+                          />
                           <p className="font-medium">
-                            Device Virtual IP Address
+                            {tailscaleStatus.ip_address}
                           </p>
+                        </div>
+                      </div>
+                    )}
+                    <Separator className="w-full" />
+
+                    {tailscaleStatus.hostname && (
+                      <div className="flex flex-col lg:flex-row lg:justify-between items-center">
+                        <p className="font-medium">Device Hostname</p>{" "}
+                        <p className="font-medium">
+                          {tailscaleStatus.hostname}
+                        </p>
+                      </div>
+                    )}
+
+                    <Separator className="w-full" />
+
+                    {tailscaleStatus.email && (
+                      <div className="flex flex-col lg:flex-row lg:justify-between items-center">
+                        <p className="font-medium">Connected Account</p>
+                        <div className="flex items-center gap-x-2">
+                          <LogOut
+                            className="size-4 hover:text-primary cursor-pointer transition-colors"
+                            onClick={handleLogout}
+                            aria-label="Logout from Tailscale"
+                          />
+                          <p className="font-medium">{tailscaleStatus.email}</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {tailscaleStatus.dns_name && (
+                      <>
+                        <Separator className="w-full" />
+                        <div className="flex flex-col lg:flex-row lg:justify-between items-center">
+                          <p className="font-medium">DNS Name</p>
                           <div className="flex items-center gap-x-2">
                             <CopyIcon
                               className="h-4 w-4 cursor-pointer hover:text-primary transition-colors"
                               onClick={() => {
                                 navigator.clipboard.writeText(
-                                  tailscaleStatus.ip_address || ""
+                                  tailscaleStatus.dns_name || ""
                                 );
                                 toast({
                                   title: "Copied to Clipboard",
                                   description:
-                                    "Tailscale IP address copied successfully.",
+                                    "Tailscale DNS name copied successfully.",
                                 });
                               }}
                             />
+
                             <p className="font-medium">
-                              {tailscaleStatus.ip_address}
+                              {tailscaleStatus.dns_name}
                             </p>
                           </div>
                         </div>
-                      )}
-                      <Separator className="w-full" />
+                      </>
+                    )}
 
-                      {tailscaleStatus.hostname && (
-                        <div className="flex flex-col lg:flex-row lg:justify-between items-center">
-                          <p className="font-medium">Device Hostname</p>{" "}
-                          <p className="font-medium">
-                            {tailscaleStatus.hostname}
-                          </p>
-                        </div>
-                      )}
-
-                      <Separator className="w-full" />
-
-                      {tailscaleStatus.email && (
-                        <div className="flex flex-col lg:flex-row lg:justify-between items-center">
-                          <p className="font-medium">Connected Account</p>
-                          <div className="flex items-center gap-x-2">
-                            <LogOut
-                              className="size-4 hover:text-primary cursor-pointer transition-colors"
-                              onClick={handleLogout}
-                              aria-label="Logout from Tailscale"
-                            />
-                            <p className="font-medium">
-                              {tailscaleStatus.email}
-                            </p>
-                          </div>
-                        </div>
-                      )}
-
-                      {tailscaleStatus.dns_name && (
-                        <>
-                          <Separator className="w-full" />
-                          <div className="flex flex-col lg:flex-row lg:justify-between items-center">
-                            <p className="font-medium">DNS Name</p>
-                            <div className="flex items-center gap-x-2">
-                              <CopyIcon
-                                className="h-4 w-4 cursor-pointer hover:text-primary transition-colors"
-                                onClick={() => {
-                                  navigator.clipboard.writeText(
-                                    tailscaleStatus.dns_name || ""
-                                  );
-                                  toast({
-                                    title: "Copied to Clipboard",
-                                    description:
-                                      "Tailscale DNS name copied successfully.",
-                                  });
-                                }}
-                              />
-
-                              <p className="font-medium">
-                                {tailscaleStatus.dns_name}
-                              </p>
-                            </div>
-                          </div>
-                        </>
-                      )}
-
-                      <Separator className="w-full" />
-                      <div className="flex flex-col lg:flex-row lg:justify-between items-center">
-                        <p className="font-medium">Tailscale Status</p>
-                        <div className="flex items-center space-x-2">
-                          {tailscaleStatus.is_authenticated ? (
-                            <CheckCircle2 className="h-4 w-4 text-green-500" />
-                          ) : (
-                            <AlertCircle className="h-4 w-4 text-yellow-500" />
-                          )}
-                          <p className="font-medium text-sm">
-                            {tailscaleStatus.backend_state}
-                          </p>
-                        </div>
+                    <Separator className="w-full" />
+                    <div className="flex flex-col lg:flex-row lg:justify-between items-center">
+                      <p className="font-medium">Tailscale Status</p>
+                      <div className="flex items-center space-x-2">
+                        {tailscaleStatus.is_authenticated ? (
+                          <CheckCircle2 className="h-4 w-4 text-green-500" />
+                        ) : (
+                          <AlertCircle className="h-4 w-4 text-yellow-500" />
+                        )}
+                        <p className="font-medium text-sm">
+                          {tailscaleStatus.backend_state}
+                        </p>
                       </div>
+                    </div>
 
-                      <Separator className="w-full" />
-                    </>
-                  )}
-                </Card>
-              )}
+                    <Separator className="w-full" />
+                  </Card>
+                )}
             </div>
           )}
         </CardContent>
@@ -658,48 +671,61 @@ const TailScaleSettingsComponent = () => {
               </AlertDialogTitle>
             </div>
 
-            <div className="space-y-4">
-              <AlertDialogDescription>
+            <div className="space-y-6 ">
+              <AlertDialogDescription className="mt-2">
                 To complete the setup, you need to authenticate this device with
                 your Tailscale account.
               </AlertDialogDescription>
               {/* <div className="rounded-lg bg-muted p-4">
                 <p className="text-sm font-medium mb-2">Authentication URL:</p>
-                <code className="text-xs break-all block bg-background p-2 rounded">
+                <code className="text-xs break-all bg-background p-2 rounded flex justify-between items-center">
                   {authUrl}
+                  <CopyIcon
+                    className="h-4 w-4 cursor-pointer hover:text-primary transition-colors ml-2"
+                    onClick={() => {
+                      navigator.clipboard.writeText(authUrl || "");
+                      toast({
+                        title: "Copied to Clipboard",
+                        description:
+                          "Authentication URL copied successfully.",
+                      });
+                    }}
+                  />
                 </code>
               </div> */}
-              <div className="space-y-2 my-4">
+              <div className="space-y-2">
                 <p className="text-sm">
-                  Click the button below to open the authentication page in a
-                  new tab:
+                  Click the button below to open the authentication page.
                 </p>
                 <Button
                   onClick={handleOpenAuthUrl}
                   variant="outline"
                   className="w-full bg-blue-700 hover:bg-blue-800 text-white"
                 >
-                  <ExternalLink className="h-4 w-4 mr-2" />
+                  <ExternalLink className="h-4 w-4" />
                   Open Authentication Page
                 </Button>
               </div>
-              <Alert>
+              {/* <Alert>
                 <AlertCircle className="h-4 w-4" />
                 <AlertTitle>Next Steps</AlertTitle>
                 <AlertDescription>
                   After authenticating in the browser, click "Done" below to
                   refresh your connection status.
                 </AlertDescription>
-              </Alert>
+              </Alert> */}
             </div>
           </AlertDialogHeader>
-          <AlertDialogFooter>
+          <AlertDialogFooter className="mt-4">
             <AlertDialogCancel onClick={() => setShowAuthDialog(false)}>
               Cancel
             </AlertDialogCancel>
-            <AlertDialogAction onClick={handleAuthComplete}>
-              <CheckCircle2 className="h-4 w-4" />
-              Done
+            <AlertDialogAction
+              onClick={handleAuthComplete}
+              disabled={!hasClickedAuth}
+            >
+              <ArrowRightCircleIcon className="h-4 w-4" />
+              Continue
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
