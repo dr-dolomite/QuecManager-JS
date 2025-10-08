@@ -53,15 +53,6 @@ is_logged_out() {
     return 1
 }
 
-# Function to restart network and firewall services
-restart_services() {
-    # Restart network service
-    /etc/init.d/network restart >/dev/null 2>&1 &
-    
-    # Restart firewall service
-    /etc/init.d/firewall restart >/dev/null 2>&1 &
-}
-
 # Main execution
 main() {
     # 1. Check if Tailscale is installed
@@ -108,18 +99,11 @@ main() {
     done
     
     # 5. Return the auth URL to GUI
-    if [ -n "$auth_url" ]; then
-        # Restart network and firewall services after tailscale command
-        restart_services
-        
+    if [ -n "$auth_url" ]; then        
         # Leave tailscale up running in background for authentication
         # The temp file will be cleaned up by the cleanup script
         send_json_response "success" "Authentication required. Please use the provided URL." "$auth_url" "true" "true"
-    else
-        # No auth URL found - might already be authenticated
-        # Restart services anyway
-        restart_services
-        
+    else        
         rm -f "$temp_file"
         send_json_response "success" "Tailscale is running. Checking authentication status..." "" "true" "true"
     fi

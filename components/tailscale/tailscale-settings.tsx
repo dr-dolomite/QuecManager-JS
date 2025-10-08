@@ -258,7 +258,6 @@ const TailScaleSettingsComponent = () => {
       const data = await response.json();
 
       if (data.status === "success") {
-
         // Refresh status after services restart
         await fetchStatus();
 
@@ -331,21 +330,21 @@ const TailScaleSettingsComponent = () => {
         title: "Setting Up Tailscale",
         description: "Starting Tailscale. Please wait...",
       });
-      
+
       // Call setup without immediate refresh
       await handleSetup(true);
-      
+
       // Wait 3 seconds for Tailscale to fully start
       toast({
         title: "Starting Services",
         description: "Waiting for Tailscale services to start...",
         duration: 4500,
       });
-      await new Promise(resolve => setTimeout(resolve, 5000));
-      
+      await new Promise((resolve) => setTimeout(resolve, 5000));
+
       // Refresh status after services have started
       await fetchStatus();
-      
+
       toast({
         title: "Success",
         description: "Tailscale started successfully.",
@@ -384,9 +383,9 @@ const TailScaleSettingsComponent = () => {
     <div className="space-y-4">
       <Card>
         <CardHeader>
-          <CardTitle>TailScale Settings</CardTitle>
+          <CardTitle>Tailscale Settings</CardTitle>
           <CardDescription>
-            Configure your TailScale VPN settings here.
+            Configure your Tailscale VPN settings here.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -397,9 +396,9 @@ const TailScaleSettingsComponent = () => {
                 <EmptyMedia variant="icon">
                   <SiTailscale />
                 </EmptyMedia>
-                <EmptyTitle>TailScale is not installed</EmptyTitle>
+                <EmptyTitle>Tailscale is not installed</EmptyTitle>
                 <EmptyDescription>
-                  Please install TailScale to enable VPN functionality.
+                  Please install Tailscale to enable VPN functionality.
                 </EmptyDescription>
               </EmptyHeader>
               <EmptyContent>
@@ -414,33 +413,6 @@ const TailScaleSettingsComponent = () => {
               </EmptyContent>
             </Empty>
           )}
-
-          {/* Tailscale is running but is not authenticated */}
-          {!tailscaleStatus?.is_authenticated &&
-            tailscaleStatus?.is_running && (
-              <Empty className="from-muted/50 to-background h-full bg-gradient-to-b from-30%">
-                <EmptyHeader>
-                  <EmptyMedia variant="icon">
-                    <SiTailscale />
-                  </EmptyMedia>
-                  <EmptyTitle>Device Not Authenticated</EmptyTitle>
-                  <EmptyDescription>
-                    Your device is running TailScale but is not authenticated.
-                    Please authenticate to connect to your TailScale network.
-                  </EmptyDescription>
-                </EmptyHeader>
-                <EmptyContent>
-                  <Button onClick={() => handleSetup()} disabled={isSettingUp}>
-                    {isSettingUp ? (
-                      <Spinner className="h-4 w-4" />
-                    ) : (
-                      <LogInIcon className="h-4 w-4" />
-                    )}
-                    {isSettingUp ? "Setting Up..." : "Authenticate Device"}
-                  </Button>
-                </EmptyContent>
-              </Empty>
-            )}
 
           {/* Status Information */}
           {tailscaleStatus?.is_installed && (
@@ -457,9 +429,40 @@ const TailScaleSettingsComponent = () => {
                   disabled={isSettingUp}
                 />
                 <Label htmlFor="enable-tailscale" className="font-medium">
-                  Enable TailScale
+                  Enable Tailscale
                 </Label>
               </div>
+
+              {/* Tailscale is running but is not authenticated */}
+              {!tailscaleStatus?.is_authenticated &&
+                tailscaleStatus?.is_running && (
+                  <Empty className="from-muted/50 to-background h-full bg-gradient-to-b from-30%">
+                    <EmptyHeader>
+                      <EmptyMedia variant="icon">
+                        <SiTailscale />
+                      </EmptyMedia>
+                      <EmptyTitle>Device Not Authenticated</EmptyTitle>
+                      <EmptyDescription>
+                        Your device is running Tailscale but is not
+                        authenticated. Please authenticate to connect to your
+                        Tailscale network.
+                      </EmptyDescription>
+                    </EmptyHeader>
+                    <EmptyContent>
+                      <Button
+                        onClick={() => handleSetup()}
+                        disabled={isSettingUp}
+                      >
+                        {isSettingUp ? (
+                          <Spinner className="h-4 w-4" />
+                        ) : (
+                          <LogInIcon className="h-4 w-4" />
+                        )}
+                        {isSettingUp ? "Setting Up..." : "Authenticate Device"}
+                      </Button>
+                    </EmptyContent>
+                  </Empty>
+                )}
 
               {/* Status Display */}
               {tailscaleStatus.is_running && (
@@ -549,18 +552,23 @@ const TailScaleSettingsComponent = () => {
                       )}
 
                       <Separator className="w-full" />
+                      <div className="flex flex-col lg:flex-row lg:justify-between items-center">
+                        <p className="font-medium">Tailscale Status</p>
+                        <div className="flex items-center space-x-2">
+                          {tailscaleStatus.is_authenticated ? (
+                            <CheckCircle2 className="h-4 w-4 text-green-500" />
+                          ) : (
+                            <AlertCircle className="h-4 w-4 text-yellow-500" />
+                          )}
+                          <p className="font-medium text-sm">
+                            {tailscaleStatus.backend_state}
+                          </p>
+                        </div>
+                      </div>
+
+                      <Separator className="w-full" />
                     </>
                   )}
-                  <div className="flex items-center space-x-2">
-                    {tailscaleStatus.is_authenticated ? (
-                      <CheckCircle2 className="h-4 w-4 text-green-500" />
-                    ) : (
-                      <AlertCircle className="h-4 w-4 text-yellow-500" />
-                    )}
-                    <p className="font-medium text-sm">
-                      {tailscaleStatus.backend_state}
-                    </p>
-                  </div>
                 </Card>
               )}
             </div>
@@ -655,13 +663,13 @@ const TailScaleSettingsComponent = () => {
                 To complete the setup, you need to authenticate this device with
                 your Tailscale account.
               </AlertDialogDescription>
-              <div className="rounded-lg bg-muted p-4">
+              {/* <div className="rounded-lg bg-muted p-4">
                 <p className="text-sm font-medium mb-2">Authentication URL:</p>
                 <code className="text-xs break-all block bg-background p-2 rounded">
                   {authUrl}
                 </code>
-              </div>
-              <div className="space-y-2">
+              </div> */}
+              <div className="space-y-2 my-4">
                 <p className="text-sm">
                   Click the button below to open the authentication page in a
                   new tab:
@@ -669,7 +677,7 @@ const TailScaleSettingsComponent = () => {
                 <Button
                   onClick={handleOpenAuthUrl}
                   variant="outline"
-                  className="w-full"
+                  className="w-full bg-blue-700 hover:bg-blue-800 text-white"
                 >
                   <ExternalLink className="h-4 w-4 mr-2" />
                   Open Authentication Page
@@ -678,7 +686,7 @@ const TailScaleSettingsComponent = () => {
               <Alert>
                 <AlertCircle className="h-4 w-4" />
                 <AlertTitle>Next Steps</AlertTitle>
-                <AlertDescription className="text-xs">
+                <AlertDescription>
                   After authenticating in the browser, click "Done" below to
                   refresh your connection status.
                 </AlertDescription>
