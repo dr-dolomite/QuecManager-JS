@@ -56,11 +56,10 @@ import {
   RefreshCcwIcon,
   BoxIcon,
   CopyIcon,
-  LogOut,
   LogInIcon,
   ArrowRightIcon,
   ArrowRightCircleIcon,
-  LogOutIcon,
+  User2Icon,
 } from "lucide-react";
 import { Skeleton } from "../ui/skeleton";
 import { Separator } from "../ui/separator";
@@ -231,45 +230,6 @@ const TailScaleSettingsComponent = () => {
     await fetchStatus();
   };
 
-  // Logout from Tailscale
-  const handleLogout = async () => {
-    try {
-      setIsLoading(true);
-      toast({
-        title: "Logging Out",
-        description: "Logging out from Tailscale...",
-      });
-
-      const response = await fetch("/cgi-bin/quecmanager/tailscale/logout.sh");
-      const data = await response.json();
-
-      if (data.status === "success") {
-        toast({
-          title: "Logged Out",
-          description: data.message,
-        });
-
-        // Refresh status after logout
-        await fetchStatus();
-      } else {
-        toast({
-          title: "Logout Failed",
-          description: data.message,
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      console.error("Error logging out from Tailscale:", error);
-      toast({
-        title: "Error",
-        description: "Failed to logout from Tailscale.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   // Disconnect from Tailscale
   const handleDisconnect = async () => {
     try {
@@ -406,7 +366,8 @@ const TailScaleSettingsComponent = () => {
         <CardHeader>
           <CardTitle>Tailscale Settings</CardTitle>
           <CardDescription>
-            Configure your Tailscale VPN settings here.
+            Configure your Tailscale settings here. Tailscale is a secure VPN
+            service that allows you to connect to your devices from anywhere.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -529,34 +490,6 @@ const TailScaleSettingsComponent = () => {
                       <div className="flex flex-col lg:flex-row lg:justify-between items-center">
                         <p className="font-medium">Connected Account</p>
                         <div className="flex items-center gap-x-2">
-                          <AlertDialog>
-                            <AlertDialogTrigger>
-                              <LogOut
-                                className="size-4 hover:text-primary cursor-pointer transition-colors"
-                                aria-label="Logout from Tailscale"
-                              />
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>
-                                  Log out from Tailscale?
-                                </AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  Logging out will disconnect this device from
-                                  your Tailscale network. You will need to
-                                  re-authenticate to connect again.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction onClick={handleLogout}>
-                                  <LogOutIcon className="h-4 w-4" />
-                                  Logout
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-
                           <p className="font-medium">{tailscaleStatus.email}</p>
                         </div>
                       </div>
@@ -604,8 +537,6 @@ const TailScaleSettingsComponent = () => {
                         </p>
                       </div>
                     </div>
-
-                    <Separator className="w-full" />
                   </Card>
                 )}
             </div>
@@ -619,7 +550,16 @@ const TailScaleSettingsComponent = () => {
           <CardHeader>
             <CardTitle>Device Peers</CardTitle>
             <CardDescription>
-              List of devices connected to your Tailscale network.
+              List of devices connected to your Tailscale network. You may also
+              manage your devices
+              <a
+                href="https://login.tailscale.com/admin/machines"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="ml-1 text-blue-600 hover:underline font-semibold"
+              >
+                here.
+              </a>
             </CardDescription>
           </CardHeader>
           <CardContent>

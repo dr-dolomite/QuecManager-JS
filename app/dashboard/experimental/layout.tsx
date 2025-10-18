@@ -69,7 +69,7 @@ const ExperimentalLayout = ({ children }: ExperimentalLayoutProps) => {
                 : "text-sm"
             }`}
           >
-            TailScale Settings
+            Tailscale Settings
           </Link>
           <Link
             href="/dashboard/experimental/scheduled-reboot"

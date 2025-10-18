@@ -22,16 +22,22 @@ import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 // import PropagateLoader from "react-spinners/PropagateLoader";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { Eye, EyeOff } from "lucide-react";
+import { CopyIcon, Eye, EyeOff } from "lucide-react";
 import { SiKofi } from "react-icons/si";
 import { FaPaypal } from "react-icons/fa";
 import { BiDonateHeart } from "react-icons/bi";
 import { Lens } from "@/components/ui/lens";
 import { AspectRatio } from "@/components/ui/aspect-ratio";
+import { toast } from "@/hooks/use-toast";
 
 const AboutPage = () => {
   const { data, isLoading } = useAboutData();
   const [hideSensitiveData, setHideSensitiveData] = React.useState(false);
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast({ title: "Copied to clipboard", description: text, duration: 2000 });
+  };
 
   return (
     <Card>
@@ -39,7 +45,7 @@ const AboutPage = () => {
         <CardTitle>QuecManager</CardTitle>
         <div className="grid xl:gap-y-10 gap-y-8 gap-4">
           <div className="grid gap-4">
-            <div className="flex flex-row justify-between items-center">
+            <div className="flex flex-row gap-2 justify-between items-center">
               <div className="flex flex-row items-center gap-x-2">
                 <CardDescription>
                   What is QuecManager and how it can help you.
@@ -155,7 +161,18 @@ const AboutPage = () => {
                     ) : hideSensitiveData ? (
                       <div className="border-none bg-gray-600 rounded-md h-5 md:w-36 w-24" />
                     ) : (
-                      <>{data?.phoneNum || "N/A"}</>
+                      <div className="flex items-center gap-x-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() =>
+                            copyToClipboard(data?.phoneNum || "N/A")
+                          }
+                        >
+                          <CopyIcon className="w-4 h-4" />
+                        </Button>
+                        {data?.phoneNum || "N/A"}
+                      </div>
                     )}
                   </span>
                 </div>
@@ -191,7 +208,16 @@ const AboutPage = () => {
                     ) : hideSensitiveData ? (
                       <div className="border-none bg-gray-600 rounded-md h-5 md:w-36 w-24" />
                     ) : (
-                      <>{data?.imei || "N/A"}</>
+                      <div className="flex items-center gap-x-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => copyToClipboard(data?.imei || "N/A")}
+                        >
+                          <CopyIcon className="w-4 h-4" />
+                        </Button>
+                        {data?.imei || "N/A"}
+                      </div>
                     )}
                   </span>
                 </div>

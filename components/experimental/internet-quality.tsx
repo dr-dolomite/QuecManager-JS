@@ -55,6 +55,16 @@ import {
 } from "@/components/ui/table";
 
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "../ui/dropdown-menu";
+import { Button } from "../ui/button";
+import { ArrowUpDown, ListFilter, RefreshCw } from "lucide-react";
 
 export const description =
   "Monitor your internet connection quality over time, including latency and packet loss.";
@@ -78,6 +88,7 @@ const InternetQuality = () => {
   const [activeChart, setActiveChart] =
     useState<keyof typeof chartConfig>("latency");
   const [viewMode, setViewMode] = useState<ViewMode>("realtime");
+  const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
 
   // Fetch real-time data (max 15 entries, rolling window)
   const fetchRealtimeData = async () => {
@@ -213,6 +224,22 @@ const InternetQuality = () => {
 
   const viewInfo = getViewInfo();
 
+  // Sorting function
+  const sortData = <T extends { timestamp: string }>(data: T[]): T[] => {
+    const sorted = [...data];
+    sorted.sort((a, b) => {
+      const dateA = new Date(a.timestamp).getTime();
+      const dateB = new Date(b.timestamp).getTime();
+      return sortOrder === "newest" ? dateB - dateA : dateA - dateB;
+    });
+    return sorted;
+  };
+
+  // Get sorted data arrays
+  const sortedRealtimeData = sortData(realtimeDataArray);
+  const sortedHourlyData = sortData(hourlyDataArray);
+  const sortedDailyData = sortData(dailyDataArray);
+
   return (
     <div className="flex w-full flex-col gap-6">
       <Tabs
@@ -325,6 +352,34 @@ const InternetQuality = () => {
             </CardContent>
           </Card>
           <Card className="p-4 mt-4">
+            <div className="justify-end flex mb-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="h-7 gap-1">
+                    <ArrowUpDown className="h-3.5 w-3.5" />
+                    <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
+                      Sort
+                    </span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuLabel>Sort by</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuCheckboxItem
+                    checked={sortOrder === "newest"}
+                    onCheckedChange={() => setSortOrder("newest")}
+                  >
+                    Newest first
+                  </DropdownMenuCheckboxItem>
+                  <DropdownMenuCheckboxItem
+                    checked={sortOrder === "oldest"}
+                    onCheckedChange={() => setSortOrder("oldest")}
+                  >
+                    Oldest first
+                  </DropdownMenuCheckboxItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
             <Table>
               <TableHeader>
                 <TableRow>
@@ -335,8 +390,8 @@ const InternetQuality = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {realtimeDataArray.length > 0 ? (
-                  realtimeDataArray.map((ping, index) => (
+                {sortedRealtimeData.length > 0 ? (
+                  sortedRealtimeData.map((ping, index) => (
                     <TableRow key={index}>
                       <TableCell>
                         {ping.ok ? `${ping.latency} ms` : "Timeout"}
@@ -471,6 +526,34 @@ const InternetQuality = () => {
             </CardContent>
           </Card>
           <Card className="p-4 mt-4">
+            <div className="justify-end flex mb-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="h-7 gap-1">
+                    <ArrowUpDown className="h-3.5 w-3.5" />
+                    <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
+                      Sort
+                    </span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuLabel>Sort by</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuCheckboxItem
+                    checked={sortOrder === "newest"}
+                    onCheckedChange={() => setSortOrder("newest")}
+                  >
+                    Newest first
+                  </DropdownMenuCheckboxItem>
+                  <DropdownMenuCheckboxItem
+                    checked={sortOrder === "oldest"}
+                    onCheckedChange={() => setSortOrder("oldest")}
+                  >
+                    Oldest first
+                  </DropdownMenuCheckboxItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
             <Table>
               <TableHeader>
                 <TableRow>
@@ -482,8 +565,8 @@ const InternetQuality = () => {
               </TableHeader>
               <TableBody>
                 {/* If hourlyDataArray is not empty */}
-                {hourlyDataArray.length > 0 ? (
-                  hourlyDataArray.map((ping, index) => (
+                {sortedHourlyData.length > 0 ? (
+                  sortedHourlyData.map((ping, index) => (
                     <TableRow key={index}>
                       <TableCell>{`${ping.latency} ms`}</TableCell>
                       <TableCell>{ping.packet_loss}%</TableCell>
@@ -616,6 +699,34 @@ const InternetQuality = () => {
             </CardContent>
           </Card>
           <Card className="p-4 mt-4">
+            <div className="justify-end flex mb-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="h-7 gap-1">
+                    <ArrowUpDown className="h-3.5 w-3.5" />
+                    <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
+                      Sort
+                    </span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuLabel>Sort by</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuCheckboxItem
+                    checked={sortOrder === "newest"}
+                    onCheckedChange={() => setSortOrder("newest")}
+                  >
+                    Newest first
+                  </DropdownMenuCheckboxItem>
+                  <DropdownMenuCheckboxItem
+                    checked={sortOrder === "oldest"}
+                    onCheckedChange={() => setSortOrder("oldest")}
+                  >
+                    Oldest first
+                  </DropdownMenuCheckboxItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
             <Table>
               <TableHeader>
                 <TableRow>
@@ -627,8 +738,8 @@ const InternetQuality = () => {
               </TableHeader>
               <TableBody>
                 {/* If dailyDataArray is not empty */}
-                {dailyDataArray.length > 0 ? (
-                  dailyDataArray.map((ping, index) => (
+                {sortedDailyData.length > 0 ? (
+                  sortedDailyData.map((ping, index) => (
                     <TableRow key={index}>
                       <TableCell>{`${ping.latency} ms`}</TableCell>
                       <TableCell>{ping.packet_loss}%</TableCell>
