@@ -110,7 +110,7 @@ const useHomeData = () => {
           connection: {
             apn: "No APN",
             operatorState: "Unknown",
-            functionalityState: "Disabled",
+            functionalityState: "Limited Functionality",
             networkType: "No Signal",
             modemTemperature: "Unknown",
             accessTechnology: "-",
@@ -217,8 +217,8 @@ const useHomeData = () => {
             "Unknown",
           functionalityState:
             parseField(rawData[9]?.response, 1, 1, 0) === "1"
-              ? "Enabled"
-              : "Disabled",
+              ? "Full Functionality"
+              : "Limited Functionality",
           networkType: getNetworkType(rawData[13].response) || "No Signal",
           modemTemperature:
             getModemTemperature(rawData[11].response) || "Unknown",

@@ -82,7 +82,7 @@ const useDataConnectionState = () => {
       
       if (pingActive) {
         // If ping monitoring is active, show monitoring status and stop further automatic refreshes
-        setDataConnectionState("Ping Active");
+        setDataConnectionState("Connected");
         setIsStateLoading(false);
         
         // Clear the interval to stop automatic refreshes
