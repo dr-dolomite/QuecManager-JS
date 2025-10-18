@@ -34,11 +34,11 @@ const BandsAccordionComponent = ({ bands, isLoading }: BandsAccordionProps) => {
   };
 
   // Helper function to format band name for display
-//   const formatBandName = (bandNumber: string): string => {
-//     return bandNumber
-//       .replace("LTE BAND ", "LTE B")
-//       .replace("NR5G BAND ", "NR N");
-//   };
+  //   const formatBandName = (bandNumber: string): string => {
+  //     return bandNumber
+  //       .replace("LTE BAND ", "LTE B")
+  //       .replace("NR5G BAND ", "NR N");
+  //   };
 
   // Helper function to check if band is 5G
   const isNR5G = (bandNumber: string): boolean => {
@@ -48,10 +48,10 @@ const BandsAccordionComponent = ({ bands, isLoading }: BandsAccordionProps) => {
   // Sort bands: LTE first, then NR5G
   const sortedBands = React.useMemo(() => {
     if (!bands) return [];
-    
-    const lteBands = bands.filter(band => !isNR5G(band.bandNumber));
-    const nrBands = bands.filter(band => isNR5G(band.bandNumber));
-    
+
+    const lteBands = bands.filter((band) => !isNR5G(band.bandNumber));
+    const nrBands = bands.filter((band) => isNR5G(band.bandNumber));
+
     return [...lteBands, ...nrBands];
   }, [bands]);
   return (
@@ -59,7 +59,7 @@ const BandsAccordionComponent = ({ bands, isLoading }: BandsAccordionProps) => {
       <CardHeader>
         <CardTitle>Active Bands</CardTitle>
         <CardDescription>
-            View detailed information about each active band on your device
+          Detailed information about the currently active network bands
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -85,16 +85,32 @@ const BandsAccordionComponent = ({ bands, isLoading }: BandsAccordionProps) => {
               const rsrqValue = parseInt(band.rsrq);
               const sinrValue = parseInt(band.sinr);
 
-              const rsrpPercentage = calculateSignalPercentage("rsrp", rsrpValue);
-              const rsrqPercentage = calculateSignalPercentage("rsrq", rsrqValue);
-              const sinrPercentage = calculateSignalPercentage("sinr", sinrValue);
+              const rsrpPercentage = calculateSignalPercentage(
+                "rsrp",
+                rsrpValue
+              );
+              const rsrqPercentage = calculateSignalPercentage(
+                "rsrq",
+                rsrqValue
+              );
+              const sinrPercentage = calculateSignalPercentage(
+                "sinr",
+                sinrValue
+              );
 
               return (
                 <AccordionItem key={band.id} value={`item-${band.id}`}>
                   <AccordionTrigger className="font-bold">
                     <div className="flex items-center gap-2">
                       {/* {formatBandName(band.bandNumber)} */}
-                        {band.bandNumber}
+                      <Badge className={`text-xs rounded-full ${
+                        isNR5G(band.bandNumber)
+                          ? "bg-blue-600 hover:bg-blue-800"
+                          : "bg-orange-600 hover:bg-orange-800"
+                      }`}>
+                        {isNR5G(band.bandNumber) ? "NR" : "LTE"}
+                      </Badge>
+                      <p className="font-bold">{band.bandNumber}</p>
                     </div>
                   </AccordionTrigger>
                   <AccordionContent className="grid gap-2 text-balance">

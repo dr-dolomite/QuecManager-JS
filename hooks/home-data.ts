@@ -905,7 +905,7 @@ const getMimoLayers = (response: string): string => {
   ).length;
   // Determine MIMO layers
   return lteRSRPCount && nr5gRSRPCount
-    ? `LTE ${lteRSRPCount} /  NR ${nr5gRSRPCount}`
+    ? `LTE ${lteRSRPCount} |  NR ${nr5gRSRPCount}`
     : lteRSRPCount
     ? ` LTE ${lteRSRPCount}`
     : nr5gRSRPCount

@@ -560,6 +560,8 @@ const HomePage = () => {
             bytesSent={bytesSent}
             bytesReceived={bytesReceived}
             hideSensitiveData={hideSensitiveData}
+            bands={bands}
+            onDataRefresh={refreshData}
           />
           <BandsAccordionComponent bands={bands} isLoading={isLoading} />
           {/* <SimCard

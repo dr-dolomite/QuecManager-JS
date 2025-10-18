@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import {
   Card,
   CardContent,
@@ -7,7 +10,23 @@ import {
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { CircleArrowDownIcon, CircleArrowUpIcon, Info } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  ArrowLeftRightIcon,
+  CircleArrowDownIcon,
+  CircleArrowUpIcon,
+  Info,
+  Loader2,
+  Repeat2Icon,
+} from "lucide-react";
 import {
   HiOutlineStatusOnline,
   HiOutlineStatusOffline,
@@ -21,8 +40,10 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { Separator } from "../ui/separator";
-import { HomeData } from "@/types/types";
+import { HomeData, Band } from "@/types/types";
 import { getAccessTech } from "@/constants/home/index";
+import { atCommandSender } from "@/utils/at-command";
+import { useToast } from "@/hooks/use-toast";
 
 interface SummaryCardProps {
   data: HomeData | null;
@@ -32,6 +53,8 @@ interface SummaryCardProps {
   bytesSent: string;
   bytesReceived: string;
   hideSensitiveData: boolean;
+  bands: Band[] | null;
+  onDataRefresh?: () => void;
 }
 
 const SummaryCardComponent = ({
@@ -42,7 +65,13 @@ const SummaryCardComponent = ({
   bytesSent,
   bytesReceived,
   hideSensitiveData,
+  bands,
+  onDataRefresh,
 }: SummaryCardProps) => {
+  const { toast } = useToast();
+  const [isSwappingDialog, setIsSwappingDialog] = useState(false);
+  const [isSwapping, setIsSwapping] = useState(false);
+
   // Calculate temperature progress (0-100°C scale)
   const getTemperatureProgress = (temp: string | undefined): number => {
     if (!temp) return 0;
@@ -63,6 +92,102 @@ const SummaryCardComponent = ({
   const isOperatorConnected = (operatorState: string | undefined): boolean => {
     return operatorState === "Registered" || operatorState === "Roaming";
   };
+
+  // Calculate total bandwidth from all active bands
+  const calculateTotalBandwidth = (): string => {
+    if (!bands || bands.length === 0) return "N/A";
+
+    let totalMHz = 0;
+    bands.forEach((band) => {
+      const bandwidthStr = band.bandwidth;
+      // Extract numeric value from bandwidth string (e.g., "20 MHz" -> 20)
+      const match = bandwidthStr.match(/(\d+(\.\d+)?)/);
+      if (match) {
+        totalMHz += parseFloat(match[1]);
+      }
+    });
+
+    return `${totalMHz} MHz`;
+  };
+
+  // Handle SIM slot switching
+  const handleSimSwap = async () => {
+    setIsSwapping(true);
+
+    try {
+      // Step 1: Get current SIM slot
+      const currentSlotResponse = await atCommandSender("AT+QUIMSLOT?");
+
+      if (currentSlotResponse.status !== "success") {
+        throw new Error("Failed to get current SIM slot");
+      }
+
+      // Extract slot number from response
+      // Response format: +QUIMSLOT: 1 or +QUIMSLOT: 2
+      const slotMatch =
+        currentSlotResponse.response.match(/\+QUIMSLOT:\s*(\d+)/);
+
+      if (!slotMatch) {
+        throw new Error("Could not determine current SIM slot");
+      }
+
+      const currentSlot = parseInt(slotMatch[1]);
+      const newSlot = currentSlot === 1 ? 2 : 1;
+
+      toast({
+        title: "Switching SIM Slot",
+        description: `Switching from SIM ${currentSlot} to SIM ${newSlot}...`,
+      });
+
+      // Step 2: Switch to the other slot
+      const switchCommand = `AT+QUIMSLOT=${newSlot}`;
+      const switchResponse = await atCommandSender(switchCommand);
+
+      if (switchResponse.status !== "success") {
+        throw new Error("Failed to switch SIM slot");
+      }
+
+      toast({
+        title: "SIM Slot Switched",
+        description: `Successfully switched to SIM ${newSlot}. Reconnecting to network...`,
+      });
+
+      // Step 3: Wait 3 seconds then disconnect from network
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+
+      await atCommandSender("AT+COPS=2");
+
+      // Step 4: Wait 2 seconds then reconnect to network
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+
+      await atCommandSender("AT+COPS=0");
+
+      toast({
+        title: "Network Reconnected",
+        description: "The device has been reconnected to the network",
+      });
+
+      // Step 5: Refresh data after 3 seconds
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+
+      if (onDataRefresh) {
+        onDataRefresh();
+      }
+
+      setIsSwappingDialog(false);
+    } catch (error) {
+      console.error("Error swapping SIM slot:", error);
+      toast({
+        variant: "destructive",
+        title: "SIM Swap Failed",
+        description:
+          error instanceof Error ? error.message : "Failed to swap SIM slot",
+      });
+    } finally {
+      setIsSwapping(false);
+    }
+  };
+
   return (
     <Card className="h-full">
       <CardHeader>
@@ -127,11 +252,7 @@ const SummaryCardComponent = ({
             <div className="flex items-center gap-x-1">
               <Tooltip>
                 <TooltipTrigger>
-                  {data?.connection.functionalityState == "Full Functionality" ? (
-                    <HiOutlineStatusOnline className="w-5 h-5 mr-0.5 text-green-500" />
-                  ) : (
-                    <HiOutlineStatusOffline className="w-5 h-5 mr-0.5 text-red-500" />
-                  )}
+                  <Info className="w-4 h-4 mr-0.5" />
                 </TooltipTrigger>
                 <TooltipContent>
                   <p>{data?.connection.functionalityState}</p>
@@ -150,8 +271,25 @@ const SummaryCardComponent = ({
           {isLoading ? (
             <Skeleton className="h-4 w-[50px]" />
           ) : (
-            <div className="flex items-center">
-              <HiOutlineSwitchHorizontal className="w-4 h-4 mr-1" />
+            <div className="flex items-center gap-x-1">
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 p-0"
+                      onClick={() => setIsSwappingDialog(true)}
+                      disabled={isSwapping}
+                    >
+                      <ArrowLeftRightIcon className="w-4 h-4 text-blue-500 hover:text-blue-700 cursor-pointer" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Switch SIM Slot</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
               <p className="font-bold">SIM {data?.simCard.slot}</p>
             </div>
           )}
@@ -294,19 +432,31 @@ const SummaryCardComponent = ({
 
         <Separator className="my-1 w-full" />
 
+        {/* Total Current Bandwidth */}
+        <div className="flex items-center justify-between">
+          <p>Total Current Bandwidth</p>
+          {isLoading ? (
+            <Skeleton className="h-4 w-[140px]" />
+          ) : (
+            <p className="font-bold">{calculateTotalBandwidth()}</p>
+          )}
+        </div>
+
         {/* Carrier Aggregation */}
         <div className="flex items-center justify-between">
           <p>Carrier Aggregation</p>
           {isLoading ? (
             <Skeleton className="h-4 w-[140px]" />
           ) : (
-            <p className="font-bold">{data?.dataTransmission.carrierAggregation}</p>
+            <p className="font-bold">
+              {data?.dataTransmission.carrierAggregation}
+            </p>
           )}
         </div>
 
         {/* MIMO Layers */}
         <div className="flex items-center justify-between">
-          <p>Active MIMO</p>
+          <p>Active MIMO Layers</p>
           {isLoading ? (
             <Skeleton className="h-4 w-[140px]" />
           ) : (
@@ -314,6 +464,57 @@ const SummaryCardComponent = ({
           )}
         </div>
       </CardContent>
+
+      {/* SIM Swap Confirmation Dialog */}
+      <Dialog open={isSwappingDialog} onOpenChange={setIsSwappingDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Switch SIM Slot</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to switch to{" "}
+              {data?.simCard.slot === "1" ? "SIM 2" : "SIM 1"}?
+            </DialogDescription>
+          </DialogHeader>
+          {/* <div className="space-y-4 py-4"> */}
+          {/* <div className="rounded-lg bg-muted p-4">
+              <p className="text-sm">
+                <strong>Current SIM:</strong> SIM {data?.simCard.slot}
+              </p>
+              <p className="text-sm mt-2">
+                <strong>Switch to:</strong> SIM{" "}
+                {data?.simCard.slot === "1" ? "2" : "1"}
+              </p>
+            </div> */}
+          <div className="rounded-lg bg-yellow-500/10 border border-yellow-500/20 p-4">
+            <p className="text-sm text-yellow-700 dark:text-yellow-500 text-pretty text-center">
+              The device will disconnect and reconnect to the network. This
+              process may take up to 10 seconds.
+            </p>
+            {/* </div> */}
+          </div>
+          <DialogFooter className="flex-row gap-2 sm:justify-between">
+            <Button
+              variant="secondary"
+              onClick={() => setIsSwappingDialog(false)}
+              disabled={isSwapping}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSimSwap}
+              disabled={isSwapping}
+              className="gap-2"
+            >
+              {isSwapping ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Repeat2Icon className="w-4 h-4" />
+              )}
+              {isSwapping ? "Switching..." : "Confirm Switch"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 };
