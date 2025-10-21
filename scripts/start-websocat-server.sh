@@ -2,6 +2,7 @@
 
 # Improved websocat server for bandwidth monitoring with error handling
 # This script provides a more robust websocat server setup
+# TODO: This needs to be tested setup as a service to start automagically on boot
 
 LOG_FILE="/tmp/websocat-$(date +%Y%m%d-%H%M%S).log"
 PID_FILE="/tmp/websocat.pid"
