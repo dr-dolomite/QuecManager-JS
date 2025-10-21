@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { BandwidthData, BandwidthDataPoint, BandwidthHistoryData } from '@/types/types';
+import { BandwidthData, BandwidthDataPoint, BandwidthHistoryData, MultiInterfaceBandwidthData, NetworkInterfaceData } from '@/types/types';
 
 interface UseBandwidthMonitorReturn {
     historyData: BandwidthHistoryData | null;
@@ -56,6 +56,65 @@ export const useBandwidthMonitor = (): UseBandwidthMonitorReturn => {
         const sizes = ["bps", "Kbps", "Mbps", "Gbps"];
         const i = Math.floor(Math.log(bitsPerSecond) / Math.log(k));
         return parseFloat((bitsPerSecond / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+    }, []);
+
+    /**
+     * Selects the primary cellular interface from the interfaces array.
+     * Priority order:
+     * 1. rmnet_data1 (state: up) - Primary data interface
+     * 2. rmnet_ipa0 (state: up) - IPA offload interface
+     * 3. First interface with state: up
+     * 4. null if no suitable interface found
+     */
+    const selectPrimaryCellularInterface = useCallback((interfaces: NetworkInterfaceData[]): NetworkInterfaceData | null => {
+        // Priority 1: rmnet_data1 (up)
+        const rmnetData1 = interfaces.find(iface => iface.name === 'rmnet_data1' && iface.state === 'up');
+        if (rmnetData1) return rmnetData1;
+
+        // Priority 2: rmnet_ipa0 (up)
+        const rmnetIpa0 = interfaces.find(iface => iface.name === 'rmnet_ipa0' && iface.state === 'up');
+        if (rmnetIpa0) return rmnetIpa0;
+
+        // Priority 3: Any cellular interface that's up
+        const anyCellular = interfaces.find(iface => 
+            (iface.name.startsWith('rmnet_') || iface.name.includes('wwan')) && iface.state === 'up'
+        );
+        if (anyCellular) return anyCellular;
+
+        // Priority 4: First interface that's up (fallback)
+        const anyUp = interfaces.find(iface => iface.state === 'up');
+        return anyUp || null;
+    }, []);
+
+    /**
+     * Converts various timestamp formats to ISO 8601 string.
+     * Supports:
+     * - Unix timestamp (number in seconds): 20183.429689
+     * - String format: "2025-10-21 14:27:49"
+     * - ISO 8601 string: "2025-10-21T14:27:49Z"
+     */
+    const convertTimestampToISO = useCallback((timestamp: number | string): string => {
+        if (typeof timestamp === 'number') {
+            // Unix timestamp in seconds - convert to milliseconds
+            return new Date(timestamp * 1000).toISOString();
+        } else if (typeof timestamp === 'string') {
+            // Try to parse as string date
+            // Handle format: "2025-10-21 14:27:49" (space instead of T)
+            const normalizedTimestamp = timestamp.replace(' ', 'T');
+            const date = new Date(normalizedTimestamp);
+            
+            // Check if valid date
+            if (isNaN(date.getTime())) {
+                console.warn('Invalid timestamp string:', timestamp, '- using current time');
+                return new Date().toISOString();
+            }
+            
+            return date.toISOString();
+        }
+        
+        // Fallback to current time
+        console.warn('Unknown timestamp format:', timestamp, '- using current time');
+        return new Date().toISOString();
     }, []);
 
     const addDataPoint = useCallback((downloadBytesPerSec: number, uploadBytesPerSec: number, timestamp: string) => {
@@ -169,13 +228,39 @@ export const useBandwidthMonitor = (): UseBandwidthMonitorReturn => {
                     // Try to parse as JSON (bandwidth data)
                     try {
                         const data = JSON.parse(message);
-                        console.log('data', data);
-                        // Check if it's bandwidth data
-                        if (data.download !== undefined && data.upload !== undefined) {
+                        console.log('Received WebSocket data:', data);
+
+                        // NEW FORMAT: Multi-interface bandwidth data
+                        if (data.interfaces && Array.isArray(data.interfaces)) {
+                            const multiInterfaceData = data as MultiInterfaceBandwidthData;
+                            
+                            // Select the primary cellular interface
+                            const primaryInterface = selectPrimaryCellularInterface(multiInterfaceData.interfaces);
+                            
+                            if (primaryInterface) {
+                                // Extract bps (bits per second) values - already in bits!
+                                const downloadBps = primaryInterface.rx.bps;
+                                const uploadBps = primaryInterface.tx.bps;
+                                
+                                // Convert timestamp to ISO string (handles both numeric and string formats)
+                                const timestamp = convertTimestampToISO(multiInterfaceData.timestamp);
+                                
+                                console.log(`Selected interface: ${primaryInterface.name}, Download: ${downloadBps} bps, Upload: ${uploadBps} bps`);
+                                
+                                // addDataPoint expects bytes/sec, but we have bps, so divide by 8
+                                addDataPoint(downloadBps / 8, uploadBps / 8, timestamp);
+                            } else {
+                                console.warn('No suitable active interface found in data');
+                            }
+                        }
+                        // LEGACY FORMAT 1: Simple download/upload format
+                        else if (data.download !== undefined && data.upload !== undefined) {
                             // Generate timestamp if not provided
                             const timestamp = data.timestamp || new Date().toISOString();
                             addDataPoint(data.downloadSpeed, data.uploadSpeed, timestamp);
-                        } else if (data.type === 'bandwidth' && data.data) {
+                        }
+                        // LEGACY FORMAT 2: Wrapped format
+                        else if (data.type === 'bandwidth' && data.data) {
                             // Handle wrapped format
                             const bandwidth = data.data as BandwidthData;
                             addDataPoint(bandwidth.downloadSpeed, bandwidth.uploadSpeed, bandwidth.timestamp);
@@ -266,7 +351,7 @@ export const useBandwidthMonitor = (): UseBandwidthMonitorReturn => {
             setError('Failed to establish connection');
             setConnectionStatus('Failed');
         }
-    }, [addDataPoint]); // Removed reconnectAttempts and maxReconnectAttempts from dependencies
+    }, [addDataPoint, selectPrimaryCellularInterface, convertTimestampToISO]); // Added new helper functions to dependencies
 
     const disconnect = useCallback(() => {
         if (reconnectTimeoutRef.current) {

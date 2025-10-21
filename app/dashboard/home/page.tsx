@@ -54,7 +54,7 @@ import { atCommandSender } from "@/utils/at-command";
 import NetworkInfoCard from "@/components/home/network-info-card";
 import ApproxDistanceCard from "@/components/home/approx-distance-card";
 import WebSocketComponent from "@/components/home/websocket";
-import BandwidthMonitorCard from "@/components/home/bandwidth-monitor-card";
+// import BandwidthMonitorCard from "@/components/home/bandwidth-monitor-card";
 import BandwidthMonitorCompactCard from "@/components/home/bandwidth-monitor-compact-card";
 
 interface newBands {
@@ -441,9 +441,9 @@ const HomePage = () => {
           <div>
             <SignalChart />
           </div>
-          <div>
+          {/* <div>
             <BandwidthMonitorCard />
-          </div>
+          </div> */}
           {/* <div><WebSocketComponent /></div> */}
           <div className="grid gap-2 lg:grid-cols-2 grid-cols-1 grid-flow-row">
             {/* <EthernetCard /> */}

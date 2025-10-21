@@ -36,7 +36,7 @@ fi
 
 # Kill any existing websocat processes on this port
 echo "Checking for existing websocat processes on port $PORT..."
-existing_pid=$(lsof -ti:$PORT)
+existing_pid=$(netstat -tunlp 2>/dev/null | awk -v port=":$PORT" '$4 ~ port {split($7,a,"/"); print a[1]}' | head -n1)
 if [ -n "$existing_pid" ]; then
     echo "Killing existing process $existing_pid on port $PORT"
     kill -9 "$existing_pid" 2>/dev/null
@@ -85,15 +85,16 @@ while kill -0 "$WEBSOCAT_PID" 2>/dev/null; do
     # Show connection count every 30 seconds
     conn_count=$(netstat -an 2>/dev/null | grep ":$PORT.*ESTABLISHED" | wc -l)
     echo "[$(date '+%H:%M:%S')] Active connections: $conn_count"
-    
+
     # Check log for errors
     if tail -n 5 "$LOG_FILE" | grep -i "error\|fail" > /dev/null; then
         echo "⚠️  Recent errors detected in log:"
         tail -n 3 "$LOG_FILE" | grep -i "error\|fail"
     fi
-    
+
     sleep 30
 done
-
+# wait $WEBSOCAT_PID
+cleanup
 echo "websocat server stopped"
 cleanup

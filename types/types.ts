@@ -412,3 +412,24 @@ export interface WebSocketBandwidthMessage {
   type: 'bandwidth' | 'error' | 'status';
   data: BandwidthData | string;
 }
+
+// New multi-interface bandwidth monitoring types
+export interface InterfaceTrafficStats {
+  bytes_total: number;
+  packets_total: number;
+  bps: number; // bits per second
+  packets_per_sec: number;
+}
+
+export interface NetworkInterfaceData {
+  name: string;
+  state: 'up' | 'down';
+  rx: InterfaceTrafficStats;
+  tx: InterfaceTrafficStats;
+}
+
+export interface MultiInterfaceBandwidthData {
+  timestamp: number | string; // Unix timestamp in seconds or string format "YYYY-MM-DD HH:MM:SS"
+  interval_seconds: number;
+  interfaces: NetworkInterfaceData[];
+}
