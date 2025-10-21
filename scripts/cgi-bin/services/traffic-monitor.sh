@@ -56,7 +56,7 @@ write_pid() {
 # Cleanup function
 cleanup() { 
     rm -f "$PID_FILE" 2>/dev/null || true
-    log "Memory daemon stopped"
+    log "Traffic daemon stopped"
 }
 
 # Create default config if none exists
