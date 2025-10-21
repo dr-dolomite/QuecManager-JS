@@ -39,6 +39,9 @@ max_retries=$(extract_json_value "maxRetries" "5")
 connection_refresh=$(extract_json_value "connectionRefresh" "false")
 auto_sim_failover=$(extract_json_value "autoSimFailover" "false")
 sim_failover_schedule=$(extract_json_value "simFailoverSchedule" "0")
+high_latency_monitoring=$(extract_json_value "highLatencyMonitoring" "false")
+latency_ceiling=$(extract_json_value "latencyCeiling" "150")
+latency_failures=$(extract_json_value "latencyFailures" "3")
 
 # Validate numeric values
 validate_number() {
@@ -74,8 +77,11 @@ validate_number "$ping_interval" 5 3600 "Ping interval"
 validate_number "$ping_failures" 1 10 "Ping failures"
 validate_number "$max_retries" 1 20 "Max retries"
 validate_number "$sim_failover_schedule" 0 1440 "SIM failover schedule"
+validate_number "$latency_ceiling" 10 5000 "Latency ceiling"
+validate_number "$latency_failures" 1 10 "Latency failures"
 validate_boolean "$connection_refresh" "Connection refresh"
 validate_boolean "$auto_sim_failover" "Auto SIM failover"
+validate_boolean "$high_latency_monitoring" "High latency monitoring"
 
 # Function to setup UCI configuration
 setup_uci_config() {
@@ -97,6 +103,9 @@ setup_uci_config() {
     uci set quecmanager.quecwatch.refresh_count='3'
     uci set quecmanager.quecwatch.auto_sim_failover="$auto_sim_failover"
     uci set quecmanager.quecwatch.sim_failover_schedule="$sim_failover_schedule"
+    uci set quecmanager.quecwatch.high_latency_monitoring="$high_latency_monitoring"
+    uci set quecmanager.quecwatch.latency_ceiling="$latency_ceiling"
+    uci set quecmanager.quecwatch.latency_failures="$latency_failures"
     
     # Commit changes
     if ! uci commit quecmanager; then

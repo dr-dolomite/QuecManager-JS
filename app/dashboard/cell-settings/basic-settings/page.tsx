@@ -364,21 +364,14 @@ const BasicSettings = () => {
       console.log("Executing AT command:", command);
       const response = await atCommandSender(command);
 
-      if (response.status === "error") {
-        throw new Error(response.status || "Command execution failed");
-      }
-
-      if (
-        response.response?.status === "error" ||
-        response.response?.status === "timeout"
-      ) {
+      if (response.status === "error" || response.status === "timeout") {
         throw new Error(
-          response.response.raw_output ||
-            `Command execution ${response.response.status}`
+          response.response ||
+            `Command execution ${response.status}`
         );
       }
 
-      return response.response?.status === "success";
+      return response.status === "success";
     } catch (error) {
       console.error("AT command execution error:", error);
       throw error;
@@ -772,39 +765,41 @@ const BasicSettings = () => {
                 ) : (
                   <TooltipProvider>
                     <Tooltip>
-                      <TooltipTrigger>
-                        <Select
-                          value={formData.selectedMbnProfile || "0"}
-                          onValueChange={(value) =>
-                            handleFieldChange("selectedMbnProfile", value)
-                          }
-                          disabled={isLoading || formData.autoSelState === "1"}
-                        >
-                          <SelectTrigger
-                            className={
-                              formData.autoSelState === "1"
-                                ? "bg-muted cursor-not-allowed"
-                                : ""
+                      <TooltipTrigger asChild>
+                        <div className="w-full">
+                          <Select
+                            value={formData.selectedMbnProfile || "0"}
+                            onValueChange={(value) =>
+                              handleFieldChange("selectedMbnProfile", value)
                             }
+                            disabled={isLoading || formData.autoSelState === "1"}
                           >
-                            <SelectValue placeholder="Select MBN Profile" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectGroup>
-                              <SelectLabel>Available MBN Profiles</SelectLabel>
-                              {formData.mbnProfilesList?.map(
-                                (profile, index) => (
-                                  <SelectItem
-                                    key={`profile-${index}`}
-                                    value={String(index)}
-                                  >
-                                    {profile}
-                                  </SelectItem>
-                                )
-                              )}
-                            </SelectGroup>
-                          </SelectContent>
-                        </Select>
+                            <SelectTrigger
+                              className={
+                                formData.autoSelState === "1"
+                                  ? "bg-muted cursor-not-allowed"
+                                  : ""
+                              }
+                            >
+                              <SelectValue placeholder="Select MBN Profile" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectGroup>
+                                <SelectLabel>Available MBN Profiles</SelectLabel>
+                                {formData.mbnProfilesList?.map(
+                                  (profile, index) => (
+                                    <SelectItem
+                                      key={`profile-${index}`}
+                                      value={String(index)}
+                                    >
+                                      {profile}
+                                    </SelectItem>
+                                  )
+                                )}
+                              </SelectGroup>
+                            </SelectContent>
+                          </Select>
+                        </div>
                       </TooltipTrigger>
                       <TooltipContent>
                         <p>
@@ -817,7 +812,7 @@ const BasicSettings = () => {
                 )}
               </div>
 
-              <Separator className="col-span-2 my-2" />
+              <Separator className="lg:col-span-2 col-span-1 my-2" />
 
               <div className="grid w-full max-w-sm items-center gap-2">
                 <Label>
@@ -876,7 +871,7 @@ const BasicSettings = () => {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectGroup>
-                        <SelectLabel>Preferred Network Type</SelectLabel>
+                        <SelectLabel>Select Network Mode</SelectLabel>
                         <SelectItem value="AUTO">Automatic</SelectItem>
                         <SelectItem value="LTE">LTE Only</SelectItem>
                         <SelectItem value="LTE:NR5G">NR5G-NSA</SelectItem>

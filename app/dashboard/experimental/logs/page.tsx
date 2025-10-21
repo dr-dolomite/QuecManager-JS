@@ -5,6 +5,7 @@ import {
   Card,
   CardContent,
   CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -62,6 +63,7 @@ const LogsPage = () => {
   const [selectedLevel, setSelectedLevel] = useState<string>("all");
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [maxLines, setMaxLines] = useState<string>("100");
+  const [sortOrder, setSortOrder] = useState<string>("newest-first");
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [totalLogs, setTotalLogs] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(false);
@@ -145,6 +147,12 @@ const LogsPage = () => {
           );
         }
 
+        // Apply sort order
+        if (sortOrder === "newest-first") {
+          filteredLogs = filteredLogs.reverse();
+        }
+        // If sortOrder === "oldest-first", keep the original order (no reverse needed)
+
         setLogs(filteredLogs);
         setTotalLogs(data.total || 0);
         setLastRefresh(new Date());
@@ -157,7 +165,7 @@ const LogsPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [selectedCategory, selectedScript, selectedLevel, searchTerm, maxLines]);
+  }, [selectedCategory, selectedScript, selectedLevel, searchTerm, maxLines, sortOrder]);
 
   // Auto-refresh functionality
   const [autoRefresh, setAutoRefresh] = useState<boolean>(false);
@@ -200,29 +208,31 @@ const LogsPage = () => {
   const getLevelBadgeProps = (level: string) => {
     switch (level.toUpperCase()) {
       case "ERROR":
-        return { 
+        return {
           variant: "destructive" as const,
-          className: "bg-red-500 hover:bg-red-600 text-white border-red-500"
+          className: "bg-red-500 hover:bg-red-600 text-white border-red-500",
         };
       case "WARN":
-        return { 
+        return {
           variant: "secondary" as const,
-          className: "bg-orange-500 hover:bg-orange-600 text-white border-orange-500"
+          className:
+            "bg-orange-500 hover:bg-orange-600 text-white border-orange-500",
         };
       case "INFO":
-        return { 
+        return {
           variant: "default" as const,
-          className: "bg-blue-500 hover:bg-blue-600 text-white border-blue-500"
+          className: "bg-blue-500 hover:bg-blue-600 text-white border-blue-500",
         };
       case "DEBUG":
-        return { 
+        return {
           variant: "outline" as const,
-          className: "bg-green-500 hover:bg-green-600 text-white border-green-500"
+          className:
+            "bg-green-500 hover:bg-green-600 text-white border-green-500",
         };
       default:
-        return { 
+        return {
           variant: "default" as const,
-          className: "bg-gray-500 hover:bg-gray-600 text-white border-gray-500"
+          className: "bg-gray-500 hover:bg-gray-600 text-white border-gray-500",
         };
     }
   };
@@ -318,8 +328,8 @@ const LogsPage = () => {
             </div>
           </div>
 
-          {/* Second row - Level and Lines */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Second row - Level, Lines, Sort Order, and Search */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="space-y-2">
               <Label htmlFor="level">Log Level</Label>
               <Select value={selectedLevel} onValueChange={setSelectedLevel}>
@@ -347,6 +357,19 @@ const LogsPage = () => {
                   <SelectItem value="100">100 lines</SelectItem>
                   <SelectItem value="200">200 lines</SelectItem>
                   <SelectItem value="500">500 lines</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="sortOrder">Sort Order</Label>
+              <Select value={sortOrder} onValueChange={setSortOrder}>
+                <SelectTrigger id="sortOrder">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="newest-first">Newest First</SelectItem>
+                  <SelectItem value="oldest-first">Oldest First</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -426,27 +449,18 @@ const LogsPage = () => {
       {/* Log Display */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>Log Entries</CardTitle>
-              <CardDescription>
-                {selectedScript ? (
-                  <>
-                    Showing {logs.length} of {totalLogs} entries from{" "}
-                    {selectedScript}
-                    {searchTerm && ` (filtered by "${searchTerm}")`}
-                  </>
-                ) : (
-                  "Select a category and script to view logs"
-                )}
-              </CardDescription>
-            </div>
-            {lastRefresh && (
-              <div className="text-sm text-muted-foreground">
-                Last updated: {lastRefresh.toLocaleTimeString()}
-              </div>
+          <CardTitle>Log Entries</CardTitle>
+          <CardDescription>
+            {selectedScript ? (
+              <>
+                Showing {logs.length} of {totalLogs} entries from{" "}
+                {selectedScript} ({sortOrder === "newest-first" ? "newest first" : "oldest first"})
+                {searchTerm && ` (filtered by "${searchTerm}")`}
+              </>
+            ) : (
+              "Select a category and script to view logs"
             )}
-          </div>
+          </CardDescription>
         </CardHeader>
         <CardContent>
           {selectedScript ? (
@@ -467,7 +481,9 @@ const LogsPage = () => {
                         {getLevelIcon(log.level)}
                         <Badge
                           {...getLevelBadgeProps(log.level)}
-                          className={`text-xs ${getLevelBadgeProps(log.level).className}`}
+                          className={`text-xs ${
+                            getLevelBadgeProps(log.level).className
+                          }`}
                         >
                           {log.level}
                         </Badge>
@@ -497,6 +513,13 @@ const LogsPage = () => {
             </div>
           )}
         </CardContent>
+        <CardFooter>
+          {lastRefresh && (
+            <div className="text-sm text-muted-foreground">
+              Last updated: {lastRefresh.toLocaleTimeString()}
+            </div>
+          )}
+        </CardFooter>
       </Card>
     </div>
   );

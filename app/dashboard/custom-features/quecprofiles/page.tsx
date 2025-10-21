@@ -68,6 +68,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { InfoCircledIcon } from "@radix-ui/react-icons";
+import confetti from "canvas-confetti";
 
 // Updated Type definitions for our profile data
 interface Profile {
@@ -119,7 +120,11 @@ const QuecProfilesPage = () => {
   const [lastToastStatus, setLastToastStatus] = useState<string>("");
   // New state for fetching ICCID and IMEI
   const [fetchingDeviceInfo, setFetchingDeviceInfo] = useState(false);
-  const [deviceInfo, setDeviceInfo] = useState({ iccid: "", imei: "" });
+  const [deviceInfo, setDeviceInfo] = useState({
+    iccid: "",
+    imei: "",
+    simSlot: "",
+  });
 
   // Form state with fields
   const [formData, setFormData] = useState<Profile>({
@@ -168,6 +173,7 @@ const QuecProfilesPage = () => {
 
       let iccid = "";
       let imei = "";
+      let simSlot = "";
 
       // Extract ICCID from AT+ICCID response
       const iccidResponse = data.find((item) => item.command === "AT+ICCID");
@@ -189,10 +195,29 @@ const QuecProfilesPage = () => {
         }
       }
 
-      console.log("Extracted device info - ICCID:", iccid, "IMEI:", imei);
+      // Extract SIM slot from AT+QUIMSLOT? response
+      const simSlotResponse = data.find(
+        (item) => item.command === "AT+QUIMSLOT?"
+      );
+      if (simSlotResponse && simSlotResponse.status === "success") {
+        // Response format: +QUIMSLOT: 1 or +QUIMSLOT: 2
+        const match = simSlotResponse.response.match(/\+QUIMSLOT:\s*(\d+)/);
+        if (match) {
+          simSlot = match[1];
+        }
+      }
+
+      console.log(
+        "Extracted device info - ICCID:",
+        iccid,
+        "IMEI:",
+        imei,
+        "SIM Slot:",
+        simSlot
+      );
 
       // Update state and also immediately set values in form data
-      setDeviceInfo({ iccid, imei });
+      setDeviceInfo({ iccid, imei, simSlot });
 
       // Directly update the form with the fetched values
       setFormData((prev) => ({
@@ -368,6 +393,9 @@ const QuecProfilesPage = () => {
   const handleOpenCreateDialog = () => {
     setModalMode("create");
     setErrorMessage(null);
+
+    // Fetch latest device info including SIM slot
+    fetchDeviceInfo();
 
     // Reset form with empty values except for device info
     setFormData({
@@ -739,6 +767,35 @@ const QuecProfilesPage = () => {
     }
   };
 
+  const handleConfettiClick = () => {
+    const duration = 3 * 1000;
+    const animationEnd = Date.now() + duration;
+    const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 0 };
+
+    const randomInRange = (min: number, max: number) =>
+      Math.random() * (max - min) + min;
+
+    const interval = window.setInterval(() => {
+      const timeLeft = animationEnd - Date.now();
+
+      if (timeLeft <= 0) {
+        return clearInterval(interval);
+      }
+
+      const particleCount = 50 * (timeLeft / duration);
+      confetti({
+        ...defaults,
+        particleCount,
+        origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 },
+      });
+      confetti({
+        ...defaults,
+        particleCount,
+        origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 },
+      });
+    }, 250);
+  };
+
   // Function to show edit modal with profile data
   const handleEditClick = (profile: Profile) => {
     setModalMode("edit");
@@ -906,16 +963,16 @@ const QuecProfilesPage = () => {
                   Add New Profile
                 </Button>
               </DialogTrigger>
-              <DialogContent>
+              <DialogContent className="xl:max-w-xl">
                 <DialogHeader>
                   <DialogTitle>
                     {modalMode === "create"
-                      ? "Add New Profile"
+                      ? `Add New Profile for SIM ${deviceInfo.simSlot || "?"}`
                       : "Edit Profile"}
                   </DialogTitle>
                   <DialogDescription>
                     {modalMode === "create"
-                      ? "Create a new profile for your SIM card to manage connectivity settings and network preferences."
+                      ? "Create a new profile for your SIM card."
                       : "Update the settings for this profile."}
                   </DialogDescription>
                 </DialogHeader>
@@ -930,7 +987,9 @@ const QuecProfilesPage = () => {
 
                 <div className="grid grid-cols-2 gap-y-5 gap-x-4 py-4">
                   <div className="col-span-2 grid gap-1.5">
-                    <Label htmlFor="name">Profile Name</Label>
+                    <Label htmlFor="name">
+                      <span className="text-red-500 mr-1">*</span>Profile Name
+                    </Label>
                     <Input
                       id="name"
                       placeholder="My Network Profile"
@@ -940,8 +999,10 @@ const QuecProfilesPage = () => {
                     />
                   </div>
 
-                  <div className="grid gap-1.5">
-                    <Label htmlFor="iccid">ICCID</Label>
+                  <div className="grid gap-1.5 col-span-2 md:col-span-1">
+                    <Label htmlFor="iccid">
+                      <span className="text-red-500 mr-1">*</span>ICCID
+                    </Label>
                     <Input
                       id="iccid"
                       placeholder="SIM ICCID"
@@ -952,7 +1013,7 @@ const QuecProfilesPage = () => {
                     />
                   </div>
 
-                  <div className="grid gap-1.5">
+                  <div className="grid gap-1.5 col-span-2 md:col-span-1">
                     <Label htmlFor="imei">IMEI</Label>
                     <Input
                       id="imei"
@@ -963,7 +1024,9 @@ const QuecProfilesPage = () => {
                   </div>
 
                   <div className="grid gap-1.5">
-                    <Label htmlFor="apn">APN</Label>
+                    <Label htmlFor="apn">
+                      <span className="text-red-500 mr-1">*</span>APN
+                    </Label>
                     <Input
                       id="apn"
                       placeholder="internet"
@@ -1008,7 +1071,7 @@ const QuecProfilesPage = () => {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="col-span-2 grid gap-1.5">
+                  <div className="col-span-2 grid gap-1.5 md:col-span-1">
                     <Label htmlFor="lte_bands">LTE Bands</Label>
                     <div className="grid gap-0.5">
                       <Input
@@ -1023,7 +1086,7 @@ const QuecProfilesPage = () => {
                     </div>
                   </div>
 
-                  <div className="grid gap-1.5">
+                  <div className="grid gap-1.5 col-span-2 md:col-span-1">
                     <Label htmlFor="nsa_nr5g_bands">NR5G-NSA Bands</Label>
                     <div className="grid gap-0.5">
                       <Input
@@ -1038,7 +1101,7 @@ const QuecProfilesPage = () => {
                     </div>
                   </div>
 
-                  <div className="grid gap-1.5">
+                  <div className="grid gap-1.5 col-span-2 md:col-span-1">
                     <Label htmlFor="sa_nr5g_bands">NR5G-SA Bands</Label>
                     <div className="grid gap-0.5">
                       <Input
@@ -1047,9 +1110,9 @@ const QuecProfilesPage = () => {
                         value={formData.sa_nr5g_bands}
                         onChange={handleInputChange}
                       />
-                      <p className="text-xs text-muted-foreground italic">
+                      {/* <p className="text-xs text-muted-foreground italic">
                         Comma-separated list of SA bands.
-                      </p>
+                      </p> */}
                     </div>
                   </div>
 
@@ -1088,17 +1151,46 @@ const QuecProfilesPage = () => {
                       />
                     </div>
                   </div>
-
                 </div>
                 <DialogFooter>
-                  <div className="flex items-center gap-4">
+                  {/* If there are no profiles show Save button with confetti and if there are profiles show regular Save button */}
+                  {profiles.length === 0 ? (
                     <Button
-                      variant="secondary"
-                      onClick={() => setShowModal(false)}
-                      disabled={isSubmitting}
+                      onClick={() => {
+                        if (modalMode === "create") {
+                          createProfile();
+                          handleConfettiClick();
+                        } else {
+                          editProfile();
+                        }
+                      }}
+                      // Disable button while submitting and if required fields are empty
+                      disabled={
+                        isSubmitting ||
+                        !formData.name ||
+                        !formData.iccid ||
+                        !formData.apn
+                      }
                     >
-                      Cancel
+                      {isSubmitting ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          {modalMode === "create"
+                            ? "Creating..."
+                            : "Updating..."}
+                        </>
+                      ) : (
+                        <>
+                          {/* <ConfettiButton> */}
+                          <Save className="h-4 w-4" />
+                          {modalMode === "create"
+                            ? "Save Profile"
+                            : "Update Profile"}
+                          {/* </ConfettiButton> */}
+                        </>
+                      )}
                     </Button>
+                  ) : (
                     <Button
                       onClick={
                         modalMode === "create" ? createProfile : editProfile
@@ -1121,7 +1213,9 @@ const QuecProfilesPage = () => {
                         </>
                       )}
                     </Button>
-                  </div>
+                  )}
+
+                  {/* </div> */}
                 </DialogFooter>
               </DialogContent>
             </Dialog>
@@ -1186,59 +1280,50 @@ const QuecProfilesPage = () => {
                           <PopoverTrigger>
                             <MenuIcon className="h-4 w-4" />
                           </PopoverTrigger>
-                          <PopoverContent className="w-48">
-                            <div className="grid gap-2">
-                              <Button onClick={() => handleEditClick(profile)}>
-                                <PencilLine className="h-4 w-4" />
-                                Edit Profile
-                              </Button>
+                          <PopoverContent className="flex flex-row items-center justify-center gap-x-3 p-2 w-36">
+                            <Button
+                              size="icon"
+                              className="text-primary-foreground"
+                              onClick={() => handleEditClick(profile)}
+                            >
+                              <PencilLine className="h-4 w-4" />
+                            </Button>
 
-                              <Button
-                                onClick={() =>
-                                  toggleProfilePause(
-                                    profile.iccid,
-                                    profile.name,
-                                    profile.paused || "0"
-                                  )
-                                }
-                                // If profile is paused make background as orange
-                                className={cn(
-                                  "w-full justify-start",
-                                  profile.paused === "1" &&
-                                    "bg-emerald-600 hover:bg-emerald-700 text-white",
-                                  profile.paused === "0" &&
-                                    "bg-orange-500 hover:bg-orange-600 text-white"
-                                )}
-                              >
-                                {profile.paused === "1" ? (
-                                  <>
-                                    <PlayCircle className="h-4 w-4" />
-                                    Resume Profile
-                                  </>
-                                ) : (
-                                  <>
-                                    <PauseCircle className="h-4 w-4" />
-                                    Pause Profile
-                                  </>
-                                )}
-                              </Button>
+                            <Button
+                              onClick={() =>
+                                toggleProfilePause(
+                                  profile.iccid,
+                                  profile.name,
+                                  profile.paused || "0"
+                                )
+                              }
+                              className="bg-accent text-accent-foreground hover:bg-secondary/90"
+                              size="icon"
+                            >
+                              {profile.paused === "1" ? (
+                                <>
+                                  <PlayCircle className="h-4 w-4" />
+                                </>
+                              ) : (
+                                <>
+                                  <PauseCircle className="h-4 w-4" />
+                                </>
+                              )}
+                            </Button>
 
-                              <Separator className="my-1" />
-
-                              <Button
-                                variant="destructive"
-                                onClick={() =>
-                                  deleteProfile(profile.iccid, profile.name)
-                                }
-                              >
-                                <Trash2Icon className="h-4 w-4" />
-                                Delete Profile
-                              </Button>
-                            </div>
+                            <Button
+                              variant="destructive"
+                              onClick={() =>
+                                deleteProfile(profile.iccid, profile.name)
+                              }
+                              size="icon"
+                            >
+                              <Trash2Icon className="h-4 w-4" />
+                            </Button>
                           </PopoverContent>
                         </Popover>
                       </div>
-                      <CardDescription className="flex items-center">
+                      <div className="flex items-center">
                         <Badge variant="secondary" className="text-xs">
                           {formatNetworkType(profile.network_type)}
                         </Badge>
@@ -1252,11 +1337,11 @@ const QuecProfilesPage = () => {
                             Paused
                           </Badge>
                         )}
-                      </CardDescription>
+                      </div>
                     </CardHeader>
                     <CardContent>
                       <div className="grid grid-cols-2 gap-4">
-                        <div className="grid gap-0.5">
+                        <div className="grid gap-0.5 col-span-2 md:col-span-1">
                           <Label
                             htmlFor={`ICCID-${index}`}
                             className="text-sm text-muted-foreground"
@@ -1268,7 +1353,7 @@ const QuecProfilesPage = () => {
                           </p>
                         </div>
 
-                        <div className="grid gap-0.5">
+                        <div className="grid gap-0.5 col-span-2 md:col-span-1">
                           <Label
                             htmlFor={`IMEI-${index}`}
                             className="text-sm text-muted-foreground"
@@ -1280,7 +1365,7 @@ const QuecProfilesPage = () => {
                           </p>
                         </div>
 
-                        <div className="grid gap-0.5">
+                        <div className="grid gap-0.5 col-span-2 md:col-span-1">
                           <Label
                             htmlFor={`APN-${index}`}
                             className="text-sm text-muted-foreground"
@@ -1292,7 +1377,7 @@ const QuecProfilesPage = () => {
                           </p>
                         </div>
 
-                        <div className="grid gap-0.5">
+                        <div className="grid gap-0.5 col-span-2 md:col-span-1">
                           <Label
                             htmlFor={`PDP-${index}`}
                             className="text-sm text-muted-foreground"
@@ -1330,7 +1415,7 @@ const QuecProfilesPage = () => {
                           </p>
                         </div>
 
-                        <div className="grid gap-0.5">
+                        <div className="grid gap-0.5 col-span-2 md:col-span-1">
                           <Label
                             htmlFor={`prefLTEBands-${index}`}
                             className="text-sm text-muted-foreground"
@@ -1345,7 +1430,7 @@ const QuecProfilesPage = () => {
                           </p>
                         </div>
 
-                        <div className="grid gap-0.5">
+                        <div className="grid gap-0.5 col-span-2 md:col-span-1">
                           <Label
                             htmlFor={`prefNRNSABands-${index}`}
                             className="text-sm text-muted-foreground"
@@ -1360,7 +1445,7 @@ const QuecProfilesPage = () => {
                           </p>
                         </div>
 
-                        <div className="grid gap-0.5">
+                        <div className="grid gap-0.5 col-span-2 md:col-span-1">
                           <Label
                             htmlFor={`prefNRSABands-${index}`}
                             className="text-sm text-muted-foreground"
@@ -1384,10 +1469,10 @@ const QuecProfilesPage = () => {
                   <div className="mx-auto w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-4">
                     <UserRoundPen className="h-6 w-6 text-muted-foreground" />
                   </div>
-                  <h3 className="font-medium text-lg mb-1">
-                    No Profiles Found
+                  <h3 className="font-medium text-md mb-1">
+                    No Profiles Found for SIM {deviceInfo.simSlot || "?"}
                   </h3>
-                  <p className="text-muted-foreground mb-4">
+                  <p className="text-muted-foreground text-sm mb-4">
                     Simplify network management with profiles that automatically
                     apply your preferred settings.
                   </p>
@@ -1505,57 +1590,46 @@ const QuecProfilesPage = () => {
                                   <MenuIcon className="h-4 w-4" />
                                 </Button>
                               </PopoverTrigger>
-                              <PopoverContent className="w-48">
-                                <div className="grid gap-2">
-                                  <Button
-                                    onClick={() => handleEditClick(profile)}
-                                  >
-                                    <PencilLine className="h-4 w-4" />
-                                    Edit Profile
-                                  </Button>
+                              <PopoverContent className="flex flex-row items-center justify-center gap-x-3 p-2 w-36">
+                                <Button
+                                  size="icon"
+                                  className="text-primary-foreground"
+                                  onClick={() => handleEditClick(profile)}
+                                >
+                                  <PencilLine className="h-4 w-4" />
+                                </Button>
 
-                                  <Button
-                                    onClick={() =>
-                                      toggleProfilePause(
-                                        profile.iccid,
-                                        profile.name,
-                                        profile.paused || "0"
-                                      )
-                                    }
-                                    // If profile is paused make background as orange
-                                    className={cn(
-                                      "w-full justify-start",
-                                      profile.paused === "1" &&
-                                        "bg-emerald-600 hover:bg-emerald-700 text-white",
-                                      profile.paused === "0" &&
-                                        "bg-orange-500 hover:bg-orange-600 text-white"
-                                    )}
-                                  >
-                                    {profile.paused === "1" ? (
-                                      <>
-                                        <PlayCircle className="h-4 w-4" />
-                                        Resume Profile
-                                      </>
-                                    ) : (
-                                      <>
-                                        <PauseCircle className="h-4 w-4" />
-                                        Pause Profile
-                                      </>
-                                    )}
-                                  </Button>
+                                <Button
+                                  onClick={() =>
+                                    toggleProfilePause(
+                                      profile.iccid,
+                                      profile.name,
+                                      profile.paused || "0"
+                                    )
+                                  }
+                                  className="bg-accent text-accent-foreground hover:bg-secondary/90"
+                                  size="icon"
+                                >
+                                  {profile.paused === "1" ? (
+                                    <>
+                                      <PlayCircle className="h-4 w-4" />
+                                    </>
+                                  ) : (
+                                    <>
+                                      <PauseCircle className="h-4 w-4" />
+                                    </>
+                                  )}
+                                </Button>
 
-                                  <Separator className="my-1" />
-
-                                  <Button
-                                    variant="destructive"
-                                    onClick={() =>
-                                      deleteProfile(profile.iccid, profile.name)
-                                    }
-                                  >
-                                    <Trash2Icon className="h-4 w-4" />
-                                    Delete Profile
-                                  </Button>
-                                </div>
+                                <Button
+                                  variant="destructive"
+                                  onClick={() =>
+                                    deleteProfile(profile.iccid, profile.name)
+                                  }
+                                  size="icon"
+                                >
+                                  <Trash2Icon className="h-4 w-4" />
+                                </Button>
                               </PopoverContent>
                             </Popover>
                           </div>

@@ -22,6 +22,16 @@ const ExperimentalLayout = ({ children }: ExperimentalLayoutProps) => {
           x-chunk="dashboard-04-chunk-0"
         >
           <Link
+            href="/dashboard/experimental/network-priority"
+            className={`${
+              currentPathName === "/dashboard/experimental/network-priority/"
+                ? "font-semibold text-primary"
+                : "text-sm"
+            }`}
+          >
+            Network Priority
+          </Link>
+          <Link
             href="/dashboard/experimental/network-insights"
             className={`${
               currentPathName === "/dashboard/experimental/network-insights/"
@@ -30,6 +40,16 @@ const ExperimentalLayout = ({ children }: ExperimentalLayoutProps) => {
             }`}
           >
             Network Insights
+          </Link>
+          <Link
+            href="/dashboard/experimental/internet-quality"
+            className={`${
+              currentPathName === "/dashboard/experimental/internet-quality/"
+                ? "font-semibold text-primary"
+                : "text-sm"
+            }`}
+          >
+            Internet Quality
           </Link>
           <Link
             href="/dashboard/experimental/keep-alive"
@@ -51,7 +71,7 @@ const ExperimentalLayout = ({ children }: ExperimentalLayoutProps) => {
           >
             Scheduled Reboot
           </Link>
-                    <Link
+          <Link
             href="/dashboard/experimental/logs"
             className={`${
               currentPathName === "/dashboard/experimental/logs/"
@@ -61,6 +81,16 @@ const ExperimentalLayout = ({ children }: ExperimentalLayoutProps) => {
           >
             Logs
           </Link>
+          {/* <Link
+            href="/dashboard/experimental/data-usage-tracking"
+            className={`${
+              currentPathName === "/dashboard/experimental/data-usage-tracking/"
+                ? "font-semibold text-primary"
+                : "text-sm"
+            }`}
+          >
+            Data Usage Tracking
+          </Link> */}
         </nav>
         {children}
       </div>

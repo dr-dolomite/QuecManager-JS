@@ -2,9 +2,9 @@
 const nextConfig = {
   // output: "export",
   // images: { unoptimized: true },
-  // trailingSlash: true,
+  trailingSlash: true,
 
-  // uncomment for development 
+  // uncomment for development
   async rewrites() {
     return [
       {

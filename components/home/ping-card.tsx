@@ -58,6 +58,8 @@ const PingCard = () => {
     return null;
   });
 
+  const [currentPacketLoss, setCurrentPacketLoss] = useState<number | null>(null);
+
   const [config, setConfig] = useState<PingConfig>({
     enabled: true,
     interval: 5,
@@ -113,6 +115,10 @@ const PingCard = () => {
         // Update current latency
         if (typeof pingResult.latency === "number") {
           setCurrentLatency(pingResult.latency);
+
+          if (typeof pingResult.packet_loss === "number") {
+            setCurrentPacketLoss(pingResult.packet_loss);
+          }
 
           // Add to chart data
           const time = formatTime();
@@ -241,11 +247,15 @@ const PingCard = () => {
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle>Ping Latency</CardTitle>
+        <CardTitle>Ping Monitoring</CardTitle>
         {!config.enabled ? (
           <MonitorOffIcon className="h-4 w-4 text-red-500" />
         ) : currentLatency !== null ? (
-          <Badge className="text-normal font-bold">{currentLatency} ms</Badge>
+          <div className="flex items-center gap-x-1.5">
+            <Badge className="h-5 min-w-5 rounded-full px-2 font-mono tabular-nums">{currentLatency}ms</Badge>
+            <Badge className="h-5 min-w-5 rounded-full px-2 font-mono tabular-nums">{currentPacketLoss}%</Badge>
+          </div>
+          
         ) : null}
       </CardHeader>
       <CardContent>
@@ -342,6 +352,12 @@ const PingCard = () => {
             </AreaChart>
           </ChartContainer>
         )}
+        
+        {/* {config.enabled && (
+          <div className="mt-2 text-xs text-muted-foreground text-center">
+            💡 Connection monitoring optimized via ping service
+          </div>
+        )} */}
       </CardContent>
     </Card>
   );

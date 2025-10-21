@@ -87,6 +87,8 @@ const Connection = ({
                 className={`font-bold ${
                   dataConnectionState === "Connected"
                     ? "bg-emerald-500 hover:bg-emerald-800"
+                    : dataConnectionState === "Ping Active"
+                    ? "bg-blue-500 hover:bg-blue-800"
                     : "bg-rose-500 hover:bg-rose-800"
                 }`}
               >

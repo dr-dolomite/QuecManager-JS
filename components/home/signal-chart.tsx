@@ -41,8 +41,6 @@ interface ChartDataPoint {
   rsrp: number;
   rsrq: number;
   sinr: number;
-  downloadSpeed: number;
-  uploadSpeed: number;
 }
 
 const chartConfig = {
@@ -60,14 +58,6 @@ const chartConfig = {
   sinr: {
     label: "SINR (dB)",
     color: "hsl(var(--chart-3))",
-  },
-  downloadSpeed: {
-    label: "Download",
-    color: "hsl(var(--chart-4))",
-  },
-  uploadSpeed: {
-    label: "Upload",
-    color: "hsl(var(--chart-5))",
   },
 } satisfies ChartConfig;
 
@@ -109,7 +99,6 @@ const formatSpeed = (bytesPerSecond: number): string => {
 
 const SignalChart = () => {
   // Get bandwidth data from the hook
-  const { historyData, isConnected: bandwidthConnected } = useBandwidthMonitor();
   
   // Initialize with 5 data points to show a graph right away
   const [chartData, setChartData] = useState<ChartDataPoint[]>(() => {
@@ -119,8 +108,6 @@ const SignalChart = () => {
       rsrp: 0,
       rsrq: 0,
       sinr: 0,
-      downloadSpeed: 0,
-      uploadSpeed: 0,
     }));
   });
   const [activeChart, setActiveChart] =
@@ -158,7 +145,6 @@ const SignalChart = () => {
       }
 
       // Get current bandwidth data
-      const currentBandwidth = historyData?.current || { download: 0, upload: 0 };
 
       const transformedData: ChartDataPoint[] = Array.from(
         { length },
@@ -167,8 +153,6 @@ const SignalChart = () => {
           rsrp: parseSignalOutput(data.rsrp[i].output),
           rsrq: parseSignalOutput(data.rsrq[i].output),
           sinr: parseSignalOutput(data.sinr[i].output),
-          downloadSpeed: currentBandwidth.download * 8 / (1024 * 1024), // Convert to MB/s
-          uploadSpeed: currentBandwidth.upload * 8 / (1024 * 1024), // Convert to MB/s
         })
       );
 
@@ -180,11 +164,10 @@ const SignalChart = () => {
       setError(
         err instanceof Error ? err.message : "An unknown error occurred"
       );
-      
+
       // Add a new data point with zeros rather than clearing the chart
       const now = new Date().toISOString();
-      const currentBandwidth = historyData?.current || { download: 0, upload: 0 };
-      
+
       setChartData(prevData => {
         // Keep last 20 points to prevent excessive memory usage
         const newData = [...prevData];
@@ -196,15 +179,13 @@ const SignalChart = () => {
           rsrp: 0,
           rsrq: 0,
           sinr: 0,
-          downloadSpeed: currentBandwidth.download / (1024 * 1024),
-          uploadSpeed: currentBandwidth.upload / (1024 * 1024),
         });
         return newData;
       });
     } finally {
       setIsInitialLoading(false);
     }
-  }, [historyData]);
+  }, []);
 
   // Helper function to determine the correct baseValue for each metric
   const getBaseValue = (metric: keyof typeof chartConfig): number => {
@@ -215,9 +196,6 @@ const SignalChart = () => {
         return -20; // RSRQ typically ranges from -5 to -20 dB
       case "sinr":
         return -10; // SINR can go negative, so start below the lowest expected value
-      case "downloadSpeed":
-      case "uploadSpeed":
-        return 0; // Bandwidth starts from 0
       default:
         return 0;
     }
@@ -234,9 +212,6 @@ const SignalChart = () => {
         return [-20, 0]; // RSRQ range
       case "sinr":
         return [-10, 30]; // SINR range
-      case "downloadSpeed":
-      case "uploadSpeed":
-        return [0, "auto"]; // Bandwidth from 0 to auto-scale
       default:
         return [0, "auto"];
     }
@@ -245,9 +220,6 @@ const SignalChart = () => {
   // Helper function to format values based on metric type
   const formatValue = (metric: keyof typeof chartConfig, value: number): string => {
     switch (metric) {
-      case "downloadSpeed":
-      case "uploadSpeed":
-        return formatSpeed(value * 1024 * 1024); // Convert back to bytes/s for formatting
       case "rsrp":
       case "rsrq":
       case "sinr":
@@ -263,15 +235,13 @@ const SignalChart = () => {
     return () => clearInterval(intervalId);
   }, [fetchSignalMetrics]);
 
-  const currentValues =
+  const currentValues: any =
     chartData.length > 0
       ? chartData[chartData.length - 1]
       : {
           rsrp: 0,
           rsrq: 0,
           sinr: 0,
-          downloadSpeed: 0,
-          uploadSpeed: 0,
         };
 
   if (error && !chartData.length) {
@@ -295,7 +265,7 @@ const SignalChart = () => {
           </CardDescription>
         </div>
         <div className="flex flex-wrap">
-          {["rsrp", "rsrq", "sinr", "downloadSpeed", "uploadSpeed"].map((key) => {
+          {["rsrp", "rsrq", "sinr"].map((key) => {
             const chart = key as keyof typeof chartConfig;
             return (
               <button
@@ -311,27 +281,10 @@ const SignalChart = () => {
                   <Skeleton className="h-4 sm:h-6 lg:h-8 w-full" />
                 ) : (
                   <span className="text-sm font-bold leading-none sm:text-base lg:text-2xl">
-                    {chart === "downloadSpeed" || chart === "uploadSpeed" ? (
-                      formatSpeed(currentValues[chart] * 1024 * 1024)
-                    ) : (
-                      `${currentValues[chart].toFixed(0)}${
+                      {currentValues[chart].toFixed(0)}{
                         chart === "rsrp" ? " dBm" : " dB"
-                      }`
-                    )}
+                      }
                   </span>
-                )}
-                {/* Connection indicator for bandwidth metrics */}
-                {(chart === "downloadSpeed" || chart === "uploadSpeed") && (
-                  <div className="flex items-center gap-1 mt-1">
-                    <div
-                      className={`w-2 h-2 rounded-full ${
-                        bandwidthConnected ? "bg-green-500" : "bg-red-500"
-                      }`}
-                    />
-                    <span className="text-xs text-muted-foreground">
-                      {bandwidthConnected ? "Live" : "Offline"}
-                    </span>
-                  </div>
                 )}
               </button>
             );
@@ -471,11 +424,8 @@ const SignalChart = () => {
           Signal metrics averaged across all active antenna ports + real-time bandwidth monitoring.
         </div>
         <div className="leading-none text-muted-foreground italic">
-          {activeChart === "downloadSpeed" || activeChart === "uploadSpeed" ? (
-            <>Bandwidth data updates every second via WebSocket.</>
-          ) : (
+
             <>Higher signal values indicate better connection quality.</>
-          )}
         </div>
         {error && (
           <div className="text-xs text-red-600 bg-red-50 p-2 rounded border w-full">
