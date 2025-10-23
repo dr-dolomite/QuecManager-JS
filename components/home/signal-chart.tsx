@@ -23,6 +23,7 @@ import {
   YAxis,
 } from "recharts";
 import { Skeleton } from "../ui/skeleton";
+import { useBandwidthMonitor } from "@/hooks/use-bandwidth-monitor";
 
 interface SignalMetrics {
   datetime: string;
@@ -44,18 +45,18 @@ interface ChartDataPoint {
 
 const chartConfig = {
   signal: {
-    label: "LTE/5G Signal Metrics",
+    label: "LTE/5G Signal & Bandwidth Metrics",
   },
   rsrp: {
-    label: "RSRP",
+    label: "RSRP (dBm)",
     color: "hsl(var(--chart-1))",
   },
   rsrq: {
-    label: "RSRQ",
+    label: "RSRQ (dB)",
     color: "hsl(var(--chart-2))",
   },
   sinr: {
-    label: "SINR",
+    label: "SINR (dB)",
     color: "hsl(var(--chart-3))",
   },
 } satisfies ChartConfig;
@@ -87,7 +88,18 @@ const parseSignalOutput = (output: string): number => {
   return Math.round(sum / validNumbers.length);
 };
 
+const formatSpeed = (bytesPerSecond: number): string => {
+  const mbps = bytesPerSecond / (1024 * 1024);
+  if (mbps >= 1) {
+    return `${mbps.toFixed(1)} MB/s`;
+  }
+  const kbps = bytesPerSecond / 1024;
+  return `${kbps.toFixed(0)} KB/s`;
+};
+
 const SignalChart = () => {
+  // Get bandwidth data from the hook
+  
   // Initialize with 5 data points to show a graph right away
   const [chartData, setChartData] = useState<ChartDataPoint[]>(() => {
     const now = new Date();
@@ -132,6 +144,8 @@ const SignalChart = () => {
         throw new Error("No signal metrics data available");
       }
 
+      // Get current bandwidth data
+
       const transformedData: ChartDataPoint[] = Array.from(
         { length },
         (_, i) => ({
@@ -150,9 +164,10 @@ const SignalChart = () => {
       setError(
         err instanceof Error ? err.message : "An unknown error occurred"
       );
-      
+
       // Add a new data point with zeros rather than clearing the chart
       const now = new Date().toISOString();
+
       setChartData(prevData => {
         // Keep last 20 points to prevent excessive memory usage
         const newData = [...prevData];
@@ -163,7 +178,7 @@ const SignalChart = () => {
           time: now,
           rsrp: 0,
           rsrq: 0,
-          sinr: 0
+          sinr: 0,
         });
         return newData;
       });
@@ -187,7 +202,6 @@ const SignalChart = () => {
   };
 
   // Helper function to determine the appropriate Y axis domain for each metric
-  // Modify the return type to support 'auto' as a valid value
   const getYAxisDomain = (
     metric: keyof typeof chartConfig
   ): [number, number | "auto"] => {
@@ -203,13 +217,25 @@ const SignalChart = () => {
     }
   };
 
+  // Helper function to format values based on metric type
+  const formatValue = (metric: keyof typeof chartConfig, value: number): string => {
+    switch (metric) {
+      case "rsrp":
+      case "rsrq":
+      case "sinr":
+        return `${value.toFixed(0)} ${metric === "rsrp" ? "dBm" : "dB"}`;
+      default:
+        return value.toFixed(0);
+    }
+  };
+
   useEffect(() => {
     fetchSignalMetrics();
     const intervalId = setInterval(fetchSignalMetrics, 15000);
     return () => clearInterval(intervalId);
   }, [fetchSignalMetrics]);
 
-  const currentValues =
+  const currentValues: any =
     chartData.length > 0
       ? chartData[chartData.length - 1]
       : {
@@ -218,7 +244,7 @@ const SignalChart = () => {
           sinr: 0,
         };
 
-  if (error) {
+  if (error && !chartData.length) {
     return (
       <Card>
         <CardHeader>
@@ -233,31 +259,31 @@ const SignalChart = () => {
     <Card>
       <CardHeader className="flex flex-col items-stretch space-y-0 border-b p-0 sm:flex-row">
         <div className="flex flex-1 flex-col justify-center gap-1 px-6 py-5 sm:py-6">
-          <CardTitle>Antenna Port Signal Metrics</CardTitle>
+          <CardTitle>Signal & Bandwidth Metrics</CardTitle>
           <CardDescription>
-            Per-port signal values averaged across all active ports
+            Per-port signal values averaged across all active ports + real-time bandwidth
           </CardDescription>
         </div>
-        <div className="flex">
+        <div className="flex flex-wrap">
           {["rsrp", "rsrq", "sinr"].map((key) => {
             const chart = key as keyof typeof chartConfig;
             return (
               <button
                 key={chart}
                 data-active={activeChart === chart}
-                className="flex flex-1 flex-col justify-center gap-1 border-t px-6 py-4 text-left even:border-l data-[active=true]:bg-muted/50 sm:border-l sm:border-t-0 sm:px-8 sm:py-6"
+                className="flex flex-1 flex-col justify-center gap-1 border-t px-4 py-3 text-left even:border-l data-[active=true]:bg-muted/50 sm:border-l sm:border-t-0 sm:px-6 sm:py-4 min-w-[100px]"
                 onClick={() => setActiveChart(chart)}
               >
                 <span className="text-xs text-muted-foreground">
                   {chartConfig[chart].label}
                 </span>
                 {isInitialLoading ? (
-                  <Skeleton className="lg:h-10 h-6 w-full" />
+                  <Skeleton className="h-4 sm:h-6 lg:h-8 w-full" />
                 ) : (
-                  <span className="text-base font-bold leading-none sm:text-3xl">
-                    {currentValues[key as keyof typeof currentValues].toFixed(
-                      0
-                    )}
+                  <span className="text-sm font-bold leading-none sm:text-base lg:text-2xl">
+                      {currentValues[chart].toFixed(0)}{
+                        chart === "rsrp" ? " dBm" : " dB"
+                      }
                   </span>
                 )}
               </button>
@@ -316,6 +342,30 @@ const SignalChart = () => {
                   stopOpacity={0.1}
                 />
               </linearGradient>
+              <linearGradient id="fillDownloadSpeed" x1="0" y1="0" x2="0" y2="1">
+                <stop
+                  offset="5%"
+                  stopColor="var(--color-downloadSpeed)"
+                  stopOpacity={0.8}
+                />
+                <stop
+                  offset="95%"
+                  stopColor="var(--color-downloadSpeed)"
+                  stopOpacity={0.1}
+                />
+              </linearGradient>
+              <linearGradient id="fillUploadSpeed" x1="0" y1="0" x2="0" y2="1">
+                <stop
+                  offset="5%"
+                  stopColor="var(--color-uploadSpeed)"
+                  stopOpacity={0.8}
+                />
+                <stop
+                  offset="95%"
+                  stopColor="var(--color-uploadSpeed)"
+                  stopOpacity={0.1}
+                />
+              </linearGradient>
             </defs>
             <CartesianGrid vertical={false} />
             <XAxis
@@ -348,6 +398,10 @@ const SignalChart = () => {
                       hour12: true,
                     });
                   }}
+                  formatter={(value, name) => [
+                    formatValue(name as keyof typeof chartConfig, value as number),
+                    chartConfig[name as keyof typeof chartConfig]?.label,
+                  ]}
                 />
               }
             />
@@ -367,11 +421,17 @@ const SignalChart = () => {
       </CardContent>
       <CardFooter className="flex-col items-start gap-2 text-sm">
         <div className="flex gap-2 font-medium leading-none">
-          Displays aggregated signal metrics across all active antenna ports.
+          Signal metrics averaged across all active antenna ports + real-time bandwidth monitoring.
         </div>
         <div className="leading-none text-muted-foreground italic">
-          Higher values indicate better signal quality.
+
+            <>Higher signal values indicate better connection quality.</>
         </div>
+        {error && (
+          <div className="text-xs text-red-600 bg-red-50 p-2 rounded border w-full">
+            {error}
+          </div>
+        )}
       </CardFooter>
     </Card>
   );

@@ -55,6 +55,9 @@ import { atCommandSender } from "@/utils/at-command";
 import NetworkInfoCard from "@/components/home/network-info-card";
 import ApproxDistanceCard from "@/components/home/approx-distance-card";
 import DataUsageWarningDialog from "@/components/experimental/data-usage-warning-dialog";
+import WebSocketComponent from "@/components/home/websocket";
+// import BandwidthMonitorCard from "@/components/home/bandwidth-monitor-card";
+import BandwidthMonitorCompactCard from "@/components/home/bandwidth-monitor-compact-card";
 import SummaryCardComponent from "@/components/home/summary-card";
 import BandsAccordionComponent from "@/components/home/bands-accordion";
 
@@ -537,6 +540,10 @@ const HomePage = () => {
           <div>
             <SignalChart />
           </div>
+          {/* <div>
+            <BandwidthMonitorCard />
+          </div> */}
+          {/* <div><WebSocketComponent /></div> */}
           <div className="grid gap-2 lg:grid-cols-2 grid-cols-1 grid-flow-row">
             {/* <EthernetCard /> */}
             <ApproxDistanceCard
@@ -545,6 +552,7 @@ const HomePage = () => {
               isLoading={isLoading}
               networkType={homeData?.connection?.networkType}
             />
+            <BandwidthMonitorCompactCard />
             <MemoryCard />
             <SpeedtestStream />
             <PingCard />
@@ -593,7 +601,7 @@ const HomePage = () => {
             isLoading={isLoading}
             isPublicIPLoading={isPublicIPLoading}
             hideSensitiveData={hideSensitiveData}
-            // onRefresh={refreshData}
+          // onRefresh={refreshData}
           />
         </div>
       </div> */}
@@ -688,6 +696,86 @@ const HomePage = () => {
           </div>
         </DialogContent>
       </Dialog>
+      {/* Profile Setup Dialog */}
+      <Dialog
+        open={profileSetupDialogOpen}
+        onOpenChange={setProfileSetupDialogOpen}
+      >
+        <DialogContent className="lg:max-w-xl max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckCircle2 className="h-5 w-5 text-blue-500" />
+              Set Up Your QuecProfile
+            </DialogTitle>
+            <DialogDescription>
+              We noticed you don&apos;t have a profile configured for your
+              current SIM card.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <Card className="border-primary p-4 space-y-4">
+              <h2 className="font-medium text-primary">
+                Setting up a profile will save you time by automatically
+                applying your preferred network settings, APN configuration, and
+                other cellular preferences.
+              </h2>
+              {/* <div className="space-y-2">
+                <h4 className="font-medium">
+                  Benefits of setting up a profile:
+                </h4>
+                <ul className="text-sm space-y-1">
+                  <li>• Automatic network configuration</li>
+                  <li>• Quick switching between SIM cards</li>
+                  <li>• Backup and restore your settings</li>
+                  <li>• Optimized performance for your carrier</li>
+                </ul>
+              </div> */}
+            </Card>
+
+            <div className="flex flex-col gap-2 mt-4">
+              <Button
+                onClick={() => {
+                  setProfileSetupDialogOpen(false);
+                  router.push("/dashboard/custom-features/quecprofiles");
+                }}
+                className="w-full"
+              >
+                Set Up Profile Now
+              </Button>
+              <Button
+                variant="outline"
+                onClick={handleMaybeLater}
+                className="w-full"
+              >
+                Maybe Later
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setProfileSetupDialogOpen(false);
+                  router.push("/dashboard/settings/personalization");
+                }}
+                className="w-full text-muted-foreground"
+                size="sm"
+              >
+                Disable this dialog in Settings
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+      {/* Global Data Usage Warning Dialog */}
+      <DataUsageWarningDialog
+        open={showWarning}
+        onClose={closeWarning}
+        onDismiss={dismissWarning}
+        usagePercentage={usagePercentage}
+        currentUsage={formattedUsage.total}
+        monthlyLimit={formattedLimit}
+        remaining={remaining}
+      />
+
     </div>
   );
 };

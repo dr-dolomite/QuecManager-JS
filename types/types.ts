@@ -27,7 +27,7 @@ export interface ConnectionData {
 
 export interface DataTransmissionData {
   carrierAggregation: "Multi" | "Inactive";
-  bandwidth?: string| string[];
+  bandwidth?: string | string[];
   connectedBands: string;
   signalStrength?: string;
   mimoLayers: string;
@@ -37,7 +37,7 @@ export interface CellularInfoData {
   cellId?: string;
   trackingAreaCode?: string;
   physicalCellId?: string;
-  cellIdRaw: string, 
+  cellIdRaw: string,
   trackingAreaCodeRaw: string,
   earfcn?: string;
   mcc?: string;
@@ -100,7 +100,7 @@ export interface CellSettingsData {
   simSlot?: string;
   cfunState?: string;
   autoSelState?: string;
-  selectedMbnProfile?: string; 
+  selectedMbnProfile?: string;
   mbnProfilesList: string[];
   dataProfileIndex: string;
   lteAMBR: string[];
@@ -192,16 +192,16 @@ const NR_BANDWIDTH_MAP: BandwidthMap = {
 };
 
 const ACCESS_TECH_MAP: AccessTechMap = {
-    "2": "UTRAN",
-    "4": "HSDPA",
-    "5": "HSUPA",
-    "6": "HSDPA & HSUPA",
-    "7": "E-UTRAN",
-    "10": "E-UTRAN - 5GCN",
-    "11": "NR - 5GCN",
-    "12": "NG-RAN",
-    "13": "E-UTRAN-NR Dual",
-  };
+  "2": "UTRAN",
+  "4": "HSDPA",
+  "5": "HSUPA",
+  "6": "HSDPA & HSUPA",
+  "7": "E-UTRAN",
+  "10": "E-UTRAN - 5GCN",
+  "11": "NR - 5GCN",
+  "12": "NG-RAN",
+  "13": "E-UTRAN-NR Dual",
+};
 
 // If you need to use these types with the existing constants, you can do:
 // const BANDWIDTH_MAP: BandwidthMap = { ... };
@@ -239,7 +239,7 @@ export const LTE_RB_BANDWIDTH_MAP: BandwidthMap = {
   "50": "10 MHz",
   "75": "15 MHz",
   "100": "20 MHz",
-  "-" : "-" 
+  "-": "-"
 };
 
 export const EMM_REJECT_CAUSE_MAP = {
@@ -381,4 +381,55 @@ export const NRMM_REJECT_CAUSE_MAP = {
   "100": "Conditional IE error",
   "101": "Message not compatible with the protocol state",
   "111": "Protocol error, unspecified",
+}
+// Bandwidth monitoring types
+export interface BandwidthDataPoint {
+  timestamp: string;
+  download: number; // in bytes/second
+  upload: number; // in bytes/second
+}
+
+export interface BandwidthData {
+  timestamp: string;
+  downloadSpeed: number; // in bytes/second
+  uploadSpeed: number; // in bytes/second
+  totalDownload: number; // total bytes downloaded
+  totalUpload: number; // total bytes uploaded
+  latency?: number; // in milliseconds
+  signalStrength?: number; // in dBm
+}
+
+export interface BandwidthHistoryData {
+  current: BandwidthDataPoint;
+  history: BandwidthDataPoint[]; // 30-second rolling history
+  averageDownloadSpeed: number;
+  averageUploadSpeed: number;
+  maxDownloadSpeed: number;
+  maxUploadSpeed: number;
+}
+
+export interface WebSocketBandwidthMessage {
+  type: 'bandwidth' | 'error' | 'status';
+  data: BandwidthData | string;
+}
+
+// New multi-interface bandwidth monitoring types
+export interface InterfaceTrafficStats {
+  bytes_total: number;
+  packets_total: number;
+  bps: number; // bits per second
+  packets_per_sec: number;
+}
+
+export interface NetworkInterfaceData {
+  name: string;
+  state: 'up' | 'down';
+  rx: InterfaceTrafficStats;
+  tx: InterfaceTrafficStats;
+}
+
+export interface MultiInterfaceBandwidthData {
+  timestamp: number | string; // Unix timestamp in seconds or string format "YYYY-MM-DD HH:MM:SS"
+  interval_seconds: number;
+  interfaces: NetworkInterfaceData[];
 }
