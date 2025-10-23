@@ -13,13 +13,13 @@ export interface SimCardData {
 export interface ConnectionData {
   apn: string;
   operatorState:
-  | "Registered"
-  | "Searching"
-  | "Denied"
-  | "Unknown"
-  | "Roaming"
-  | "Not Registered";
-  functionalityState: "Enabled" | "Disabled";
+    | "Registered"
+    | "Searching"
+    | "Denied"
+    | "Unknown"
+    | "Roaming"
+    | "Not Registered";
+  functionalityState: "Full Functionality" | "Limited Functionality";
   networkType: "NR5G-NSA" | "LTE" | "NR5G-SA" | "No Signal";
   modemTemperature: string;
   accessTechnology: string;
