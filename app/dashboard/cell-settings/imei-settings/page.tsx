@@ -193,16 +193,16 @@ const IMEIManglingPage = () => {
       const command = `AT+EGMR=1,7,"${newIMEI}"`;
       const result = await atCommandSender(command, true);
 
-      if (result.response?.status !== "success") {
-        throw new Error(result.response?.raw_output || "Failed to update IMEI");
+      if (result.status !== "success") {
+        throw new Error(result.response || "Failed to update IMEI");
       }
 
       // If IMEI update successful, reboot the device
       const rebootResult = await atCommandSender("AT+QPOWD=1", true);
 
-      if (rebootResult.response?.status !== "success") {
+      if (rebootResult.status !== "success") {
         throw new Error(
-          rebootResult.response?.raw_output || "Failed to reboot device"
+          rebootResult.response || "Failed to reboot device"
         );
       }
 
@@ -233,10 +233,11 @@ const IMEIManglingPage = () => {
       <Card>
         <form onSubmit={handleSubmit}>
           <CardHeader>
-            <CardTitle>IMEI Mangling</CardTitle>
+            <CardTitle>IMEI Settings</CardTitle>
             <CardDescription className="flex items-center justify-between">
               Change the IMEI of the device. Changing the IMEI may void your
-              warranty and is illegal in some jurisdictions.
+              warranty and is illegal in some jurisdictions. We do not take any
+              responsibility for any misuse.
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger>

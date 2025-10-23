@@ -57,6 +57,7 @@ import {
 } from "@/components/ui/sheet";
 import { useToast } from "@/hooks/use-toast";
 import { usePathname } from "next/navigation";
+import { LightRays } from "@/components/ui/light-rays";
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -410,7 +411,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
             Custom Features
           </Link>
           <Link
-            href="/dashboard/experimental/network-insights"
+            href="/dashboard/experimental/network-priority"
             className={`${
               currentPathName.includes("/dashboard/experimental/")
                 ? "text-foreground"
@@ -419,7 +420,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
           >
             Experimental
           </Link>
-          {/* <Link
+          <Link
             href="/dashboard/about/"
             className={`${
               currentPathName.includes("/dashboard/about/")
@@ -428,7 +429,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
             } transition-colors hover:text-foreground`}
           >
             About
-          </Link> */}
+          </Link>
         </nav>
         <Sheet>
           <SheetTrigger asChild>
@@ -492,7 +493,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                 </Link>
               </SheetClose>
 
-                            <SheetClose asChild>
+              <SheetClose asChild>
                 <Link
                   href="/dashboard/custom-features/"
                   className={`${
@@ -515,6 +516,19 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                   } transition-colors hover:text-foreground`}
                 >
                   Experimental
+                </Link>
+              </SheetClose>
+
+              <SheetClose asChild>
+                <Link
+                  href="/dashboard/about/"
+                  className={`${
+                    currentPathName === "/dashboard/about/"
+                      ? "text-foreground"
+                      : "text-muted-foreground"
+                  } transition-colors hover:text-foreground`}
+                >
+                  About
                 </Link>
               </SheetClose>
 
@@ -595,9 +609,9 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                   Support
                 </a>
               </DropdownMenuItem>
-              <DropdownMenuItem asChild>
+              {/* <DropdownMenuItem asChild>
                 <Link href="/dashboard/about">About</Link>
-              </DropdownMenuItem>
+              </DropdownMenuItem> */}
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleReconnect}>
                 {isReconnecting ? "Reconnecting..." : "Reconnect"}
@@ -664,8 +678,9 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
           </DropdownMenu>
         </div>
       </header>
-      <main className="flex min-h-[calc(100vh_-_theme(spacing.16))] flex-1 flex-col gap-4 bg-muted/40 p-4 md:gap-8 md:p-10">
+      <main className="flex min-h-[calc(100vh_-_theme(spacing.16))] flex-1 flex-col gap-4 bg-muted/40 p-4 md:gap-8 md:p-10 relative overflow-hidden">
         <ProtectedRoute>{children}</ProtectedRoute>
+        <LightRays />
       </main>
     </div>
   );

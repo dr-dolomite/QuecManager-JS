@@ -26,6 +26,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/hooks/use-toast";
 import { PhoneInput } from "@/components/sms/phone-input";
+import { ShineBorder } from "@/components/ui/shine-border";
 
 interface SMSMessage {
   index: number;
@@ -40,6 +41,7 @@ const SMSPage = () => {
   const [messages, setMessages] = useState<SMSMessage[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedMessages, setSelectedMessages] = useState<number[]>([]);
+  const [isSelectAllChecked, setIsSelectAllChecked] = useState(false);
   // const [showSendDialog, setShowSendDialog] = useState(false);
   const [sendTo, setSendTo] = useState("");
   const [newMessage, setNewMessage] = useState("");
@@ -242,6 +244,7 @@ const SMSPage = () => {
       const parsed = parseSMSMessages(data);
       setMessages(parsed);
       setSelectedMessages([]); // Clear selections after refresh
+      setIsSelectAllChecked(false); // Clear select all state
     } catch (error) {
       console.error("Failed to refresh SMS:", error);
       setMessages([]);
@@ -250,20 +253,25 @@ const SMSPage = () => {
     }
   };
 
-  const deleteMessages = async (indices: number[]) => {
+  const deleteMessages = async (indices: number[] | "all") => {
     setLoading(true);
     try {
       // Validate indices
-      if (!indices.length) {
+      if (indices !== "all" && (!indices.length || indices.length === 0)) {
         throw new Error("No messages selected");
       }
 
-      // Sort and deduplicate indices
-      const uniqueIndices = [...new Set(indices)].sort((a, b) => a - b);
-
-      // Create the payload
-      const payload = uniqueIndices.join(",");
-      console.log("Deleting messages with indices:", payload);
+      // Create the payload - use "all" if requested, otherwise join indices
+      let payload: string;
+      if (indices === "all") {
+        payload = "all";
+        console.log("Deleting all messages");
+      } else {
+        // Sort and deduplicate indices
+        const uniqueIndices = [...new Set(indices)].sort((a, b) => a - b);
+        payload = uniqueIndices.join(",");
+        console.log("Deleting messages with indices:", payload);
+      }
 
       const response = await fetch(
         `/cgi-bin/quecmanager/cell-settings/sms/sms_delete.sh?indexes=${payload}`,
@@ -276,30 +284,40 @@ const SMSPage = () => {
         }
       );
 
-      // Get raw response for debugging
+      // Get the raw response text first for debugging
       const responseText = await response.text();
-      console.log("Raw response:", responseText);
+      console.log("Raw delete response:", responseText);
 
-      // Check if successful based on successful deletions in the logs
-      const successPattern = /Deleted message \d+/;
-      const isSuccessful = successPattern.test(responseText);
+      // Try to parse as JSON
+      let data;
+      try {
+        data = JSON.parse(responseText);
+        console.log("Parsed delete response:", data);
+      } catch (parseError) {
+        console.error("Failed to parse JSON response:", parseError);
+        throw new Error(
+          `Invalid response format: ${responseText.substring(0, 100)}`
+        );
+      }
 
-      if (isSuccessful) {
+      // Check status from JSON response
+      if (data.status === "success" || data.status === "partial") {
         toast({
-          title: "Success!",
-          description: "Selected messages deleted.",
+          title: data.status === "success" ? "Success!" : "Partial Success",
+          description: data.message || "Messages deleted",
         });
 
         // Refresh messages list
         await refreshSMS();
       } else {
-        throw new Error("Something went wrong");
+        throw new Error(data.message || "Failed to delete messages");
       }
     } catch (error) {
       console.error("Delete operation failed:", error);
       toast({
         title: "Error!",
-        description: "Something went wrong",
+        description:
+          error instanceof Error ? error.message : "Something went wrong",
         variant: "destructive",
       });
     } finally {
@@ -315,10 +333,20 @@ const SMSPage = () => {
       });
       return;
     }
-    deleteMessages(selectedMessages);
+
+    // If "Select All" checkbox is checked, send "all" to backend
+    if (isSelectAllChecked) {
+      deleteMessages("all");
+    } else {
+      // Otherwise send the specific selected indexes
+      deleteMessages(selectedMessages);
+    }
   };
 
   const handleSelectMessage = (indices: number[]) => {
+    // When manually selecting/deselecting, uncheck "Select All"
+    setIsSelectAllChecked(false);
+
     setSelectedMessages((prev) => {
       const currentSelectedSet = new Set(prev);
       const allSelected = indices.every((index) =>
@@ -336,6 +364,8 @@ const SMSPage = () => {
   };
 
   const handleSelectAll = (checked: boolean) => {
+    setIsSelectAllChecked(checked);
+
     if (checked) {
       const allIndices = messages.flatMap(
         (msg) => msg.originalIndices || [msg.index]
@@ -374,7 +404,7 @@ const SMSPage = () => {
       <Card className="w-full max-w-screen">
         <CardHeader>
           <CardTitle>SMS Inbox</CardTitle>
-          <CardDescription>
+          <div className="text-sm text-muted-foreground">
             <div className="flex justify-between items-center">
               <span>View and manage SMS messages</span>
               <div className="flex items-center space-x-1.5">
@@ -390,7 +420,7 @@ const SMSPage = () => {
                 <span className="text-sm">Select All</span>
               </div>
             </div>
-          </CardDescription>
+          </div>
         </CardHeader>
         <CardContent>
           <ScrollArea className="h-[400px] w-full xs:max-w-xs p-4 grid">
@@ -410,7 +440,7 @@ const SMSPage = () => {
 
                 return (
                   <Dialog key={indices.join("-")}>
-                    <DialogTrigger className="w-full">
+                    <DialogTrigger className="w-full" asChild>
                       <Card className="my-2 dark:hover:bg-slate-900 hover:bg-slate-100">
                         <CardHeader>
                           <div className="flex justify-between items-center">

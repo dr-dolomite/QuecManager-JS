@@ -116,7 +116,7 @@ const ScheduledRebootPage = () => {
     }
   };
 
-  const saveConfig = async (newConfig: ScheduledRebootConfig) => {
+  const saveConfig = async (newConfig: ScheduledRebootConfig, showToast: boolean = true) => {
     try {
       setSaving(true);
       const response = await fetch(
@@ -137,10 +137,12 @@ const ScheduledRebootPage = () => {
         setConfig(data.data);
         setPendingTime(data.data.time);
         setPendingDays(data.data.days);
-        toast({
-          title: "Success",
-          description: "Scheduled reboot settings saved successfully",
-        });
+        if (showToast) {
+          toast({
+            title: "Success",
+            description: "Scheduled reboot settings saved successfully",
+          });
+        }
       } else {
         throw new Error(data.message || "Failed to save configuration");
       }
@@ -180,8 +182,17 @@ const ScheduledRebootPage = () => {
     setPendingTime(event.target.value);
   };
 
-  const handleDaysChange = (days: string[]) => {
+  const handleDaysChange = async (days: string[]) => {
     setPendingDays(days);
+    
+    // If scheduled reboot is enabled, automatically save the new configuration
+    if (config.enabled) {
+      await saveConfig({
+        enabled: true,
+        time: pendingTime,
+        days: days,
+      }, false); // Don't show toast for automatic saves
+    }
   };
 
   // Reset configuration
@@ -270,37 +281,65 @@ const ScheduledRebootPage = () => {
             onValueChange={handleDaysChange}
             disabled={saving}
           >
-            <ToggleGroupItem value="monday" aria-label="Toggle Monday">
+            <ToggleGroupItem
+              value="monday"
+              aria-label="Toggle Monday"
+              className="data-[state=on]:bg-blue-600 data-[state=on]:text-white data-[state=on]:border-none"
+            >
               <Label className="cursor-pointer" htmlFor="monday">
                 Monday
               </Label>
             </ToggleGroupItem>
-            <ToggleGroupItem value="tuesday" aria-label="Toggle Tuesday">
+            <ToggleGroupItem
+              value="tuesday"
+              aria-label="Toggle Tuesday"
+              className="data-[state=on]:bg-blue-600 data-[state=on]:text-white data-[state=on]:border-none"
+            >
               <Label className="cursor-pointer" htmlFor="tuesday">
                 Tuesday
               </Label>
             </ToggleGroupItem>
-            <ToggleGroupItem value="wednesday" aria-label="Toggle Wednesday">
+            <ToggleGroupItem
+              value="wednesday"
+              aria-label="Toggle Wednesday"
+              className="data-[state=on]:bg-blue-600 data-[state=on]:text-white data-[state=on]:border-none"
+            >
               <Label className="cursor-pointer" htmlFor="wednesday">
                 Wednesday
               </Label>
             </ToggleGroupItem>
-            <ToggleGroupItem value="thursday" aria-label="Toggle Thursday">
+            <ToggleGroupItem
+              value="thursday"
+              aria-label="Toggle Thursday"
+              className="data-[state=on]:bg-blue-600 data-[state=on]:text-white data-[state=on]:border-none"
+            >
               <Label className="cursor-pointer" htmlFor="thursday">
                 Thursday
               </Label>
             </ToggleGroupItem>
-            <ToggleGroupItem value="friday" aria-label="Toggle Friday">
+            <ToggleGroupItem
+              value="friday"
+              aria-label="Toggle Friday"
+              className="data-[state=on]:bg-blue-600 data-[state=on]:text-white data-[state=on]:border-none"
+            >
               <Label className="cursor-pointer" htmlFor="friday">
                 Friday
               </Label>
             </ToggleGroupItem>
-            <ToggleGroupItem value="saturday" aria-label="Toggle Saturday">
+            <ToggleGroupItem
+              value="saturday"
+              aria-label="Toggle Saturday"
+              className="data-[state=on]:bg-blue-600 data-[state=on]:text-white data-[state=on]:border-none"
+            >
               <Label className="cursor-pointer" htmlFor="saturday">
                 Saturday
               </Label>
             </ToggleGroupItem>
-            <ToggleGroupItem value="sunday" aria-label="Toggle Sunday">
+            <ToggleGroupItem
+              value="sunday"
+              aria-label="Toggle Sunday"
+              className="data-[state=on]:bg-blue-600 data-[state=on]:text-white data-[state=on]:border-none"
+            >
               <Label className="cursor-pointer" htmlFor="sunday">
                 Sunday
               </Label>
@@ -309,7 +348,11 @@ const ScheduledRebootPage = () => {
         </div>
       </CardContent>
       <CardFooter className="flex border-t py-4">
-        <Button variant="secondary" onClick={resetConfig} disabled={saving || loading}>
+        <Button
+          variant="secondary"
+          onClick={resetConfig}
+          disabled={saving || loading}
+        >
           <Undo2Icon className="h-4 w-4" />
           Reset to Default
         </Button>

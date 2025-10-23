@@ -23,28 +23,46 @@ if [ -z "$indexes" ]; then
     exit 0
 fi
 
+# Check if "all" is requested
+if [ "$indexes" = "all" ]; then
+    if sms_tool delete all >/dev/null 2>&1; then
+        send_json "success" "Successfully deleted all messages"
+    else
+        send_json "error" "Failed to delete all messages"
+    fi
+    exit 0
+fi
+
+# Count indexes
+index_count=$(echo "$indexes" | tr ',' '\n' | grep -c .)
+
 # Initialize counters
 success=0
 failure=0
 
-# Process each index
-echo "$indexes" | tr ',' '\n' | while read -r index; do
-    if [ -n "$index" ] && [ "$index" -eq "$index" ] 2>/dev/null; then
-        if sms_tool delete "$index" 2>/dev/null; then
-            success=$((success + 1))
-        else
-            failure=$((failure + 1))
-        fi
+# Sort in descending order (highest to lowest) to avoid index shifting
+sorted_indexes=$(echo "$indexes" | tr ',' '\n' | sort -rn)
+
+# Delete each index one by one
+while IFS= read -r index; do
+    if [ -z "$index" ]; then
+        continue
     fi
-done
+    
+    if sms_tool delete "$index" >/dev/null 2>&1; then
+        success=$((success + 1))
+    else
+        failure=$((failure + 1))
+    fi
+done << EOF
+$sorted_indexes
+EOF
 
 # Send response
-if [ $success -gt 0 ]; then
-    if [ $failure -eq 0 ]; then
-        send_json "success" "Successfully deleted $success message(s)"
-    else
-        send_json "partial" "Deleted $success message(s), failed to delete $failure message(s)"
-    fi
+if [ "$success" -eq "$index_count" ]; then
+    send_json "success" "Successfully deleted $success message(s)"
+elif [ "$success" -gt 0 ]; then
+    send_json "partial" "Deleted $success of $index_count message(s)"
 else
     send_json "error" "Failed to delete messages"
 fi

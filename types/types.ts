@@ -19,7 +19,7 @@ export interface ConnectionData {
     | "Unknown"
     | "Roaming"
     | "Not Registered";
-  functionalityState: "Enabled" | "Disabled";
+  functionalityState: "Full Functionality" | "Limited Functionality";
   networkType: "NR5G-NSA" | "LTE" | "NR5G-SA" | "No Signal";
   modemTemperature: string;
   accessTechnology: string;

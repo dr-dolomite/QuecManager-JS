@@ -10,7 +10,6 @@ import Connection from "@/components/home/connection";
 import DataTransmission from "@/components/home/data-transmission";
 import CellularInformation from "@/components/home/cellular-info";
 import SignalChart from "@/components/home/signal-chart";
-import EthernetCard from "@/components/home/ethernet-card";
 import MemoryCard from "@/components/home/memory-card";
 import PingCard from "@/components/home/ping-card";
 
@@ -56,6 +55,8 @@ import { atCommandSender } from "@/utils/at-command";
 import NetworkInfoCard from "@/components/home/network-info-card";
 import ApproxDistanceCard from "@/components/home/approx-distance-card";
 import DataUsageWarningDialog from "@/components/experimental/data-usage-warning-dialog";
+import SummaryCardComponent from "@/components/home/summary-card";
+import BandsAccordionComponent from "@/components/home/bands-accordion";
 
 interface newBands {
   id: number;
@@ -190,8 +191,8 @@ const HomePage = () => {
     try {
       // Get the current SIM slot through AT+QUIMSLOT? command
       const currentSimSlotResponse = await atCommandSender("AT+QUIMSLOT?");
-      // Extract the current SIM slot number from the response raw_output
-      const currentSimSlot = currentSimSlotResponse.response?.raw_output
+      // Extract the current SIM slot number from the response
+      const currentSimSlot = currentSimSlotResponse.response
         .split("\n")[1]
         .split(":")[1]
         .trim();
@@ -201,10 +202,7 @@ const HomePage = () => {
       // Use atCommandSender instead of direct fetch
       const response = await atCommandSender(command);
 
-      if (
-        response.status === "error" ||
-        response.response?.status === "error"
-      ) {
+      if (response.status === "error") {
         throw new Error("Failed to change SIM slot");
       }
 
@@ -553,8 +551,20 @@ const HomePage = () => {
           </div>
         </div>
 
-        <div className="grid 2xl:grid-cols-4 lg:grid-cols-2 grid-cols-1 gap-4">
-          <SimCard
+        <div className="grid lg:grid-cols-2 grid-cols-1 grid-flow-row gap-4">
+          <SummaryCardComponent
+            data={homeData}
+            isLoading={isLoading}
+            dataConnectionState={dataConnectionState}
+            connectionStateLoading={isStateLoading}
+            bytesSent={bytesSent}
+            bytesReceived={bytesReceived}
+            hideSensitiveData={hideSensitiveData}
+            bands={bands}
+            onDataRefresh={refreshData}
+          />
+          <BandsAccordionComponent bands={bands} isLoading={isLoading} />
+          {/* <SimCard
             data={homeData}
             isLoading={isLoading}
             hideSensitiveData={hideSensitiveData}
@@ -571,11 +581,11 @@ const HomePage = () => {
             bytesSent={bytesSent}
             bytesReceived={bytesReceived}
           />
-          <CellularInformation data={homeData} isLoading={isLoading} />
+          <CellularInformation data={homeData} isLoading={isLoading} /> */}
         </div>
       </div>
 
-      <div className="grid gap-4 w-full">
+      {/* <div className="grid gap-4 w-full">
         <h1 className="xl:text-3xl text-base font-bold">Active Addresses</h1>
         <div>
           <NetworkInfoCard
@@ -586,19 +596,20 @@ const HomePage = () => {
             // onRefresh={refreshData}
           />
         </div>
-      </div>
+      </div> */}
 
-      <div className="grid gap-4 w-full">
+      {/* <div className="grid gap-4 w-full">
         <h1 className="xl:text-3xl text-base font-bold">
           Current Active Bands
         </h1>
         <div>
           <BandTable bands={bands} isLoading={isLoading} />
         </div>
-      </div>
+      </div> */}
 
       {/* Global Data Usage Warning Dialog */}
-      <DataUsageWarningDialog
+      {/* !NOTE Temporarily disabled */}
+      {/* <DataUsageWarningDialog
         open={showWarning}
         onClose={closeWarning}
         onDismiss={dismissWarning}
@@ -606,7 +617,7 @@ const HomePage = () => {
         currentUsage={formattedUsage.total}
         monthlyLimit={formattedLimit}
         remaining={remaining}
-      />
+      /> */}
 
       {/* Profile Setup Dialog */}
       <Dialog

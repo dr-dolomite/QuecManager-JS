@@ -25,17 +25,26 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Toggle } from "@/components/ui/toggle";
 import { Badge } from "@/components/ui/badge";
-import { LockIcon, RefreshCcw, Save, UnlockIcon } from "lucide-react";
+import { Loader2, LockIcon, RefreshCcw, Save, UnlockIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import ScheduledLockingCard from "@/components/cell-settings/scheduled-cell-locking-card";
 import { atCommandSender } from "@/utils/at-command"; // Import the utility
+import { set } from "react-hook-form";
 
 const CellLockingPage = () => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [locked, setLocked] = useState(false);
+  // Individual lock states
+  const [lteLocked, setLteLocked] = useState(false);
+  const [nr5gLocked, setNr5gLocked] = useState(false);
+  // Persist states
   const [ltePersist, setLtePersist] = useState(false);
   const [nr5gPersist, setNr5gPersist] = useState(false);
+  // Locking / unlocking loading state
+  const [lteLockLoading, setLteLockLoading] = useState(false);
+  const [nr5gLockLoading, setNr5gLockLoading] = useState(false);
+
   const [scheduleData, setScheduleData] = useState({
     enabled: false,
     startTime: "",
@@ -76,6 +85,78 @@ const CellLockingPage = () => {
       .map((item) => item.trim());
   };
 
+  // const fetchCurrentStatus = async () => {
+  //   try {
+  //     setLoading(true);
+  //     const response = await fetch(
+  //       "/cgi-bin/quecmanager/at_cmd/fetch_data.sh?set=8"
+  //     );
+  //     const data = await response.json();
+
+  //     if (!response.ok) {
+  //       throw new Error("Failed to fetch current status");
+  //     }
+
+  //     // Command set 8 is used to fetch the current cell locking status
+  //     console.log("Current cell locking status:", data);
+
+  //     // Get persist status
+  //     const parsedData = parseATResponse(data[2].response);
+  //     console.log("Persist status:", parsedData);
+  //     if (parsedData && parsedData.length >= 2) {
+  //       setLtePersist(parsedData[1] === "1");
+  //       setNr5gPersist(parsedData[2] === "1");
+  //     }
+
+  //     // Get current LTE Lock status
+  //     const lteLockData = parseATResponse(data[0].response);
+  //     console.log("Current LTE lock status:", lteLockData);
+  //     if (lteLockData) {
+  //       const newLteState = {
+  //         EARFCN1: lteLockData[2],
+  //         PCI1: lteLockData[3],
+  //         EARFCN2: lteLockData[4],
+  //         PCI2: lteLockData[5],
+  //         EARFCN3: lteLockData[6],
+  //         PCI3: lteLockData[7],
+  //       };
+  //       setLteState(newLteState);
+  //       console.log("New LTE state:", newLteState);
+  //       if (parseInt(lteLockData[1]) > 0) {
+  //         setLocked(true);
+  //         setLteLocked(true);
+  //       }
+  //     }
+
+  //     // Get current NR5G Lock status
+  //     const nr5gLockData = parseATResponse(data[1].response);
+  //     console.log("Current NR5G lock status:", nr5gLockData);
+  //     if (nr5gLockData && nr5gLockData.length >= 5) {
+  //       const newNr5gState = {
+  //         NRPCI: nr5gLockData[1],
+  //         NRARFCN: nr5gLockData[2],
+  //         SCS: nr5gLockData[3],
+  //         NRBAND: nr5gLockData[4],
+  //       };
+  //       setNr5gState(newNr5gState);
+  //       console.log("New NR5G state:", newNr5gState);
+  //       if (parseInt(nr5gLockData[1]) > 0) {
+  //         setLocked(true);
+  //         setNr5gLocked(true);
+  //       }
+  //     }
+  //   } catch (error) {
+  //     console.error("Error fetching current status:", error);
+  //     toast({
+  //       title: "Error",
+  //       description: "Failed to fetch current cell locking status",
+  //       variant: "destructive",
+  //     });
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
+
   const fetchCurrentStatus = async () => {
     try {
       setLoading(true);
@@ -88,7 +169,6 @@ const CellLockingPage = () => {
         throw new Error("Failed to fetch current status");
       }
 
-      // Command set 8 is used to fetch the current cell locking status
       console.log("Current cell locking status:", data);
 
       // Get persist status
@@ -99,39 +179,41 @@ const CellLockingPage = () => {
         setNr5gPersist(parsedData[2] === "1");
       }
 
-      // Get current LTE Lock status
+      // Get current LTE Lock status - ADD DEFAULT VALUES
       const lteLockData = parseATResponse(data[0].response);
       console.log("Current LTE lock status:", lteLockData);
       if (lteLockData) {
         const newLteState = {
-          EARFCN1: lteLockData[2],
-          PCI1: lteLockData[3],
-          EARFCN2: lteLockData[4],
-          PCI2: lteLockData[5],
-          EARFCN3: lteLockData[6],
-          PCI3: lteLockData[7],
+          EARFCN1: lteLockData[2] ?? "",
+          PCI1: lteLockData[3] ?? "",
+          EARFCN2: lteLockData[4] ?? "",
+          PCI2: lteLockData[5] ?? "",
+          EARFCN3: lteLockData[6] ?? "",
+          PCI3: lteLockData[7] ?? "",
         };
         setLteState(newLteState);
         console.log("New LTE state:", newLteState);
         if (parseInt(lteLockData[1]) > 0) {
           setLocked(true);
+          setLteLocked(true);
         }
       }
 
-      // Get current NR5G Lock status
+      // Get current NR5G Lock status - ADD DEFAULT VALUES
       const nr5gLockData = parseATResponse(data[1].response);
       console.log("Current NR5G lock status:", nr5gLockData);
       if (nr5gLockData && nr5gLockData.length >= 5) {
         const newNr5gState = {
-          NRPCI: nr5gLockData[1],
-          NRARFCN: nr5gLockData[2],
-          SCS: nr5gLockData[3],
-          NRBAND: nr5gLockData[4],
+          NRPCI: nr5gLockData[1] ?? "",
+          NRARFCN: nr5gLockData[2] ?? "",
+          SCS: nr5gLockData[3] ?? "",
+          NRBAND: nr5gLockData[4] ?? "",
         };
         setNr5gState(newNr5gState);
         console.log("New NR5G state:", newNr5gState);
         if (parseInt(nr5gLockData[1]) > 0) {
           setLocked(true);
+          setNr5gLocked(true);
         }
       }
     } catch (error) {
@@ -218,6 +300,7 @@ const CellLockingPage = () => {
   const handleLTELock = async () => {
     try {
       setLoading(true);
+      setLteLockLoading(true);
       // Collect valid EARFCN/PCI pairs
       const validPairs = [];
       if (lteState.EARFCN1 && lteState.PCI1) {
@@ -243,9 +326,11 @@ const CellLockingPage = () => {
       // Execute the lock command using atCommandSender
       const lockResult = await atCommandSender(lockCommand, true);
 
-      if (lockResult.response?.status !== "success") {
+      console.log("Lock command result:", lockResult);
+
+      if (lockResult.status !== "success") {
         throw new Error(
-          lockResult.response?.raw_output || "Failed to lock LTE cells"
+          lockResult.response || "Failed to lock LTE cells"
         );
       }
 
@@ -258,15 +343,18 @@ const CellLockingPage = () => {
         true
       );
 
-      if (saveResult.response?.status !== "success") {
+      if (saveResult.status !== "success") {
         throw new Error(
-          saveResult.response?.raw_output ||
+          saveResult.response ||
             "Failed to save LTE lock configuration"
         );
       }
 
       // Refetch status
       await fetchCurrentStatus();
+
+      setLteLockLoading(false);
+      setLoading(false);
 
       toast({
         title: "Success",
@@ -276,6 +364,7 @@ const CellLockingPage = () => {
       });
     } catch (error) {
       setLoading(false);
+      setLteLockLoading(false);
       toast({
         title: "Error",
         description:
@@ -288,6 +377,7 @@ const CellLockingPage = () => {
   const handleNR5GLock = async () => {
     try {
       setLoading(true);
+      setNr5gLockLoading(true);
       if (
         !nr5gState.NRPCI ||
         !nr5gState.NRARFCN ||
@@ -302,9 +392,9 @@ const CellLockingPage = () => {
 
       const lockResult = await atCommandSender(lockCommand, true);
 
-      if (lockResult.response?.status !== "success") {
+      if (lockResult.status !== "success") {
         throw new Error(
-          lockResult.response?.raw_output || "Failed to lock NR5G cell"
+          lockResult.response || "Failed to lock NR5G cell"
         );
       }
 
@@ -317,9 +407,9 @@ const CellLockingPage = () => {
         true
       );
 
-      if (saveResult.response?.status !== "success") {
+      if (saveResult.status !== "success") {
         throw new Error(
-          saveResult.response?.raw_output ||
+          saveResult.response ||
             "Failed to save NR5G lock configuration"
         );
       }
@@ -327,12 +417,16 @@ const CellLockingPage = () => {
       // Refetch status
       await fetchCurrentStatus();
 
+      setNr5gLockLoading(false);
+      setLoading(false);
+
       toast({
         title: "Success",
         description: "NR5G cell locked successfully",
       });
     } catch (error) {
       setLoading(false);
+      setNr5gLockLoading(false);
       toast({
         title: "Error",
         description:
@@ -345,6 +439,7 @@ const CellLockingPage = () => {
   const handleLTEReset = async () => {
     try {
       setLoading(true);
+      setLteLockLoading(true);
 
       // Reset LTE lock
       const resetResult = await atCommandSender(
@@ -352,9 +447,9 @@ const CellLockingPage = () => {
         true
       );
 
-      if (resetResult.response?.status !== "success") {
+      if (resetResult.status !== "success") {
         throw new Error(
-          resetResult.response?.raw_output || "Failed to reset LTE lock"
+          resetResult.response || "Failed to reset LTE lock"
         );
       }
 
@@ -367,9 +462,9 @@ const CellLockingPage = () => {
         true
       );
 
-      if (saveResult.response?.status !== "success") {
+      if (saveResult.status !== "success") {
         throw new Error(
-          saveResult.response?.raw_output ||
+          saveResult.response ||
             "Failed to save LTE reset configuration"
         );
       }
@@ -377,22 +472,19 @@ const CellLockingPage = () => {
       // Reset COPS
       const copsOffResult = await atCommandSender("AT+COPS=2", true);
 
-      if (copsOffResult.response?.status !== "success") {
+      if (copsOffResult.status !== "success") {
         throw new Error(
-          copsOffResult.response?.raw_output ||
+          copsOffResult.response ||
             "Failed to disconnect from network"
         );
       }
 
-      // Wait for 2 seconds
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-
       // Reconnect to network
       const copsOnResult = await atCommandSender("AT+COPS=0", true);
 
-      if (copsOnResult.response?.status !== "success") {
+      if (copsOnResult.status !== "success") {
         throw new Error(
-          copsOnResult.response?.raw_output || "Failed to reconnect to network"
+          copsOnResult.response || "Failed to reconnect to network"
         );
       }
 
@@ -403,8 +495,14 @@ const CellLockingPage = () => {
         title: "Success",
         description: "LTE cell locking reset to default",
       });
+
+      setLteLocked(false);
+      setLoading(false);
+      // Refresh the page after 2 seconds to ensure all states are updated
+      await new Promise((resolve) => setTimeout(resolve, 2000));
     } catch (error) {
       setLoading(false);
+      setLteLockLoading(false);
       toast({
         title: "Error",
         description: "Failed to reset LTE cell locking",
@@ -416,6 +514,7 @@ const CellLockingPage = () => {
   const handleNR5GReset = async () => {
     try {
       setLoading(true);
+      setNr5gLockLoading(true);
 
       // Reset NR5G lock
       const resetResult = await atCommandSender(
@@ -423,9 +522,9 @@ const CellLockingPage = () => {
         true
       );
 
-      if (resetResult.response?.status !== "success") {
+      if (resetResult.status !== "success") {
         throw new Error(
-          resetResult.response?.raw_output || "Failed to reset NR5G lock"
+          resetResult.response || "Failed to reset NR5G lock"
         );
       }
 
@@ -435,9 +534,9 @@ const CellLockingPage = () => {
         true
       );
 
-      if (saveResult.response?.status !== "success") {
+      if (saveResult.status !== "success") {
         throw new Error(
-          saveResult.response?.raw_output ||
+          saveResult.response ||
             "Failed to save NR5G reset configuration"
         );
       }
@@ -445,9 +544,9 @@ const CellLockingPage = () => {
       // Reset COPS
       const copsOffResult = await atCommandSender("AT+COPS=2", true);
 
-      if (copsOffResult.response?.status !== "success") {
+      if (copsOffResult.status !== "success") {
         throw new Error(
-          copsOffResult.response?.raw_output ||
+          copsOffResult.response ||
             "Failed to disconnect from network"
         );
       }
@@ -458,9 +557,9 @@ const CellLockingPage = () => {
       // Reconnect to network
       const copsOnResult = await atCommandSender("AT+COPS=0", true);
 
-      if (copsOnResult.response?.status !== "success") {
+      if (copsOnResult.status !== "success") {
         throw new Error(
-          copsOnResult.response?.raw_output || "Failed to reconnect to network"
+          copsOnResult.response || "Failed to reconnect to network"
         );
       }
 
@@ -471,8 +570,12 @@ const CellLockingPage = () => {
         title: "Success",
         description: "NR5G cell locking reset to default",
       });
+
+      // Refresh the page after 2 seconds to ensure all states are updated
+      await new Promise((resolve) => setTimeout(resolve, 2000));
     } catch (error) {
       setLoading(false);
+      setNr5gLockLoading(false);
       toast({
         title: "Error",
         description: "Failed to reset NR5G cell locking",
@@ -492,9 +595,9 @@ const CellLockingPage = () => {
         true
       );
 
-      if (toggleResult.response?.status !== "success") {
+      if (toggleResult.status !== "success") {
         throw new Error(
-          toggleResult.response?.raw_output ||
+          toggleResult.response ||
             "Failed to update LTE persist setting"
         );
       }
@@ -531,9 +634,9 @@ const CellLockingPage = () => {
         true
       );
 
-      if (toggleResult.response?.status !== "success") {
+      if (toggleResult.status !== "success") {
         throw new Error(
-          toggleResult.response?.raw_output ||
+          toggleResult.response ||
             "Failed to update NR5G persist setting"
         );
       }
@@ -560,15 +663,45 @@ const CellLockingPage = () => {
   };
 
   // Fetch data on component mount
+  // useEffect(() => {
+  //   const fetchAllData = async () => {
+  //     // Fetch cell lock data once
+  //     const response = await fetch(
+  //       "/cgi-bin/quecmanager/cell-locking/get_cell_lock.sh"
+  //     );
+  //     const data = await response.json();
+
+  //     // Update all necessary state
+  //     setScheduleData({
+  //       enabled: data.enabled,
+  //       startTime: data.start_time || "",
+  //       endTime: data.end_time || "",
+  //       active: data.active,
+  //       status: data.status,
+  //       message: data.message,
+  //       locked: data.locked,
+  //     });
+
+  //     // Update other state from the same response
+  //     setLocked(data.locked);
+  //     setLtePersist(data.ltePersist === "1");
+  //     setNr5gPersist(data.nr5gPersist === "1");
+
+  //     // Also fetch current status
+  //     await fetchCurrentStatus();
+  //   };
+
+  //   fetchAllData();
+  // }, []);
   useEffect(() => {
     const fetchAllData = async () => {
-      // Fetch cell lock data once
+      // Fetch cell lock data
       const response = await fetch(
         "/cgi-bin/quecmanager/cell-locking/get_cell_lock.sh"
       );
       const data = await response.json();
 
-      // Update all necessary state
+      // Update schedule data only
       setScheduleData({
         enabled: data.enabled,
         startTime: data.start_time || "",
@@ -579,12 +712,7 @@ const CellLockingPage = () => {
         locked: data.locked,
       });
 
-      // Update other state from the same response
-      setLocked(data.locked);
-      setLtePersist(data.ltePersist === "1");
-      setNr5gPersist(data.nr5gPersist === "1");
-
-      // Also fetch current status
+      // Fetch detailed AT command status (which will set persist states and lock details)
       await fetchCurrentStatus();
     };
 
@@ -717,19 +845,39 @@ const CellLockingPage = () => {
         </CardContent>
         <CardFooter className="border-t py-4 grid grid-flow-row md:grid-cols-3 grid-cols-1 gap-4">
           <Button
-            onClick={handleLTELock}
+            onClick={lteLocked ? handleLTEReset : handleLTELock}
             disabled={loading || scheduleData.enabled}
           >
-            <LockIcon className="h-4 w-4" />
-            Lock LTE Cells
+            {lteLockLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : lteLocked ? (
+              <UnlockIcon className="h-4 w-4" />
+            ) : (
+              <LockIcon className="h-4 w-4" />
+            )}
+            {lteLockLoading
+              ? lteLocked
+                ? "Unlocking LTE Cell"
+                : "Locking LTE Cell"
+              : lteLocked
+              ? "Unlock LTE Cell"
+              : "Lock LTE Cell"}
           </Button>
           <Toggle
             pressed={ltePersist}
             onPressedChange={handleLTEPersistToggle}
-            disabled={loading || scheduleData.enabled}
+            // disable it too if theres no input or if scheduling is enabled
+            disabled={
+              loading ||
+              scheduleData.enabled ||
+              !lteState.EARFCN1 ||
+              !lteState.PCI1
+            }
+            className="data-[state=on]:border-none data-[state=on]:bg-blue-600 data-[state=on]:text-white"
+            variant="outline"
           >
-            <Save className="h-4 w-4 mr-2" />
-            Persist on Reboot
+            <Save className="h-4 w-4" />
+            Persistent
           </Toggle>
           <Button
             variant="secondary"
@@ -819,19 +967,40 @@ const CellLockingPage = () => {
         </CardContent>
         <CardFooter className="border-t py-4 grid grid-flow-row md:grid-cols-3 grid-cols-1 gap-4">
           <Button
-            onClick={handleNR5GLock}
+            onClick={nr5gLocked ? handleNR5GReset : handleNR5GLock}
             disabled={loading || scheduleData.enabled}
           >
-            <LockIcon className="h-4 w-4" />
-            Lock NR5G-SA Cell
+            {nr5gLockLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : nr5gLocked ? (
+              <UnlockIcon className="h-4 w-4" />
+            ) : (
+              <LockIcon className="h-4 w-4" />
+            )}
+            {nr5gLockLoading
+              ? nr5gLocked
+                ? "Unlocking NR5G Cell"
+                : "Locking NR5G Cell"
+              : nr5gLocked
+              ? "Unlock NR5G Cell"
+              : "Lock NR5G Cell"}
           </Button>
           <Toggle
             pressed={nr5gPersist}
             onPressedChange={handleNR5GPersistToggle}
-            disabled={loading || scheduleData.enabled}
+            disabled={
+              loading ||
+              scheduleData.enabled ||
+              !nr5gState.NRPCI ||
+              !nr5gState.NRARFCN ||
+              !nr5gState.SCS ||
+              !nr5gState.NRBAND
+            }
+            className="data-[state=on]:border-none data-[state=on]:bg-blue-600 data-[state=on]:text-white"
+            variant="outline"
           >
-            <Save className="h-4 w-4 mr-2" />
-            Persist on Reboot
+            <Save className="h-4 w-4" />
+            Persistent
           </Toggle>
           <Button
             variant="secondary"

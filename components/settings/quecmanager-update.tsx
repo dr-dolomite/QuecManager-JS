@@ -12,7 +12,6 @@ import {
 
 import {
   AlertCircleIcon,
-  BellDotIcon,
   CloudDownloadIcon,
   Loader2Icon,
   RefreshCcwIcon,
@@ -28,7 +27,8 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { useToast } from "@/hooks/use-toast";
-import { Skeleton } from "../ui/skeleton";
+import { Skeleton } from "@/components/ui/skeleton";
+import UpdateReleaseNotes from "./update-release-notes";
 
 interface PackageInfo {
   installed: {
@@ -42,21 +42,68 @@ interface PackageInfo {
   };
 }
 
+interface GitHubRelease {
+  id: number;
+  tag_name: string;
+  name: string;
+  body: string;
+  published_at: string;
+  html_url: string;
+  prerelease: boolean;
+}
+
+interface UpdateResponse {
+  status: string;
+  message: string;
+  timestamp: string;
+  cached: boolean;
+  cache_age_seconds: number;
+  exit_code: number;
+  output?: string;
+}
+
 const QuecManagerUpdate = () => {
   const [packageInfo, setPackageInfo] = useState<PackageInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isChecking, setIsChecking] = useState(false);
   const [isUpgrading, setIsUpgrading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [releases, setReleases] = useState<GitHubRelease[]>([]);
+  const [isLoadingReleases, setIsLoadingReleases] = useState(true);
   const { toast } = useToast();
+
+  // Fetch GitHub releases
+  const fetchReleases = async () => {
+    try {
+      const response = await fetch(
+        "https://api.github.com/repos/dr-dolomite/QuecManager-JS/releases",
+        {
+          headers: {
+            Accept: "application/vnd.github.v3+json",
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch releases");
+      }
+
+      const data: GitHubRelease[] = await response.json();
+      setReleases(data);
+    } catch (err) {
+      console.error("Error fetching releases:", err);
+      toast({
+        title: "Release Notes Unavailable",
+        description: "Could not fetch release notes from GitHub",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoadingReleases(false);
+    }
+  };
 
   // Fetch package information
   const fetchPackageInfo = async () => {
-    toast({
-      title: "Checking for Updates",
-      description: "Please wait...",
-    });
-
     try {
       const response = await fetch(
         "/cgi-bin/quecmanager/settings/check_package_info.sh"
@@ -77,28 +124,53 @@ const QuecManagerUpdate = () => {
     }
   };
 
-  // Check for updates
+  // Update package list (can use cache or force update)
+  const updatePackageList = async (forceUpdate: boolean = false) => {
+    try {
+      const url = forceUpdate
+        ? "/cgi-bin/quecmanager/settings/update_package_list.sh?force=1"
+        : "/cgi-bin/quecmanager/settings/update_package_list.sh";
+
+      const updateResponse = await fetch(url);
+      const updateData: UpdateResponse = await updateResponse.json();
+
+      return updateData;
+    } catch (err) {
+      console.error("Error updating package list:", err);
+      throw err;
+    }
+  };
+
+  // Check for updates (user-initiated)
   const checkForUpdates = async () => {
     setIsChecking(true);
     try {
-      // First, update the package list
       toast({
         title: "Checking for Updates",
         description: "Fetching the latest package information...",
       });
 
-      const updateResponse = await fetch(
-        "/cgi-bin/quecmanager/settings/update_package_list.sh"
-      );
-      const updateData = await updateResponse.json();
+      // Force update when user explicitly checks
+      const updateData = await updatePackageList(true);
 
       if (updateData.status === "success") {
+        // Show appropriate message based on cache status
+        const cacheAgeMinutes = Math.floor(updateData.cache_age_seconds / 60);
+        const cacheAgeSeconds = updateData.cache_age_seconds % 60;
+        const cacheAgeText =
+          cacheAgeMinutes > 0
+            ? `${cacheAgeMinutes} min ${cacheAgeSeconds}s`
+            : `${cacheAgeSeconds}s`;
+
+        const message = updateData.cached
+          ? `Using cached data (${cacheAgeText} old)`
+          : "Package list has been successfully updated.";
+
         toast({
           title: "Package List Updated",
-          description: "Package list has been successfully updated.",
+          description: message,
         });
 
-        // Then fetch updated package info
         await fetchPackageInfo();
       } else {
         toast({
@@ -135,7 +207,6 @@ const QuecManagerUpdate = () => {
       );
       const data = await response.json();
 
-      //   Simply refresh the page if data is available whether success or error
       if (data.status === "success") {
         toast({
           title: "Upgrade Successful",
@@ -143,29 +214,47 @@ const QuecManagerUpdate = () => {
         });
         setTimeout(() => {
           window.location.reload();
-        }, 3000); // Wait 3 seconds before refreshing
+        }, 3000);
       } else {
         setTimeout(() => {
           window.location.reload();
-        }, 2000); // Wait 2 seconds before refreshing
+        }, 2000);
       }
     } catch (err) {
-      //   toast({
-      //     title: "Error",
-      //     description: "Failed to perform upgrade. Check console for details.",
-      //     variant: "destructive",
-      //   });
       console.error("Error upgrading package:", err);
     } finally {
       setIsUpgrading(false);
     }
   };
 
-  // Initial load
+  // Initial load - smart package list update
   useEffect(() => {
-    fetchPackageInfo();
+    toast({
+      title: "Checking for Updates",
+      description:
+        "Please wait while we fetch the latest package information...",
+      duration: 4000,
+    });
 
-    // If error show a toast notification
+    const initializeData = async () => {
+      try {
+        // Try to update package list (will use cache if recent)
+        await updatePackageList(false);
+      } catch (err) {
+        // Silently fail - we'll try to fetch package info anyway
+        console.log("Package list update skipped or failed:", err);
+      }
+
+      // Fetch package info regardless of update status
+      await fetchPackageInfo();
+    };
+
+    initializeData();
+    fetchReleases();
+  }, []);
+
+  // Show error toast when error state changes
+  useEffect(() => {
     if (error) {
       toast({
         title: "Error",
@@ -173,147 +262,166 @@ const QuecManagerUpdate = () => {
         variant: "destructive",
       });
     }
-  }, []);
+  }, [error, toast]);
 
   if (isLoading) {
     return (
+      <div className="space-y-4 grid">
+        <Card>
+          <CardHeader>
+            <CardTitle>QuecManager Update</CardTitle>
+            <CardDescription>
+              Keep your QuecManager up to date with the latest features and
+              improvements.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex items-center justify-center">
+            <Skeleton className="h-64 w-full" />
+          </CardContent>
+        </Card>
+
+        <UpdateReleaseNotes
+          releases={[]}
+          isLoading={true}
+          installedVersion={undefined}
+          packageType={undefined}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4 grid">
       <Card>
         <CardHeader>
-          <CardTitle>QuecManager Update</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            QuecManager Update
+          </CardTitle>
           <CardDescription>
             Keep your QuecManager up to date with the latest features and
             improvements.
           </CardDescription>
         </CardHeader>
-        <CardContent className="flex items-center justify-center py-8">
-          <Skeleton className="h-64 w-full" />
-        </CardContent>
-      </Card>
-    );
-  }
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          QuecManager Update
-        </CardTitle>
-        <CardDescription>
-          Keep your QuecManager up to date with the latest features and
-          improvements.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        {packageInfo?.available.update_available ? (
-          // Update available
-          <div className="space-y-4">
+        <CardContent>
+          {packageInfo?.available.update_available ? (
+            <div className="space-y-4">
+              <Empty className="from-muted/50 to-background h-full bg-gradient-to-b from-30%">
+                <EmptyHeader>
+                  <EmptyMedia variant="icon">
+                    <CloudDownloadIcon className="text-primary" />
+                  </EmptyMedia>
+                  <EmptyTitle>New Update Available</EmptyTitle>
+                  {packageInfo?.installed.type === "beta" ? (
+                    <EmptyDescription>
+                      A new version of QuecManager <strong>BETA</strong> is
+                      available.
+                    </EmptyDescription>
+                  ) : (
+                    <EmptyDescription>
+                      A new version of QuecManager <strong>STABLE</strong> is
+                      available.
+                    </EmptyDescription>
+                  )}
+                  <EmptyDescription>
+                    Update from{" "}
+                    <strong className="text-blue-500">
+                      {packageInfo?.installed.version}
+                    </strong>{" "}
+                    to{" "}
+                    <strong className="text-green-500">
+                      {packageInfo?.available.version}
+                    </strong>
+                    .
+                  </EmptyDescription>
+                </EmptyHeader>
+                <EmptyContent>
+                  <div className="grid grid-flow-row md:grid-cols-2 grid-cols-1 gap-2">
+                    <Button onClick={performUpgrade} disabled={isUpgrading}>
+                      {isUpgrading ? (
+                        <>
+                          <Loader2Icon className="animate-spin" />
+                          Upgrading...
+                        </>
+                      ) : (
+                        <>
+                          <CloudDownloadIcon />
+                          Install Update
+                        </>
+                      )}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={checkForUpdates}
+                      disabled={isChecking}
+                    >
+                      {isChecking ? (
+                        <>
+                          <Loader2Icon className="animate-spin" />
+                          Checking...
+                        </>
+                      ) : (
+                        <>
+                          <RefreshCcwIcon />
+                          Check Again
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </EmptyContent>
+              </Empty>
+            </div>
+          ) : (
             <Empty className="from-muted/50 to-background h-full bg-gradient-to-b from-30%">
               <EmptyHeader>
                 <EmptyMedia variant="icon">
-                  <CloudDownloadIcon className="text-primary" />
+                  <CloudDownloadIcon />
                 </EmptyMedia>
-                <EmptyTitle>New Update Available</EmptyTitle>
-                {packageInfo?.installed.type === "beta" ? (
-                  <EmptyDescription>
-                    A new version of QuecManager <strong>BETA</strong> is
-                    available.
-                  </EmptyDescription>
-                ) : (
-                  <EmptyDescription>
-                    A new version of QuecManager <strong>STABLE</strong> is
-                    available.
-                  </EmptyDescription>
-                )}
+                <EmptyTitle>No Updates Available</EmptyTitle>
                 <EmptyDescription>
-                  Update from <strong className="text-blue-500">{packageInfo?.installed.version}</strong>{" "}
-                  to{" "}
-                  <strong className="text-green-500">
-                    {packageInfo?.available.version}
-                  </strong>
+                  You are running the latest version of QuecManager. Your
+                  current version is {""}
+                  {packageInfo?.installed.version ? (
+                    <strong className="text-blue-500">
+                      {packageInfo.installed.version}
+                      {packageInfo.installed.type === "beta" ? (
+                        <span className="ml-1">BETA</span>
+                      ) : (
+                        <span className="ml-1">STABLE</span>
+                      )}
+                    </strong>
+                  ) : (
+                    <Skeleton className="ml-1 h-3 w-12 inline-block" />
+                  )}
                   .
                 </EmptyDescription>
               </EmptyHeader>
               <EmptyContent>
-                <div className="flex gap-2">
-                  <Button onClick={performUpgrade} disabled={isUpgrading}>
-                    {isUpgrading ? (
-                      <>
-                        <Loader2Icon className="animate-spin" />
-                        Upgrading...
-                      </>
-                    ) : (
-                      <>
-                        <CloudDownloadIcon />
-                        Install Update
-                      </>
-                    )}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={checkForUpdates}
-                    disabled={isChecking}
-                  >
-                    {isChecking ? (
-                      <>
-                        <Loader2Icon className="animate-spin" />
-                        Checking...
-                      </>
-                    ) : (
-                      <>
-                        <RefreshCcwIcon />
-                        Check Again
-                      </>
-                    )}
-                  </Button>
-                </div>
+                <Button onClick={checkForUpdates} disabled={isChecking}>
+                  {isChecking ? (
+                    <>
+                      <Loader2Icon className="animate-spin" />
+                      Checking...
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCcwIcon />
+                      Check for Updates
+                    </>
+                  )}
+                </Button>
               </EmptyContent>
             </Empty>
-          </div>
-        ) : (
-          // No update available
-          <Empty className="from-muted/50 to-background h-full bg-gradient-to-b from-30%">
-            <EmptyHeader>
-              <EmptyMedia variant="icon">
-                <CloudDownloadIcon />
-              </EmptyMedia>
-              <EmptyTitle>No Updates Available</EmptyTitle>
-              <EmptyDescription>
-                You are running the latest version of QuecManager. Your current
-                version is {""}
-                {packageInfo?.installed.version ? (
-                  <strong className="text-blue-500">
-                    {packageInfo.installed.version}
-                    {packageInfo.installed.type === "beta" ? (
-                      <span className="ml-1">BETA</span>
-                    ) : (
-                      <span className="ml-1">STABLE</span>
-                    )}
-                  </strong>
-                ) : (
-                  <Skeleton className="ml-1 h-3 w-12 inline-block" />
-                )}
-                .
-              </EmptyDescription>
-            </EmptyHeader>
-            <EmptyContent>
-              <Button onClick={checkForUpdates} disabled={isChecking}>
-                {isChecking ? (
-                  <>
-                    <Loader2Icon className="animate-spin" />
-                    Checking...
-                  </>
-                ) : (
-                  <>
-                    <RefreshCcwIcon />
-                    Check for Updates
-                  </>
-                )}
-              </Button>
-            </EmptyContent>
-          </Empty>
-        )}
-      </CardContent>
-    </Card>
+          )}
+        </CardContent>
+      </Card>
+
+      <UpdateReleaseNotes
+        releases={releases}
+        isLoading={isLoadingReleases}
+        installedVersion={packageInfo?.installed.version}
+        packageType={packageInfo?.installed.type}
+      />
+    </div>
   );
 };
 

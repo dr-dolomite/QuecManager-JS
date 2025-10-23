@@ -364,21 +364,14 @@ const BasicSettings = () => {
       console.log("Executing AT command:", command);
       const response = await atCommandSender(command);
 
-      if (response.status === "error") {
-        throw new Error(response.status || "Command execution failed");
-      }
-
-      if (
-        response.response?.status === "error" ||
-        response.response?.status === "timeout"
-      ) {
+      if (response.status === "error" || response.status === "timeout") {
         throw new Error(
-          response.response.raw_output ||
-            `Command execution ${response.response.status}`
+          response.response ||
+            `Command execution ${response.status}`
         );
       }
 
-      return response.response?.status === "success";
+      return response.status === "success";
     } catch (error) {
       console.error("AT command execution error:", error);
       throw error;
@@ -823,7 +816,7 @@ const BasicSettings = () => {
 
               <div className="grid w-full max-w-sm items-center gap-2">
                 <Label>
-                  Preferred Network Type
+                  Select Network (RAT) Mode
                   {profileControlledFields.preferredNetworkType && (
                     <span className="ml-2 text-xs text-muted-foreground">
                       (Profile Controlled)
@@ -878,7 +871,7 @@ const BasicSettings = () => {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectGroup>
-                        <SelectLabel>Preferred Network Type</SelectLabel>
+                        <SelectLabel>Select Network Mode</SelectLabel>
                         <SelectItem value="AUTO">Automatic</SelectItem>
                         <SelectItem value="LTE">LTE Only</SelectItem>
                         <SelectItem value="LTE:NR5G">NR5G-NSA</SelectItem>

@@ -1,4 +1,4 @@
-import QuecManagerUpdate from '@/components/settings/quemanager-update'
+import QuecManagerUpdate from '@/components/settings/quecmanager-update'
 import React from 'react'
 
 const UpdatePage = () => {

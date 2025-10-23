@@ -110,7 +110,7 @@ const useHomeData = () => {
           connection: {
             apn: "No APN",
             operatorState: "Unknown",
-            functionalityState: "Disabled",
+            functionalityState: "Limited Functionality",
             networkType: "No Signal",
             modemTemperature: "Unknown",
             accessTechnology: "-",
@@ -217,8 +217,8 @@ const useHomeData = () => {
             "Unknown",
           functionalityState:
             parseField(rawData[9]?.response, 1, 1, 0) === "1"
-              ? "Enabled"
-              : "Disabled",
+              ? "Full Functionality"
+              : "Limited Functionality",
           networkType: getNetworkType(rawData[13].response) || "No Signal",
           modemTemperature:
             getModemTemperature(rawData[11].response) || "Unknown",
@@ -905,7 +905,7 @@ const getMimoLayers = (response: string): string => {
   ).length;
   // Determine MIMO layers
   return lteRSRPCount && nr5gRSRPCount
-    ? `LTE ${lteRSRPCount} /  NR ${nr5gRSRPCount}`
+    ? `LTE ${lteRSRPCount} |  NR ${nr5gRSRPCount}`
     : lteRSRPCount
     ? ` LTE ${lteRSRPCount}`
     : nr5gRSRPCount
