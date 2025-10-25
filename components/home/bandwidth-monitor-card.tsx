@@ -36,8 +36,14 @@ const BandwidthMonitorCard = () => {
 
         {isLoading ? (
           <div className="space-y-3 mt-4">
-            <Skeleton className="h-6 w-full" />
-            <Skeleton className="h-6 w-full" />
+            <div className="flex justify-between items-center">
+              <Skeleton className="h-5 w-24" />
+              <Skeleton className="h-5 w-36" />
+            </div>
+            <div className="flex justify-between items-center">
+              <Skeleton className="h-5 w-24" />
+              <Skeleton className="h-5 w-36" />
+            </div>
           </div>
         ) : hasData ? (
           <div className="space-y-3 mt-4">

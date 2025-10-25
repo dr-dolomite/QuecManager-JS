@@ -270,6 +270,12 @@ while true; do
   # Write current ping
   write_json_atomic "$json"
   append_to_realtime "$json"
+  
+  # Send to WebSocat server if available (non-blocking)
+  if command -v websocat >/dev/null 2>&1; then
+    echo "$json" | websocat --one-message ws://localhost:8838 2>/dev/null || true
+  fi
+  
   log "Wrote: $json"
   
   # Perform aggregations (these check internally if it's time to aggregate)

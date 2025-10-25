@@ -302,7 +302,7 @@ const PingCard = () => {
       </CardHeader>
       <CardContent>
         {isLoading ? (
-          <Skeleton className="h-[200px] w-full" />
+          <Skeleton className="w-full" />
         ) : !config.enabled ? (
           <div className="h-[200px] flex flex-col items-center justify-center">
             <p className="text-sm text-muted-foreground">

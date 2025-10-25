@@ -60,6 +60,7 @@ import BandwidthMonitorCard from "@/components/home/bandwidth-monitor-card";
 import SummaryCardComponent from "@/components/home/summary-card";
 import BandsAccordionComponent from "@/components/home/bands-accordion";
 import MemoryCardWebSocket from "@/components/home/memory-card-websocket";
+import PingCardWebSocket from "@/components/home/ping-card-websocket";
 
 interface newBands {
   id: number;
@@ -558,7 +559,7 @@ const HomePage = () => {
             /> */}
 
             {/* <MemoryCard /> */}
-            <PingCard />
+            <PingCardWebSocket />
             <BandwidthMonitorCard />
             <SpeedtestStream />
 
