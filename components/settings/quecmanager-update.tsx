@@ -269,7 +269,7 @@ const QuecManagerUpdate = () => {
       <div className="space-y-4 grid">
         <Card>
           <CardHeader>
-            <CardTitle>QuecManager Update</CardTitle>
+            <CardTitle>QuecManager Update (Experimental)</CardTitle>
             <CardDescription>
               Keep your QuecManager up to date with the latest features and
               improvements.

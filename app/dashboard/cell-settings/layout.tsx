@@ -31,6 +31,16 @@ const CellSettingsLayout = ({ children }: CellSettingsLayoutProps) => {
           >
             Basic Settings
           </Link>
+                    <Link
+            href="/dashboard/cell-settings/network-priority"
+            className={`${
+              currentPathName === "/dashboard/cell-settings/network-priority/"
+                ? "font-semibold text-primary"
+                : "text-sm"
+            }`}
+          >
+            Network Priority
+          </Link>
           <Link
             href="/dashboard/cell-settings/band-locking"
             className={`${

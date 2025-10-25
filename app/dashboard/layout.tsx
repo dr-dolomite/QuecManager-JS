@@ -411,7 +411,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
             Custom Features
           </Link>
           <Link
-            href="/dashboard/experimental/network-priority"
+            href="/dashboard/experimental/network-insights"
             className={`${
               currentPathName.includes("/dashboard/experimental/")
                 ? "text-foreground"

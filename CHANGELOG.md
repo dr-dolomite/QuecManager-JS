@@ -9,4 +9,6 @@
 7. Moved approximate cell tower distance (based on Time Advance (TA)) to Device and SIM Information component
 8. Added Total Current Bandwidth data
 9. Fixed Data Usage incorrect logic for counting
+10. Fixed memory and ping config settings
+11. Moved Network Priority Settings to Cell Settings
 

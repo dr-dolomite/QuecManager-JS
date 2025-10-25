@@ -36,7 +36,7 @@
       --chart-5: 224 79% 45%;
       --radius: 0.5rem;
     }
-  
+
     .dark {
       --background: 224 48% 0%;
       --foreground: 224 29% 97%;
@@ -92,7 +92,7 @@
     --chart-3: 30 80% 85%;
     --chart-4: 280 65% 90%;
     --chart-5: 229 12% 96%;
-    
+
     --sidebar-background: 229 12% 93%;
     --sidebar-foreground: 210 20% 38%;
     --sidebar-primary: 262 83% 75%;
@@ -129,7 +129,7 @@
     --chart-3: 30 80% 55%;
     --chart-4: 280 65% 60%;
     --chart-5: 340 75% 55%;
-    
+
     --sidebar-background: 229 12% 3%;
     --sidebar-foreground: 210 20% 56%;
     --sidebar-primary: 262 83% 50%;
@@ -138,6 +138,9 @@
     --sidebar-accent-foreground: 210 20% 98%;
     --sidebar-border: 215 28% 9%;
     --sidebar-ring: 263 70% 42%;
+  }
+  .theme {
+    --animate-blink-cursor: blink-cursor 1.2s step-end infinite;
   }
 }
 
@@ -160,6 +163,14 @@
     }
     to {
       background-position: 0% 0%;
+    }
+  }
+  @keyframes blink-cursor {
+  0%, 49% {
+    opacity: 1;
+    }
+  50%, 100% {
+    opacity: 0;
     }
   }
 }

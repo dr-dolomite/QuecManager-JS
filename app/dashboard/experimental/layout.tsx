@@ -22,16 +22,6 @@ const ExperimentalLayout = ({ children }: ExperimentalLayoutProps) => {
           x-chunk="dashboard-04-chunk-0"
         >
           <Link
-            href="/dashboard/experimental/network-priority"
-            className={`${
-              currentPathName === "/dashboard/experimental/network-priority/"
-                ? "font-semibold text-primary"
-                : "text-sm"
-            }`}
-          >
-            Network Priority
-          </Link>
-          <Link
             href="/dashboard/experimental/network-insights"
             className={`${
               currentPathName === "/dashboard/experimental/network-insights/"
