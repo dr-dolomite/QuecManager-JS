@@ -398,7 +398,9 @@ const HomePage = () => {
 
             <Dialog>
               <DialogTrigger asChild>
-                <Button onClick={runDiagnostics}>
+                <Button onClick={runDiagnostics}
+                variant="secondary"
+                >
                   <CirclePlay className="xl:size-6 size-5" />
                   <span className="hidden md:block">Run Diagnostics</span>
                 </Button>

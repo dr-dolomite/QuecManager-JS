@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Card,
   CardHeader,
@@ -10,15 +10,9 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox"
+import { Checkbox } from "@/components/ui/checkbox";
 import {
-  Send,
-  X,
   Trash2,
-  Copy,
-  CircleCheck,
-  CircleAlert,
-  Check,
   CircleCheckIcon,
   CircleAlertIcon,
   ChevronLeft,
@@ -46,6 +40,9 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+
+import { toast } from "@/hooks/use-toast";
+
 import TerminalComponent from "@/components/at-terminal/at-terminal";
 
 interface CommandHistoryItem {
@@ -53,18 +50,6 @@ interface CommandHistoryItem {
   response: string;
   timestamp: string;
   status: string;
-}
-
-interface ATCommand {
-  description: string;
-  command: string;
-}
-
-interface QueueResponse {
-  command: string;
-  response: string;
-  status: string;
-  error?: string;
 }
 
 const ATTerminalPage = () => {
@@ -153,45 +138,25 @@ const ATTerminalPage = () => {
     }
   }, [currentPage, totalPages]);
 
-  const handleCopyCommand = async (command: string) => {
-    try {
-      if (navigator.clipboard && window.isSecureContext) {
-        await navigator.clipboard.writeText(command);
-      } else {
-        const textArea = document.createElement("textarea");
-        textArea.value = command;
-        textArea.style.position = "fixed";
-        textArea.style.left = "-999999px";
-        textArea.style.top = "-999999px";
-        document.body.appendChild(textArea);
-        textArea.focus();
-        textArea.select();
-
-        try {
-          document.execCommand("copy");
-        } catch (err) {
-          console.error("Fallback: Oops, unable to copy", err);
-          throw new Error("Copy failed");
-        } finally {
-          textArea.remove();
-        }
-      }
-
-      toast({
-        title: "Copied!",
-        description: `Command "${command}" copied to clipboard`,
-        duration: 2000,
-      });
-    } catch (error) {
-      console.error("Failed to copy command:", error);
-      toast({
-        title: "Error",
-        description: "Failed to copy command to clipboard",
-        variant: "destructive",
-        duration: 3000,
-      });
-    }
-  };
+const handleCopyCommand = async (command: string) => {
+  try {
+    await navigator.clipboard.writeText(command);
+    
+    toast({
+      title: "Copied!",
+      description: "Response copied to clipboard",
+      duration: 2000,
+    });
+  } catch (error) {
+    console.error("Failed to copy:", error);
+    toast({
+      title: "Error",
+      description: "Failed to copy to clipboard. Please copy manually.",
+      variant: "destructive",
+      duration: 3000,
+    });
+  }
+};
 
   return (
     <div className="grid gap-6">
@@ -204,7 +169,7 @@ const ATTerminalPage = () => {
         </CardHeader>
         <CardContent>
           <div className="grid gap-8 w-full max-w-screen">
-            <TerminalComponent 
+            <TerminalComponent
               onCommandExecuted={handleCommandExecuted}
               onCommandSuccess={handleCommandSuccess}
               commandHistory={commandHistory}
@@ -279,9 +244,14 @@ const ATTerminalPage = () => {
                         <AccordionContent>
                           {/* Make it scrollable and fit the screen width */}
                           <div className="px-4 pb-2">
-                            <div className="flex items-start gap-x-1">
-                              <Button variant="ghost" size="icon" onClick={() => handleCopyCommand(item.response)} className="p-0.5 shrink-0">
-                              <CopyIcon className="w-4 h-4"/>
+                            <div className="flex items-start gap-x-2">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleCopyCommand(item.response)}
+                                className="p-0.5 shrink-0"
+                              >
+                                <CopyIcon className="w-4 h-4" />
                               </Button>
                               {/* Make sure that it will not overflow the device width */}
                               <p className="text-sm text-balance font-medium whitespace-pre-wrap break-words md:max-w-full max-w-sm md:w-full w-44">
