@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# Ping Service Configuration Script - Simple OpenWrt compatible version
+# Ping Service Configuration Script - UCI-based version
 
 # Always set CORS headers first
 echo "Content-Type: application/json"
@@ -21,19 +21,20 @@ if [ "${REQUEST_METHOD:-GET}" != "GET" ]; then
     exit 0
 fi
 
-# Configuration path
-CONFIG_FILE="/etc/quecmanager/settings/ping_settings.conf"
+# UCI Configuration
+UCI_CONFIG="quecmanager"
+UCI_SECTION="ping_daemon"
 
-# Get current configuration
+# Get current configuration from UCI
 ENABLED="false"
 INTERVAL="5"
 HOST="8.8.8.8"
 
-if [ -f "$CONFIG_FILE" ] && [ -r "$CONFIG_FILE" ]; then
-    # Parse config using awk (more reliable in BusyBox)
-    enabled_val=$(awk -F'=' '/^PING_ENABLED=/ {print $2}' "$CONFIG_FILE" 2>/dev/null | tr -d '"')
-    interval_val=$(awk -F'=' '/^PING_INTERVAL=/ {print $2}' "$CONFIG_FILE" 2>/dev/null)
-    host_val=$(awk -F'=' '/^PING_HOST=/ {print $2}' "$CONFIG_FILE" 2>/dev/null | tr -d '"')
+# Read from UCI (if section exists)
+if uci -q get "$UCI_CONFIG.$UCI_SECTION" >/dev/null 2>&1; then
+    enabled_val=$(uci -q get "$UCI_CONFIG.$UCI_SECTION.enabled" 2>/dev/null || echo "0")
+    interval_val=$(uci -q get "$UCI_CONFIG.$UCI_SECTION.interval" 2>/dev/null || echo "5")
+    host_val=$(uci -q get "$UCI_CONFIG.$UCI_SECTION.host" 2>/dev/null || echo "8.8.8.8")
     
     case "$enabled_val" in
         true|1|on|yes|enabled) ENABLED="true" ;;

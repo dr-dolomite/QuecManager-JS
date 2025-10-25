@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# Memory Data Fetch Script - Simplified and robust
+# Memory Data Fetch Script - UCI-based version
 
 # Always set CORS headers first (no conditional OPTIONS handling)
 echo "Content-Type: application/json"
@@ -23,7 +23,8 @@ fi
 
 # Paths
 MEMORY_JSON="/tmp/quecmanager/memory.json"
-CONFIG_FILE="/etc/quecmanager/settings/memory_settings.conf"
+UCI_CONFIG="quecmanager"
+UCI_SECTION="memory_daemon"
 
 # Check if memory data file exists
 if [ -f "$MEMORY_JSON" ] && [ -r "$MEMORY_JSON" ]; then
@@ -42,14 +43,18 @@ if [ -f "$MEMORY_JSON" ] && [ -r "$MEMORY_JSON" ]; then
         echo "{\"status\":\"error\",\"message\":\"Memory data file is empty or corrupted\"}"
     fi
 else
-    # No memory file exists - check configuration
-    if [ -f "$CONFIG_FILE" ] && [ -r "$CONFIG_FILE" ]; then
+    # No memory file exists - check UCI configuration
+    if uci -q get "$UCI_CONFIG.$UCI_SECTION" >/dev/null 2>&1; then
+        enabled_val=$(uci -q get "$UCI_CONFIG.$UCI_SECTION.enabled" 2>/dev/null || echo "0")
         # Check if memory monitoring is enabled
-        if grep -q "^MEMORY_ENABLED=true" "$CONFIG_FILE" 2>/dev/null; then
-            echo "{\"status\":\"error\",\"message\":\"Memory daemon starting up\"}"
-        else
-            echo "{\"status\":\"error\",\"message\":\"Memory monitoring disabled\"}"
-        fi
+        case "$enabled_val" in
+            true|1|on|yes|enabled)
+                echo "{\"status\":\"error\",\"message\":\"Memory daemon starting up\"}"
+                ;;
+            *)
+                echo "{\"status\":\"error\",\"message\":\"Memory monitoring disabled\"}"
+                ;;
+        esac
     else
         echo "{\"status\":\"error\",\"message\":\"Memory monitoring not configured\"}"
     fi
