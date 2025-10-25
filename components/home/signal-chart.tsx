@@ -48,15 +48,15 @@ const chartConfig = {
     label: "LTE/5G Signal & Bandwidth Metrics",
   },
   rsrp: {
-    label: "RSRP (dBm)",
+    label: "RSRP",
     color: "hsl(var(--chart-1))",
   },
   rsrq: {
-    label: "RSRQ (dB)",
+    label: "RSRQ",
     color: "hsl(var(--chart-2))",
   },
   sinr: {
-    label: "SINR (dB)",
+    label: "SINR",
     color: "hsl(var(--chart-3))",
   },
 } satisfies ChartConfig;
@@ -280,7 +280,7 @@ const SignalChart = () => {
                 {isInitialLoading ? (
                   <Skeleton className="h-4 sm:h-6 lg:h-8 w-full" />
                 ) : (
-                  <span className="text-sm font-bold leading-none sm:text-base lg:text-2xl">
+                  <span className="text-sm font-bold leading-none sm:text-base lg:text-2xl whitespace-nowrap px-2">
                       {currentValues[chart].toFixed(0)}{
                         chart === "rsrp" ? " dBm" : " dB"
                       }

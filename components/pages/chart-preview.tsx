@@ -19,8 +19,6 @@ import { calculateSignalPercentage } from "@/utils/signalMetrics";
 import { ArrowRightIcon } from "@radix-ui/react-icons";
 
 import { useAuth } from "@/hooks/auth";
-import { BorderBeam } from "../ui/border-beam";
-import { ShineBorder } from "../ui/shine-border";
 
 interface ModemResponse {
   response: string;
@@ -174,7 +172,8 @@ export default function ChartPreviewSignal() {
   ];
 
   return (
-    <Card className="xl:max-w-2xl xl:w-[1200px] max-w-sm w-full border-none">
+    <div className="xl:max-w-2xl xl:w-[1200px] max-w-sm w-full">
+          <Card >
       <CardHeader>
         <div className="flex flex-row justify-between items-center">
           <CardTitle>QuecManager Quick Stats</CardTitle>
@@ -184,19 +183,19 @@ export default function ChartPreviewSignal() {
       <CardContent className="flex flex-col gap-4">
         <div className="flex flex-row justify-evenly items-center w-full p-2 border-t border-b">
           {initialLoading ? (
-            <Skeleton className="h-8 w-24" />
+            <Skeleton className="h-8 w-20" />
           ) : (
             <div>{signalData.networkName}</div>
           )}
           <Separator orientation="vertical" className="mx-2 h-10 w-px" />
           {initialLoading ? (
-            <Skeleton className="h-8 w-24" />
+            <Skeleton className="h-8 w-20" />
           ) : (
             <div>{signalData.networkType}</div>
           )}
           <Separator orientation="vertical" className="mx-2 h-10 w-px" />
           {initialLoading ? (
-            <Skeleton className="h-8 w-24" />
+            <Skeleton className="h-8 w-20" />
           ) : (
             <div>{signalData.bands}</div>
           )}
@@ -220,7 +219,7 @@ export default function ChartPreviewSignal() {
                   color: "hsl(var(--chart-3))",
                 },
               }}
-              className="h-[140px] w-full"
+              className="h-[140px] max-w-full w-screen"
             >
               <BarChart
                 margin={{
@@ -250,7 +249,7 @@ export default function ChartPreviewSignal() {
                     fill="white"
                     offset={8}
                     fontSize={12}
-                  /> */}
+                  />  */}
                 </Bar>
               </BarChart>
             </ChartContainer>
@@ -263,7 +262,7 @@ export default function ChartPreviewSignal() {
             <div className="grid flex-1 auto-rows-min gap-0.5">
               <div className="text-xs text-muted-foreground">RSRP</div>
               {initialLoading ? (
-                <Skeleton className="h-8 w-24" />
+                <Skeleton className="h-8 w-20" />
               ) : (
                 <div className="flex items-baseline gap-1 xl:text-2xl text-md font-bold tabular-nums leading-none">
                   {signalData.rsrp?.toFixed(1)}
@@ -277,7 +276,7 @@ export default function ChartPreviewSignal() {
             <div className="grid flex-1 auto-rows-min gap-0.5">
               <div className="text-xs text-muted-foreground">RSRQ</div>
               {initialLoading ? (
-                <Skeleton className="h-8 w-24" />
+                <Skeleton className="h-8 w-20" />
               ) : (
                 <div className="flex items-baseline gap-1 xl:text-2xl text-md font-bold tabular-nums leading-none">
                   {signalData.rsrq?.toFixed(1)}
@@ -291,7 +290,7 @@ export default function ChartPreviewSignal() {
             <div className="grid flex-1 auto-rows-min gap-0.5">
               <div className="text-xs text-muted-foreground">SINR</div>
               {initialLoading ? (
-                <Skeleton className="h-8 w-24" />
+                <Skeleton className="h-8 w-20" />
               ) : (
                 <div className="flex items-baseline gap-1 xl:text-2xl text-md font-bold tabular-nums leading-none">
                   {signalData.sinr?.toFixed(1)}
@@ -321,5 +320,7 @@ export default function ChartPreviewSignal() {
         </div>
       </CardFooter>
     </Card>
+    </div>
+
   );
 }

@@ -122,7 +122,11 @@ const HomePage = () => {
       );
       if (dialogSettingsResponse.ok) {
         const dialogSettings = await dialogSettingsResponse.json();
-        if (dialogSettings.status === "success" && dialogSettings.data && !dialogSettings.data.enabled) {
+        if (
+          dialogSettings.status === "success" &&
+          dialogSettings.data &&
+          !dialogSettings.data.enabled
+        ) {
           // Dialog is disabled in settings, don't show
           return;
         }
@@ -546,14 +550,15 @@ const HomePage = () => {
           {/* <div><WebSocketComponent /></div> */}
           <div className="grid gap-2 lg:grid-cols-2 grid-cols-1 grid-flow-row">
             {/* <EthernetCard /> */}
-            <ApproxDistanceCard
+            {/* <ApproxDistanceCard
               lteTimeAdvance={homeData?.timeAdvance?.lteTimeAdvance}
               nrTimeAdvance={homeData?.timeAdvance?.nrTimeAdvance}
               isLoading={isLoading}
               networkType={homeData?.connection?.networkType}
-            />
-            <BandwidthMonitorCompactCard />
+            /> */}
+
             <MemoryCard />
+            <BandwidthMonitorCompactCard />
             <SpeedtestStream />
             <PingCard />
           </div>
@@ -775,7 +780,6 @@ const HomePage = () => {
         monthlyLimit={formattedLimit}
         remaining={remaining}
       />
-
     </div>
   );
 };

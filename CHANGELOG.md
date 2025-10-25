@@ -1,29 +1,11 @@
-# QuecManager BETA 2.3.4 Changelog
+# QuecManager BETA 2.3.5 Changelog
 
-⚠️ **Important Notes**
+1. Fixed mobile view on quick view charts
+2. Added websocat (will require websocat from now on)
+3. Added live bandwidth that will utilize websocat
+4. Refactored Home UI design and added some UX improvements
+5. Redesigned Band Cards to use Accordion design instead
+6. Added db or dBm on average signal metrics values from signal graphs
+7. Moved approximate cell tower distance (based on Time Advance (TA)) to Device and SIM Information component
+8. Added Total Current Bandwidth data
 
-* Please **disable data usage tracking** before installing.
-* After updating, reapply any active settings configurations.
-
-### ✨ Added
-
-* Experimental **Internet Quality** feature
-* **Native GUI** for QuecManager updates
-* **Packet loss reporting** in the Ping card
-* **Donation button** on the About page
-
-
-### 🔄 Changed / Migrated
-
-* Configuration files migrated to **UCI (Unified Configuration Interface)**
-* General **UI improvements**
-* Backend script optimizations and improvements
-
-### ❌ Removed / Temporarily Disabled
-
-* **Data usage tracking** (temporarily disabled)
-
-Removed legacy init scripts (from `/etc/init.d`):
-
-* `quecmanager_modem_counter`
-* `quecmanager_data_usage`

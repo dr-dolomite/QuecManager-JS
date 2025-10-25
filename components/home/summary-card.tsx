@@ -44,6 +44,7 @@ import { HomeData, Band } from "@/types/types";
 import { getAccessTech } from "@/constants/home/index";
 import { atCommandSender } from "@/utils/at-command";
 import { useToast } from "@/hooks/use-toast";
+import { useDistanceCalculation } from "@/hooks/use-distance-calculation";
 
 interface SummaryCardProps {
   data: HomeData | null;
@@ -71,6 +72,12 @@ const SummaryCardComponent = ({
   const { toast } = useToast();
   const [isSwappingDialog, setIsSwappingDialog] = useState(false);
   const [isSwapping, setIsSwapping] = useState(false);
+
+  // Use distance calculation hook
+  const { lteDistance, nrDistance, isUnitLoading } = useDistanceCalculation(
+    data?.timeAdvance.lteTimeAdvance,
+    data?.timeAdvance.nrTimeAdvance
+  );
 
   // Calculate temperature progress (0-100°C scale)
   const getTemperatureProgress = (temp: string | undefined): number => {
@@ -461,6 +468,50 @@ const SummaryCardComponent = ({
             <Skeleton className="h-4 w-[140px]" />
           ) : (
             <p className="font-bold">{data?.dataTransmission.mimoLayers}</p>
+          )}
+        </div>
+
+        {/* LTE Cell Distance (Time Advance) */}
+        <div className="flex items-center justify-between">
+          <p>LTE Cell Distance</p>
+          {isLoading || isUnitLoading ? (
+            <Skeleton className="h-4 w-[100px]" />
+          ) : (
+            <TooltipProvider>
+              <div className="flex items-center gap-x-1">
+                <Tooltip>
+                  <TooltipTrigger>
+                    <Info className="w-4 h-4 mr-0.5" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>LTE TA: {lteDistance.ta}</p>
+                  </TooltipContent>
+                </Tooltip>
+                <p className="font-bold">{lteDistance.formatted}</p>
+              </div>
+            </TooltipProvider>
+          )}
+        </div>
+
+        {/* NR5G Cell Distance (Time Advance) */}
+        <div className="flex items-center justify-between">
+          <p>NR5G Cell Distance</p>
+          {isLoading || isUnitLoading ? (
+            <Skeleton className="h-4 w-[100px]" />
+          ) : (
+            <TooltipProvider>
+              <div className="flex items-center gap-x-1">
+                <Tooltip>
+                  <TooltipTrigger>
+                    <Info className="w-4 h-4 mr-0.5" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>NTA: {nrDistance.ta}</p>
+                  </TooltipContent>
+                </Tooltip>
+                <p className="font-bold">{nrDistance.formatted}</p>
+              </div>
+            </TooltipProvider>
           )}
         </div>
       </CardContent>
