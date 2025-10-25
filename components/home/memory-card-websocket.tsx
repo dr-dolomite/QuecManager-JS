@@ -208,7 +208,7 @@ const MemoryCardWebSocket = () => {
           </div>
         ) : !hasData ? (
           <div className="h-[200px] flex flex-col items-center justify-center">
-            <Skeleton className="h-8 w-32 mb-2" />
+            {/* <Skeleton className="h-8 w-32 mb-2" /> */}
             <p className="text-sm text-muted-foreground">
               {isConnected ? "Waiting for data..." : "Connecting..."}
             </p>
