@@ -3,6 +3,7 @@ import { useBandwidthMonitor } from "@/hooks/use-bandwidth-monitor";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CircleArrowDownIcon, MonitorCheckIcon, MonitorOffIcon } from "lucide-react";
+import Link from "next/link";
 
 /**
  * Compact bandwidth monitor card that fits in the small cards grid section.
@@ -18,7 +19,9 @@ const BandwidthMonitorCard = () => {
   return (
     <Card className="h-full">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle>Live Bandwidth</CardTitle>
+        <Link href="/experimental/internet-quality">
+          <CardTitle>Live Bandwidth</CardTitle>
+        </Link>
         {error ? (
           <MonitorOffIcon className="h-4 w-4 text-red-500" />
         ) : (
