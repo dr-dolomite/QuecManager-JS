@@ -9,11 +9,13 @@ import {
 } from "@/components/ui/chart";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { MonitorOffIcon } from "lucide-react";
+import { MonitorCheckIcon, MonitorOffIcon } from "lucide-react";
+import { BiSolidBarChartSquare, BiSolidChart } from "react-icons/bi";
 
 interface PingData {
   time: string;
   ms: number;
+  packetLoss: number;
   index: number;
 }
 
@@ -41,10 +43,16 @@ const formatTime = () => {
 };
 
 const PingCard = () => {
-  // Load cached data and set initial states
+  // Load cached data and set initial states - now storing up to 30 data points
   const [chartData, setChartData] = useState<PingData[]>(() => {
     const savedData = localStorage.getItem("pingData");
     return savedData ? JSON.parse(savedData) : [];
+  });
+
+  // Load full history for average calculations (up to 30 points)
+  const [pingHistory, setPingHistory] = useState<PingData[]>(() => {
+    const savedHistory = localStorage.getItem("pingHistory");
+    return savedHistory ? JSON.parse(savedHistory) : [];
   });
 
   const [currentLatency, setCurrentLatency] = useState<number | null>(() => {
@@ -58,7 +66,16 @@ const PingCard = () => {
     return null;
   });
 
-  const [currentPacketLoss, setCurrentPacketLoss] = useState<number | null>(null);
+  const [currentPacketLoss, setCurrentPacketLoss] = useState<number | null>(() => {
+    const savedData = localStorage.getItem("pingData");
+    if (savedData) {
+      const parsedData = JSON.parse(savedData);
+      return parsedData.length > 0
+        ? parsedData[parsedData.length - 1].packetLoss
+        : null;
+    }
+    return null;
+  });
 
   const [config, setConfig] = useState<PingConfig>({
     enabled: true,
@@ -70,7 +87,7 @@ const PingCard = () => {
   const [isLoading, setIsLoading] = useState(() => {
     const savedData = localStorage.getItem("pingData");
     if (!savedData) return true;
-    
+
     try {
       const parsedData = JSON.parse(savedData);
       // Only show loading if we have no valid cached data
@@ -83,7 +100,7 @@ const PingCard = () => {
   const [hasData, setHasData] = useState(() => {
     const savedData = localStorage.getItem("pingData");
     if (!savedData) return false;
-    
+
     try {
       const parsedData = JSON.parse(savedData);
       return parsedData && parsedData.length > 0;
@@ -116,18 +133,21 @@ const PingCard = () => {
         if (typeof pingResult.latency === "number") {
           setCurrentLatency(pingResult.latency);
 
-          if (typeof pingResult.packet_loss === "number") {
-            setCurrentPacketLoss(pingResult.packet_loss);
-          }
+          const packetLoss = typeof pingResult.packet_loss === "number" 
+            ? pingResult.packet_loss 
+            : 0;
+          setCurrentPacketLoss(packetLoss);
 
-          // Add to chart data
+          // Add to chart data (display - max 5 points)
           const time = formatTime();
           const newDataPoint: PingData = {
             time: time,
             ms: pingResult.latency,
+            packetLoss: packetLoss,
             index: 0, // Will be set correctly in the setState function
           };
 
+          // Update chart data (max 5 points for display)
           setChartData((prevData) => {
             let updatedData: PingData[];
 
@@ -149,6 +169,22 @@ const PingCard = () => {
 
             localStorage.setItem("pingData", JSON.stringify(updatedData));
             return updatedData;
+          });
+
+          // Update ping history (max 30 points for average calculation)
+          setPingHistory((prevHistory) => {
+            let updatedHistory: PingData[];
+
+            if (prevHistory.length < 30) {
+              // Fill up to 30 points
+              updatedHistory = [...prevHistory, newDataPoint];
+            } else {
+              // Keep last 29 and add new one
+              updatedHistory = [...prevHistory.slice(1), newDataPoint];
+            }
+
+            localStorage.setItem("pingHistory", JSON.stringify(updatedHistory));
+            return updatedHistory;
           });
 
           setHasData(true);
@@ -200,7 +236,7 @@ const PingCard = () => {
       // 2. If we don't have cached data, show loading during initial fetch
       const savedData = localStorage.getItem("pingData");
       const hasCachedData = savedData && JSON.parse(savedData).length > 0;
-      
+
       if (!hasCachedData) {
         setIsLoading(true);
       }
@@ -244,19 +280,25 @@ const PingCard = () => {
     return [min, max];
   };
 
+  // Calculate average latency from history (up to 30 points)
+  const averageLatency = pingHistory.length > 0
+    ? Math.round(pingHistory.reduce((sum, point) => sum + point.ms, 0) / pingHistory.length)
+    : currentLatency || 0;
+
+  // Calculate average packet loss from history (up to 30 points)
+  const averagePacketLoss = pingHistory.length > 0
+    ? Math.round(pingHistory.reduce((sum, point) => sum + point.packetLoss, 0) / pingHistory.length)
+    : currentPacketLoss || 0;
+
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle>Ping Monitoring</CardTitle>
+        <CardTitle>Latency Monitoring</CardTitle>
         {!config.enabled ? (
           <MonitorOffIcon className="h-4 w-4 text-red-500" />
-        ) : currentLatency !== null ? (
-          <div className="flex items-center gap-x-1.5">
-            <Badge className="h-5 min-w-5 rounded-full px-2 font-mono tabular-nums">{currentLatency}ms</Badge>
-            <Badge className="h-5 min-w-5 rounded-full px-2 font-mono tabular-nums">{currentPacketLoss}%</Badge>
-          </div>
-          
-        ) : null}
+        ) : (
+          <MonitorCheckIcon className="h-4 w-4 text-green-500" />
+        )}
       </CardHeader>
       <CardContent>
         {isLoading ? (
@@ -277,82 +319,33 @@ const PingCard = () => {
             </p>
           </div>
         ) : (
-          <ChartContainer config={chartConfig}>
-            <AreaChart
-              accessibilityLayer
-              data={chartData}
-              margin={{
-                top: 5,
-                right: 10,
-                left: 0,
-                bottom: 5,
-              }}
-            >
-              <defs>
-                <linearGradient id="fillPing" x1="0" y1="0" x2="0" y2="1">
-                  <stop
-                    offset="5%"
-                    stopColor="var(--color-ms)"
-                    stopOpacity={0.8}
-                  />
-                  <stop
-                    offset="95%"
-                    stopColor="var(--color-ms)"
-                    stopOpacity={0.1}
-                  />
-                </linearGradient>
-              </defs>
-              <CartesianGrid
-                vertical={false}
-                stroke="var(--border)"
-                strokeOpacity={0.2}
-              />
-              <XAxis
-                dataKey="index"
-                tickLine={false}
-                axisLine={false}
-                tickMargin={5}
-                tick={{ fontSize: 9 }}
-                ticks={[1, 2, 3, 4, 5]}
-              />
-              <YAxis
-                hide={false}
-                domain={getYAxisDomain()}
-                tickLine={false}
-                axisLine={false}
-                width={20}
-                tick={{ fontSize: 10 }}
-                tickFormatter={(value) => `${value}`}
-              />
-              <ChartTooltip
-                cursor={false}
-                content={
-                  <ChartTooltipContent
-                    labelFormatter={(value, entry) => {
-                      const dataPoint = chartData.find(
-                        (d) => d.index === value
-                      );
-                      return dataPoint ? `${dataPoint.time}` : value;
-                    }}
-                    formatter={(value, name) => [`${value} ms`, `Latency`]}
-                  />
-                }
-              />
-              <Area
-                dataKey="ms"
-                type="monotone"
-                stroke="var(--color-ms)"
-                strokeWidth={2}
-                fill="url(#fillPing)"
-                activeDot={{ r: 4, strokeWidth: 0 }}
-                isAnimationActive={true}
-                animationDuration={1200}
-                animationEasing="ease-in-out"
-              />
-            </AreaChart>
-          </ChartContainer>
+          <div className="space-y-3 mt-4">
+            <div className="flex justify-between items-center">
+              <div className="flex items-center gap-1">
+                <BiSolidBarChartSquare className="h-4 w-4 text-green-600" />
+                <p className="text-md font-bold">
+               {currentLatency !== null ? `${currentLatency} ms` : "N/A"}
+                </p>
+              </div>
+              <div className="text-sm text-muted-foreground">
+                {averageLatency !== null ? `${averageLatency} ms` : "N/A"} avg
+              </div>
+            </div>
+            <div className="flex justify-between items-center">
+              <div className="flex items-center gap-1">
+                <BiSolidChart className="h-4 w-4 rotate-180 text-purple-600" />
+                <p className="text-md font-bold">
+                  {currentPacketLoss !== null ? `${currentPacketLoss}%` : "N/A"}
+                </p>
+              </div>
+
+              <div className="text-sm text-muted-foreground">
+                {averagePacketLoss !== null ? `${averagePacketLoss}%` : "N/A"} avg
+              </div>
+            </div>
+          </div>
         )}
-        
+
         {/* {config.enabled && (
           <div className="mt-2 text-xs text-muted-foreground text-center">
             💡 Connection monitoring optimized via ping service

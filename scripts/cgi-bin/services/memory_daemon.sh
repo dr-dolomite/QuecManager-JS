@@ -192,8 +192,14 @@ while true; do
         json="{\"total\": 0, \"used\": 0, \"available\": 0, \"timestamp\": \"$ts\", \"error\": \"meminfo_unavailable\"}"
     fi
     
-    # Write the JSON data
+    # Write the JSON data to file (for backward compatibility)
     write_json_atomic "$json"
+    
+    # Send to WebSocat server if available (non-blocking)
+    if command -v websocat >/dev/null 2>&1; then
+        echo "$json" | websocat --one-message ws://localhost:8838 2>/dev/null || true
+    fi
+    
     log "Updated memory data: total=${TOTAL_KB:-0}KB, used=${USED_BYTES:-0}B, available=${AVAIL_KB:-0}KB"
     
     # Sleep for the configured interval

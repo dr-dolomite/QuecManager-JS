@@ -59,6 +59,7 @@ import WebSocketComponent from "@/components/home/websocket";
 import BandwidthMonitorCard from "@/components/home/bandwidth-monitor-card";
 import SummaryCardComponent from "@/components/home/summary-card";
 import BandsAccordionComponent from "@/components/home/bands-accordion";
+import MemoryCardWebSocket from "@/components/home/memory-card-websocket";
 
 interface newBands {
   id: number;
@@ -556,10 +557,12 @@ const HomePage = () => {
               networkType={homeData?.connection?.networkType}
             /> */}
 
-            <MemoryCard />
+            {/* <MemoryCard /> */}
+            <PingCard />
             <BandwidthMonitorCard />
             <SpeedtestStream />
-            <PingCard />
+
+            <MemoryCardWebSocket />
           </div>
         </div>
 
