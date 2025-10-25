@@ -27,8 +27,8 @@ import { SiKofi } from "react-icons/si";
 import { FaPaypal } from "react-icons/fa";
 import { BiDonateHeart } from "react-icons/bi";
 import { Lens } from "@/components/ui/lens";
-import { AspectRatio } from "@/components/ui/aspect-ratio";
 import { toast } from "@/hooks/use-toast";
+import confetti from "canvas-confetti";
 
 const AboutPage = () => {
   const { data, isLoading } = useAboutData();
@@ -37,6 +37,36 @@ const AboutPage = () => {
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
     toast({ title: "Copied to clipboard", description: text, duration: 2000 });
+  };
+
+  const handleClick = () => {
+    const end = Date.now() + 3 * 1000; // 3 seconds
+    const colors = ["#a786ff", "#fd8bbc", "#eca184", "#f8deb1"];
+
+    const frame = () => {
+      if (Date.now() > end) return;
+
+      confetti({
+        particleCount: 2,
+        angle: 60,
+        spread: 55,
+        startVelocity: 60,
+        origin: { x: 0, y: 0.5 },
+        colors: colors,
+      });
+      confetti({
+        particleCount: 2,
+        angle: 120,
+        spread: 55,
+        startVelocity: 60,
+        origin: { x: 1, y: 0.5 },
+        colors: colors,
+      });
+
+      requestAnimationFrame(frame);
+    };
+
+    frame();
   };
 
   return (
@@ -282,156 +312,170 @@ const AboutPage = () => {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>About Us</CardTitle>
-            <CardDescription>Who we are and what we do.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="grid gap-2">
-              <h1 className="text-xl font-bold antialiased">QuecManager</h1>
-              <p className="text-md font-medium antialiased">
-                QuecManager is a modern dashboard for managing and monitoring
-                cellular modems, evolved from its roots as 'Simple Admin' in the
-                RGMII toolkit. The application provides real-time insights into
-                signal metrics, carrier aggregation, network addressing, and
-                band-specific performance while offering intuitive controls for
-                modem configuration. With its comprehensive feature set and
-                clean interface, QuecManager transforms complex cellular
-                technology into an accessible experience for both technical
-                users and those simply looking to optimize their connectivity.
-                Our mission remains focused on delivering powerful monitoring
-                and management capabilities without sacrificing usability or
-                visual clarity.
-              </p>
-            </div>
-
-            <div>
-              <h1 className="text-xl font-bold antialiased">Thanks to</h1>
-              <ul className="list-disc list-inside text-md font-medium antialiased">
-                <li>
-                  RGMII Toolkit, Documentation, and Backend
-                  <a
-                    href="https://github.com/iamromulan"
-                    target="_blank"
-                    className="text-primary font-semibold ml-2"
-                  >
-                    iamromulan
-                  </a>
-                </li>
-                <li>
-                  Simple Admin 2.0 and QuecManager Scripts & GUI
-                  <a
-                    href="https://github.com/dr-dolomite"
-                    target="_blank"
-                    className="text-primary font-semibold ml-2"
-                  >
-                    dr-dolomite
-                  </a>
-                </li>
-                <li>
-                  QuecManager Scripts & GUI Improvements
-                  <a
-                    href="https://github.com/clndwhr"
-                    target="_blank"
-                    className="text-primary font-semibold ml-2"
-                  >
-                    clndwhr
-                  </a>
-                </li>
-                <li>
-                  Original Simple Admin
-                  <a
-                    href="https://github.com/aesthernr"
-                    target="_blank"
-                    className="text-primary font-semibold ml-2"
-                  >
-                    aesthernr
-                  </a>
-                </li>
-                <li>
-                  Original Socat Bridge
-                  <a
-                    href="https://github.com/natecarlson"
-                    target="_blank"
-                    className="text-primary font-semibold ml-2"
-                  >
-                    natecarlson
-                  </a>
-                </li>
-                <li>Wutang Clan</li>
-              </ul>
-
-              <div className="mt-2 gap-y-1">
-                <p>
-                  Check the Quecmanager project
-                  <a
-                    href="https://github.com/dr-dolomite/QuecManager-JS"
-                    target="_blank"
-                    className="text-primary font-semibold ml-1"
-                  >
-                    here
-                  </a>
+        <div className="grid gap-2">
+          <Card>
+            <CardHeader>
+              <CardTitle>About Us</CardTitle>
+              <CardDescription>Who we are and what we do.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid gap-2">
+                <h1 className="text-xl font-bold antialiased">QuecManager</h1>
+                <p className="text-md font-medium antialiased">
+                  QuecManager is a modern dashboard for managing and monitoring
+                  cellular modems, evolved from its roots as 'Simple Admin' in
+                  the RGMII toolkit. The application provides real-time insights
+                  into signal metrics, carrier aggregation, network addressing,
+                  and band-specific performance while offering intuitive
+                  controls for modem configuration. With its comprehensive
+                  feature set and clean interface, QuecManager transforms
+                  complex cellular technology into an accessible experience for
+                  both technical users and those simply looking to optimize
+                  their connectivity. Our mission remains focused on delivering
+                  powerful monitoring and management capabilities without
+                  sacrificing usability or visual clarity.
                 </p>
-                <p>
-                  Check the toolkit project
-                  <a
-                    href="https://github.com/iamromulan/quectel-rgmii-toolkit"
-                    target="_blank"
-                    className="text-primary font-semibold ml-1"
-                  >
-                    here
-                  </a>
-                </p>
-                <div className="mt-8 flex flex-col gap-2 items-start">
-                  <p className="text-lg font-semibold">
-                    Finding QuecManager helpful? Your support keeps it going!
+              </div>
+
+              <div>
+                <h1 className="text-xl font-bold antialiased">Thanks to</h1>
+                <ul className="list-disc list-inside text-md font-medium antialiased">
+                  <li>
+                    RGMII Toolkit, Documentation, and Backend
+                    <a
+                      href="https://github.com/iamromulan"
+                      target="_blank"
+                      className="text-primary font-semibold ml-2"
+                    >
+                      iamromulan
+                    </a>
+                  </li>
+                  <li>
+                    Simple Admin 2.0 and QuecManager Scripts & GUI
+                    <a
+                      href="https://github.com/dr-dolomite"
+                      target="_blank"
+                      className="text-primary font-semibold ml-2"
+                    >
+                      dr-dolomite
+                    </a>
+                  </li>
+                  <li>
+                    QuecManager Scripts & GUI Improvements
+                    <a
+                      href="https://github.com/clndwhr"
+                      target="_blank"
+                      className="text-primary font-semibold ml-2"
+                    >
+                      clndwhr
+                    </a>
+                  </li>
+                  <li>
+                    Original Simple Admin
+                    <a
+                      href="https://github.com/aesthernr"
+                      target="_blank"
+                      className="text-primary font-semibold ml-2"
+                    >
+                      aesthernr
+                    </a>
+                  </li>
+                  <li>
+                    Original Socat Bridge
+                    <a
+                      href="https://github.com/natecarlson"
+                      target="_blank"
+                      className="text-primary font-semibold ml-2"
+                    >
+                      natecarlson
+                    </a>
+                  </li>
+                  <li>Wutang Clan</li>
+                </ul>
+
+                <div className="mt-2 gap-y-1">
+                  <p>
+                    Check the Quecmanager project
+                    <a
+                      href="https://github.com/dr-dolomite/QuecManager-JS"
+                      target="_blank"
+                      className="text-primary font-semibold ml-1"
+                    >
+                      here
+                    </a>
                   </p>
-                  <Dialog>
-                    <DialogTrigger asChild>
-                      <Button
-                        variant="secondary"
-                        className="border-none bg-green-600 hover:bg-green-700"
-                      >
-                        <BiDonateHeart className="size-6" />
-                        Consider Donating
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle className="mb-4 text-lg">
-                          Donate to QuecManager
-                        </DialogTitle>
-                        <DialogDescription className="text-md">
-                          Hey there, Rus here! 👋 QuecManager is just a small
-                          part of Cameron’s toolkit project, and I work on it
-                          for free in my spare time. If you find it useful and
-                          want to support its development, a small donation
-                          would mean a lot—it helps me keep improving features
-                          and fixing bugs. Thanks so much for your support! 💙
-                        </DialogDescription>
-                      </DialogHeader>
-                      <DialogFooter className="mt-2">
-                        <a href="https://paypal.me/iamrusss" target="_blank">
-                          <Button className="bg-blue-600 hover:bg-blue-700 border-none">
-                            <FaPaypal className="size-4" />
-                            Donate via Paypal
-                          </Button>
-                        </a>
-                        <a href="https://ko-fi.com/P5P7TQKGH" target="_blank">
-                          <Button className="border-none">
-                            <SiKofi className="size-4" />
-                            Buy me a Coffee
-                          </Button>
-                        </a>
-                      </DialogFooter>
-                    </DialogContent>
-                  </Dialog>
+                  <p>
+                    Check the toolkit project
+                    <a
+                      href="https://github.com/iamromulan/quectel-rgmii-toolkit"
+                      target="_blank"
+                      className="text-primary font-semibold ml-1"
+                    >
+                      here
+                    </a>
+                  </p>
                 </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Support Development</CardTitle>
+              <CardDescription>
+                If you like this project, consider supporting its development.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-col gap-3 justify-center items-center">
+                <h1 className="xl:text-xl text-lg font-semibold">
+                  Finding QuecManager helpful? Your support keeps it going!
+                </h1>
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <div className="relative">
+                      <Button onClick={handleClick}>
+                        <BiDonateHeart className="ml-1.5 size-5" />
+                        Consider Donating
+                      </Button>
+                    </div>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-sm md:max-w-lg">
+                    <DialogHeader>
+                      <DialogTitle className="text-xl">
+                        Donate to QuecManager
+                      </DialogTitle>
+                    </DialogHeader>
+                    <div className="grid gap-2 text-md text-pretty font-medium">
+                      <p>Hi, I’m Rus 👋</p>
+                      <p>
+                        QuecManager is a little side project I maintain for free
+                        as part of Cameron’s Toolkit. If you’ve found it useful,
+                        consider supporting it with a small donation — it means
+                        a lot and keeps me going.
+                      </p>
+                      <p>Thanks so much for being awesome! 💙</p>
+                    </div>
+                    <DialogFooter className="mt-3 flex flex-row items-start gap-2">
+                      <a href="https://ko-fi.com/P5P7TQKGH" target="_blank">
+                        <Button variant="secondary">
+                          <SiKofi className="size-4" />
+                          Buy me a Coffee
+                        </Button>
+                      </a>
+                      <a href="https://paypal.me/iamrusss" target="_blank">
+                        <Button>
+                          <FaPaypal className="size-4" />
+                          Donate via Paypal
+                        </Button>
+                      </a>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </CardContent>
       <CardFooter className="flex justify-center">
         <p>QuecManager © 2024 - For Personal Use Only. All rights reserved.</p>

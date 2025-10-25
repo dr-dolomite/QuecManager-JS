@@ -8,64 +8,82 @@
   }
 }
 
-/* @layer base {
-    :root {
-      --background: 224 38% 98%;
-      --foreground: 224 61% 5%;
-      --muted: 44 9% 93%;
-      --muted-foreground: 44 10% 34%;
-      --popover: 224 38% 97%;
-      --popover-foreground: 224 61% 4%;
-      --card: 224 38% 97%;
-      --card-foreground: 224 61% 4%;
-      --border: 224 3% 88%;
-      --input: 224 3% 88%;
-      --primary: 224 76% 45%;
-      --primary-foreground: 0 0% 100%;
-      --secondary: 44 76% 45%;
-      --secondary-foreground: 44 76% 5%;
-      --accent: 44 76% 45%;
-      --accent-foreground: 44 76% 5%;
-      --destructive: 5 85% 20%;
-      --destructive-foreground: 5 85% 80%;
-      --ring: 224 76% 45%;
-      --chart-1: 224 76% 45%;
-      --chart-2: 44 76% 45%;
-      --chart-3: 44 76% 45%;
-      --chart-4: 44 76% 48%;
-      --chart-5: 224 79% 45%;
-      --radius: 0.5rem;
-    }
-
-    .dark {
-      --background: 224 48% 0%;
-      --foreground: 224 29% 97%;
-      --muted: 44 9% 7%;
-      --muted-foreground: 44 10% 66%;
-      --popover: 0 0% 1%;
-      --popover-foreground: 224 29% 98%;
-      --card: 0 0% 1%;
-      --card-foreground: 224 29% 98%;
-      --border: 224 3% 12%;
-      --input: 224 3% 12%;
-      --primary: 224 76% 45%;
-      --primary-foreground: 0 0% 100%;
-      --secondary: 44 76% 45%;
-      --secondary-foreground: 44 76% 5%;
-      --accent: 44 76% 45%;
-      --accent-foreground: 44 76% 5%;
-      --destructive: 5 85% 50%;
-      --destructive-foreground: 0 0% 100%;
-      --ring: 224 76% 45%;
-      --chart-1: 224 76% 45%;
-      --chart-2: 44 76% 45%;
-      --chart-3: 44 76% 45%;
-      --chart-4: 44 76% 48%;
-      --chart-5: 224 79% 45%;
-    }
-  } */
-
 @layer base {
+  :root {
+    --background: 224 38% 98%;
+    --foreground: 224 61% 5%;
+    --muted: 44 9% 93%;
+    --muted-foreground: 44 10% 34%;
+    --popover: 224 38% 97%;
+    --popover-foreground: 224 61% 4%;
+    --card: 224 38% 97%;
+    --card-foreground: 224 61% 4%;
+    --border: 224 3% 88%;
+    --input: 224 3% 88%;
+    --primary: 224 76% 45%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 44 76% 45%;
+    --secondary-foreground: 44 76% 5%;
+    --accent: 44 76% 45%;
+    --accent-foreground: 44 76% 5%;
+    --destructive: 5 85% 20%;
+    --destructive-foreground: 5 85% 80%;
+    --ring: 224 76% 45%;
+    --chart-1: 220 70% 80%;
+    --chart-2: 160 60% 75%;
+    --chart-3: 30 80% 85%;
+    --chart-4: 280 65% 90%;
+    --chart-5: 229 12% 96%;
+
+    --sidebar-background: 229 12% 93%;
+    --sidebar-foreground: 210 20% 38%;
+    --sidebar-primary: 262 83% 75%;
+    --sidebar-primary-foreground: 210 20% 0%;
+    --sidebar-accent: 215 28% 79%;
+    --sidebar-accent-foreground: 210 20% 0%;
+    --sidebar-border: 215 28% 64%;
+    --sidebar-ring: 262 83% 45%;
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 224 48% 0%;
+    --foreground: 224 29% 97%;
+    --muted: 44 9% 7%;
+    --muted-foreground: 44 10% 66%;
+    --popover: 0 0% 1%;
+    --popover-foreground: 224 29% 98%;
+    --card: 0 0% 1%;
+    --card-foreground: 224 29% 98%;
+    --border: 224 3% 12%;
+    --input: 224 3% 12%;
+    --primary: 224 76% 45%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 44 76% 45%;
+    --secondary-foreground: 44 76% 5%;
+    --accent: 44 76% 45%;
+    --accent-foreground: 44 76% 5%;
+    --destructive: 5 85% 50%;
+    --destructive-foreground: 0 0% 100%;
+    --ring: 224 76% 45%;
+    --chart-1: 220 70% 50%;
+    --chart-2: 160 60% 45%;
+    --chart-3: 30 80% 55%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 340 75% 55%;
+
+    --sidebar-background: 229 12% 3%;
+    --sidebar-foreground: 210 20% 56%;
+    --sidebar-primary: 262 83% 50%;
+    --sidebar-primary-foreground: 210 20% 98%;
+    --sidebar-accent: 215 28% 9%;
+    --sidebar-accent-foreground: 210 20% 98%;
+    --sidebar-border: 215 28% 9%;
+    --sidebar-ring: 263 70% 42%;
+  }
+}
+
+/* @layer base {
   :root {
     --background: 229 12% 96%;
     --foreground: 210 20% 28%;
@@ -142,7 +160,7 @@
   .theme {
     --animate-blink-cursor: blink-cursor 1.2s step-end infinite;
   }
-}
+} */
 
 @layer base {
   * {
@@ -166,11 +184,13 @@
     }
   }
   @keyframes blink-cursor {
-  0%, 49% {
-    opacity: 1;
+    0%,
+    49% {
+      opacity: 1;
     }
-  50%, 100% {
-    opacity: 0;
+    50%,
+    100% {
+      opacity: 0;
     }
   }
 }

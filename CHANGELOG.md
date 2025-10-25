@@ -11,4 +11,8 @@
 9. Fixed Data Usage incorrect logic for counting
 10. Fixed memory and ping config settings
 11. Moved Network Priority Settings to Cell Settings
+12. Complete overhaul of AT terminal page (includes redesign and component improvements)
+13. Moved Common AT commands card to AT Commands page
+14. Makes the bg-muted/40 sticky to navbar instead
+15. Added some theme changes
 
