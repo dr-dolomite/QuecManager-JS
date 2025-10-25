@@ -47,11 +47,20 @@ export const usePingMonitor = (): UsePingMonitorReturn => {
     const heartbeatIntervalRef = useRef<number | null>(null);
     const connectionTimeoutRef = useRef<number | null>(null);
     const historyRef = useRef<PingData[]>([]);
+    const lastUpdateRef = useRef<number>(0);
 
     // Keep 30 entries for average calculations
     const MAX_HISTORY_POINTS = 30;
+    const MIN_UPDATE_INTERVAL_MS = 1000; // Throttle updates to max 1 per second
 
     const addDataPoint = useCallback((pingData: PingData) => {
+        // Throttle updates to prevent excessive re-renders
+        const now = Date.now();
+        if (now - lastUpdateRef.current < MIN_UPDATE_INTERVAL_MS) {
+            return; // Skip this update if too soon
+        }
+        lastUpdateRef.current = now;
+
         // Add new data point to history
         historyRef.current = [...historyRef.current, pingData];
 
@@ -85,7 +94,7 @@ export const usePingMonitor = (): UsePingMonitorReturn => {
         } catch (err) {
             console.error('Failed to cache ping data:', err);
         }
-    }, [MAX_HISTORY_POINTS]);
+    }, [MAX_HISTORY_POINTS, MIN_UPDATE_INTERVAL_MS]);
 
     const connect = useCallback(() => {
         try {
@@ -245,6 +254,10 @@ export const usePingMonitor = (): UsePingMonitorReturn => {
             ws.current.close(1000, 'Client disconnect');
             ws.current = null;
         }
+
+        // Clear history to free memory
+        historyRef.current = [];
+        setHistoryData(null);
 
         setIsConnected(false);
         setConnectionStatus('Disconnected');

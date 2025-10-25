@@ -50,10 +50,12 @@ export const useMemoryMonitor = (): UseMemoryMonitorReturn => {
     const heartbeatIntervalRef = useRef<number | null>(null);
     const connectionTimeoutRef = useRef<number | null>(null);
     const historyRef = useRef<MemoryData[]>([]);
+    const lastUpdateRef = useRef<number>(0);
 
     // Keep 5 minutes of history (assuming ~1 data point per second)
     const HISTORY_DURATION_MS = 5 * 60 * 1000;
     const MAX_HISTORY_POINTS = 300; // 5 minutes at 1/sec
+    const MIN_UPDATE_INTERVAL_MS = 1000; // Throttle updates to max 1 per second
 
     const formatMemory = useCallback((bytes: number): string => {
         if (bytes === 0) return "0 Bytes";
@@ -64,8 +66,15 @@ export const useMemoryMonitor = (): UseMemoryMonitorReturn => {
     }, []);
 
     const addDataPoint = useCallback((memoryData: MemoryData) => {
-        const now = new Date(memoryData.timestamp).getTime();
-        const cutoff = now - HISTORY_DURATION_MS;
+        // Throttle updates to prevent excessive re-renders
+        const now = Date.now();
+        if (now - lastUpdateRef.current < MIN_UPDATE_INTERVAL_MS) {
+            return; // Skip this update if too soon
+        }
+        lastUpdateRef.current = now;
+
+        const pointTime = new Date(memoryData.timestamp).getTime();
+        const cutoff = pointTime - HISTORY_DURATION_MS;
 
         // Remove old points and add new point
         historyRef.current = [
@@ -101,7 +110,7 @@ export const useMemoryMonitor = (): UseMemoryMonitorReturn => {
         } catch (err) {
             console.error('Failed to cache memory data:', err);
         }
-    }, [HISTORY_DURATION_MS, MAX_HISTORY_POINTS]);
+    }, [HISTORY_DURATION_MS, MAX_HISTORY_POINTS, MIN_UPDATE_INTERVAL_MS]);
 
     const connect = useCallback(() => {
         try {
@@ -255,6 +264,10 @@ export const useMemoryMonitor = (): UseMemoryMonitorReturn => {
             ws.current.close(1000, 'Client disconnect');
             ws.current = null;
         }
+
+        // Clear history to free memory
+        historyRef.current = [];
+        setHistoryData(null);
 
         setIsConnected(false);
         setConnectionStatus('Disconnected');

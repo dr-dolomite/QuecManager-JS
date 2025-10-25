@@ -45,10 +45,12 @@ export const useBandwidthMonitor = (): UseBandwidthMonitorReturn => {
     const maxReconnectAttempts = 5;
     const [reconnectAttempts, setReconnectAttempts] = useState(0);
     const historyRef = useRef<BandwidthDataPoint[]>([]);
+    const lastUpdateRef = useRef<number>(0);
 
     // Keep only 30 seconds of history (assuming ~1 data point per second)
     const HISTORY_DURATION_MS = 30 * 1000;
     const MAX_HISTORY_POINTS = 30;
+    const MIN_UPDATE_INTERVAL_MS = 1000; // Throttle updates to max 1 per second
 
     const formatSpeed = useCallback((bitsPerSecond: number): string => {
         if (bitsPerSecond === 0) return "0 bps";
@@ -118,6 +120,14 @@ export const useBandwidthMonitor = (): UseBandwidthMonitorReturn => {
     }, []);
 
     const addDataPoint = useCallback((downloadBytesPerSec: number, uploadBytesPerSec: number, timestamp: string) => {
+        // Throttle updates to prevent excessive re-renders
+        const now = Date.now();
+        if (now - lastUpdateRef.current < MIN_UPDATE_INTERVAL_MS) {
+            // Skip this update if too soon after last update
+            return;
+        }
+        lastUpdateRef.current = now;
+
         // Convert bytes per second to bits per second (multiply by 8)
         const downloadBits = downloadBytesPerSec * 8;
         const uploadBits = uploadBytesPerSec * 8;
@@ -129,8 +139,8 @@ export const useBandwidthMonitor = (): UseBandwidthMonitorReturn => {
         };
 
         // Update history
-        const now = new Date(timestamp).getTime();
-        const cutoff = now - HISTORY_DURATION_MS;
+        const pointTime = new Date(timestamp).getTime();
+        const cutoff = pointTime - HISTORY_DURATION_MS;
 
         // Remove old points and add new point
         historyRef.current = [
@@ -161,7 +171,7 @@ export const useBandwidthMonitor = (): UseBandwidthMonitorReturn => {
             maxDownloadSpeed,
             maxUploadSpeed
         });
-    }, [HISTORY_DURATION_MS, MAX_HISTORY_POINTS]);
+    }, [HISTORY_DURATION_MS, MAX_HISTORY_POINTS, MIN_UPDATE_INTERVAL_MS]);
 
     const connect = useCallback(() => {
         try {
@@ -373,6 +383,10 @@ export const useBandwidthMonitor = (): UseBandwidthMonitorReturn => {
             ws.current.close(1000, 'Client disconnect'); // Clean closure
             ws.current = null;
         }
+
+        // Clear history to free memory
+        historyRef.current = [];
+        setHistoryData(null);
 
         setIsConnected(false);
         setConnectionStatus('Disconnected');
