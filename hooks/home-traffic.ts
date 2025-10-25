@@ -2,7 +2,8 @@
  * A custom React hook that fetches, parses, and monitors network traffic statistics.
  * 
  * This hook communicates with an API endpoint to retrieve data usage information,
- * processes both LTE and NR (5G) traffic data, and formats byte values into human-readable sizes.
+ * processes both LTE and NR (5G) traffic data based on the current network mode,
+ * and formats byte values into human-readable sizes.
  * 
  * @returns An object containing the following properties:
  * - `bytesSent` - A string representing the total bytes sent, formatted with appropriate units (e.g., "10.5 MB")
@@ -13,8 +14,12 @@
  * @remarks
  * The hook automatically fetches data on mount and sets up a polling interval of 12 seconds
  * to keep the statistics updated. The interval is cleaned up when the component unmounts.
+ * Traffic data source depends on network mode:
+ * - LTE: Uses only QGDCNT (LTE data)
+ * - NR5G-NSA/NR5G-SA: Uses only QGDNRCNT (5G data)
  */
 import { useState, useEffect, useCallback } from "react";
+import useHomeData from "./home-data";
 
 interface DataUsageEntry {
   datetime: string;
@@ -25,6 +30,10 @@ const useTrafficStats = () => {
   const [bytesSent, setBytesSent] = useState<string>("0 Bytes");
   const [bytesReceived, setBytesReceived] = useState<string>("0 Bytes");
   const [lastUpdateTime, setLastUpdateTime] = useState<string>("");
+  
+  // Get network type from home-data hook
+  const { data: homeData } = useHomeData();
+  const networkType = homeData?.connection.networkType || "LTE";
 
   const parseTrafficData = (data: DataUsageEntry | DataUsageEntry[]) => {
     // Handle both single entry and array of entries
@@ -44,28 +53,54 @@ const useTrafficStats = () => {
     const qgdcntLine = lines.find(line => line.includes("+QGDCNT:"))?.trim();
     const qgdnrcntLine = lines.find(line => line.includes("+QGDNRCNT:"))?.trim();
 
-    if (!qgdcntLine || !qgdnrcntLine) {
-      console.error("Missing required data in response");
-      return;
+    let sent = 0;
+    let received = 0;
+
+    // Determine which data to use based on network mode
+    if (networkType === "LTE") {
+      // LTE mode: Use only QGDCNT
+      if (!qgdcntLine) {
+        console.error("Missing QGDCNT data for LTE mode");
+        return;
+      }
+
+      // Parse LTE data usage (QGDCNT)
+      // Position 1 is UPLOAD (sent), Position 2 is DOWNLOAD (received)
+      const [LTEsent, LTEreceived] = qgdcntLine
+        .replace("+QGDCNT:", "")
+        .split(",")
+        .map(num => parseInt(num.trim()));
+
+      sent = LTEsent || 0;
+      received = LTEreceived || 0;
+    } else if (networkType === "NR5G-NSA" || networkType === "NR5G-SA") {
+      // 5G mode (NSA or SA): Use only QGDNRCNT
+      if (!qgdnrcntLine) {
+        console.error("Missing QGDNRCNT data for 5G mode");
+        return;
+      }
+
+      // Parse NR data usage (QGDNRCNT)
+      // Position 1 is UPLOAD (sent), Position 2 is DOWNLOAD (received)
+      const [NRsent, NRreceived] = qgdnrcntLine
+        .replace("+QGDNRCNT:", "")
+        .split(",")
+        .map(num => parseInt(num.trim()));
+
+      sent = NRsent || 0;
+      received = NRreceived || 0;
+    } else {
+      // Fallback for unknown network types
+      console.warn(`Unknown network type: ${networkType}, defaulting to LTE data`);
+      if (qgdcntLine) {
+        const [LTEsent, LTEreceived] = qgdcntLine
+          .replace("+QGDCNT:", "")
+          .split(",")
+          .map(num => parseInt(num.trim()));
+        sent = LTEsent || 0;
+        received = LTEreceived || 0;
+      }
     }
-
-    // Parse LTE data usage (QGDCNT)
-    // Position 1 is UPLOAD (sent), Position 2 is DOWNLOAD (received)
-    const [LTEsent, LTEreceived] = qgdcntLine
-      .replace("+QGDCNT:", "")
-      .split(",")
-      .map(num => parseInt(num.trim()));
-
-    // Parse NR data usage (QGDNRCNT)
-    // Position 1 is UPLOAD (sent), Position 2 is DOWNLOAD (received)
-    const [NRsent, NRreceived] = qgdnrcntLine
-      .replace("+QGDNRCNT:", "")
-      .split(",")
-      .map(num => parseInt(num.trim()));
-
-    // Calculate totals
-    const sent = (LTEsent || 0) + (NRsent || 0);
-    const received = (LTEreceived || 0) + (NRreceived || 0);
 
     setBytesSent(formatBytes(sent));
     setBytesReceived(formatBytes(received));
@@ -79,7 +114,7 @@ const useTrafficStats = () => {
     } catch (error) {
       console.error("Error fetching traffic stats:", error);
     }
-  }, []);
+  }, [networkType]);
 
   useEffect(() => {
     fetchTrafficStats();

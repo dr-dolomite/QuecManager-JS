@@ -5,10 +5,10 @@ import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 
 // Components
-import SimCard from "@/components/home/sim-data";
-import Connection from "@/components/home/connection";
-import DataTransmission from "@/components/home/data-transmission";
-import CellularInformation from "@/components/home/cellular-info";
+// import SimCard from "@/components/home/sim-data";
+// import Connection from "@/components/home/connection";
+// import DataTransmission from "@/components/home/data-transmission";
+// import CellularInformation from "@/components/home/cellular-info";
 import SignalChart from "@/components/home/signal-chart";
 import MemoryCard from "@/components/home/memory-card";
 import PingCard from "@/components/home/ping-card";
@@ -41,7 +41,7 @@ import {
 } from "lucide-react";
 
 import PropagateLoader from "react-spinners/PropagateLoader";
-import BandTable from "@/components/home/band-table";
+// import BandTable from "@/components/home/band-table";
 
 // Hooks
 import useHomeData from "@/hooks/home-data";
@@ -56,8 +56,7 @@ import NetworkInfoCard from "@/components/home/network-info-card";
 import ApproxDistanceCard from "@/components/home/approx-distance-card";
 import DataUsageWarningDialog from "@/components/experimental/data-usage-warning-dialog";
 import WebSocketComponent from "@/components/home/websocket";
-// import BandwidthMonitorCard from "@/components/home/bandwidth-monitor-card";
-import BandwidthMonitorCompactCard from "@/components/home/bandwidth-monitor-compact-card";
+import BandwidthMonitorCard from "@/components/home/bandwidth-monitor-card";
 import SummaryCardComponent from "@/components/home/summary-card";
 import BandsAccordionComponent from "@/components/home/bands-accordion";
 
@@ -558,7 +557,7 @@ const HomePage = () => {
             /> */}
 
             <MemoryCard />
-            <BandwidthMonitorCompactCard />
+            <BandwidthMonitorCard />
             <SpeedtestStream />
             <PingCard />
           </div>

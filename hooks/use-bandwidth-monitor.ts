@@ -228,7 +228,7 @@ export const useBandwidthMonitor = (): UseBandwidthMonitorReturn => {
                     // Try to parse as JSON (bandwidth data)
                     try {
                         const data = JSON.parse(message);
-                        console.log('Received WebSocket data:', data);
+                        // console.log('Received WebSocket data:', data);
 
                         // NEW FORMAT: Multi-interface bandwidth data
                         if (data.interfaces && Array.isArray(data.interfaces)) {
@@ -245,7 +245,7 @@ export const useBandwidthMonitor = (): UseBandwidthMonitorReturn => {
                                 // Convert timestamp to ISO string (handles both numeric and string formats)
                                 const timestamp = convertTimestampToISO(multiInterfaceData.timestamp);
                                 
-                                console.log(`Selected interface: ${primaryInterface.name}, Download: ${downloadBps} bps, Upload: ${uploadBps} bps`);
+                                // console.log(`Selected interface: ${primaryInterface.name}, Download: ${downloadBps} bps, Upload: ${uploadBps} bps`);
                                 
                                 // addDataPoint expects bytes/sec, but we have bps, so divide by 8
                                 addDataPoint(downloadBps / 8, uploadBps / 8, timestamp);
