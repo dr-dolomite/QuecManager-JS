@@ -79,16 +79,7 @@ install_package() {
     fi
     
     qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "$PACKAGE_NAME installed successfully"
-}
-
-# Trigger system reboot
-trigger_reboot() {
-    qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Triggering system reboot"
-    
-    # Schedule reboot in 3 seconds to allow response to be sent
-    (sleep 3 && reboot) &
-    
-    echo '{"status":"success","message":"Tailscale installed successfully. System is rebooting...","rebooting":true}'
+    echo '{"status":"success","message":"Tailscale installed successfully. Page will refresh shortly.","installed":true}'
 }
 
 # Main installation flow
@@ -105,9 +96,6 @@ main() {
     
     # Install the package
     install_package
-    
-    # Trigger reboot
-    trigger_reboot
 }
 
 # Run main function

@@ -53,7 +53,7 @@ const TailScaleMissing = ({ onRefresh }: TailScaleMissingProps) => {
 
     toast({
       title: "Installing Tailscale",
-      description: "Please wait patiently",
+      description: "This may take a few minutes. Please wait patiently.",
       duration: 3000
     })
 
@@ -81,24 +81,17 @@ const TailScaleMissing = ({ onRefresh }: TailScaleMissingProps) => {
         return;
       }
 
-      if (data.rebooting) {
-        toast({
-          title: "Installation Successful",
-          description: "System is rebooting. Please wait for the device to restart.",
-          duration: 10000,
-        });
+      // Show success toast and refresh page
+      toast({
+        title: "Installation Successful",
+        description: data.message,
+        duration: 5000,
+      });
 
-        // Optionally reload the page after some time
-        setTimeout(() => {
-          window.location.reload();
-        }, 90000); // 90 seconds
-      } else {
-        toast({
-          title: "Success",
-          description: data.message,
-        });
-        onRefresh();
-      }
+      // Refresh page after 3 seconds
+      setTimeout(() => {
+        window.location.reload();
+      }, 3000);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Failed to install Tailscale";
       toast({
@@ -146,7 +139,7 @@ const TailScaleMissing = ({ onRefresh }: TailScaleMissingProps) => {
                     <AlertDialogHeader>
                       <AlertDialogTitle>Confirm your action</AlertDialogTitle>
                       <AlertDialogDescription>
-                        Are you sure you want to install Tailscale? This will also reboot your device.
+                        Are you sure you want to install Tailscale? This may take a few minutes.
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
