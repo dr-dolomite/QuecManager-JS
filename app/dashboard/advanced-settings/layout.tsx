@@ -51,6 +51,16 @@ const CellSettingsLayout = ({ children }: CellSettingsLayoutProps) => {
           >
             MTU Settings
           </Link>
+                    <Link
+            href="/dashboard/advanced-settings/scheduled-reboot"
+            className={`${
+              currentPathName === "/dashboard/advanced-settings/scheduled-reboot"
+                ? "font-semibold text-primary"
+                : "text-sm"
+            }`}
+          >
+            Scheduled Reboot
+          </Link>
           <Link
             href="/dashboard/advanced-settings/at-terminal"
             className={`${

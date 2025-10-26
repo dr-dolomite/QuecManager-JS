@@ -15,4 +15,8 @@
 13. Moved Common AT commands card to AT Commands page
 14. Makes the bg-muted/40 sticky to navbar instead
 15. Added some theme changes
+16. Added browser memory protection for monitoring services
+17. Moved Scheduled Reboot to Advanced Settings
+18. Fixed TTL script to remove leading 0s
+19. Added missing log categories to quecmanager_logger script
 

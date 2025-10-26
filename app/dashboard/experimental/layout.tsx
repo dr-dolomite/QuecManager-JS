@@ -62,16 +62,6 @@ const ExperimentalLayout = ({ children }: ExperimentalLayoutProps) => {
             Tailscale Settings
           </Link>
           <Link
-            href="/dashboard/experimental/scheduled-reboot"
-            className={`${
-              currentPathName === "/dashboard/experimental/scheduled-reboot/"
-                ? "font-semibold text-primary"
-                : "text-sm"
-            }`}
-          >
-            Scheduled Reboot
-          </Link>
-          <Link
             href="/dashboard/experimental/logs"
             className={`${
               currentPathName === "/dashboard/experimental/logs/"
