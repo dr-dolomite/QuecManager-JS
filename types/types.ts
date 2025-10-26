@@ -433,3 +433,65 @@ export interface MultiInterfaceBandwidthData {
   interval_seconds: number;
   interfaces: NetworkInterfaceData[];
 }
+
+// Tailscale Types
+export interface TailscaleStatus {
+  status: "success" | "error";
+  installed: boolean;
+  running: boolean;
+  authenticated: boolean;
+  login_url?: string;
+  message: string;
+  error?: string;
+}
+
+export interface TailscaleInstallResponse {
+  status: "success" | "error";
+  message: string;
+  already_installed?: boolean;
+  rebooting?: boolean;
+  error?: string;
+}
+
+export interface TailscalePeer {
+  ip: string;
+  hostname: string;
+  user: string;
+  os: string;
+  status: "online" | "offline";
+}
+
+export interface TailscalePeersResponse {
+  status: "success" | "error";
+  peers: TailscalePeer[];
+  total: number;
+  online: number;
+  offline: number;
+  message: string;
+  error?: string;
+}
+
+export interface TailscaleDeviceDetails {
+  hostname: string;
+  tailscale_ip: string;
+  dns_name: string;
+  relay: string;
+  backend_state: string;
+  online: boolean;
+  key_expiry: string;
+}
+
+export interface TailscaleNetworkInfo {
+  tailnet_name: string;
+  magic_dns_enabled: boolean;
+  total_peers: number;
+  online_peers: number;
+}
+
+export interface TailscaleDeviceDetailsResponse {
+  status: "success" | "error";
+  device: TailscaleDeviceDetails;
+  network: TailscaleNetworkInfo;
+  message: string;
+  error?: string;
+}

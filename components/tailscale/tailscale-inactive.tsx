@@ -33,11 +33,15 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { Avatar, AvatarFallback, AvatarImage } from "@radix-ui/react-avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "../ui/button";
 import { ArrowUpRightIcon, RefreshCcwIcon, Trash2Icon } from "lucide-react";
 
-const TailscaleInactive = () => {
+interface TailscaleInactiveProps {
+  onRefresh: () => void;
+}
+
+const TailscaleInactive = ({ onRefresh }: TailscaleInactiveProps) => {
   return (
     <Card>
       <CardHeader>
@@ -78,7 +82,7 @@ const TailscaleInactive = () => {
                       <AlertDialogTitle>Confirm your action</AlertDialogTitle>
                       <AlertDialogDescription>
                         Are you sure you want to uninstall Tailscale from your
-                        system?
+                        system? This will also reboot your device.
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
@@ -91,7 +95,7 @@ const TailscaleInactive = () => {
                   </AlertDialogContent>
                 </AlertDialog>
 
-                <Button variant="secondary">
+                <Button variant="secondary" onClick={onRefresh}>
                   <RefreshCcwIcon className="h-4 w-4" />
                   Refresh Status
                 </Button>
