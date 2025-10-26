@@ -27,9 +27,6 @@ export const useTailscaleStatus = (): UseTailscaleStatusReturn => {
       }
 
       const data: TailscaleStatus = await response.json();
-      
-      // Log the full response for debugging
-      console.log("Tailscale Status Response:", JSON.stringify(data, null, 2));
 
       if (data.status === "error") {
         throw new Error(data.error || "Failed to fetch Tailscale status");

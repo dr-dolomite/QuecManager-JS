@@ -22,14 +22,12 @@ export const useTailscaleDeviceDetails = (): UseTailscaleDeviceDetailsReturn => 
     try {
       const response = await fetch("/cgi-bin/quecmanager/tailscale/device-details.sh");
 
-      console.log("Device Details HTTP Status:", response.status);
 
       if (!response.ok) {
         // Try to get error details from response
         let errorDetail = `HTTP error! Status: ${response.status}`;
         try {
           const text = await response.text();
-          console.log("Device Details Error Response:", text);
           errorDetail += ` - ${text.substring(0, 100)}`;
         } catch (e) {
           // Ignore text parsing errors
@@ -38,12 +36,8 @@ export const useTailscaleDeviceDetails = (): UseTailscaleDeviceDetailsReturn => 
       }
 
       const text = await response.text();
-      console.log("Device Details Raw Response:", text);
       
       const data: TailscaleDeviceDetailsResponse = JSON.parse(text);
-
-      // Log the full response for debugging
-      console.log("Tailscale Device Details Response:", JSON.stringify(data, null, 2));
 
       if (data.status === "error") {
         throw new Error(data.error || "Failed to fetch device details");

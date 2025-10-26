@@ -28,9 +28,6 @@ export const useTailscalePeers = (): UseTailscalePeersReturn => {
 
       const data: TailscalePeersResponse = await response.json();
 
-      // Log the full response for debugging
-      console.log("Tailscale Peers Response:", JSON.stringify(data, null, 2));
-
       if (data.status === "error") {
         throw new Error(data.error || "Failed to fetch Tailscale peers");
       }
