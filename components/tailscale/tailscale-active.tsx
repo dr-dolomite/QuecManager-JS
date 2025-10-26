@@ -1,6 +1,7 @@
 "use client";
-import React from "react";
+import React, { useState } from "react";
 import { useTailscaleDeviceDetails } from "@/hooks/use-tailscale-device-details";
+import { TailscaleToggleResponse } from "@/types/types";
 
 import {
   Card,
@@ -29,6 +30,7 @@ const TailScaleActive = () => {
   const { deviceDetails, isLoading, error, refetch } =
     useTailscaleDeviceDetails();
   const { toast } = useToast();
+  const [isToggling, setIsToggling] = useState(false);
 
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
@@ -37,6 +39,55 @@ const TailScaleActive = () => {
       description: `${label} copied successfully`,
       duration: 2000,
     });
+  };
+
+  const handleToggleTailscale = async (checked: boolean) => {
+    setIsToggling(true);
+
+    try {
+      const action = checked ? "up" : "down";
+      const response = await fetch("/cgi-bin/quecmanager/tailscale/toggle.sh", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ action }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! Status: ${response.status}`);
+      }
+
+      const data: TailscaleToggleResponse = await response.json();
+
+      if (data.status === "error") {
+        throw new Error(data.error || `Failed to ${action} Tailscale`);
+      }
+
+      const toastTitle = checked ? "Tailscale Started" : "Tailscale Stopped";
+      
+      toast({
+        title: toastTitle,
+        description: data.message,
+        duration: 3000,
+      });
+
+      // Refresh page after 3 seconds
+      setTimeout(() => {
+        window.location.reload();
+      }, 3000);
+    } catch (err) {
+      const errorMessage =
+        err instanceof Error ? err.message : "Failed to toggle Tailscale";
+      toast({
+        title: "Tailscale Toggle",
+        description: errorMessage,
+        duration: 3000,
+        variant: "destructive",
+      });
+      console.error("Error toggling Tailscale:", err);
+      setIsToggling(false);
+    }
   };
 
   const formatKeyExpiry = (expiry: string) => {
@@ -91,8 +142,15 @@ const TailScaleActive = () => {
         ) : deviceDetails ? (
           <div className="grid grid-cols-1 gap-2">
             <div className="flex items-center space-x-2 mb-3">
-              <Switch id="toggle-tailscale" checked />
-              <Label htmlFor="toggle-tailscale">Enable Tailscale</Label>
+              <Switch
+                id="toggle-tailscale"
+                checked={deviceDetails.device.online}
+                onCheckedChange={handleToggleTailscale}
+                disabled={isToggling}
+              />
+              <Label htmlFor="toggle-tailscale">
+                {isToggling ? "Stopping Tailscale..." : "Enable Tailscale"}
+              </Label>
             </div>
             <Separator />
 

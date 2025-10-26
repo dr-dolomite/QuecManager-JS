@@ -1,4 +1,6 @@
-import React from "react";
+"use client";
+import React, { useState } from "react";
+import { TailscaleToggleResponse, TailscaleUninstallResponse } from "@/types/types";
 
 import {
   Empty,
@@ -36,12 +38,104 @@ import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "../ui/button";
 import { ArrowUpRightIcon, RefreshCcwIcon, Trash2Icon } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 interface TailscaleInactiveProps {
   onRefresh: () => void;
 }
 
 const TailscaleInactive = ({ onRefresh }: TailscaleInactiveProps) => {
+  const { toast } = useToast();
+  const [isToggling, setIsToggling] = useState(false);
+  const [isUninstalling, setIsUninstalling] = useState(false);
+
+  const handleToggleTailscale = async (checked: boolean) => {
+    if (!checked) return; // Only handle enabling
+
+    setIsToggling(true);
+
+    try {
+      const response = await fetch("/cgi-bin/quecmanager/tailscale/toggle.sh", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ action: "up" }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! Status: ${response.status}`);
+      }
+
+      const data: TailscaleToggleResponse = await response.json();
+
+      if (data.status === "error") {
+        throw new Error(data.error || "Failed to enable Tailscale");
+      }
+
+      toast({
+        title: "Tailscale Started",
+        description: data.message,
+        duration: 3000,
+      });
+
+      // Refresh page after 3 seconds
+      setTimeout(() => {
+        window.location.reload();
+      }, 3000);
+    } catch (err) {
+      const errorMessage =
+        err instanceof Error ? err.message : "Failed to enable Tailscale";
+      toast({
+        title: "Tailscale Toggle",
+        description: errorMessage,
+        duration: 3000,
+        variant: "destructive",
+      });
+      console.error("Error enabling Tailscale:", err);
+      setIsToggling(false);
+    }
+  };
+
+  const handleUninstall = async () => {
+    setIsUninstalling(true);
+
+    try {
+      const response = await fetch("/cgi-bin/quecmanager/tailscale/uninstall.sh", {
+        method: "POST",
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! Status: ${response.status}`);
+      }
+
+      const data: TailscaleUninstallResponse = await response.json();
+
+      if (data.status === "error") {
+        throw new Error(data.error || "Failed to uninstall Tailscale");
+      }
+
+      toast({
+        title: "Tailscale Uninstalled",
+        description: data.message,
+        duration: 5000,
+      });
+
+      // Note: Device will reboot, so no need to refresh
+    } catch (err) {
+      const errorMessage =
+        err instanceof Error ? err.message : "Failed to uninstall Tailscale";
+      toast({
+        title: "Uninstall Failed",
+        description: errorMessage,
+        duration: 3000,
+        variant: "destructive",
+      });
+      console.error("Error uninstalling Tailscale:", err);
+      setIsUninstalling(false);
+    }
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -53,8 +147,15 @@ const TailscaleInactive = ({ onRefresh }: TailscaleInactiveProps) => {
       <CardContent>
         <div className="grid grid-cols-1 gap-2">
           <div className="flex items-center space-x-2">
-            <Switch id="toggle-tailscale" />
-            <Label htmlFor="toggle-tailscale">Enable Tailscale</Label>
+            <Switch
+              id="toggle-tailscale"
+              checked={false}
+              onCheckedChange={handleToggleTailscale}
+              disabled={isToggling}
+            />
+            <Label htmlFor="toggle-tailscale">
+              {isToggling ? "Starting Tailscale..." : "Enable Tailscale"}
+            </Label>
           </div>
           <Empty>
             <EmptyHeader>
@@ -71,10 +172,10 @@ const TailscaleInactive = ({ onRefresh }: TailscaleInactiveProps) => {
             <EmptyContent>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <AlertDialog>
-                  <AlertDialogTrigger>
-                    <Button variant="destructive">
+                  <AlertDialogTrigger asChild>
+                    <Button variant="destructive" disabled={isUninstalling || isToggling}>
                       <Trash2Icon className="h-4 w-4" />
-                      Uninstall Tailscale
+                      {isUninstalling ? "Uninstalling..." : "Uninstall Tailscale"}
                     </Button>
                   </AlertDialogTrigger>
                   <AlertDialogContent className="md:max-w-md max-w-sm">
@@ -86,16 +187,16 @@ const TailscaleInactive = ({ onRefresh }: TailscaleInactiveProps) => {
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <Button variant="destructive">
+                      <AlertDialogCancel disabled={isUninstalling}>Cancel</AlertDialogCancel>
+                      <Button variant="destructive" onClick={handleUninstall} disabled={isUninstalling}>
                         <Trash2Icon className="h-4 w-4" />
-                        Uninstall Tailscale
+                        {isUninstalling ? "Uninstalling..." : "Uninstall Tailscale"}
                       </Button>
                     </AlertDialogFooter>
                   </AlertDialogContent>
                 </AlertDialog>
 
-                <Button variant="secondary" onClick={onRefresh}>
+                <Button variant="secondary" onClick={onRefresh} disabled={isToggling || isUninstalling}>
                   <RefreshCcwIcon className="h-4 w-4" />
                   Refresh Status
                 </Button>

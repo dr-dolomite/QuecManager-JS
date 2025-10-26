@@ -495,3 +495,18 @@ export interface TailscaleDeviceDetailsResponse {
   message: string;
   error?: string;
 }
+
+export interface TailscaleToggleResponse {
+  status: "success" | "error";
+  action: "up" | "down";
+  message: string;
+  rebooting?: boolean;
+  error?: string;
+}
+
+export interface TailscaleUninstallResponse {
+  status: "success" | "error";
+  message: string;
+  rebooting?: boolean;
+  error?: string;
+}

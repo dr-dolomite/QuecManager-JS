@@ -155,7 +155,7 @@ const TailscalePeersComponent = () => {
                     <TableCell className="font-medium">
                       {peer.hostname}
                     </TableCell>
-                    <TableCell className="hidden sm:table-cell font-mono text-sm">
+                    <TableCell className="hidden sm:table-cell text-sm">
                       {peer.ip}
                     </TableCell>
                     <TableCell className="hidden md:table-cell text-sm text-muted-foreground">

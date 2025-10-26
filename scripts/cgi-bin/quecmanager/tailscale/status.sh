@@ -14,23 +14,10 @@ check_installed() {
 
 # Check if tailscale service is running
 check_running() {
-    # Method 1: Check via ubus if available
-    if command -v ubus >/dev/null 2>&1; then
-        local status=$(ubus call service list '{"name":"tailscale"}' 2>/dev/null | jsonfilter -e '@.tailscale.instances.instance1.running' 2>/dev/null)
-        if [ "$status" = "true" ]; then
-            return 0
-        fi
-    fi
-    
-    # Method 2: Check via /etc/init.d
+    # Check via /etc/init.d script
     if [ -f /etc/init.d/tailscale ]; then
         /etc/init.d/tailscale status >/dev/null 2>&1
         return $?
-    fi
-    
-    # Method 3: Check if tailscaled process is running
-    if pgrep -x tailscaled >/dev/null 2>&1; then
-        return 0
     fi
     
     return 1

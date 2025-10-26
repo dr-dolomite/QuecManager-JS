@@ -36,11 +36,6 @@ export const useTailscalePeers = (): UseTailscalePeersReturn => {
       }
 
       setPeers(data);
-      toast({
-        title: "Tailscale Peers",
-        description: data.message,
-        duration: 3000,
-      });
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : "Failed to fetch Tailscale peers";
