@@ -1,0 +1,49 @@
+# Name this workflow
+name: Notify Discord of New Release
+
+# Set the trigger event
+on:
+  release:
+    types: [published] # This runs ONLY when a new release is published
+
+# Define the job
+jobs:
+  notify-discord:
+    runs-on: ubuntu-latest # Use the latest available runner
+    steps:
+      # This step cleans up the release body for JSON
+      - name: Format Release Body
+        id: format_body
+        run: |
+          # 1. Get the body from the event, escape newlines, and escape quotes
+          # 2. Store the result in a step output variable named "body"
+          body="${{ github.event.release.body }}"
+          body="${body//'%'/'%25'}"
+          body="${body//$'
+'/'\n'}"
+          body="${body//'"'/'\"'}"
+          echo "body=$body" >> $GITHUB_OUTPUT
+        shell: bash
+
+      # This step sends the formatted data to Discord
+      - name: Send Discord Notification
+        run: |
+          curl -X POST -H "Content-Type: application/json" \
+          -d '{
+                "username": "GitHub Releases",
+                "avatar_url": "https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png",
+                "embeds": [
+                  {
+                    "title": "🎉 New Release: ${{ github.event.release.name }}",
+                    "description": "${{ steps.format_body.outputs.body }}",
+                    "url": "${{ github.event.release.html_url }}",
+                    "color": 15258703,
+                    "author": {
+                      "name": "${{ github.event.release.author.login }}",
+                      "icon_url": "${{ github.event.release.author.avatar_url }}"
+                    }
+                  }
+                ]
+              }' \
+          ${{ secrets.DISCORD_WEBHOOK_URL }}
+        shell: bash
