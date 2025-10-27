@@ -71,6 +71,7 @@ const TTLSettingsPage = () => {
         const ttlResponse = await fetch(
           "/cgi-bin/quecmanager/advance/ttl.sh"
         );
+        console.log("TTL Response:", ttlResponse);
         if (!ttlResponse.ok) {
           throw new Error(
             `Failed to fetch TTL settings: ${ttlResponse.statusText}`
@@ -82,6 +83,7 @@ const TTLSettingsPage = () => {
         const profileResponse = await fetch(
           "/cgi-bin/quecmanager/profiles/check_status.sh"
         );
+        console.log("Profile Response:", profileResponse);
         if (!profileResponse.ok) {
           throw new Error(
             `Failed to fetch profile status: ${profileResponse.statusText}`
@@ -211,20 +213,6 @@ const TTLSettingsPage = () => {
             <AlertDescription>
               TTL is currently being managed by profile "{activeProfile.name}".
             </AlertDescription>
-          </Alert>
-        )}
-
-        {error && (
-          <Alert variant="destructive" className="mb-6">
-            <AlertTitle>Error</AlertTitle>
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
-
-        {success && (
-          <Alert className="mb-6">
-            <AlertTitle>Success</AlertTitle>
-            <AlertDescription>{success}</AlertDescription>
           </Alert>
         )}
 

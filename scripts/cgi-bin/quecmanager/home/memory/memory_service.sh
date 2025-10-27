@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# Memory Service Fetch Script
+# Memory Service Fetch Script - UCI-based version
 # Returns current memory configuration and status
 
 # Handle OPTIONS request first
@@ -21,27 +21,20 @@ echo "Access-Control-Allow-Methods: GET, OPTIONS"
 echo "Access-Control-Allow-Headers: Content-Type"
 echo ""
 
-# Configuration paths
-CONFIG_FILE="/etc/quecmanager/settings/memory_settings.conf"
-FALLBACK_CONFIG_FILE="/tmp/quecmanager/settings/memory_settings.conf"
+# UCI Configuration
+UCI_CONFIG="quecmanager"
+UCI_SECTION="memory_daemon"
 
-# Get current configuration
+# Get current configuration from UCI
 get_config() {
     # Defaults
     ENABLED="false"
     INTERVAL="1"
 
-    # Try primary config first, then fallback
-    local config_to_read=""
-    if [ -f "$CONFIG_FILE" ]; then
-        config_to_read="$CONFIG_FILE"
-    elif [ -f "$FALLBACK_CONFIG_FILE" ]; then
-        config_to_read="$FALLBACK_CONFIG_FILE"
-    fi
-
-    if [ -n "$config_to_read" ]; then
-        local enabled_val=$(grep "^MEMORY_ENABLED=" "$config_to_read" 2>/dev/null | tail -n1 | cut -d'=' -f2 | tr -d '"')
-        local interval_val=$(grep "^MEMORY_INTERVAL=" "$config_to_read" 2>/dev/null | tail -n1 | cut -d'=' -f2)
+    # Read from UCI (if section exists)
+    if uci -q get "$UCI_CONFIG.$UCI_SECTION" >/dev/null 2>&1; then
+        local enabled_val=$(uci -q get "$UCI_CONFIG.$UCI_SECTION.enabled" 2>/dev/null || echo "0")
+        local interval_val=$(uci -q get "$UCI_CONFIG.$UCI_SECTION.interval" 2>/dev/null || echo "1")
         
         case "$enabled_val" in
             true|1|on|yes|enabled) ENABLED="true" ;;

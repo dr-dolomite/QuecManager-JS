@@ -6,6 +6,15 @@
 # Load UCI configuration functions
 . /lib/functions.sh
 
+# Load centralized logging
+LOGGER_SCRIPT="/www/cgi-bin/quecmanager/services/quecmanager_logger.sh"
+if [ -f "$LOGGER_SCRIPT" ]; then
+    . "$LOGGER_SCRIPT"
+    USE_CENTRALIZED_LOGGING=1
+else
+    USE_CENTRALIZED_LOGGING=0
+fi
+
 # Configuration
 QUEUE_DIR="/tmp/at_queue"
 TOKEN_FILE="$QUEUE_DIR/token"
@@ -30,11 +39,29 @@ chmod 644 "$PID_FILE"
 
 # Function to log messages
 log_message() {
-    local level="${2:-info}"
     local message="$1"
-    local timestamp=$(date "+%Y-%m-%d %H:%M:%S")
+    local level="${2:-info}"
     
-    # Log to file
+    # Use centralized logging if available
+    if [ "$USE_CENTRALIZED_LOGGING" -eq 1 ]; then
+        case "$level" in
+            error)
+                qm_log_error "service" "quecwatch" "$message"
+                ;;
+            warn)
+                qm_log_warn "service" "quecwatch" "$message"
+                ;;
+            debug)
+                qm_log_debug "service" "quecwatch" "$message"
+                ;;
+            info|*)
+                qm_log_info "service" "quecwatch" "$message"
+                ;;
+        esac
+    fi
+    
+    # Also log to legacy file for backward compatibility
+    local timestamp=$(date "+%Y-%m-%d %H:%M:%S")
     echo "[$timestamp] [$level] $message" >> "$LOG_FILE"
     
     # Log to system log
@@ -426,11 +453,13 @@ perform_connection_recovery() {
     local token_id
     
     log_message "Starting connection recovery" "info"
+    update_status "recovering" "Connection recovery in progress - monitoring paused" "$CURRENT_RETRIES" "$MAX_RETRIES" "$CURRENT_LATENCY" "$LATENCY_CEILING"
     
     # Get token for AT commands
     token_id=$(acquire_token)
     if [ -z "$token_id" ]; then
         log_message "Failed to acquire token for connection recovery" "error"
+        update_status "error" "Failed to acquire token for recovery" "$CURRENT_RETRIES" "$MAX_RETRIES" "$CURRENT_LATENCY" "$LATENCY_CEILING"
         return 1
     fi
 
@@ -439,6 +468,7 @@ perform_connection_recovery() {
     if [ $? -ne 0 ]; then
         log_message "Failed to get CFUN status" "error"
         release_token "$token_id"
+        update_status "error" "Failed to get CFUN status" "$CURRENT_RETRIES" "$MAX_RETRIES" "$CURRENT_LATENCY" "$LATENCY_CEILING"
         return 1
     fi
 
@@ -446,6 +476,7 @@ perform_connection_recovery() {
         log_message "CFUN is already 1, no action needed" "debug"
     else
         log_message "Setting CFUN to 1"
+        update_status "recovering" "Setting CFUN to 1" "$CURRENT_RETRIES" "$MAX_RETRIES" "$CURRENT_LATENCY" "$LATENCY_CEILING"
         execute_at_command "AT+CFUN=1" 10 "$token_id"
         sleep 2
         
@@ -454,6 +485,7 @@ perform_connection_recovery() {
         if [ $? -ne 0 ] || ! echo "$cfun_status" | grep -q '+CFUN: 1'; then
             log_message "Failed to set CFUN to 1" "error"
             release_token "$token_id"
+            update_status "error" "Failed to set CFUN to 1" "$CURRENT_RETRIES" "$MAX_RETRIES" "$CURRENT_LATENCY" "$LATENCY_CEILING"
             return 1
         fi
 
@@ -463,19 +495,28 @@ perform_connection_recovery() {
     
     # Detach from network
     log_message "Detaching from network" "debug"
+    update_status "recovering" "Detaching from network" "$CURRENT_RETRIES" "$MAX_RETRIES" "$CURRENT_LATENCY" "$LATENCY_CEILING"
     execute_at_command "AT+COPS=2" 10 "$token_id"
     sleep 2
     
     # Reattach to network
     log_message "Reattaching to network" "debug"
+    update_status "recovering" "Reattaching to network" "$CURRENT_RETRIES" "$MAX_RETRIES" "$CURRENT_LATENCY" "$LATENCY_CEILING"
     execute_at_command "AT+COPS=0" 15 "$token_id"
     sleep 1
     
     # Release token
     release_token "$token_id"
     
-    # Verify recovery
+    # Wait for network to stabilize before verification
+    log_message "Waiting for network to stabilize (10 seconds)" "debug"
+    update_status "recovering" "Waiting for network to stabilize" "$CURRENT_RETRIES" "$MAX_RETRIES" "$CURRENT_LATENCY" "$LATENCY_CEILING"
     sleep 10
+    
+    # Verify recovery with appropriate check
+    log_message "Verifying connection recovery" "debug"
+    update_status "recovering" "Verifying connection recovery" "$CURRENT_RETRIES" "$MAX_RETRIES" "$CURRENT_LATENCY" "$LATENCY_CEILING"
+    
     local recovery_check=0
     if [ "$HIGH_LATENCY_MONITORING" -eq 1 ]; then
         if check_internet_with_latency; then
@@ -494,9 +535,16 @@ perform_connection_recovery() {
     
     if [ $recovery_check -eq 1 ]; then
         log_message "Connection recovery successful" "info"
+        update_status "recovered" "Connection recovery successful" "$CURRENT_RETRIES" "$MAX_RETRIES" "$CURRENT_LATENCY" "$LATENCY_CEILING"
+        
+        # Add grace period after successful recovery
+        log_message "Grace period: waiting 20 seconds before resuming monitoring" "debug"
+        sleep 20
+        
         return 0
     else
         log_message "Connection recovery failed" "error"
+        update_status "error" "Connection recovery failed" "$CURRENT_RETRIES" "$MAX_RETRIES" "$CURRENT_LATENCY" "$LATENCY_CEILING"
         return 1
     fi
 }
@@ -607,6 +655,9 @@ main() {
     # Main monitoring loop
     while true; do
         log_message "Starting monitoring cycle (latency_monitoring=$HIGH_LATENCY_MONITORING)" "debug"
+        
+        # Flag to track if recovery was performed this cycle
+        local recovery_performed=0
         
         # Connection monitoring logic - two separate paths
         local connectivity_ok=0
@@ -743,27 +794,31 @@ main() {
                     if [ $CURRENT_RETRIES -eq 1 ] && [ "$CONNECTION_REFRESH" -eq 1 ]; then
                         # First retry with connection refresh enabled - attempt recovery
                         log_message "First retry with connection refresh enabled, attempting connection recovery" "info"
-                        update_status "recovering" "Attempting to restore connection (connection refresh)"
                         
                         if perform_connection_recovery; then
                             log_message "Connection recovery successful" "info"
-                            update_status "recovered" "Connection restored"
+                            
+                            # Mark that recovery was performed
+                            recovery_performed=1
                             
                             # Reset retry counter
                             CURRENT_RETRIES=0
                             save_retry_count $CURRENT_RETRIES
+                            
+                            # Reset failure count
+                            failure_count=0
                         else
                             log_message "Connection recovery failed, will wait for next cycle" "warn"
-                            update_status "error" "Connection recovery failed, attempt $CURRENT_RETRIES/$MAX_RETRIES"
+                            update_status "error" "Connection recovery failed, attempt $CURRENT_RETRIES/$MAX_RETRIES" "$CURRENT_RETRIES" "$MAX_RETRIES" "$CURRENT_LATENCY" "$LATENCY_CEILING"
                         fi
                     else
                         # Either not first retry, or connection refresh disabled - just wait
                         if [ "$CONNECTION_REFRESH" -eq 1 ]; then
                             log_message "Connection refresh already attempted, waiting for recovery (attempt $CURRENT_RETRIES/$MAX_RETRIES)" "info"
-                            update_status "error" "Waiting for recovery, attempt $CURRENT_RETRIES/$MAX_RETRIES"
+                            update_status "error" "Waiting for recovery, attempt $CURRENT_RETRIES/$MAX_RETRIES" "$CURRENT_RETRIES" "$MAX_RETRIES" "$CURRENT_LATENCY" "$LATENCY_CEILING"
                         else
                             log_message "Connection refresh disabled, waiting for max retries (attempt $CURRENT_RETRIES/$MAX_RETRIES)" "info"
-                            update_status "error" "Connection refresh disabled, attempt $CURRENT_RETRIES/$MAX_RETRIES"
+                            update_status "error" "Connection refresh disabled, attempt $CURRENT_RETRIES/$MAX_RETRIES" "$CURRENT_RETRIES" "$MAX_RETRIES" "$CURRENT_LATENCY" "$LATENCY_CEILING"
                         fi
                     fi
                 fi
@@ -832,10 +887,13 @@ main() {
                         
                         if [ $switchback_success -eq 1 ]; then
                             log_message "Successfully switched back to primary SIM" "info"
-                            update_status "stable" "Successfully switched back to primary SIM"
+                            update_status "stable" "Successfully switched back to primary SIM" "$CURRENT_RETRIES" "$MAX_RETRIES" "$CURRENT_LATENCY" "$LATENCY_CEILING"
+                            
+                            # Mark that recovery was performed (SIM switch includes recovery-like operations)
+                            recovery_performed=1
                         else
                             log_message "Failed to switch back to primary SIM, staying on backup" "warn"
-                            update_status "stable" "Staying on backup SIM - primary SIM check failed"
+                            update_status "stable" "Staying on backup SIM - primary SIM check failed" "$CURRENT_RETRIES" "$MAX_RETRIES" "$CURRENT_LATENCY" "$LATENCY_CEILING"
                             
                             # Switch back to backup SIM
                             current_sim=$(get_current_sim)
@@ -851,8 +909,16 @@ main() {
             fi
         fi
         
-        # Sleep for the configured interval
-        sleep $PING_INTERVAL
+        # Smart sleep interval: Skip regular sleep if recovery was performed
+        # Recovery already includes its own delays and grace period
+        if [ $recovery_performed -eq 1 ]; then
+            log_message "Recovery performed this cycle - resuming monitoring immediately" "debug"
+            # No sleep needed - recovery function already included grace period
+        else
+            # Normal monitoring cycle - sleep for configured interval
+            log_message "Sleeping for $PING_INTERVAL seconds before next check" "debug"
+            sleep $PING_INTERVAL
+        fi
     done
 }
 

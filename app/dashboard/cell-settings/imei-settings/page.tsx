@@ -233,10 +233,11 @@ const IMEIManglingPage = () => {
       <Card>
         <form onSubmit={handleSubmit}>
           <CardHeader>
-            <CardTitle>IMEI Mangling</CardTitle>
+            <CardTitle>IMEI Settings</CardTitle>
             <CardDescription className="flex items-center justify-between">
               Change the IMEI of the device. Changing the IMEI may void your
-              warranty and is illegal in some jurisdictions.
+              warranty and is illegal in some jurisdictions. We do not take any
+              responsibility for any misuse.
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger>

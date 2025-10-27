@@ -13,6 +13,8 @@ QM_LOG_BASE="/tmp/quecmanager/logs"
 QM_LOG_DAEMONS="$QM_LOG_BASE/daemons"
 QM_LOG_SERVICES="$QM_LOG_BASE/services"
 QM_LOG_SETTINGS="$QM_LOG_BASE/settings"
+QM_LOG_API="$QM_LOG_BASE/api"
+QM_LOG_AT_CMD="$QM_LOG_BASE/at_cmd"
 QM_LOG_SYSTEM="$QM_LOG_BASE/system"
 
 # Log levels
@@ -26,7 +28,7 @@ QM_LOG_MAX_SIZE=500
 
 # Initialize log directories
 qm_init_logs() {
-    mkdir -p "$QM_LOG_DAEMONS" "$QM_LOG_SERVICES" "$QM_LOG_SETTINGS" "$QM_LOG_SYSTEM" 2>/dev/null || true
+    mkdir -p "$QM_LOG_DAEMONS" "$QM_LOG_SERVICES" "$QM_LOG_SETTINGS" "$QM_LOG_API" "$QM_LOG_AT_CMD" "$QM_LOG_SYSTEM" 2>/dev/null || true
 }
 
 # Get log file path based on category and script name
@@ -43,6 +45,12 @@ qm_get_logfile() {
             ;;
         "setting"|"settings")
             echo "$QM_LOG_SETTINGS/${script_name}.log"
+            ;;
+        "api")
+            echo "$QM_LOG_API/${script_name}.log"
+            ;;
+        "at_cmd"|"at_command")
+            echo "$QM_LOG_AT_CMD/${script_name}.log"
             ;;
         "system")
             echo "$QM_LOG_SYSTEM/${script_name}.log"

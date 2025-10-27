@@ -9,7 +9,7 @@ lan_utils_script="/etc/data/lanUtils.sh"
 setup_persistent_config() {
     if [ ! -f "$lan_utils_script" ]; then
         echo "{\"success\": false, \"error\": \"lanUtils.sh not found\"}"
-        return 1
+        exit 1
     fi
 
     # Backup the original script if not already done
@@ -42,8 +42,13 @@ case "$REQUEST_METHOD" in
         if [ -s "$ttl_file" ]; then
             ttl_value=$(grep 'iptables -t mangle -A POSTROUTING' "$ttl_file" | awk '{for(i=1;i<=NF;i++){if($i=="--ttl-set"){print $(i+1)}}}')
             # Ensure ttl_value is a number, default to 0 if not
-            if ! [[ "$ttl_value" =~ ^[0-9]+$ ]]; then
+            if ! [ "$ttl_value" ] || ! echo "$ttl_value" | grep -qE '^[0-9]+$'; then
                 ttl_value=0
+            else
+                # Strip leading zeros using sed (OpenWRT compatible)
+                ttl_value=$(echo "$ttl_value" | sed 's/^0*//')
+                # Handle case where value was just "0" or "00"
+                [ -z "$ttl_value" ] && ttl_value=0
             fi
             echo "{\"isEnabled\": true, \"currentValue\": $ttl_value}"
         else

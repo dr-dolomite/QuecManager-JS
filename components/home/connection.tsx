@@ -68,7 +68,7 @@ const Connection = ({
           ) : (
             <Badge
               className={`font-bold ${
-                data?.connection.functionalityState === "Enabled"
+                data?.connection.functionalityState === "Full Functionality"
                   ? "bg-emerald-500 hover:bg-emerald-800"
                   : "bg-rose-500 hover:bg-rose-800"
               }`}

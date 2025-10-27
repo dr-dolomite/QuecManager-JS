@@ -5,12 +5,11 @@ import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 
 // Components
-import SimCard from "@/components/home/sim-data";
-import Connection from "@/components/home/connection";
-import DataTransmission from "@/components/home/data-transmission";
-import CellularInformation from "@/components/home/cellular-info";
+// import SimCard from "@/components/home/sim-data";
+// import Connection from "@/components/home/connection";
+// import DataTransmission from "@/components/home/data-transmission";
+// import CellularInformation from "@/components/home/cellular-info";
 import SignalChart from "@/components/home/signal-chart";
-import EthernetCard from "@/components/home/ethernet-card";
 import MemoryCard from "@/components/home/memory-card";
 import PingCard from "@/components/home/ping-card";
 
@@ -42,7 +41,7 @@ import {
 } from "lucide-react";
 
 import PropagateLoader from "react-spinners/PropagateLoader";
-import BandTable from "@/components/home/band-table";
+// import BandTable from "@/components/home/band-table";
 
 // Hooks
 import useHomeData from "@/hooks/home-data";
@@ -56,6 +55,12 @@ import { atCommandSender } from "@/utils/at-command";
 import NetworkInfoCard from "@/components/home/network-info-card";
 import ApproxDistanceCard from "@/components/home/approx-distance-card";
 import DataUsageWarningDialog from "@/components/experimental/data-usage-warning-dialog";
+import WebSocketComponent from "@/components/home/websocket";
+import BandwidthMonitorCard from "@/components/home/bandwidth-monitor-card";
+import SummaryCardComponent from "@/components/home/summary-card";
+import BandsAccordionComponent from "@/components/home/bands-accordion";
+import MemoryCardWebSocket from "@/components/home/memory-card-websocket";
+import PingCardWebSocket from "@/components/home/ping-card-websocket";
 
 interface newBands {
   id: number;
@@ -118,7 +123,11 @@ const HomePage = () => {
       );
       if (dialogSettingsResponse.ok) {
         const dialogSettings = await dialogSettingsResponse.json();
-        if (dialogSettings.status === "success" && dialogSettings.data && !dialogSettings.data.enabled) {
+        if (
+          dialogSettings.status === "success" &&
+          dialogSettings.data &&
+          !dialogSettings.data.enabled
+        ) {
           // Dialog is disabled in settings, don't show
           return;
         }
@@ -389,7 +398,9 @@ const HomePage = () => {
 
             <Dialog>
               <DialogTrigger asChild>
-                <Button onClick={runDiagnostics}>
+                <Button onClick={runDiagnostics}
+                variant="secondary"
+                >
                   <CirclePlay className="xl:size-6 size-5" />
                   <span className="hidden md:block">Run Diagnostics</span>
                 </Button>
@@ -536,22 +547,42 @@ const HomePage = () => {
           <div>
             <SignalChart />
           </div>
+          {/* <div>
+            <BandwidthMonitorCard />
+          </div> */}
+          {/* <div><WebSocketComponent /></div> */}
           <div className="grid gap-2 lg:grid-cols-2 grid-cols-1 grid-flow-row">
             {/* <EthernetCard /> */}
-            <ApproxDistanceCard
+            {/* <ApproxDistanceCard
               lteTimeAdvance={homeData?.timeAdvance?.lteTimeAdvance}
               nrTimeAdvance={homeData?.timeAdvance?.nrTimeAdvance}
               isLoading={isLoading}
               networkType={homeData?.connection?.networkType}
-            />
-            <MemoryCard />
+            /> */}
+
+            {/* <MemoryCard /> */}
+            <PingCardWebSocket />
+            <BandwidthMonitorCard />
             <SpeedtestStream />
-            <PingCard />
+
+            <MemoryCardWebSocket />
           </div>
         </div>
 
-        <div className="grid 2xl:grid-cols-4 lg:grid-cols-2 grid-cols-1 gap-4">
-          <SimCard
+        <div className="grid lg:grid-cols-2 grid-cols-1 grid-flow-row gap-4">
+          <SummaryCardComponent
+            data={homeData}
+            isLoading={isLoading}
+            dataConnectionState={dataConnectionState}
+            connectionStateLoading={isStateLoading}
+            bytesSent={bytesSent}
+            bytesReceived={bytesReceived}
+            hideSensitiveData={hideSensitiveData}
+            bands={bands}
+            onDataRefresh={refreshData}
+          />
+          <BandsAccordionComponent bands={bands} isLoading={isLoading} />
+          {/* <SimCard
             data={homeData}
             isLoading={isLoading}
             hideSensitiveData={hideSensitiveData}
@@ -568,11 +599,11 @@ const HomePage = () => {
             bytesSent={bytesSent}
             bytesReceived={bytesReceived}
           />
-          <CellularInformation data={homeData} isLoading={isLoading} />
+          <CellularInformation data={homeData} isLoading={isLoading} /> */}
         </div>
       </div>
 
-      <div className="grid gap-4 w-full">
+      {/* <div className="grid gap-4 w-full">
         <h1 className="xl:text-3xl text-base font-bold">Active Addresses</h1>
         <div>
           <NetworkInfoCard
@@ -580,22 +611,23 @@ const HomePage = () => {
             isLoading={isLoading}
             isPublicIPLoading={isPublicIPLoading}
             hideSensitiveData={hideSensitiveData}
-            // onRefresh={refreshData}
+          // onRefresh={refreshData}
           />
         </div>
-      </div>
+      </div> */}
 
-      <div className="grid gap-4 w-full">
+      {/* <div className="grid gap-4 w-full">
         <h1 className="xl:text-3xl text-base font-bold">
           Current Active Bands
         </h1>
         <div>
           <BandTable bands={bands} isLoading={isLoading} />
         </div>
-      </div>
+      </div> */}
 
       {/* Global Data Usage Warning Dialog */}
-      <DataUsageWarningDialog
+      {/* !NOTE Temporarily disabled */}
+      {/* <DataUsageWarningDialog
         open={showWarning}
         onClose={closeWarning}
         onDismiss={dismissWarning}
@@ -603,7 +635,7 @@ const HomePage = () => {
         currentUsage={formattedUsage.total}
         monthlyLimit={formattedLimit}
         remaining={remaining}
-      />
+      /> */}
 
       {/* Profile Setup Dialog */}
       <Dialog
@@ -674,6 +706,85 @@ const HomePage = () => {
           </div>
         </DialogContent>
       </Dialog>
+      {/* Profile Setup Dialog */}
+      <Dialog
+        open={profileSetupDialogOpen}
+        onOpenChange={setProfileSetupDialogOpen}
+      >
+        <DialogContent className="lg:max-w-xl max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckCircle2 className="h-5 w-5 text-blue-500" />
+              Set Up Your QuecProfile
+            </DialogTitle>
+            <DialogDescription>
+              We noticed you don&apos;t have a profile configured for your
+              current SIM card.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <Card className="border-primary p-4 space-y-4">
+              <h2 className="font-medium text-primary">
+                Setting up a profile will save you time by automatically
+                applying your preferred network settings, APN configuration, and
+                other cellular preferences.
+              </h2>
+              {/* <div className="space-y-2">
+                <h4 className="font-medium">
+                  Benefits of setting up a profile:
+                </h4>
+                <ul className="text-sm space-y-1">
+                  <li>• Automatic network configuration</li>
+                  <li>• Quick switching between SIM cards</li>
+                  <li>• Backup and restore your settings</li>
+                  <li>• Optimized performance for your carrier</li>
+                </ul>
+              </div> */}
+            </Card>
+
+            <div className="flex flex-col gap-2 mt-4">
+              <Button
+                onClick={() => {
+                  setProfileSetupDialogOpen(false);
+                  router.push("/dashboard/custom-features/quecprofiles");
+                }}
+                className="w-full"
+              >
+                Set Up Profile Now
+              </Button>
+              <Button
+                variant="outline"
+                onClick={handleMaybeLater}
+                className="w-full"
+              >
+                Maybe Later
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setProfileSetupDialogOpen(false);
+                  router.push("/dashboard/settings/personalization");
+                }}
+                className="w-full text-muted-foreground"
+                size="sm"
+              >
+                Disable this dialog in Settings
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+      {/* Global Data Usage Warning Dialog */}
+      <DataUsageWarningDialog
+        open={showWarning}
+        onClose={closeWarning}
+        onDismiss={dismissWarning}
+        usagePercentage={usagePercentage}
+        currentUsage={formattedUsage.total}
+        monthlyLimit={formattedLimit}
+        remaining={remaining}
+      />
     </div>
   );
 };

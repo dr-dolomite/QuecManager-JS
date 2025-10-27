@@ -21,20 +21,65 @@ const CellSettingsLayout = ({ children }: CellSettingsLayoutProps) => {
           className="grid gap-4 text-sm text-muted-foreground"
           x-chunk="dashboard-04-chunk-0"
         >
-          <Link href="/dashboard/cell-settings/basic-settings" className={`${currentPathName === "/dashboard/cell-settings/basic-settings/" ? "font-semibold text-primary" : 'text-sm'}`}>
+          <Link
+            href="/dashboard/cell-settings/basic-settings"
+            className={`${
+              currentPathName === "/dashboard/cell-settings/basic-settings/"
+                ? "font-semibold text-primary"
+                : "text-sm"
+            }`}
+          >
             Basic Settings
           </Link>
-          <Link href="/dashboard/cell-settings/band-locking" className={`${currentPathName === "/dashboard/cell-settings/band-locking/" ? "font-semibold text-primary" : 'text-sm'}`}>
-          Band Locking
+                    <Link
+            href="/dashboard/cell-settings/network-priority"
+            className={`${
+              currentPathName === "/dashboard/cell-settings/network-priority/"
+                ? "font-semibold text-primary"
+                : "text-sm"
+            }`}
+          >
+            Network Priority
           </Link>
-          <Link href="/dashboard/cell-settings/cell-locking" className={`${currentPathName === "/dashboard/cell-settings/cell-locking/" ? "font-semibold text-primary" : 'text-sm'}`}>
-          Cellular Locking
+          <Link
+            href="/dashboard/cell-settings/band-locking"
+            className={`${
+              currentPathName === "/dashboard/cell-settings/band-locking/"
+                ? "font-semibold text-primary"
+                : "text-sm"
+            }`}
+          >
+            Band Locking
           </Link>
-          <Link href="/dashboard/cell-settings/imei-mangling" className={`${currentPathName === "/dashboard/cell-settings/imei-mangling/" ? "font-semibold text-primary" : 'text-sm'}`}>
-          IMEI Mangling
+          <Link
+            href="/dashboard/cell-settings/cell-locking"
+            className={`${
+              currentPathName === "/dashboard/cell-settings/cell-locking/"
+                ? "font-semibold text-primary"
+                : "text-sm"
+            }`}
+          >
+            Cellular Locking
           </Link>
-          <Link href="/dashboard/cell-settings/sms" className={`${currentPathName === "/dashboard/cell-settings/sms/" ? "font-semibold text-primary" : 'text-sm'}`}>
-          SMS Inbox
+          <Link
+            href="/dashboard/cell-settings/imei-settings"
+            className={`${
+              currentPathName === "/dashboard/cell-settings/imei-settings/"
+                ? "font-semibold text-primary"
+                : "text-sm"
+            }`}
+          >
+            IMEI Settings
+          </Link>
+          <Link
+            href="/dashboard/cell-settings/sms"
+            className={`${
+              currentPathName === "/dashboard/cell-settings/sms/"
+                ? "font-semibold text-primary"
+                : "text-sm"
+            }`}
+          >
+            SMS Inbox
           </Link>
         </nav>
         {children}

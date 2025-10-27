@@ -41,8 +41,25 @@ const CellSettingsLayout = ({ children }: CellSettingsLayoutProps) => {
           >
             TTL Settings
           </Link>
-          <Link href="/dashboard/advanced-settings/mtu" className={`${currentPathName === "/dashboard/advanced-settings/mtu/" ? "font-semibold text-primary" : 'text-sm'}`}>
+          <Link
+            href="/dashboard/advanced-settings/mtu"
+            className={`${
+              currentPathName === "/dashboard/advanced-settings/mtu/"
+                ? "font-semibold text-primary"
+                : "text-sm"
+            }`}
+          >
             MTU Settings
+          </Link>
+                    <Link
+            href="/dashboard/advanced-settings/scheduled-reboot"
+            className={`${
+              currentPathName === "/dashboard/advanced-settings/scheduled-reboot"
+                ? "font-semibold text-primary"
+                : "text-sm"
+            }`}
+          >
+            Scheduled Reboot
           </Link>
           <Link
             href="/dashboard/advanced-settings/at-terminal"
@@ -53,6 +70,16 @@ const CellSettingsLayout = ({ children }: CellSettingsLayoutProps) => {
             }`}
           >
             AT Terminal
+          </Link>
+          <Link
+            href="/dashboard/advanced-settings/at-commands"
+            className={`${
+              currentPathName === "/dashboard/advanced-settings/at-commands/"
+                ? "font-semibold text-primary"
+                : "text-sm"
+            }`}
+          >
+            AT Commands
           </Link>
         </nav>
         {children}

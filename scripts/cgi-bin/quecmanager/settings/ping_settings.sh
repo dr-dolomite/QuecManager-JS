@@ -325,6 +325,13 @@ handle_post() {
             fi
         else
             # Disable ping daemon
+            # First, kill any running ping daemon processes
+            if is_ping_daemon_running; then
+                log_message "Stopping running ping daemon..."
+                pkill -f "ping_daemon.sh" 2>/dev/null || true
+                sleep 1
+            fi
+            # Remove from services and restart
             remove_ping_daemon_from_services
             restart_services
         fi
@@ -343,6 +350,13 @@ handle_post() {
 # Handle DELETE request - Reset to default (delete configuration)
 handle_delete() {
     log_message "DELETE request received"
+    
+    # Kill any running ping daemon processes
+    if is_ping_daemon_running; then
+        log_message "Stopping running ping daemon..."
+        pkill -f "ping_daemon.sh" 2>/dev/null || true
+        sleep 1
+    fi
     
     # Remove ping daemon from services and restart
     remove_ping_daemon_from_services

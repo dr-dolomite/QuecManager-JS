@@ -269,6 +269,13 @@ handle_post() {
         fi
     else
         # Disable memory daemon
+        # First, kill any running memory daemon processes
+        if is_memory_daemon_running; then
+            log_message "Stopping running memory daemon..."
+            pkill -f "memory_daemon.sh" 2>/dev/null || true
+            sleep 1
+        fi
+        # Remove from services and restart
         remove_memory_daemon_from_services
         restart_services
     fi
@@ -286,6 +293,13 @@ handle_post() {
 # Handle DELETE request - Reset to default
 handle_delete() {
     log_message "DELETE request received"
+    
+    # Kill any running memory daemon processes
+    if is_memory_daemon_running; then
+        log_message "Stopping running memory daemon..."
+        pkill -f "memory_daemon.sh" 2>/dev/null || true
+        sleep 1
+    fi
     
     # Remove memory daemon from services and restart
     remove_memory_daemon_from_services

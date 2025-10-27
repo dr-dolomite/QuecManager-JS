@@ -816,7 +816,7 @@ const BasicSettings = () => {
 
               <div className="grid w-full max-w-sm items-center gap-2">
                 <Label>
-                  Preferred Network Type
+                  Select Network (RAT) Mode
                   {profileControlledFields.preferredNetworkType && (
                     <span className="ml-2 text-xs text-muted-foreground">
                       (Profile Controlled)

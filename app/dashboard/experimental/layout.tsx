@@ -22,16 +22,6 @@ const ExperimentalLayout = ({ children }: ExperimentalLayoutProps) => {
           x-chunk="dashboard-04-chunk-0"
         >
           <Link
-            href="/dashboard/experimental/network-priority"
-            className={`${
-              currentPathName === "/dashboard/experimental/network-priority/"
-                ? "font-semibold text-primary"
-                : "text-sm"
-            }`}
-          >
-            Network Priority
-          </Link>
-          <Link
             href="/dashboard/experimental/network-insights"
             className={`${
               currentPathName === "/dashboard/experimental/network-insights/"
@@ -62,14 +52,14 @@ const ExperimentalLayout = ({ children }: ExperimentalLayoutProps) => {
             Keep Alive
           </Link>
           <Link
-            href="/dashboard/experimental/scheduled-reboot"
+            href="/dashboard/experimental/tailscale-settings"
             className={`${
-              currentPathName === "/dashboard/experimental/scheduled-reboot/"
+              currentPathName === "/dashboard/experimental/tailscale-settings/"
                 ? "font-semibold text-primary"
                 : "text-sm"
             }`}
           >
-            Scheduled Reboot
+            Tailscale Settings
           </Link>
           <Link
             href="/dashboard/experimental/logs"

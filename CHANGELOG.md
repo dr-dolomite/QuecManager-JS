@@ -1,29 +1,23 @@
-# QuecManager BETA 2.3.4 Changelog
+# QuecManager BETA 2.3.5 Changelog
 
-⚠️ **Important Notes**
+1. Fixed mobile view on quick view charts
+2. Added websocat (will require websocat from now on) and service scripts 
+3. Added live bandwidth that will utilize websocat
+4. Refactored Home UI design and added some UX improvements
+5. Redesigned Band Cards to use Accordion design instead
+6. Added db or dBm on average signal metrics values from signal graphs
+7. Moved approximate cell tower distance (based on Time Advance (TA)) to Device and SIM Information component
+8. Added Total Current Bandwidth data
+9. Fixed Data Usage incorrect logic for counting
+10. Fixed memory and ping config settings
+11. Moved Network Priority Settings to Cell Settings
+12. Complete overhaul of AT terminal page (includes redesign and component improvements)
+13. Moved Common AT commands card to AT Commands page
+14. Makes the bg-muted/40 sticky to navbar instead
+15. Added some theme changes
+16. Added browser memory protection for monitoring services
+17. Moved Scheduled Reboot to Advanced Settings
+18. Fixed TTL script to remove leading 0s
+19. Added missing log categories to quecmanager_logger script
+20. Added a working Tailscale Settings GUI (Experimental)
 
-* Please **disable data usage tracking** before installing.
-* After updating, reapply any active settings configurations.
-
-### ✨ Added
-
-* Experimental **Internet Quality** feature
-* **Native GUI** for QuecManager updates
-* **Packet loss reporting** in the Ping card
-* **Donation button** on the About page
-
-
-### 🔄 Changed / Migrated
-
-* Configuration files migrated to **UCI (Unified Configuration Interface)**
-* General **UI improvements**
-* Backend script optimizations and improvements
-
-### ❌ Removed / Temporarily Disabled
-
-* **Data usage tracking** (temporarily disabled)
-
-Removed legacy init scripts (from `/etc/init.d`):
-
-* `quecmanager_modem_counter`
-* `quecmanager_data_usage`
