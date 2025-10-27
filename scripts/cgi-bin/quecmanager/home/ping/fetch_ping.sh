@@ -23,7 +23,7 @@ fi
 
 # Paths
 PING_JSON="/tmp/quecmanager/ping_latency.json"
-UCI_CONFIG="quecmanager"
+CONFIG_FILE="/etc/quecmanager/settings/ping_settings.conf"
 
 # Check if ping data file exists
 if [ -f "$PING_JSON" ] && [ -r "$PING_JSON" ]; then
@@ -33,23 +33,22 @@ if [ -f "$PING_JSON" ] && [ -r "$PING_JSON" ]; then
     # Check if we got content and it looks like JSON
     if [ -n "$ping_data" ] && echo "$ping_data" | grep -q '"timestamp"'; then
         # File exists and has content, return it wrapped in success
-        # Example: {"timestamp":"2025-10-04T05:54:58Z","host":"8.8.8.8","latency":117,"packet_loss":20,"ok":true}
         echo "{\"status\":\"success\",\"data\":$ping_data}"
     else
         echo "{\"status\":\"error\",\"message\":\"Ping data file is empty or corrupted\"}"
     fi
 else
-    # No ping file exists - check UCI configuration
-    PING_ENABLED=$(uci get "$UCI_CONFIG.ping_monitoring.enabled" 2>/dev/null || echo "0")
-    
-    case "$PING_ENABLED" in
-        true|1|on|yes|enabled)
+    # No ping file exists - check configuration
+    if [ -f "$CONFIG_FILE" ] && [ -r "$CONFIG_FILE" ]; then
+        # Check if ping monitoring is enabled
+        if grep -q "^PING_ENABLED=true" "$CONFIG_FILE" 2>/dev/null; then
             echo "{\"status\":\"error\",\"message\":\"Ping daemon starting up\"}"
-            ;;
-        *)
+        else
             echo "{\"status\":\"error\",\"message\":\"Ping monitoring disabled\"}"
-            ;;
-    esac
+        fi
+    else
+        echo "{\"status\":\"error\",\"message\":\"Ping monitoring not configured\"}"
+    fi
 fi
 
 # Always exit cleanly

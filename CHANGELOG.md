@@ -20,4 +20,5 @@
 18. Fixed TTL script to remove leading 0s
 19. Added missing log categories to quecmanager_logger script
 20. Added a working Tailscale Settings GUI (Experimental)
-
+21. Fixed Quecwatch latency monitoring logic
+22. Added 12 hour view in Internet Quality
