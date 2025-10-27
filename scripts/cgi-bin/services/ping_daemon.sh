@@ -1,12 +1,16 @@
 #!/bin/sh
 
-set -eu
-
 # Ensure PATH for OpenWrt/BusyBox
 export PATH="/usr/sbin:/usr/bin:/sbin:/bin:$PATH"
 
 # Load centralized logging
-. /www/cgi-bin/services/quecmanager_logger.sh
+LOGGER_SCRIPT="/www/cgi-bin/services/quecmanager_logger.sh"
+if [ -f "$LOGGER_SCRIPT" ]; then
+    . "$LOGGER_SCRIPT"
+    USE_CENTRALIZED_LOGGING=1
+else
+    USE_CENTRALIZED_LOGGING=0
+fi
 
 TMP_DIR="/tmp/quecmanager"
 OUT_JSON="$TMP_DIR/ping_latency.json"
@@ -16,7 +20,9 @@ HOURLY_JSON="$TMP_DIR/ping_hourly.json"
 DAILY_JSON="$TMP_DIR/ping_daily.json"
 PID_FILE="$TMP_DIR/ping_daemon.pid"
 STATE_FILE="$TMP_DIR/ping_daemon_state"
+LOG_FILE="/tmp/log/ping_daemon/ping_daemon.log"
 DEFAULT_HOST="8.8.8.8"
+BACKUP_HOST="1.1.1.1"
 DEFAULT_INTERVAL=10
 SCRIPT_NAME="ping_daemon"
 UCI_CONFIG="quecmanager"
@@ -27,19 +33,49 @@ MAX_MINUTELY_ENTRIES=60      # Keep 60 minutes (1 hour)
 MAX_HOURLY_ENTRIES=24        # Keep 24 hours (1 day)
 MAX_DAILY_ENTRIES=365        # Keep 1 year
 
-ensure_tmp_dir() { [ -d "$TMP_DIR" ] || mkdir -p "$TMP_DIR" || exit 1; }
+ensure_tmp_dir() { 
+    [ -d "$TMP_DIR" ] || mkdir -p "$TMP_DIR" 2>/dev/null || true
+    [ -d "/tmp/log/ping_daemon" ] || mkdir -p "/tmp/log/ping_daemon" 2>/dev/null || true
+}
 
-log() { qm_log_info "daemon" "$SCRIPT_NAME" "$1"; }
+log() { 
+    local message="$1"
+    local level="${2:-info}"
+    
+    # Use centralized logging if available
+    if [ "$USE_CENTRALIZED_LOGGING" -eq 1 ]; then
+        case "$level" in
+            error)
+                qm_log_error "service" "$SCRIPT_NAME" "$message"
+                ;;
+            warn)
+                qm_log_warn "service" "$SCRIPT_NAME" "$message"
+                ;;
+            debug)
+                qm_log_debug "service" "$SCRIPT_NAME" "$message"
+                ;;
+            info|*)
+                qm_log_info "service" "$SCRIPT_NAME" "$message"
+                ;;
+        esac
+    fi
+    
+    # Also log to legacy file for backward compatibility
+    local timestamp=$(date "+%Y-%m-%d %H:%M:%S" 2>/dev/null || date)
+    echo "[$timestamp] [$level] $message" >> "$LOG_FILE" 2>/dev/null || true
+}
 
 daemon_is_running() {
   if [ -f "$PID_FILE" ]; then
-    pid="$(cat "$PID_FILE" 2>/dev/null || true)"
-    if [ -n "${pid:-}" ] && kill -0 "$pid" 2>/dev/null; then
+    pid=$(cat "$PID_FILE" 2>/dev/null || echo "")
+    if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
       if [ -r "/proc/$pid/cmdline" ] && grep -q "ping_daemon.sh" "/proc/$pid/cmdline" 2>/dev/null; then
         return 0 
       else
         rm -f "$PID_FILE" 2>/dev/null || true
       fi
+    else
+      rm -f "$PID_FILE" 2>/dev/null || true
     fi
   fi
   return 1
@@ -62,7 +98,10 @@ init_uci_config() {
 }
 
 read_config() {
-  ENABLED="true"; HOST="$DEFAULT_HOST"; INTERVAL="$DEFAULT_INTERVAL"
+  ENABLED="true"
+  HOST="$DEFAULT_HOST"
+  BACKUP="$BACKUP_HOST"
+  INTERVAL="$DEFAULT_INTERVAL"
   
   init_uci_config
   
@@ -70,14 +109,14 @@ read_config() {
   PING_HOST=$(uci get "$UCI_CONFIG.ping_monitoring.host" 2>/dev/null || echo "$DEFAULT_HOST")
   PING_INTERVAL=$(uci get "$UCI_CONFIG.ping_monitoring.interval" 2>/dev/null || echo "$DEFAULT_INTERVAL")
   
-  case "${PING_ENABLED:-}" in 
+  case "$PING_ENABLED" in 
     true|1|on|yes|enabled) ENABLED=true ;; 
     *) ENABLED=false ;; 
   esac
   
-  [ -n "${PING_HOST:-}" ] && HOST="$PING_HOST"
+  [ -n "$PING_HOST" ] && HOST="$PING_HOST"
   
-  if echo "${PING_INTERVAL:-}" | grep -qE '^[0-9]+$'; then
+  if echo "$PING_INTERVAL" | grep -qE '^[0-9]+$'; then
     if [ "$PING_INTERVAL" -ge 1 ] && [ "$PING_INTERVAL" -le 3600 ]; then
       INTERVAL="$PING_INTERVAL"
     fi
@@ -85,12 +124,13 @@ read_config() {
 }
 
 write_json_atomic() {
-  tmpfile="$(mktemp "$TMP_DIR/ping_latency.XXXXXX" 2>/dev/null || true)"
-  if [ -n "${tmpfile:-}" ] && [ -w "$TMP_DIR" ]; then
-    printf '%s' "$1" > "$tmpfile" 2>/dev/null || true
-    mv -f "$tmpfile" "$OUT_JSON" 2>/dev/null || printf '%s' "$1" > "$OUT_JSON"
+  local json_data="$1"
+  tmpfile=$(mktemp "$TMP_DIR/ping_latency.XXXXXX" 2>/dev/null || echo "")
+  if [ -n "$tmpfile" ] && [ -w "$TMP_DIR" ]; then
+    printf '%s' "$json_data" > "$tmpfile" 2>/dev/null || true
+    mv -f "$tmpfile" "$OUT_JSON" 2>/dev/null || printf '%s' "$json_data" > "$OUT_JSON" 2>/dev/null || true
   else
-    printf '%s' "$1" > "$OUT_JSON"
+    printf '%s' "$json_data" > "$OUT_JSON" 2>/dev/null || true
   fi
 }
 
@@ -132,7 +172,7 @@ load_state() {
 
 collect_minutely() {
   # Get current hour identifier (YYYY-MM-DD-HH)
-  current_hourly_id=$(date -u +"%Y-%m-%d-%H")
+  current_hourly_id=$(date +"%Y-%m-%d-%H" 2>/dev/null || date +"%Y%m%d%H")
   
   # Load state
   load_state
@@ -161,8 +201,8 @@ collect_minutely() {
         avg_latency=$((total_latency / valid_count))
         avg_packet_loss=$((total_packet_loss / valid_count))
         
-        # Use the START of the previous hour
-        prev_hour_ts=$(date -u -d "-1 hour" +"%Y-%m-%dT%H:00:00Z" 2>/dev/null || date -u +"%Y-%m-%dT%H:00:00Z")
+        # Use the START of the previous hour (BusyBox compatible)
+        prev_hour_ts=$(date +"%Y-%m-%dT%H:00:00Z" 2>/dev/null || date -u +"%Y-%m-%dT%H:00:00Z")
         
         hourly_json="{\"timestamp\":\"$prev_hour_ts\",\"host\":\"$HOST\",\"latency\":$avg_latency,\"packet_loss\":$avg_packet_loss,\"sample_count\":$valid_count}"
         
@@ -180,7 +220,7 @@ collect_minutely() {
 
 aggregate_hourly() {
   # Get current day identifier (YYYY-MM-DD)
-  current_day_id=$(date -u +"%Y-%m-%d")
+  current_day_id=$(date +"%Y-%m-%d" 2>/dev/null || date +"%Y%m%d")
   
   # Load state
   load_state
@@ -211,8 +251,8 @@ aggregate_hourly() {
           avg_latency=$((total_latency / valid_count))
           avg_packet_loss=$((total_packet_loss / valid_count))
           
-          # Use the START of the previous day
-          prev_day_ts=$(date -u -d "-1 day" +"%Y-%m-%dT00:00:00Z" 2>/dev/null || date -u +"%Y-%m-%dT00:00:00Z")
+          # Use the START of the previous day (BusyBox compatible)
+          prev_day_ts=$(date +"%Y-%m-%dT00:00:00Z" 2>/dev/null || date -u +"%Y-%m-%dT00:00:00Z")
           
           daily_json="{\"timestamp\":\"$prev_day_ts\",\"host\":\"$HOST\",\"latency\":$avg_latency,\"packet_loss\":$avg_packet_loss,\"sample_count\":$valid_count}"
           
@@ -232,8 +272,11 @@ aggregate_hourly() {
 
 
 ensure_tmp_dir
-log "Starting ping daemon"
-if daemon_is_running; then log "Already running"; exit 0; fi
+log "Starting ping daemon (PID: $$)"
+if daemon_is_running; then 
+    log "Already running" "warn"
+    exit 0
+fi
 
 trap cleanup EXIT INT TERM 
 write_pid
@@ -243,35 +286,77 @@ load_state
 
 while true; do
   read_config
-  if [ "$ENABLED" != "true" ]; then log "Disabled in config"; exit 0; fi
+  if [ "$ENABLED" != "true" ]; then 
+      log "Disabled in config" "info"
+      exit 0
+  fi
   
-  ts="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
-  PING_BIN="$(command -v ping || echo /bin/ping)"
+  ts=$(date -u +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date +"%Y-%m-%dT%H:%M:%SZ")
+  PING_BIN=$(command -v ping 2>/dev/null || echo "/bin/ping")
   
-  # Send 5 pings with 2 second timeout per ping
-  output="$("$PING_BIN" -c 5 -W 2 "$HOST" 2>/dev/null || true)"
+  # Dual-ping logic: Try primary host first (8.8.8.8), then backup (1.1.1.1) if primary fails
+  # Send 3 pings with 2 second timeout per ping to primary host
+  output=$("$PING_BIN" -c 3 -W 2 "$HOST" 2>/dev/null || echo "")
+  used_host="$HOST"
   
+  # Check if primary ping succeeded
+  if ! echo "$output" | grep -q "packets transmitted"; then
+    log "Primary host $HOST failed, trying backup $BACKUP" "warn"
+    
+    # Try backup host with 2 pings
+    output=$("$PING_BIN" -c 2 -W 2 "$BACKUP" 2>/dev/null || echo "")
+    used_host="$BACKUP"
+    
+    # If backup also fails, record total failure
+    if ! echo "$output" | grep -q "packets transmitted"; then
+      log "Both primary ($HOST) and backup ($BACKUP) failed - no internet" "error"
+      json="{\"timestamp\":\"$ts\",\"host\":\"$used_host\",\"latency\":null,\"packet_loss\":100,\"ok\":false}"
+      
+      write_json_atomic "$json"
+      append_to_realtime "$json"
+      
+      # Send to WebSocket server if available
+      if command -v websocat >/dev/null 2>&1; then
+        echo "$json" | websocat --one-message ws://localhost:8838 2>/dev/null || true
+      fi
+      
+      log "Wrote: $json"
+      
+      # Still perform aggregations
+      collect_minutely
+      aggregate_hourly
+      
+      sleep "$INTERVAL"
+      continue
+    fi
+  fi
+  
+  # Parse successful ping results (either from primary or backup)
   if echo "$output" | grep -q "packets transmitted"; then
-    packet_loss="$(echo "$output" | grep -oE '[0-9]+% packet loss' | grep -oE '[0-9]+' | head -n1)"
+    packet_loss=$(echo "$output" | grep -oE '[0-9]+% packet loss' | grep -oE '[0-9]+' | head -n1)
     [ -z "$packet_loss" ] && packet_loss=0
     
     if echo "$output" | grep -q "round-trip"; then
-      latency_ms="$(echo "$output" | grep -oE 'round-trip[^=]*= [0-9.]+/[0-9.]+/[0-9.]+' | grep -oE '[0-9.]+/[0-9.]+/[0-9.]+' | cut -d'/' -f2 | cut -d'.' -f1)"
+      latency_ms=$(echo "$output" | grep -oE 'round-trip[^=]*= [0-9.]+/[0-9.]+/[0-9.]+' | grep -oE '[0-9.]+/[0-9.]+/[0-9.]+' | cut -d'/' -f2 | cut -d'.' -f1)
       [ -z "$latency_ms" ] && latency_ms=0
     else
       latency_ms=0
     fi
     
-    json="{\"timestamp\":\"$ts\",\"host\":\"$HOST\",\"latency\":$latency_ms,\"packet_loss\":$packet_loss,\"ok\":true}"
+    json="{\"timestamp\":\"$ts\",\"host\":\"$used_host\",\"latency\":$latency_ms,\"packet_loss\":$packet_loss,\"ok\":true}"
+    
+    if [ "$used_host" != "$HOST" ]; then
+      log "Using backup host $used_host: latency=${latency_ms}ms, loss=${packet_loss}%" "warn"
+    fi
   else
-    json="{\"timestamp\":\"$ts\",\"host\":\"$HOST\",\"latency\":null,\"packet_loss\":100,\"ok\":false}"
+    json="{\"timestamp\":\"$ts\",\"host\":\"$used_host\",\"latency\":null,\"packet_loss\":100,\"ok\":false}"
   fi
   
   # Write current ping
   write_json_atomic "$json"
   append_to_realtime "$json"
   
-  # Send to WebSocat server if available (non-blocking)
+  # Send to WebSocket server if available (non-blocking)
   if command -v websocat >/dev/null 2>&1; then
     echo "$json" | websocat --one-message ws://localhost:8838 2>/dev/null || true
   fi
