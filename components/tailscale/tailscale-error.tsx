@@ -28,6 +28,15 @@ interface TailscaleErrorProps {
 }
 
 const TailscaleError = ({ errorMessage, onRefresh }: TailscaleErrorProps) => {
+  // Determine if this is a no internet error
+  const isNoInternetError = errorMessage?.toLowerCase().includes("no internet") || 
+                           errorMessage?.toLowerCase().includes("internet connection");
+  
+  const displayTitle = isNoInternetError ? "No Internet Connection" : "Tailscale Status Error";
+  const displayMessage = isNoInternetError 
+    ? "Your device has no internet connection. Tailscale requires internet access to authenticate and establish VPN connections."
+    : errorMessage || "An unknown error occurred";
+  
   return (
     <Card>
       <CardHeader>
@@ -43,9 +52,9 @@ const TailscaleError = ({ errorMessage, onRefresh }: TailscaleErrorProps) => {
               <AvatarImage src="/tailscale-logo.png" />
               <AvatarFallback>TS</AvatarFallback>
             </Avatar>
-            <EmptyTitle>Tailscale Status Error</EmptyTitle>
+            <EmptyTitle>{displayTitle}</EmptyTitle>
             <EmptyDescription>
-              {errorMessage || "unknown"}. Please try again.
+              {displayMessage}
             </EmptyDescription>
           </EmptyHeader>
           <EmptyContent>

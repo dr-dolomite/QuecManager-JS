@@ -32,6 +32,18 @@ check_authentication() {
     # Run tailscale status and capture output
     local ts_status=$(tailscale status 2>&1)
     
+    # Check for NoState - indicates no internet connectivity
+    if echo "$ts_status" | grep -qi "unexpected state: NoState"; then
+        # Return 3 to indicate no internet connectivity
+        return 3
+    fi
+    
+    # Check for DNS resolution failures (no internet)
+    if echo "$ts_status" | grep -qi "failed to resolve\|no DNS fallback"; then
+        # Return 3 to indicate no internet connectivity
+        return 3
+    fi
+    
     # Check if logged out
     if echo "$ts_status" | grep -q "Logged out"; then
         # Extract login URL using grep and awk
@@ -104,6 +116,9 @@ if check_installed; then
         elif [ $auth_status -eq 2 ]; then
             # State 4: Installed, running, but not authenticated (has login URL)
             echo "{\"status\":\"success\",\"installed\":true,\"running\":true,\"authenticated\":false,\"login_url\":\"$auth_url\",\"message\":\"Tailscale is running but not authenticated\"}"
+        elif [ $auth_status -eq 3 ]; then
+            # State 6: Installed, running, but no internet connectivity
+            echo '{"status":"error","error":"no_internet","message":"Device has no internet connection. Tailscale requires internet access to authenticate and connect.","installed":true,"running":true,"authenticated":false}'
         else
             # State 5: Installed, running, but authentication status unknown
             echo '{"status":"success","installed":true,"running":true,"authenticated":false,"message":"Tailscale is running but authentication status is unknown"}'

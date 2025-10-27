@@ -29,7 +29,20 @@ export const useTailscaleStatus = (): UseTailscaleStatusReturn => {
       const data: TailscaleStatus = await response.json();
 
       if (data.status === "error") {
-        throw new Error(data.error || "Failed to fetch Tailscale status");
+        // Handle specific error types
+        if (data.error === "no_internet") {
+          setError("Device has no internet connection");
+          setStatus(null);
+          toast({
+            title: "No Internet Connection",
+            description: "Tailscale requires internet access to authenticate and connect.",
+            duration: 5000,
+            variant: "destructive",
+          });
+          return;
+        }
+        
+        throw new Error(data.message || "Failed to fetch Tailscale status");
       }
 
       setStatus(data);
