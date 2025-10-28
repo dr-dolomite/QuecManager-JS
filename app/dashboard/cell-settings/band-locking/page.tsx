@@ -518,8 +518,8 @@ const BandLocking = () => {
             <CardDescription>{description}</CardDescription>
           </div>
           {isProfileControlled && (
-            <div className="flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-md bg-slate-100 dark:bg-slate-800">
-              <LockIcon className="h-3 w-3" color="orange" />
+            <div className="flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-md text-secondary bg-secondary/10 border-secondary border">
+              <LockIcon className="h-3 w-3" />
               <span>Profile Controlled by {profileName}</span>
             </div>
           )}

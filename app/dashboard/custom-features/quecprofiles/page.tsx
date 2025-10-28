@@ -44,6 +44,18 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+
 import { Button } from "@/components/ui/button";
 import {
   AlertCircle,
@@ -917,11 +929,11 @@ const QuecProfilesPage = () => {
         {profileStatus.status === "applying" ? (
           <Loader2 className="size-5 animate-spin" />
         ) : profileStatus.status === "error" ? (
-          <AlertCircle className="size-5" color="orange" />
+          <AlertCircle className="size-5" />
         ) : profileStatus.status === "rebooting" ? (
           <RefreshCcw className="size-5 animate-spin" />
         ) : (
-          <CheckCircle2 className="size-5" color="green" />
+          <CheckCircle2 className="size-5" />
         )}
         <AlertTitle>{titleToShow}</AlertTitle>
         <AlertDescription className="flex justify-between items-center">
@@ -1118,11 +1130,10 @@ const QuecProfilesPage = () => {
                         <SelectValue placeholder="Network Type" />
                       </SelectTrigger>
                       <SelectContent>
+                        <SelectItem value="AUTO">AUTO</SelectItem>
                         <SelectItem value="LTE">LTE Only</SelectItem>
-                        <SelectItem value="NR5G">NR5G Only</SelectItem>
-                        <SelectItem value="LTE:NR5G">
-                          NR5G-NSA w/ LTE
-                        </SelectItem>
+                        <SelectItem value="NR5G">5G-SA Only</SelectItem>
+                        <SelectItem value="LTE:NR5G">5G-NSA Only</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -1309,15 +1320,49 @@ const QuecProfilesPage = () => {
                             </DropdownMenuGroup>
                             <DropdownMenuSeparator />
                             <DropdownMenuGroup>
-                              <DropdownMenuItem
-                                className="text-destructive"
-                                onClick={() =>
-                                  deleteProfile(profile.iccid, profile.name)
-                                }
-                              >
-                                <Trash2Icon />
-                                Delete Profile
-                              </DropdownMenuItem>
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <DropdownMenuItem
+                                    className="text-destructive"
+                                    onSelect={(e) => e.preventDefault()}
+                                  >
+                                    <Trash2Icon />
+                                    Delete Profile
+                                  </DropdownMenuItem>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent className="max-w-sm">
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>
+                                      Are you absolutely sure?
+                                    </AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      This action cannot be undone. This will
+                                      permanently delete the profile{" "}
+                                      <span className="font-semibold">
+                                        {profile.name}{" "}
+                                      </span>
+                                      from the system.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>
+                                      Cancel
+                                    </AlertDialogCancel>
+                                    <AlertDialogAction
+                                      className="bg-destructive hover:bg-destructive/90 focus:ring-destructive/50"
+                                      onClick={() =>
+                                        deleteProfile(
+                                          profile.iccid,
+                                          profile.name
+                                        )
+                                      }
+                                    >
+                                      <Trash2Icon className="h-4 w-4" />
+                                      Delete Profile
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
                             </DropdownMenuGroup>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -1615,15 +1660,49 @@ const QuecProfilesPage = () => {
                               </DropdownMenuGroup>
                               <DropdownMenuSeparator />
                               <DropdownMenuGroup>
-                                <DropdownMenuItem
-                                  className="text-destructive"
-                                  onClick={() =>
-                                    deleteProfile(profile.iccid, profile.name)
-                                  }
-                                >
-                                  <Trash2Icon />
-                                  Delete Profile
-                                </DropdownMenuItem>
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <DropdownMenuItem
+                                      className="text-destructive"
+                                      onSelect={(e) => e.preventDefault()}
+                                    >
+                                      <Trash2Icon />
+                                      Delete Profile
+                                    </DropdownMenuItem>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent className="max-w-sm">
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>
+                                        Are you absolutely sure?
+                                      </AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                        This action cannot be undone. This will
+                                        permanently delete the profile{" "}
+                                        <span className="font-semibold">
+                                          {profile.name}{" "}
+                                        </span>
+                                        from the system.
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>
+                                        Cancel
+                                      </AlertDialogCancel>
+                                      <AlertDialogAction
+                                        className="bg-destructive hover:bg-destructive/90 focus:ring-destructive/50"
+                                        onClick={() =>
+                                          deleteProfile(
+                                            profile.iccid,
+                                            profile.name
+                                          )
+                                        }
+                                      >
+                                        <Trash2Icon className="h-4 w-4" />
+                                        Delete Profile
+                                      </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
                               </DropdownMenuGroup>
                             </DropdownMenuContent>
                           </DropdownMenu>

@@ -5,22 +5,10 @@ import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 
 // Components
-// import SimCard from "@/components/home/sim-data";
-// import Connection from "@/components/home/connection";
-// import DataTransmission from "@/components/home/data-transmission";
-// import CellularInformation from "@/components/home/cellular-info";
 import SignalChart from "@/components/home/signal-chart";
-import MemoryCard from "@/components/home/memory-card";
-import PingCard from "@/components/home/ping-card";
 
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -52,10 +40,6 @@ import useDataUsageTracking from "@/hooks/data-usage-tracking";
 import { BsSimSlashFill } from "react-icons/bs";
 import SpeedtestStream from "@/components/home/speedtest-card";
 import { atCommandSender } from "@/utils/at-command";
-import NetworkInfoCard from "@/components/home/network-info-card";
-import ApproxDistanceCard from "@/components/home/approx-distance-card";
-import DataUsageWarningDialog from "@/components/experimental/data-usage-warning-dialog";
-import WebSocketComponent from "@/components/home/websocket";
 import BandwidthMonitorCard from "@/components/home/bandwidth-monitor-card";
 import SummaryCardComponent from "@/components/home/summary-card";
 import BandsAccordionComponent from "@/components/home/bands-accordion";
@@ -398,9 +382,7 @@ const HomePage = () => {
 
             <Dialog>
               <DialogTrigger asChild>
-                <Button onClick={runDiagnostics}
-                variant="secondary"
-                >
+                <Button onClick={runDiagnostics} variant="secondary">
                   <CirclePlay className="xl:size-6 size-5" />
                   <span className="hidden md:block">Run Diagnostics</span>
                 </Button>
@@ -775,16 +757,6 @@ const HomePage = () => {
           </div>
         </DialogContent>
       </Dialog>
-      {/* Global Data Usage Warning Dialog */}
-      <DataUsageWarningDialog
-        open={showWarning}
-        onClose={closeWarning}
-        onDismiss={dismissWarning}
-        usagePercentage={usagePercentage}
-        currentUsage={formattedUsage.total}
-        monthlyLimit={formattedLimit}
-        remaining={remaining}
-      />
     </div>
   );
 };
