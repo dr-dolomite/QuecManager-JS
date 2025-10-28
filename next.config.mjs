@@ -1,19 +1,19 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: "export",
+  // output: "export",
   images: { unoptimized: true },
   trailingSlash: true,
 
   // uncomment for development
-  // async rewrites() {
-  //   return [
-  //     {
-  //       source: '/cgi-bin/:path*',
-  //       destination: 'http://192.168.224.1/cgi-bin/:path*',
-  //       basePath: false,
-  //     },
-  //   ];
-  // },
+  async rewrites() {
+    return [
+      {
+        source: '/cgi-bin/:path*',
+        destination: 'http://192.168.224.1/cgi-bin/:path*',
+        basePath: false,
+      },
+    ];
+  },
 };
 
 export default nextConfig;
