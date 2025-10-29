@@ -22,6 +22,11 @@ REALTIME_JSON="$TMP_DIR/ping_realtime.json"
 LOG_FILE="/tmp/log/uptime_daemon/uptime_daemon.log"
 SCRIPT_NAME="uptime_daemon"
 
+# State variables (kept in memory)
+UPTIME_SECONDS=0
+FAIL_COUNT=0
+DISCONNECT_COUNT=0
+
 # Ensure directories exist
 ensure_tmp_dir() { 
     [ -d "$TMP_DIR" ] || mkdir -p "$TMP_DIR" 2>/dev/null || true
@@ -75,53 +80,58 @@ write_pid() { echo "$$" > "$PID_FILE"; }
 
 cleanup() { rm -f "$PID_FILE" 2>/dev/null || true; }
 
-# Initialize uptime state
-init_uptime_state() {
-    if [ ! -f "$UPTIME_STATE" ]; then
-        cat > "$UPTIME_STATE" <<EOF
-{
-    "uptime_seconds": 0,
-    "last_update": $(date +%s),
-    "is_connected": true,
-    "last_disconnect": 0,
-    "disconnect_count": 0
-}
-EOF
-        chmod 644 "$UPTIME_STATE"
+# Load state from file
+load_state() {
+    if [ -f "$UPTIME_STATE" ]; then
+        UPTIME_SECONDS=$(grep -oE '"uptime_seconds":[0-9]+' "$UPTIME_STATE" | cut -d':' -f2)
+        FAIL_COUNT=$(grep -oE '"fail_count":[0-9]+' "$UPTIME_STATE" | cut -d':' -f2)
+        DISCONNECT_COUNT=$(grep -oE '"disconnect_count":[0-9]+' "$UPTIME_STATE" | cut -d':' -f2)
+        
+        # Defaults if parsing failed
+        [ -z "$UPTIME_SECONDS" ] && UPTIME_SECONDS=0
+        [ -z "$FAIL_COUNT" ] && FAIL_COUNT=0
+        [ -z "$DISCONNECT_COUNT" ] && DISCONNECT_COUNT=0
     fi
 }
 
-# Check connection status based on ping failures
-check_connection_status() {
+# Save state to file
+save_state() {
+    cat > "$UPTIME_STATE" <<EOF
+{
+    "uptime_seconds": $UPTIME_SECONDS,
+    "fail_count": $FAIL_COUNT,
+    "disconnect_count": $DISCONNECT_COUNT
+}
+EOF
+    chmod 644 "$UPTIME_STATE"
+}
+
+# Check if last ping was successful
+is_ping_ok() {
     if [ ! -f "$REALTIME_JSON" ]; then
-        echo "false"
+        echo "0"
         return
     fi
     
-    # Count failures in last 6 entries (roughly 1 minute)
-    local failure_count=0
+    local last_ping=$(tail -n 1 "$REALTIME_JSON" 2>/dev/null)
     
-    tail -n 6 "$REALTIME_JSON" 2>/dev/null | while IFS= read -r line; do
-        if [ -n "$line" ]; then
-            # Check for failures
-            if echo "$line" | grep -qE '"ok":false|"packet_loss":100'; then
-                echo "FAIL"
-            fi
-        fi
-    done > /tmp/uptime_check_$$
-    
-    failure_count=$(grep -c "FAIL" /tmp/uptime_check_$$ 2>/dev/null || echo "0")
-    rm -f /tmp/uptime_check_$$
-    
-    # 5 or more failures = disconnected
-    if [ "$failure_count" -ge 5 ]; then
-        echo "false"
-    else
-        echo "true"
+    if [ -z "$last_ping" ]; then
+        echo "0"
+        return
     fi
+    
+    # Check if ping was successful (ok:true AND packet_loss NOT 100)
+    if echo "$last_ping" | grep -q '"ok":true'; then
+        if ! echo "$last_ping" | grep -q '"packet_loss":100'; then
+            echo "1"
+            return
+        fi
+    fi
+    
+    echo "0"
 }
 
-# Format uptime to human readable
+# Format uptime to human readable (max unit: days)
 format_uptime() {
     local total_seconds=$1
     local days=$((total_seconds / 86400))
@@ -140,68 +150,15 @@ format_uptime() {
     fi
 }
 
-# Update uptime calculation
-update_uptime() {
-    init_uptime_state
-    
-    # Read current state
-    local current_uptime=$(cat "$UPTIME_STATE" | grep -oE '"uptime_seconds":[0-9]+' | cut -d':' -f2)
-    local last_update=$(cat "$UPTIME_STATE" | grep -oE '"last_update":[0-9]+' | cut -d':' -f2)
-    local was_connected=$(cat "$UPTIME_STATE" | grep -oE '"is_connected":(true|false)' | cut -d':' -f2)
-    local last_disconnect=$(cat "$UPTIME_STATE" | grep -oE '"last_disconnect":[0-9]+' | cut -d':' -f2)
-    local disconnect_count=$(cat "$UPTIME_STATE" | grep -oE '"disconnect_count":[0-9]+' | cut -d':' -f2)
-    
-    # Defaults
-    [ -z "$current_uptime" ] && current_uptime=0
-    [ -z "$last_update" ] && last_update=$(date +%s)
-    [ -z "$was_connected" ] && was_connected="true"
-    [ -z "$last_disconnect" ] && last_disconnect=0
-    [ -z "$disconnect_count" ] && disconnect_count=0
-    
-    # Check current connection
-    local is_connected=$(check_connection_status)
+# Send uptime data via WebSocket
+send_update() {
     local current_time=$(date +%s)
-    local time_elapsed=$((current_time - last_update))
+    local formatted_uptime=$(format_uptime "$UPTIME_SECONDS")
+    local is_stable=$((FAIL_COUNT == 0))
     
-    # Update uptime logic
-    if [ "$is_connected" = "true" ]; then
-        if [ "$was_connected" = "true" ]; then
-            # Still connected, increment uptime
-            current_uptime=$((current_uptime + time_elapsed))
-        else
-            # Just reconnected, reset uptime
-            current_uptime=0
-            disconnect_count=$((disconnect_count + 1))
-            log "Connection restored, uptime reset" "info"
-        fi
-    else
-        if [ "$was_connected" = "true" ]; then
-            # Just disconnected
-            last_disconnect=$current_time
-            disconnect_count=$((disconnect_count + 1))
-            log "Connection lost (failures detected)" "warn"
-        fi
-        # Uptime frozen while disconnected
-    fi
+    local json_data="{\"type\":\"uptime\",\"uptime_seconds\":$UPTIME_SECONDS,\"uptime_formatted\":\"$formatted_uptime\",\"is_connected\":$is_stable,\"disconnect_count\":$DISCONNECT_COUNT,\"fail_count\":$FAIL_COUNT,\"timestamp\":$current_time}"
     
-    # Save state
-    cat > "$UPTIME_STATE" <<EOF
-{
-    "uptime_seconds": $current_uptime,
-    "last_update": $current_time,
-    "is_connected": $is_connected,
-    "last_disconnect": $last_disconnect,
-    "disconnect_count": $disconnect_count
-}
-EOF
-    chmod 644 "$UPTIME_STATE"
-    
-    # Format and send via WebSocket
-    local formatted_uptime=$(format_uptime "$current_uptime")
-    
-    local json_data="{\"type\":\"uptime\",\"uptime_seconds\":$current_uptime,\"uptime_formatted\":\"$formatted_uptime\",\"is_connected\":$is_connected,\"disconnect_count\":$disconnect_count,\"last_disconnect\":$last_disconnect,\"timestamp\":$current_time}"
-    
-    # Send to WebSocket if available
+    # Send to WebSocket server
     if command -v websocat >/dev/null 2>&1; then
         echo "$json_data" | websocat --one-message ws://localhost:8838 2>/dev/null || true
     fi
@@ -209,7 +166,7 @@ EOF
 
 # Main daemon loop
 ensure_tmp_dir
-log "Starting uptime daemon (PID: $$)"
+log "Starting uptime daemon (PID: $$)" "info"
 
 if daemon_is_running; then 
     log "Already running" "warn"
@@ -219,11 +176,38 @@ fi
 trap cleanup EXIT INT TERM 
 write_pid
 
-# Initialize state
-init_uptime_state
+# Load existing state or start fresh
+load_state
+
+log "Loaded state: uptime=$UPTIME_SECONDS, fail_count=$FAIL_COUNT, disconnect_count=$DISCONNECT_COUNT" "info"
 
 # Main loop - update every second
 while true; do
-    update_uptime
+    # Check if last ping was successful
+    ping_ok=$(is_ping_ok)
+    
+    if [ "$ping_ok" = "1" ]; then
+        # Ping successful - increment uptime
+        UPTIME_SECONDS=$((UPTIME_SECONDS + 1))
+        FAIL_COUNT=0
+    else
+        # Ping failed - freeze uptime, increment fail count
+        FAIL_COUNT=$((FAIL_COUNT + 1))
+        
+        if [ "$FAIL_COUNT" -ge 5 ]; then
+            # 5 consecutive failures - reset uptime
+            if [ "$UPTIME_SECONDS" -gt 0 ]; then
+                DISCONNECT_COUNT=$((DISCONNECT_COUNT + 1))
+                log "Connection lost after ${UPTIME_SECONDS}s uptime (5 failures)" "warn"
+            fi
+            UPTIME_SECONDS=0
+            FAIL_COUNT=0
+        fi
+    fi
+    
+    # Save state and send update
+    save_state
+    send_update
+    
     sleep 1
 done

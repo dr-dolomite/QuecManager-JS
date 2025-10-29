@@ -26,7 +26,8 @@ export function useConnectionUptime() {
         // Dynamically get the WebSocket URL based on current window location
         // This works whether accessing via 192.168.224.1 or Tailscale IP
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const host = window.location.hostname;
+        // Use 192.168.224.1 instead of localhost
+        const host = window.location.hostname === 'localhost' ? '192.168.224.1' : window.location.hostname;
         const wsUrl = `${protocol}//${host}:8838`;
         
         console.log(`[useConnectionUptime] Connecting to ${wsUrl}`);

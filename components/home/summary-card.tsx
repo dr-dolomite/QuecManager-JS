@@ -280,9 +280,20 @@ const SummaryCardComponent = ({
           {isLoading ? (
             <Skeleton className="h-4 w-[100px]" />
           ) : (
-            <p className="font-bold">
-              {uptimeData?.uptime_formatted || "N/A"}
-            </p>
+
+                        <div className="flex items-center gap-x-1">
+            <Tooltip>
+              <TooltipTrigger>
+                <Info className="w-4 h-4 mr-0.5" />
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="font-bold">
+                  {uptimeData?.is_connected || "N/A"}
+                </p>
+              </TooltipContent>
+            </Tooltip>
+              <p className="font-bold">{dataConnectionState || "Unknown"}</p>
+            </div>
           )}
         </div>
 
