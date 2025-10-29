@@ -242,9 +242,12 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
 
   // WebSocket connection management
   useEffect(() => {
-    // Example: Connect to your WebSocket server
+    // Dynamically get the WebSocket URL based on current window location
+    // This works whether accessing via 192.168.224.1 or Tailscale IP
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const wsUrl = `${protocol}//192.168.224.1:8838/data`;
+    // Use 192.168.224.1 instead of localhost
+    const host = window.location.hostname === 'localhost' ? '192.168.224.1' : window.location.hostname;
+    const wsUrl = `${protocol}//${host}:8838/data`;
 
     console.log('Attempting WebSocket connection to:', wsUrl);
     let ws: WebSocket | null = null;
