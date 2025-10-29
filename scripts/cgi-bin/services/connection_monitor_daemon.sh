@@ -17,6 +17,7 @@ PID_FILE="$TMP_DIR/connection_monitor_daemon.pid"
 DISCONNECT_LOG="$TMP_DIR/connection_disconnect.log"
 PING_DATA="/tmp/quecmanager/ping_realtime.json"
 RECIPIENT_FILE="/etc/quecmanager_alert_recipient"
+PERSISTENT_STATE_FILE="/etc/quecmanager_connection_monitor_state"
 SCRIPT_NAME="connection_monitor_daemon"
 
 # State variables
@@ -99,6 +100,37 @@ mark_disconnected() {
         IS_DISCONNECTED=true
         log "Network disconnected at $DISCONNECT_TIME" "warn"
     fi
+}
+
+# Restore persistent state from QuecWatch reboot
+restore_persistent_state() {
+    if [ ! -f "$PERSISTENT_STATE_FILE" ]; then
+        return 0
+    fi
+    
+    log "Found persistent state file from QuecWatch reboot, restoring disconnect tracking" "info"
+    
+    # Source the state file
+    . "$PERSISTENT_STATE_FILE"
+    
+    # Validate we have the required data
+    if [ -z "$disconnect_time" ] || [ -z "$quecwatch_reboot" ]; then
+        log "Invalid persistent state file, ignoring" "warn"
+        rm -f "$PERSISTENT_STATE_FILE"
+        return 1
+    fi
+    
+    # Restore the disconnect state
+    DISCONNECT_TIME="$disconnect_time"
+    echo "$DISCONNECT_TIME" > "$DISCONNECT_LOG"
+    IS_DISCONNECTED=true
+    
+    log "Restored disconnect state: network was down since $DISCONNECT_TIME (QuecWatch rebooted at $reboot_time)" "info"
+    
+    # Remove the persistent state file
+    rm -f "$PERSISTENT_STATE_FILE"
+    
+    return 0
 }
 
 # Send email notification
@@ -276,6 +308,9 @@ main() {
     echo $$ > "$PID_FILE"
     
     log "Connection monitoring daemon started (PID: $$)"
+    
+    # Check for persistent state from QuecWatch reboot
+    restore_persistent_state
     
     # Check if ping daemon is running
     if [ ! -f "$PING_DATA" ]; then
