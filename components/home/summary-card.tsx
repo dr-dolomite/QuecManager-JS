@@ -46,6 +46,7 @@ import { atCommandSender } from "@/utils/at-command";
 import { useToast } from "@/hooks/use-toast";
 import { useDistanceCalculation } from "@/hooks/use-distance-calculation";
 import { useConnectionUptime } from "@/hooks/use-connection-uptime";
+import { useDeviceUptime } from "@/hooks/use-device-uptime";
 
 interface SummaryCardProps {
   data: HomeData | null;
@@ -82,6 +83,9 @@ const SummaryCardComponent = ({
 
   // Use connection uptime hook
   const { uptimeData } = useConnectionUptime();
+
+  // Use device uptime hook
+  const { uptimeData: deviceUptimeData } = useDeviceUptime();
 
   // Calculate temperature progress (0-100°C scale)
   const getTemperatureProgress = (temp: string | undefined): number => {
@@ -280,19 +284,20 @@ const SummaryCardComponent = ({
           {isLoading ? (
             <Skeleton className="h-4 w-[100px]" />
           ) : (
-
-                        <div className="flex items-center gap-x-1">
-            <Tooltip>
-              <TooltipTrigger>
-                <Info className="w-4 h-4 mr-0.5" />
-              </TooltipTrigger>
-              <TooltipContent>
-                <p className="font-bold">
-                  {uptimeData?.is_connected || "N/A"}
-                </p>
-              </TooltipContent>
-            </Tooltip>
-              <p className="font-bold">{dataConnectionState || "Unknown"}</p>
+            <div className="flex items-center gap-x-1">
+              <Tooltip>
+                <TooltipTrigger>
+                  <Info className="w-4 h-4 mr-0.5" />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p className="font-bold">
+                    {uptimeData?.is_connected ? "Connected" : "Disconnected"}
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+              <p className="font-bold">
+                {uptimeData?.uptime_formatted || "N/A"}
+              </p>
             </div>
           )}
         </div>
@@ -303,7 +308,9 @@ const SummaryCardComponent = ({
           {isLoading ? (
             <Skeleton className="h-4 w-[100px]" />
           ) : (
-            <p className="font-bold">{"N/A"}</p>
+            <p className="font-bold">
+              {deviceUptimeData?.uptime_formatted || "N/A"}
+            </p>
           )}
         </div>
 

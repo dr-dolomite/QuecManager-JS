@@ -106,6 +106,16 @@ start_service() {
     # Wait a moment for WebSocket server to fully initialize
     sleep 2
     
+    # Start device uptime daemon (always enabled - uses built-in system uptime)
+    echo "Starting Device Uptime Daemon..."
+    procd_open_instance
+    procd_set_param command /www/cgi-bin/services/device_uptime_daemon.sh
+    procd_set_param respawn
+    procd_set_param stdout 1
+    procd_set_param stderr 1
+    procd_close_instance
+    echo "Device Uptime Daemon started"
+    
     # Start bridge traffic monitor daemon
     echo "Starting Bridge Traffic Monitor..."
     procd_open_instance
