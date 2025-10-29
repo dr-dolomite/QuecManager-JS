@@ -537,6 +537,7 @@ const HomePage = () => {
 
             {/* <MemoryCard /> */}
             <PingCardWebSocket websocketData={websocketData} />
+            <BandwidthMonitorCard websocketData={websocketData} />
             <SpeedtestStream />
 
             <MemoryCardWebSocket websocketData={websocketData} />
