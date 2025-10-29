@@ -220,8 +220,8 @@ const PingCardWebSocket = ({ websocketData: propWebsocketData }: PingCardWebSock
   const currentPacketLoss = currentData?.packet_loss ?? null;
 
   // Get average values from calculated averages
-  const averageLatency = averages.avgLatency > 0 ? averages.avgLatency : null;
-  const averagePacketLoss = averages.avgPacketLoss > 0 ? averages.avgPacketLoss : null;
+  const averageLatency = averages.avgLatency > 0 ? averages.avgLatency : 0;
+  const averagePacketLoss = averages.avgPacketLoss > 0 ? averages.avgPacketLoss : 0;
 
   return (
     <Card>
