@@ -6,7 +6,7 @@ echo "Setting up UCI configuration for bridge_traffic_monitor..."
 # Create the UCI section
 uci set quecmanager.bridge_monitor=bridge_monitor
 
-# File Based StdOut Output file path (default: /tmp/quecmanager/bridge_traffic_monitor)
+# File-based stdout output file path (default: /tmp/quecmanager/bridge_traffic_monitor)
 uci set quecmanager.bridge_monitor.output_path='/tmp/quecmanager/bridge_traffic_monitor'
 
 # Configure display mode (yes/no, true/false, 1/0, enabled/disabled)
