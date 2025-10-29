@@ -36,7 +36,6 @@ import useHomeData from "@/hooks/home-data";
 import useDataConnectionState from "@/hooks/home-connection";
 import useTrafficStats from "@/hooks/home-traffic";
 import useRunDiagnostics from "@/hooks/diagnostics";
-import useDataUsageTracking from "@/hooks/data-usage-tracking";
 import { BsSimSlashFill } from "react-icons/bs";
 import SpeedtestStream from "@/components/home/speedtest-card";
 import { atCommandSender } from "@/utils/at-command";
@@ -78,17 +77,6 @@ const HomePage = () => {
 
   const { isRunningDiagnostics, runDiagnosticsData, startDiagnostics } =
     useRunDiagnostics();
-
-  // Data usage tracking for global warnings
-  const {
-    showWarning,
-    usagePercentage,
-    formattedUsage,
-    formattedLimit,
-    remaining,
-    dismissWarning,
-    closeWarning,
-  } = useDataUsageTracking();
 
   const {
     bytesSent,
@@ -590,17 +578,6 @@ const HomePage = () => {
                 applying your preferred network settings, APN configuration, and
                 other cellular preferences.
               </h2>
-              {/* <div className="space-y-2">
-                <h4 className="font-medium">
-                  Benefits of setting up a profile:
-                </h4>
-                <ul className="text-sm space-y-1">
-                  <li>• Automatic network configuration</li>
-                  <li>• Quick switching between SIM cards</li>
-                  <li>• Backup and restore your settings</li>
-                  <li>• Optimized performance for your carrier</li>
-                </ul>
-              </div> */}
             </Card>
 
             <div className="flex flex-col gap-2 mt-4">

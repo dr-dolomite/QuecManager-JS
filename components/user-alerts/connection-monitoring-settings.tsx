@@ -17,6 +17,11 @@ interface PackageInfo {
 interface AlertsStatus {
   status: string;
   all_installed: boolean;
+  configured: boolean;
+  ready_to_monitor: boolean;
+  is_running: boolean;
+  threshold: number;
+  recipient?: string;
   packages: PackageInfo[];
   missing?: string;
   message: string;
@@ -95,9 +100,30 @@ const ConnectionMonitoringComponent = () => {
       return <MonitoringMissingComponent onRefresh={fetchAlertsStatus} />;
     }
 
-    // For now, show inactive component when packages are installed
-    // This will be updated later with actual monitoring status
-    return <MonitoringInactiveComponent />;
+    // Show MonitoringSetupComponent if packages are installed but not configured
+    if (alertsStatus.all_installed && !alertsStatus.configured) {
+      return <MonitoringSetupComponent onRefresh={fetchAlertsStatus} />;
+    }
+
+    // Show MonitoringActiveComponent if daemon is running
+    if (alertsStatus.is_running) {
+      return (
+        <MonitoringActiveComponent
+          onRefresh={fetchAlertsStatus}
+          recipient={alertsStatus.recipient || ""}
+          threshold={alertsStatus.threshold}
+        />
+      );
+    }
+
+    // Show MonitoringInactiveComponent if configured but not running
+    return (
+      <MonitoringInactiveComponent
+        onRefresh={fetchAlertsStatus}
+        recipient={alertsStatus.recipient || ""}
+        threshold={alertsStatus.threshold}
+      />
+    );
   };
 
   return <div>{renderComponent()}</div>;

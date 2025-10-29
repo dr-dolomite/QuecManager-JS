@@ -13,6 +13,8 @@ LOG_CATEGORY="service"
 SCRIPT_NAME="alerts_status"
 
 REQUIRED_PACKAGES="ca-certificates msmtp"
+CONFIG_FILE="/etc/msmtprc"
+RECIPIENT_FILE="/etc/quecmanager_alert_recipient"
 
 # Check if a package is installed
 is_package_installed() {
@@ -35,6 +37,46 @@ main() {
     local missing_packages=""
     local package_details="["
     local first=true
+    
+    # Check if configuration exists
+    local config_exists=false
+    local recipient_exists=false
+    local threshold_value=""
+    local is_running=false
+    local recipient_email=""
+    
+    if [ -f "$CONFIG_FILE" ] && [ -r "$CONFIG_FILE" ]; then
+        config_exists=true
+        qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Email configuration file exists"
+    fi
+    
+    if [ -f "$RECIPIENT_FILE" ] && [ -r "$RECIPIENT_FILE" ]; then
+        recipient_exists=true
+        recipient_email=$(cat "$RECIPIENT_FILE" 2>/dev/null || echo "")
+        qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Recipient configuration file exists"
+    fi
+    
+    # Read threshold value from UCI (default to 1 if not set)
+    threshold_value=$(uci get quecmanager.connection_monitor.threshold 2>/dev/null || echo "1")
+    
+    local configured=false
+    if $config_exists && $recipient_exists; then
+        configured=true
+    fi
+    
+    # Check if daemon is running via procd
+    # Method 1: Check if process is running
+    if pgrep -f "connection_monitor_daemon.sh" >/dev/null 2>&1; then
+        is_running=true
+        qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Connection monitor daemon is running (process found)"
+    # Method 2: Check UCI enabled flag as fallback
+    elif [ "$(uci get quecmanager.connection_monitor.enabled 2>/dev/null)" = "1" ]; then
+        is_running=true
+        qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Connection monitor daemon is enabled in UCI"
+    else
+        is_running=false
+        qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Connection monitor daemon is not running"
+    fi
     
     for package in $REQUIRED_PACKAGES; do
         if ! $first; then
@@ -65,13 +107,23 @@ main() {
     
     package_details="$package_details]"
     
+    # Determine ready_to_monitor status
+    local ready_to_monitor=false
+    if $all_installed && $configured; then
+        ready_to_monitor=true
+    fi
+    
     # Build response
     if $all_installed; then
         qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "All alert system packages are installed"
-        echo "{\"status\":\"success\",\"all_installed\":true,\"packages\":$package_details,\"message\":\"All alert system packages are installed\"}"
+        if $configured; then
+            echo "{\"status\":\"success\",\"all_installed\":true,\"configured\":true,\"ready_to_monitor\":true,\"is_running\":$is_running,\"threshold\":$threshold_value,\"recipient\":\"$recipient_email\",\"packages\":$package_details,\"message\":\"Alert system is ready to monitor\"}"
+        else
+            echo "{\"status\":\"success\",\"all_installed\":true,\"configured\":false,\"ready_to_monitor\":false,\"is_running\":false,\"threshold\":$threshold_value,\"packages\":$package_details,\"message\":\"Packages installed, but email configuration is missing\"}"
+        fi
     else
         qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Missing packages: $missing_packages"
-        echo "{\"status\":\"success\",\"all_installed\":false,\"packages\":$package_details,\"missing\":\"$missing_packages\",\"message\":\"Some alert system packages are not installed\"}"
+        echo "{\"status\":\"success\",\"all_installed\":false,\"configured\":false,\"ready_to_monitor\":false,\"is_running\":false,\"threshold\":$threshold_value,\"packages\":$package_details,\"missing\":\"$missing_packages\",\"message\":\"Some alert system packages are not installed\"}"
     fi
 }
 
