@@ -204,7 +204,7 @@ collect_minutely() {
         # Use the START of the previous hour (BusyBox compatible)
         prev_hour_ts=$(date +"%Y-%m-%dT%H:00:00Z" 2>/dev/null || date -u +"%Y-%m-%dT%H:00:00Z")
         
-        hourly_json="{\"timestamp\":\"$prev_hour_ts\",\"host\":\"$HOST\",\"latency\":$avg_latency,\"packet_loss\":$avg_packet_loss,\"sample_count\":$valid_count}"
+        hourly_json="{\"channel\":\"ping\",\"timestamp\":\"$prev_hour_ts\",\"host\":\"$HOST\",\"latency\":$avg_latency,\"packet_loss\":$avg_packet_loss,\"sample_count\":$valid_count}"
         
         echo "$hourly_json" >> "$HOURLY_JSON" 2>/dev/null || true
         log "Created hourly entry from realtime data: $hourly_json"
@@ -254,7 +254,7 @@ aggregate_hourly() {
           # Use the START of the previous day (BusyBox compatible)
           prev_day_ts=$(date +"%Y-%m-%dT00:00:00Z" 2>/dev/null || date -u +"%Y-%m-%dT00:00:00Z")
           
-          daily_json="{\"timestamp\":\"$prev_day_ts\",\"host\":\"$HOST\",\"latency\":$avg_latency,\"packet_loss\":$avg_packet_loss,\"sample_count\":$valid_count}"
+          daily_json="{\"channel\":\"ping\",\"timestamp\":\"$prev_day_ts\",\"host\":\"$HOST\",\"latency\":$avg_latency,\"packet_loss\":$avg_packet_loss,\"sample_count\":$valid_count}"
           
           echo "$daily_json" >> "$DAILY_JSON" 2>/dev/null || true
           log "Created daily aggregate from hourly data: $daily_json"
@@ -310,7 +310,7 @@ while true; do
     # If backup also fails, record total failure
     if ! echo "$output" | grep -q "packets transmitted"; then
       log "Both primary ($HOST) and backup ($BACKUP) failed - no internet" "error"
-      json="{\"timestamp\":\"$ts\",\"host\":\"$used_host\",\"latency\":null,\"packet_loss\":100,\"ok\":false}"
+      json="{\"channel\":\"ping\",\"timestamp\":\"$ts\",\"host\":\"$used_host\",\"latency\":null,\"packet_loss\":100,\"ok\":false}"
       
       write_json_atomic "$json"
       append_to_realtime "$json"
@@ -343,13 +343,13 @@ while true; do
       latency_ms=0
     fi
     
-    json="{\"timestamp\":\"$ts\",\"host\":\"$used_host\",\"latency\":$latency_ms,\"packet_loss\":$packet_loss,\"ok\":true}"
+    json="{\"channel\":\"ping\",\"timestamp\":\"$ts\",\"host\":\"$used_host\",\"latency\":$latency_ms,\"packet_loss\":$packet_loss,\"ok\":true}"
     
     if [ "$used_host" != "$HOST" ]; then
       log "Using backup host $used_host: latency=${latency_ms}ms, loss=${packet_loss}%" "warn"
     fi
   else
-    json="{\"timestamp\":\"$ts\",\"host\":\"$used_host\",\"latency\":null,\"packet_loss\":100,\"ok\":false}"
+    json="{\"channel\":\"ping\",\"timestamp\":\"$ts\",\"host\":\"$used_host\",\"latency\":null,\"packet_loss\":100,\"ok\":false}"
   fi
   
   # Write current ping

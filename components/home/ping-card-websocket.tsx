@@ -10,9 +10,24 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { MonitorCheckIcon, MonitorOffIcon, WifiOff } from "lucide-react";
 import { BiSolidBarChartSquare, BiSolidChart } from "react-icons/bi";
-import { usePingMonitor } from "@/hooks/use-ping-monitor";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+
+// Import and use the WebSocket data context, setup the type inteface for the prop
+import { useWebSocketData } from "@/components/hoc/protected-route";
+interface PingCardWebSocketProps {
+  websocketData?: any;
+}
+
+interface WebSocketPingData {
+  type: string;
+  host: string;
+  latency: number;
+  packet_loss: number;
+  ok: boolean;
+  timestamp: string;
+}
+
 
 interface PingConfig {
   enabled: boolean;
@@ -61,8 +76,12 @@ const formatTime = () => {
  * - Connection status indicator
  * - Manual reconnect option
  */
-const PingCardWebSocket = () => {
-  const { historyData, isConnected, error, reconnect } = usePingMonitor();
+
+// Pass the websocketData prop from layout or use context into the component to handle processing and formatting
+const PingCardWebSocket = ({ websocketData: propWebsocketData }: PingCardWebSocketProps) => {
+  // Use prop if provided, otherwise fall back to context
+  const contextWebsocketData = useWebSocketData();
+  const websocketData = propWebsocketData || contextWebsocketData;
 
   const [chartData, setChartData] = useState<PingChartData[]>(() => {
     const savedData = localStorage.getItem("pingChartData");
@@ -77,9 +96,30 @@ const PingCardWebSocket = () => {
   });
 
   const [isLoading, setIsLoading] = useState(true);
+  const [historyBuffer, setHistoryBuffer] = useState<WebSocketPingData[]>([]);
+  const [lastPingData, setLastPingData] = useState<WebSocketPingData | null>(null);
 
-  const hasData = historyData !== null && historyData.current !== null;
-  const currentData = historyData?.current;
+  // Determine if we have ping data from websocket
+  const hasPingData = websocketData?.channel === 'ping';
+  const isConnected = !!websocketData;
+
+  const hasData = lastPingData !== null || chartData.length > 0;
+  // Use lastPingData to persist the current data instead of resetting to null
+  const currentData = lastPingData;
+  // Calculate averages from history buffer
+  const calculateAverages = () => {
+    if (historyBuffer.length === 0) return { avgLatency: 0, avgPacketLoss: 0 };
+
+    const totalLatency = historyBuffer.reduce((sum, point) => sum + point.latency, 0);
+    const totalPacketLoss = historyBuffer.reduce((sum, point) => sum + point.packet_loss, 0);
+
+    return {
+      avgLatency: Math.round(totalLatency / historyBuffer.length),
+      avgPacketLoss: Math.round(totalPacketLoss / historyBuffer.length),
+    };
+  };
+  
+  const averages = calculateAverages();
 
   // Fetch ping configuration to check if enabled
   const fetchPingConfig = useCallback(async () => {
@@ -123,50 +163,65 @@ const PingCardWebSocket = () => {
     if (!config.enabled) {
       // Clear chart data when disabled
       setChartData([]);
+      setHistoryBuffer([]);
       return;
     }
 
-    if (currentData && currentData.ok) {
-      const time = formatTime();
-      const newDataPoint: PingChartData = {
-        time,
-        latency: currentData.latency || 0,
-        packetLoss: currentData.packet_loss || 0,
-        index: 0, // Will be set correctly below
-      };
+    if (hasPingData && websocketData) {
+      const pingData = websocketData as WebSocketPingData;
+      
+      // Update last known ping data
+      setLastPingData(pingData);
 
-      setChartData((prevData) => {
-        let updatedData: PingChartData[];
+      if (pingData.ok) {
+        // Add to history buffer
+        setHistoryBuffer((prev) => {
+          const updated = [...prev, pingData];
+          // Keep only last 30 data points for averages
+          return updated.slice(-30);
+        });
 
-        if (prevData.length < 6) {
-          // Fill up to 6 points
-          updatedData = [...prevData, newDataPoint].map((point, idx) => ({
-            ...point,
-            index: idx + 1,
-          }));
-        } else {
-          // Shift data points left and add new one
-          updatedData = [...prevData.slice(1), newDataPoint].map(
-            (point, idx) => ({
+        const time = formatTime();
+        const newDataPoint: PingChartData = {
+          time,
+          latency: pingData.latency || 0,
+          packetLoss: pingData.packet_loss || 0,
+          index: 0, // Will be set correctly below
+        };
+
+        setChartData((prevData) => {
+          let updatedData: PingChartData[];
+
+          if (prevData.length < 6) {
+            // Fill up to 6 points
+            updatedData = [...prevData, newDataPoint].map((point, idx) => ({
               ...point,
               index: idx + 1,
-            })
-          );
-        }
+            }));
+          } else {
+            // Shift data points left and add new one
+            updatedData = [...prevData.slice(1), newDataPoint].map(
+              (point, idx) => ({
+                ...point,
+                index: idx + 1,
+              })
+            );
+          }
 
-        localStorage.setItem("pingChartData", JSON.stringify(updatedData));
-        return updatedData;
-      });
+          localStorage.setItem("pingChartData", JSON.stringify(updatedData));
+          return updatedData;
+        });
+      }
     }
-  }, [currentData, config.enabled]);
+  }, [websocketData, hasPingData, config.enabled]);
 
   // Get current values
   const currentLatency = currentData?.latency ?? null;
   const currentPacketLoss = currentData?.packet_loss ?? null;
 
-  // Get average values from hook
-  const averageLatency = historyData?.averageLatency ?? null;
-  const averagePacketLoss = historyData?.averagePacketLoss ?? null;
+  // Get average values from calculated averages
+  const averageLatency = averages.avgLatency > 0 ? averages.avgLatency : null;
+  const averagePacketLoss = averages.avgPacketLoss > 0 ? averages.avgPacketLoss : null;
 
   return (
     <Card>
@@ -256,14 +311,6 @@ const PingCardWebSocket = () => {
                 <p className="text-xs text-muted-foreground">
                   Disconnected from WebSocket
                 </p>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={reconnect}
-                  className="h-6 text-xs"
-                >
-                  Reconnect
-                </Button>
               </div>
             )}
           </>

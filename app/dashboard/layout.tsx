@@ -79,6 +79,9 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const [hasProfileImage, setHasProfileImage] = useState<boolean>(false);
   const toast = useToast();
 
+  // WebSocket state - add your specific data structure
+  const [websocketData, setWebsocketData] = useState<any>(null);
+
   // Cache keys for localStorage
   const CACHE_KEY = "profile_picture_data";
   const CACHE_METADATA_KEY = "profile_picture_metadata";
@@ -234,6 +237,49 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
         handleProfilePictureUpdate
       );
       window.removeEventListener("storage", handleStorageChange);
+    };
+  }, []);
+
+  // WebSocket connection management
+  useEffect(() => {
+    // Example: Connect to your WebSocket server
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${protocol}//192.168.224.1:8838/data`;
+
+    console.log('Attempting WebSocket connection to:', wsUrl);
+    let ws: WebSocket | null = null;
+
+    try {
+      ws = new WebSocket(wsUrl);
+
+      ws.onopen = () => {
+        console.log('WebSocket connected from Dashboard Layout');
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          setWebsocketData(data);
+        } catch (error) {
+          console.error('Failed to parse WebSocket message:', error);
+        }
+      };
+
+      ws.onerror = (error) => {
+        console.error('WebSocket error:', error);
+      };
+
+      ws.onclose = () => {
+        console.log('WebSocket disconnected');
+      };
+    } catch (error) {
+      console.error('Failed to create WebSocket connection:', error);
+    }
+
+    return () => {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.close();
+      }
     };
   }, []);
 
@@ -679,7 +725,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
         </div>
       </header>
       <main className="flex min-h-[calc(100vh_-_theme(spacing.16))] flex-1 flex-col gap-4 p-4 md:gap-8 md:p-10 relative">
-        <ProtectedRoute>{children}</ProtectedRoute>
+        <ProtectedRoute websocketData={websocketData}>{children}</ProtectedRoute>
         <LightRays />
       </main>
     </div>

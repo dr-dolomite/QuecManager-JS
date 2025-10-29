@@ -36,6 +36,7 @@ import useHomeData from "@/hooks/home-data";
 import useDataConnectionState from "@/hooks/home-connection";
 import useTrafficStats from "@/hooks/home-traffic";
 import useRunDiagnostics from "@/hooks/diagnostics";
+import { useWebSocketData } from "@/components/hoc/protected-route";
 import { BsSimSlashFill } from "react-icons/bs";
 import SpeedtestStream from "@/components/home/speedtest-card";
 import { atCommandSender } from "@/utils/at-command";
@@ -59,6 +60,10 @@ interface newBands {
 const HomePage = () => {
   const { toast } = useToast();
   const router = useRouter();
+  
+  // Get WebSocket data from context
+  const websocketData = useWebSocketData();
+  
   const [noSimDialogOpen, setNoSimDialogOpen] = useState(false);
   const [profileSetupDialogOpen, setProfileSetupDialogOpen] = useState(false);
   const [hideSensitiveData, setHideSensitiveData] = useState(false);
@@ -531,16 +536,15 @@ const HomePage = () => {
             /> */}
 
             {/* <MemoryCard /> */}
-            <PingCardWebSocket />
-            <BandwidthMonitorCard />
+            <PingCardWebSocket websocketData={websocketData} />
             <SpeedtestStream />
 
-            <MemoryCardWebSocket />
           </div>
         </div>
 
         <div className="grid lg:grid-cols-2 grid-cols-1 grid-flow-row gap-4">
           <SummaryCardComponent
+            websocketData={websocketData}
             data={homeData}
             isLoading={isLoading}
             dataConnectionState={dataConnectionState}
