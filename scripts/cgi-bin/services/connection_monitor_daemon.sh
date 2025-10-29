@@ -201,6 +201,14 @@ send_email_alert() {
     
     if [ $? -eq 0 ]; then
         log "Email notification sent successfully" "info"
+        # Store notification details for UI display
+        {
+            echo "Disconnect Time: $DISCONNECT_TIME"
+            echo "Reconnect Time: $RECONNECT_TIME"
+            echo "Downtime: $DURATION_TEXT"
+            echo "Recipient: $RECIPIENT"
+            echo "Sent At: $(date '+%Y-%m-%d %H:%M:%S')"
+        } > "$TMP_DIR/last_notification.log"
         # Remove the disconnect log
         rm -f "$DISCONNECT_LOG"
     else

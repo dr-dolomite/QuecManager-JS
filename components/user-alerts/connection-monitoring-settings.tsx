@@ -22,6 +22,8 @@ interface AlertsStatus {
   is_running: boolean;
   threshold: number;
   recipient?: string;
+  sender?: string;
+  last_notification?: string;
   packages: PackageInfo[];
   missing?: string;
   message: string;
@@ -110,8 +112,10 @@ const ConnectionMonitoringComponent = () => {
       return (
         <MonitoringActiveComponent
           onRefresh={fetchAlertsStatus}
+          sender={alertsStatus.sender || ""}
           recipient={alertsStatus.recipient || ""}
           threshold={alertsStatus.threshold}
+          lastNotification={alertsStatus.last_notification || ""}
         />
       );
     }

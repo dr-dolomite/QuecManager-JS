@@ -12,18 +12,6 @@ import {
 } from "@/components/ui/card";
 
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-
-import {
   InputGroup,
   InputGroupAddon,
   InputGroupButton,
@@ -47,14 +35,18 @@ import { CheckCircle2, InfoIcon, Loader2 } from "lucide-react";
 interface MonitoringActiveComponentProps {
   onRefresh: () => void;
   recipient: string;
+  sender: string;
   threshold: number;
+  lastNotification: string;
 }
 
-const MonitoringActiveComponent: React.FC<MonitoringActiveComponentProps> = ({
+const MonitoringActiveComponent = ({
   onRefresh,
   recipient,
+  sender,
   threshold,
-}) => {
+  lastNotification,
+}: MonitoringActiveComponentProps) => {
   const { toast } = useToast();
   const [isDisabling, setIsDisabling] = useState(false);
 
@@ -64,13 +56,10 @@ const MonitoringActiveComponent: React.FC<MonitoringActiveComponentProps> = ({
     setIsDisabling(true);
 
     try {
-      const response = await fetch(
-        "/cgi-bin/quecmanager/alerts/disable.sh",
-        {
-          method: "GET",
-          cache: "no-store",
-        }
-      );
+      const response = await fetch("/cgi-bin/quecmanager/alerts/disable.sh", {
+        method: "GET",
+        cache: "no-store",
+      });
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -81,7 +70,8 @@ const MonitoringActiveComponent: React.FC<MonitoringActiveComponentProps> = ({
       if (data.status === "success") {
         toast({
           title: "Success",
-          description: data.message || "Connection monitoring disabled successfully",
+          description:
+            data.message || "Connection monitoring disabled successfully",
         });
         onRefresh();
       } else {
@@ -133,28 +123,37 @@ const MonitoringActiveComponent: React.FC<MonitoringActiveComponentProps> = ({
           </div>
           <Separator />
           <div className="flex items-center justify-between">
-            <h3 className="text-muted-foreground">Threshold Duration</h3>
-            <p className="font-semibold">
-              {threshold} {threshold === 1 ? "minute" : "minutes"}
-            </p>
+            <h3 className="text-muted-foreground">Sender E-mail</h3>
+            <p className="font-semibold">{sender || "Not configured"}</p>
           </div>
 
           <div className="flex items-center justify-between">
             <h3 className="text-muted-foreground">Recipient E-mail</h3>
             <p className="font-semibold">{recipient}</p>
           </div>
+
+          <div className="flex items-center justify-between">
+            <h3 className="text-muted-foreground">Threshold Duration</h3>
+            <p className="font-semibold">
+              {threshold} {threshold === 1 ? "minute" : "minutes"}
+            </p>
+          </div>
         </div>
 
         <div className="mt-8 w-full">
           <InputGroup>
             <InputGroupTextarea
-              id="textarea-code-32"
-              placeholder="No notifications sent yet."
+              id="textarea-last-notification"
+              value={
+                lastNotification
+                  ? lastNotification
+                  : "No notifications sent yet."
+              }
               className="min-h-[150px]"
               readOnly
             />
             <InputGroupAddon align="block-start">
-              <Label htmlFor="logs" className="text-foreground">
+              <Label htmlFor="textarea-last-notification" className="text-foreground">
                 Last Notification Sent
               </Label>
               <Tooltip>
