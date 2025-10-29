@@ -564,62 +564,9 @@ const HomePage = () => {
             onDataRefresh={refreshData}
           />
           <BandsAccordionComponent bands={bands} isLoading={isLoading} />
-          {/* <SimCard
-            data={homeData}
-            isLoading={isLoading}
-            hideSensitiveData={hideSensitiveData}
-          />
-          <Connection
-            data={homeData}
-            isLoading={isLoading}
-            dataConnectionState={dataConnectionState}
-            connectionStateLoading={isStateLoading}
-          />
-          <DataTransmission
-            data={homeData}
-            isLoading={isLoading}
-            bytesSent={bytesSent}
-            bytesReceived={bytesReceived}
-          />
-          <CellularInformation data={homeData} isLoading={isLoading} /> */}
         </div>
       </div>
 
-      {/* <div className="grid gap-4 w-full">
-        <h1 className="xl:text-3xl text-base font-bold">Active Addresses</h1>
-        <div>
-          <NetworkInfoCard
-            data={homeData}
-            isLoading={isLoading}
-            isPublicIPLoading={isPublicIPLoading}
-            hideSensitiveData={hideSensitiveData}
-          // onRefresh={refreshData}
-          />
-        </div>
-      </div> */}
-
-      {/* <div className="grid gap-4 w-full">
-        <h1 className="xl:text-3xl text-base font-bold">
-          Current Active Bands
-        </h1>
-        <div>
-          <BandTable bands={bands} isLoading={isLoading} />
-        </div>
-      </div> */}
-
-      {/* Global Data Usage Warning Dialog */}
-      {/* !NOTE Temporarily disabled */}
-      {/* <DataUsageWarningDialog
-        open={showWarning}
-        onClose={closeWarning}
-        onDismiss={dismissWarning}
-        usagePercentage={usagePercentage}
-        currentUsage={formattedUsage.total}
-        monthlyLimit={formattedLimit}
-        remaining={remaining}
-      /> */}
-
-      {/* Profile Setup Dialog */}
       <Dialog
         open={profileSetupDialogOpen}
         onOpenChange={setProfileSetupDialogOpen}

@@ -24,10 +24,11 @@ interface UsePingMonitorReturn {
 }
 
 /**
- * Custom hook for monitoring ping/latency via WebSocket connection.
+ * Custom hook for monitoring ping latency via WebSocket connection.
  * 
- * Connects to ws://192.168.224.1:8838 (websocat server) to receive real-time
- * ping monitoring data and maintains a 30-entry rolling history.
+ * Connects to the websocat server on port 8838 using the current hostname
+ * (works with both direct IP access and Tailscale) to receive real-time
+ * ping monitoring data and maintains a rolling history.
  * 
  * Features:
  * - Real-time ping updates
@@ -113,8 +114,16 @@ export const usePingMonitor = (): UsePingMonitorReturn => {
             setConnectionStatus('Connecting...');
             setError(null);
 
+            // Dynamically get the WebSocket URL based on current window location
+            // This works whether accessing via 192.168.224.1 or Tailscale IP
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const host = window.location.hostname;
+            const wsUrl = `${protocol}//${host}:8838`;
+            
+            console.log(`[usePingMonitor] Connecting to ${wsUrl}`);
+
             // Connect to websocat server
-            ws.current = new WebSocket('ws://192.168.224.1:8838');
+            ws.current = new WebSocket(wsUrl);
 
             // Set connection timeout
             connectionTimeoutRef.current = window.setTimeout(() => {

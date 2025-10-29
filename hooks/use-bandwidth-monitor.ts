@@ -11,10 +11,11 @@ interface UseBandwidthMonitorReturn {
 }
 
 /**
- * Custom hook for monitoring bandwidth data via WebSocket connection.
+ * Custom hook for monitoring bandwidth usage via WebSocket connection.
  * 
- * Connects to ws://192.168.224.1:8838 (websocat server) to receive real-time
- * bandwidth monitoring data and maintains a 30-second rolling history of 
+ * Connects to the websocat server on port 8838 using the current hostname
+ * (works with both direct IP access and Tailscale) to receive real-time
+ * bandwidth monitoring data and maintains a rolling history.
  * download and upload speeds in BITS per second.
  * 
  * Data is converted from bytes/sec to bits/sec by multiplying by 8.
@@ -190,8 +191,16 @@ export const useBandwidthMonitor = (): UseBandwidthMonitorReturn => {
             setConnectionStatus('Connecting...');
             setError(null);
 
+            // Dynamically get the WebSocket URL based on current window location
+            // This works whether accessing via 192.168.224.1 or Tailscale IP
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const host = window.location.hostname;
+            const wsUrl = `${protocol}//${host}:8838`;
+            
+            console.log(`[useBandwidthMonitor] Connecting to ${wsUrl}`);
+
             // Connect to websocat server (no path needed)
-            ws.current = new WebSocket('ws://192.168.224.1:8838');
+            ws.current = new WebSocket(wsUrl);
 
             // Set connection timeout
             connectionTimeoutRef.current = window.setTimeout(() => {

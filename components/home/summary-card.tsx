@@ -45,6 +45,7 @@ import { getAccessTech } from "@/constants/home/index";
 import { atCommandSender } from "@/utils/at-command";
 import { useToast } from "@/hooks/use-toast";
 import { useDistanceCalculation } from "@/hooks/use-distance-calculation";
+import { useConnectionUptime } from "@/hooks/use-connection-uptime";
 
 interface SummaryCardProps {
   data: HomeData | null;
@@ -78,6 +79,9 @@ const SummaryCardComponent = ({
     data?.timeAdvance.lteTimeAdvance,
     data?.timeAdvance.nrTimeAdvance
   );
+
+  // Use connection uptime hook
+  const { uptimeData } = useConnectionUptime();
 
   // Calculate temperature progress (0-100°C scale)
   const getTemperatureProgress = (temp: string | undefined): number => {
@@ -267,6 +271,28 @@ const SummaryCardComponent = ({
               </Tooltip>
               <p className="font-bold">{dataConnectionState || "Unknown"}</p>
             </div>
+          )}
+        </div>
+
+        {/* Device Internet Connection Uptime */}
+        <div className="flex items-center justify-between">
+          <p>Connection Uptime</p>
+          {isLoading ? (
+            <Skeleton className="h-4 w-[100px]" />
+          ) : (
+            <p className="font-bold">
+              {uptimeData?.uptime_formatted || "N/A"}
+            </p>
+          )}
+        </div>
+
+        {/* Device Uptime */}
+        <div className="flex items-center justify-between">
+          <p>Device Uptime</p>
+          {isLoading ? (
+            <Skeleton className="h-4 w-[100px]" />
+          ) : (
+            <p className="font-bold">{"N/A"}</p>
           )}
         </div>
 
