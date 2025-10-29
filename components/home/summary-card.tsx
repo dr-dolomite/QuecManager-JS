@@ -95,9 +95,11 @@ const SummaryCardComponent = ({
 
   // Update last known uptime data when new data arrives
   useEffect(() => {
+    // Should probably consider changing "type" to "channel" or vice versa on the other items for standardization
     if (websocketData?.type === 'uptime') {
       setLastUptimeData(websocketData);
     }
+    // Should probably consider changing "type" to "channel" or vice versa on the other items for standardization
     if (websocketData?.type === 'device_uptime') {
       setLastDeviceUptimeData(websocketData);
     }
