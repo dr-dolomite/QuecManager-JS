@@ -27,15 +27,12 @@ export function useDeviceUptime() {
         const host = window.location.hostname === 'localhost' ? '192.168.224.1' : window.location.hostname;
         const wsUrl = `${protocol}//${host}:8838`;
         
-        console.log(`[useDeviceUptime] Connecting to ${wsUrl}`);
-        
         // Connect to WebSocket server on device IP
         const ws = new WebSocket(wsUrl);
         wsRef.current = ws;
 
         ws.onopen = () => {
           if (isMounted) {
-            console.log('[useDeviceUptime] WebSocket connected');
             setIsConnecting(false);
             setError(null);
           }
@@ -52,19 +49,13 @@ export function useDeviceUptime() {
 
             const data = JSON.parse(event.data);
             
-            // Log all received messages for debugging
-            console.log('[useDeviceUptime] Received message:', data);
-            
             // Filter for device_uptime messages
             if (data.type === 'device_uptime') {
-              console.log('[useDeviceUptime] Setting device uptime data:', data);
               setUptimeData({
                 uptime_seconds: data.uptime_seconds || 0,
                 uptime_formatted: data.uptime_formatted || '0s',
                 timestamp: data.timestamp || Date.now() / 1000
               });
-            } else {
-              console.log('[useDeviceUptime] Ignoring message with type:', data.type);
             }
           } catch (err) {
             console.error('[useDeviceUptime] Failed to parse WebSocket message:', err);
@@ -80,7 +71,6 @@ export function useDeviceUptime() {
 
         ws.onclose = () => {
           if (isMounted) {
-            console.log('[useDeviceUptime] WebSocket disconnected, reconnecting in 3s...');
             setIsConnecting(true);
             
             // Reconnect after 3 seconds

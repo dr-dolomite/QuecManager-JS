@@ -179,11 +179,9 @@ export const useBandwidthMonitor = (): UseBandwidthMonitorReturn => {
             // Only connect if no existing connection (FIXED - prevents connection loops)
             if (ws.current) {
                 if (ws.current.readyState === WebSocket.CONNECTING) {
-                    console.log('WebSocket already connecting, aborting...');
                     return;
                 }
                 if (ws.current.readyState === WebSocket.OPEN) {
-                    console.log('WebSocket already connected, aborting new connection...');
                     return; // Don't close existing good connection
                 }
             }
@@ -197,8 +195,6 @@ export const useBandwidthMonitor = (): UseBandwidthMonitorReturn => {
             // Use 192.168.224.1 instead of localhost
             const host = window.location.hostname === 'localhost' ? '192.168.224.1' : window.location.hostname;
             const wsUrl = `${protocol}//${host}:8838`;
-            
-            console.log(`[useBandwidthMonitor] Connecting to ${wsUrl}`);
 
             // Connect to websocat server (no path needed)
             ws.current = new WebSocket(wsUrl);
@@ -206,7 +202,6 @@ export const useBandwidthMonitor = (): UseBandwidthMonitorReturn => {
             // Set connection timeout
             connectionTimeoutRef.current = window.setTimeout(() => {
                 if (ws.current?.readyState === WebSocket.CONNECTING) {
-                    console.log('WebSocket connection timeout');
                     ws.current.close();
                     setError('Connection timeout');
                     setConnectionStatus('Timeout');
@@ -214,8 +209,6 @@ export const useBandwidthMonitor = (): UseBandwidthMonitorReturn => {
             }, 10000); // 10 second timeout
 
             ws.current.onopen = () => {
-                console.log('Bandwidth monitor WebSocket connected to websocat server');
-
                 // Clear connection timeout
                 if (connectionTimeoutRef.current) {
                     clearTimeout(connectionTimeoutRef.current);
@@ -287,8 +280,6 @@ export const useBandwidthMonitor = (): UseBandwidthMonitorReturn => {
                         }
                     } catch (jsonError) {
                         // Handle plain text messages that aren't JSON
-                        console.log('Received text message:', message);
-
                         // Try to parse as simple format: "download:123,upload:456"
                         const match = message.match(/download:(\d+(?:\.\d+)?),upload:(\d+(?:\.\d+)?)/);
                         if (match) {
@@ -309,7 +300,6 @@ export const useBandwidthMonitor = (): UseBandwidthMonitorReturn => {
             };
 
             ws.current.onclose = (event: CloseEvent) => {
-                console.log(`Bandwidth monitor WebSocket disconnected: Code=${event.code}, Reason="${event.reason}", WasClean=${event.wasClean}`);
                 setIsConnected(false);
 
                 // Clear heartbeat
@@ -404,7 +394,6 @@ export const useBandwidthMonitor = (): UseBandwidthMonitorReturn => {
     }, []);
 
     const reconnect = useCallback(() => {
-        console.log('Manual reconnect initiated...');
         disconnect();
         setTimeout(() => {
             setReconnectAttempts(0);

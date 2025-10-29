@@ -30,15 +30,12 @@ export function useConnectionUptime() {
         const host = window.location.hostname === 'localhost' ? '192.168.224.1' : window.location.hostname;
         const wsUrl = `${protocol}//${host}:8838`;
         
-        console.log(`[useConnectionUptime] Connecting to ${wsUrl}`);
-        
         // Connect to WebSocket server on device IP (same as memory monitor)
         const ws = new WebSocket(wsUrl);
         wsRef.current = ws;
 
         ws.onopen = () => {
           if (isMounted) {
-            console.log('[useConnectionUptime] WebSocket connected');
             setIsConnecting(false);
             setError(null);
           }
@@ -80,7 +77,6 @@ export function useConnectionUptime() {
 
         ws.onclose = () => {
           if (isMounted) {
-            console.log('[useConnectionUptime] WebSocket disconnected, reconnecting in 3s...');
             setIsConnecting(true);
             
             // Reconnect after 3 seconds

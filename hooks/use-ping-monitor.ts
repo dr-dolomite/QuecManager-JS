@@ -102,11 +102,9 @@ export const usePingMonitor = (): UsePingMonitorReturn => {
             // Only connect if no existing connection
             if (ws.current) {
                 if (ws.current.readyState === WebSocket.CONNECTING) {
-                    console.log('WebSocket already connecting, aborting...');
                     return;
                 }
                 if (ws.current.readyState === WebSocket.OPEN) {
-                    console.log('WebSocket already connected, aborting new connection...');
                     return;
                 }
             }
@@ -120,8 +118,6 @@ export const usePingMonitor = (): UsePingMonitorReturn => {
             // Use 192.168.224.1 instead of localhost
             const host = window.location.hostname === 'localhost' ? '192.168.224.1' : window.location.hostname;
             const wsUrl = `${protocol}//${host}:8838`;
-            
-            console.log(`[usePingMonitor] Connecting to ${wsUrl}`);
 
             // Connect to websocat server
             ws.current = new WebSocket(wsUrl);
@@ -129,7 +125,6 @@ export const usePingMonitor = (): UsePingMonitorReturn => {
             // Set connection timeout
             connectionTimeoutRef.current = window.setTimeout(() => {
                 if (ws.current?.readyState === WebSocket.CONNECTING) {
-                    console.log('WebSocket connection timeout');
                     ws.current.close();
                     setError('Connection timeout');
                     setConnectionStatus('Timeout');
@@ -137,8 +132,6 @@ export const usePingMonitor = (): UsePingMonitorReturn => {
             }, 10000); // 10 second timeout
 
             ws.current.onopen = () => {
-                console.log('Ping monitor WebSocket connected to websocat server');
-
                 // Clear connection timeout
                 if (connectionTimeoutRef.current) {
                     clearTimeout(connectionTimeoutRef.current);
@@ -189,7 +182,6 @@ export const usePingMonitor = (): UsePingMonitorReturn => {
                         }
                     } catch (jsonError) {
                         // Not JSON or not ping data, ignore
-                        console.log('Received non-ping message:', message);
                     }
                 } catch (parseError) {
                     console.error('Failed to process WebSocket message:', parseError);
@@ -203,7 +195,6 @@ export const usePingMonitor = (): UsePingMonitorReturn => {
             };
 
             ws.current.onclose = (event: CloseEvent) => {
-                console.log(`Ping monitor WebSocket disconnected: Code=${event.code}, Reason="${event.reason}"`);
                 setIsConnected(false);
 
                 // Clear heartbeat
@@ -274,7 +265,6 @@ export const usePingMonitor = (): UsePingMonitorReturn => {
     }, []);
 
     const reconnect = useCallback(() => {
-        console.log('Manual reconnect initiated...');
         disconnect();
         setTimeout(() => {
             setError(null);
