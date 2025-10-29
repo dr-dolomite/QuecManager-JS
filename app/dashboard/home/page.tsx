@@ -539,6 +539,7 @@ const HomePage = () => {
             <PingCardWebSocket websocketData={websocketData} />
             <SpeedtestStream />
 
+            <MemoryCardWebSocket websocketData={websocketData} />
           </div>
         </div>
 

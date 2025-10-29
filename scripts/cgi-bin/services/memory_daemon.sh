@@ -154,11 +154,11 @@ while true; do
         AVAIL_BYTES=$((AVAIL_KB * 1024))
         USED_BYTES=$((TOTAL_BYTES - AVAIL_BYTES))
         
-        json="{\"total\": $TOTAL_BYTES, \"used\": $USED_BYTES, \"available\": $AVAIL_BYTES, \"timestamp\": \"$ts\"}"
+        json="{\"channel\":\"memory\",\"total\": $TOTAL_BYTES, \"used\": $USED_BYTES, \"available\": $AVAIL_BYTES, \"timestamp\": \"$ts\"}"
     else
         # Fallback if /proc/meminfo is not available
         log "Warning: /proc/meminfo not readable, using error response"
-        json="{\"total\": 0, \"used\": 0, \"available\": 0, \"timestamp\": \"$ts\", \"error\": \"meminfo_unavailable\"}"
+        json="{\"channel\":\"memory\",\"total\": 0, \"used\": 0, \"available\": 0, \"timestamp\": \"$ts\", \"error\": \"meminfo_unavailable\"}"
     fi
     
     # Write the JSON data to file (for backward compatibility)
