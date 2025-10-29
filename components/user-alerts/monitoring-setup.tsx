@@ -41,15 +41,25 @@ import { Label } from "@/components/ui/label";
 
 interface MonitoringSetupProps {
   onRefresh: () => void;
+  isEditMode?: boolean;
+  defaultEmail?: string;
+  defaultRecipient?: string;
+  defaultThreshold?: string;
 }
 
-const MonitoringSetupComponent = ({ onRefresh }: MonitoringSetupProps) => {
+const MonitoringSetupComponent = ({
+  onRefresh,
+  isEditMode = false,
+  defaultEmail = "",
+  defaultRecipient = "",
+  defaultThreshold = "1",
+}: MonitoringSetupProps) => {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(defaultEmail);
   const [appPassword, setAppPassword] = useState("");
-  const [recipient, setRecipient] = useState("");
-  const [threshold, setThreshold] = useState("1");
+  const [recipient, setRecipient] = useState(defaultRecipient);
+  const [threshold, setThreshold] = useState(defaultThreshold);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -77,10 +87,13 @@ const MonitoringSetupComponent = ({ onRefresh }: MonitoringSetupProps) => {
         return;
       }
 
-      // Configure email settings
-      const configResponse = await fetch(
-        "/cgi-bin/quecmanager/alerts/configure.sh",
-        {
+      // Use update endpoint if in edit mode, configure endpoint otherwise
+      const endpoint = isEditMode
+        ? "/cgi-bin/quecmanager/alerts/update.sh"
+        : "/cgi-bin/quecmanager/alerts/configure.sh";
+
+      // Configure or update email settings
+      const configResponse = await fetch(endpoint, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -115,51 +128,61 @@ const MonitoringSetupComponent = ({ onRefresh }: MonitoringSetupProps) => {
         throw new Error(configData.message || "Failed to configure email");
       }
 
-      // Show appropriate toast based on test email result
-      if (configData.test_email_sent) {
+      // Show appropriate toast based on mode
+      if (isEditMode) {
         toast({
-          title: "Configuration Successful! 🎉",
-          description: `Email settings saved and test email sent to ${recipient}. Starting monitoring service...`,
+          title: "Configuration Updated! 🎉",
+          description: "Email settings have been updated successfully.",
         });
       } else {
-        toast({
-          title: "Configuration Saved ⚠️",
-          description:
-            "Email settings saved but test email failed. Please check your credentials.",
-          variant: "destructive",
-        });
-      }
-
-      // Enable and start the monitoring daemon
-      try {
-        const enableResponse = await fetch(
-          "/cgi-bin/quecmanager/alerts/enable.sh",
-          {
-            method: "GET",
-            cache: "no-store",
-          }
-        );
-
-        const enableData = await enableResponse.json();
-
-        if (enableData.status === "success") {
+        // Show appropriate toast based on test email result
+        if (configData.test_email_sent) {
           toast({
-            title: "Monitoring Service Started",
-            description: "Connection monitoring is now active",
+            title: "Configuration Successful! 🎉",
+            description: `Email settings saved and test email sent to ${recipient}. Starting monitoring service...`,
           });
         } else {
-          throw new Error(
-            enableData.message || "Failed to enable monitoring service"
-          );
+          toast({
+            title: "Configuration Saved ⚠️",
+            description:
+              "Email settings saved but test email failed. Please check your credentials.",
+            variant: "destructive",
+          });
         }
-      } catch (serviceError) {
-        console.error("Error starting service:", serviceError);
-        toast({
-          title: "Service Start Warning",
-          description:
-            "Configuration saved but failed to start monitoring service. Please start it manually.",
-          variant: "destructive",
-        });
+      }
+
+      // Enable and start the monitoring daemon (only if not in edit mode)
+      if (!isEditMode) {
+        try {
+          const enableResponse = await fetch(
+            "/cgi-bin/quecmanager/alerts/enable.sh",
+            {
+              method: "GET",
+              cache: "no-store",
+            }
+          );
+
+          const enableData = await enableResponse.json();
+
+          if (enableData.status === "success") {
+            toast({
+              title: "Monitoring Service Started",
+              description: "Connection monitoring is now active",
+            });
+          } else {
+            throw new Error(
+              enableData.message || "Failed to enable monitoring service"
+            );
+          }
+        } catch (serviceError) {
+          console.error("Error starting service:", serviceError);
+          toast({
+            title: "Service Start Warning",
+            description:
+              "Configuration saved but failed to start monitoring service. Please start it manually.",
+            variant: "destructive",
+          });
+        }
       }
 
       // Refresh parent component to update status
@@ -181,7 +204,9 @@ const MonitoringSetupComponent = ({ onRefresh }: MonitoringSetupProps) => {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Connection Monitoring Alerts Settings</CardTitle>
+        <CardTitle>
+          {isEditMode ? "Edit " : ""}Connection Monitoring Alerts Settings
+        </CardTitle>
         <CardDescription>
           Utilize the <span className="font-semibold">Gmail</span> service to
           manage your Connection Monitoring alert settings.
@@ -316,12 +341,12 @@ const MonitoringSetupComponent = ({ onRefresh }: MonitoringSetupProps) => {
             {isLoading ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Saving...
+                {isEditMode ? "Updating..." : "Saving..."}
               </>
             ) : (
               <>
                 <DownloadCloudIcon className="h-4 w-4" />
-                Save Settings
+                {isEditMode ? "Update Settings" : "Save Settings"}
               </>
             )}
           </Button>

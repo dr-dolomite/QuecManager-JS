@@ -36,17 +36,19 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { ArrowUpRightIcon, RefreshCcwIcon, Trash2Icon, Loader2 } from "lucide-react";
+import { ArrowUpRightIcon, RefreshCcwIcon, Trash2Icon, Loader2, Edit3Icon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface MonitoringInactiveComponentProps {
   onRefresh: () => void;
+  onEdit: () => void;
   recipient: string;
   threshold: number;
 }
 
 const MonitoringInactiveComponent: React.FC<MonitoringInactiveComponentProps> = ({
   onRefresh,
+  onEdit,
   recipient,
   threshold,
 }) => {
@@ -146,7 +148,12 @@ const MonitoringInactiveComponent: React.FC<MonitoringInactiveComponentProps> = 
             </EmptyHeader>
             <EmptyContent>
               <EmptyContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Button onClick={onEdit} disabled={isEnabling}>
+                    <Edit3Icon className="h-4 w-4" />
+                    Edit Configuration
+                  </Button>
+
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
                       <Button variant="destructive">
@@ -171,11 +178,6 @@ const MonitoringInactiveComponent: React.FC<MonitoringInactiveComponentProps> = 
                       </AlertDialogFooter>
                     </AlertDialogContent>
                   </AlertDialog>
-
-                  <Button variant="secondary" onClick={onRefresh}>
-                    <RefreshCcwIcon className="h-4 w-4" />
-                    Refresh Status
-                  </Button>
                 </div>
               </EmptyContent>
             </EmptyContent>

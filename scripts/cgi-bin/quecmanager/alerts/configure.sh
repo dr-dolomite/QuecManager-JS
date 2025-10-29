@@ -132,7 +132,6 @@ if uci -q get quecmanager.connection_monitor >/dev/null 2>&1; then
 fi
 
 uci set quecmanager.connection_monitor=connection_monitor 2>/dev/null
-uci set quecmanager.connection_monitor.enabled=0 2>/dev/null
 uci set quecmanager.connection_monitor.threshold="$THRESHOLD" 2>/dev/null
 uci commit quecmanager 2>/dev/null
 

@@ -1,7 +1,7 @@
 #!/bin/sh
 
 # Alert System Enable/Start Script
-# Enables monitoring in UCI and starts the daemon
+# Enables monitoring and starts the daemon
 
 echo -n ""
 echo "Content-type: application/json"
@@ -13,17 +13,7 @@ echo ""
 LOG_CATEGORY="service"
 SCRIPT_NAME="alerts_enable"
 
-# Enable monitoring in UCI
-uci set quecmanager.connection_monitor.enabled=1 2>/dev/null
-uci commit quecmanager 2>/dev/null
-
-if [ $? -ne 0 ]; then
-    qm_log_error "$LOG_CATEGORY" "$SCRIPT_NAME" "Failed to enable monitoring in UCI"
-    printf '{"status":"error","message":"Failed to enable monitoring configuration"}\n'
-    exit 1
-fi
-
-qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Monitoring enabled in UCI"
+qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Enabling connection monitoring"
 
 # Enable the service (makes it start at boot)
 /etc/init.d/quecmanager_connection_monitor enable >/dev/null 2>&1

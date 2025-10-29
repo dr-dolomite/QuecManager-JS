@@ -33,6 +33,7 @@ const ConnectionMonitoringComponent = () => {
   const [alertsStatus, setAlertsStatus] = useState<AlertsStatus | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isEditMode, setIsEditMode] = useState(false);
 
   const fetchAlertsStatus = useCallback(async () => {
     setIsLoading(true);
@@ -62,6 +63,11 @@ const ConnectionMonitoringComponent = () => {
       setIsLoading(false);
     }
   }, []);
+
+  const handleEditComplete = useCallback(() => {
+    setIsEditMode(false);
+    fetchAlertsStatus();
+  }, [fetchAlertsStatus]);
 
   useEffect(() => {
     fetchAlertsStatus();
@@ -107,11 +113,25 @@ const ConnectionMonitoringComponent = () => {
       return <MonitoringSetupComponent onRefresh={fetchAlertsStatus} />;
     }
 
+    // Show setup component in edit mode
+    if (isEditMode && alertsStatus.configured) {
+      return (
+        <MonitoringSetupComponent
+          onRefresh={handleEditComplete}
+          isEditMode={true}
+          defaultEmail={alertsStatus.sender || ""}
+          defaultRecipient={alertsStatus.recipient || ""}
+          defaultThreshold={alertsStatus.threshold.toString()}
+        />
+      );
+    }
+
     // Show MonitoringActiveComponent if daemon is running
     if (alertsStatus.is_running) {
       return (
         <MonitoringActiveComponent
           onRefresh={fetchAlertsStatus}
+          onEdit={() => setIsEditMode(true)}
           sender={alertsStatus.sender || ""}
           recipient={alertsStatus.recipient || ""}
           threshold={alertsStatus.threshold}
@@ -124,6 +144,7 @@ const ConnectionMonitoringComponent = () => {
     return (
       <MonitoringInactiveComponent
         onRefresh={fetchAlertsStatus}
+        onEdit={() => setIsEditMode(true)}
         recipient={alertsStatus.recipient || ""}
         threshold={alertsStatus.threshold}
       />

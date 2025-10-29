@@ -3,9 +3,6 @@
 # Connection Monitoring Daemon
 # Monitors network connectivity and sends email alerts on disconnection/reconnection
 
-# Ensure PATH for OpenWrt/BusyBox
-export PATH="/usr/sbin:/usr/bin:/sbin:/bin:$PATH"
-
 # Load centralized logging
 LOGGER_SCRIPT="/www/cgi-bin/services/quecmanager_logger.sh"
 if [ -f "$LOGGER_SCRIPT" ]; then
@@ -170,34 +167,88 @@ send_email_alert() {
         SENDER_EMAIL="quecmanager@monitor.local"
     fi
     
-    # Send beautifully formatted email
-    {
-        echo "Subject: ⚠️ Quecmanager Connection Monitoring Alert"
-        echo "From: Quecmanager Monitor <$SENDER_EMAIL>"
-        echo "To: $RECIPIENT"
-        echo "Content-Type: text/plain; charset=UTF-8"
-        echo ""
-        echo "QUECMANAGER CONNECTION MONITORING"
-        echo "================================================================"
-        echo ""
-        echo "📡 Device Information"
-        echo "   Hostname: $HOSTNAME"
-        echo ""
-        echo "🔴 Connection Lost"
-        echo "   $DISCONNECT_TIME"
-        echo ""
-        echo "🟢 Connection Restored"
-        echo "   $RECONNECT_TIME"
-        echo ""
-        echo "⏱️  Total Downtime"
-        echo "   $DURATION_TEXT"
-        echo ""
-        echo "================================================================"
-        echo ""
-        echo "Network connectivity has been successfully restored."
-        echo ""
-        echo "Generated: $(date '+%Y-%m-%d %H:%M:%S %Z')"
-    } | msmtp "$RECIPIENT" 2>&1
+    # Send beautifully formatted HTML email
+    # Use a single HEREDOC for headers and body, piping directly to msmtp
+    # This is more robust for sh/ash than grouping { ... } commands
+    cat <<EOF | msmtp "$RECIPIENT" 2>&1
+Subject: =?UTF-8?Q?=F0=9F=9F=A2?= Connection Restored - $HOSTNAME
+From: Quecmanager Monitor <$SENDER_EMAIL>
+To: $RECIPIENT
+Content-Type: text/html; charset=UTF-8
+MIME-Version: 1.0
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Connection Alert</title>
+</head>
+<body style="font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #f4f4f4;">
+    <!-- Main email container table -->
+    <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #f4f4f4;">
+        <tr>
+            <td align="center" style="padding: 20px 0;">
+                <!-- Content table -->
+                <table width="600" border="0" cellspacing="0" cellpadding="0" style="max-width: 600px; width: 100%; background-color: #ffffff; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border: 1px solid #ddd;">
+                    
+                    <!-- Header -->
+                    <tr>
+                        <td align="center" style="padding: 30px 20px; border-bottom: 1px solid #eee; background-color: #004a99; color: #ffffff; border-top-left-radius: 8px; border-top-right-radius: 8px;">
+                            <h1 style="margin: 0; font-size: 28px; font-weight: 600;">&#128226; Connection Restored</h1>
+                        </td>
+                    </tr>
+                    
+                    <!-- Content Body -->
+                    <tr>
+                        <td style="padding: 35px 40px;">
+                            <p style="font-size: 16px; color: #333; line-height: 1.6;">
+                                This is an automated alert to notify you that network connectivity on your device <strong>$HOSTNAME</strong> has been successfully restored.
+                            </p>
+                            
+                            <!-- Info Box -->
+                            <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin-top: 25px; border: 1px solid #ddd; border-radius: 8px; background-color: #fafafa;">
+                                <tr>
+                                    <td style="padding: 25px;">
+                                        <p style="margin: 0 0 18px 0; font-size: 18px; font-weight: 600; color: #004a99;">Alert Details</p>
+                                        
+                                        <p style="font-size: 16px; color: #d9534f; margin: 14px 0; line-height: 1.5;">
+                                            <strong style="color: #555; min-width: 140px; display: inline-block;">&#128308; Connection Lost:</strong>
+                                            <strong>$DISCONNECT_TIME</strong>
+                                        </p>
+                                        
+                                        <p style="font-size: 16px; color: #5cb85c; margin: 14px 0; line-height: 1.5;">
+                                            <strong style="color: #555; min-width: 140px; display: inline-block;">&#128994; Connection Restored:</strong>
+                                            <strong>$RECONNECT_TIME</strong>
+                                        </p>
+                                        
+                                        <p style="font-size: 16px; color: #333; margin: 14px 0; line-height: 1.5;">
+                                            <strong style="color: #555; min-width: 140px; display: inline-block;">&#8986; Total Downtime:</strong>
+                                            <strong>$DURATION_TEXT</strong>
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                    
+                    <!-- Footer -->
+                    <tr>
+                        <td align="center" style="padding: 25px 40px; border-top: 1px solid #eee; background-color: #f9f9f9; border-bottom-left-radius: 8px; border-bottom-right-radius: 8px;">
+                            <p style="font-size: 12px; color: #888; margin: 0;">
+                                Generated by Quecmanager Connection Monitor
+                                <br>
+                                $(date '+%Y-%m-%d %H:%M:%S %Z')
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
+EOF
     
     if [ $? -eq 0 ]; then
         log "Email notification sent successfully" "info"
@@ -231,7 +282,7 @@ main() {
         log "Ping data file not found. Waiting for ping daemon..." "warn"
     fi
     
-    # Main loop - check every 30 seconds
+    # Main loop - check every 10 seconds
     while true; do
         ping_ok=$(is_ping_ok)
         
@@ -261,9 +312,9 @@ main() {
                 fi
             fi
         fi
-        
-        # Sleep for 30 seconds
-        sleep 30
+
+        # Sleep for 10 seconds
+        sleep 10
     done
 }
 

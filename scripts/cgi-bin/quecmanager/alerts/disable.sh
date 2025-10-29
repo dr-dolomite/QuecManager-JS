@@ -1,7 +1,7 @@
 #!/bin/sh
 
 # Alert System Disable/Stop Script
-# Disables monitoring in UCI and stops the daemon
+# Disables monitoring and stops the daemon
 
 echo -n ""
 echo "Content-type: application/json"
@@ -29,15 +29,5 @@ if [ $DISABLE_RESULT -ne 0 ]; then
     qm_log_warn "$LOG_CATEGORY" "$SCRIPT_NAME" "Failed to disable monitoring service from boot (exit code: $DISABLE_RESULT)"
 fi
 
-# Disable monitoring in UCI
-uci set quecmanager.connection_monitor.enabled=0 2>/dev/null
-uci commit quecmanager 2>/dev/null
-
-if [ $? -ne 0 ]; then
-    qm_log_error "$LOG_CATEGORY" "$SCRIPT_NAME" "Failed to disable monitoring in UCI"
-    printf '{"status":"error","message":"Failed to disable monitoring configuration"}\n'
-    exit 1
-fi
-
-qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Monitoring disabled in UCI, service stopped and disabled from boot"
+qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Monitoring service stopped and disabled from boot"
 printf '{"status":"success","message":"Connection monitoring disabled and will not start on reboot"}\n'

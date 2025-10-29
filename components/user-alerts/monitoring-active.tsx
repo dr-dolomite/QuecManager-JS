@@ -21,6 +21,15 @@ import {
 } from "@/components/ui/input-group";
 
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+
+import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
@@ -30,10 +39,18 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-import { CheckCircle2, InfoIcon, Loader2 } from "lucide-react";
+import {
+  CheckCircle2,
+  Edit3Icon,
+  InfoIcon,
+  Loader2,
+  RefreshCcwIcon,
+} from "lucide-react";
+import { Button } from "../ui/button";
 
 interface MonitoringActiveComponentProps {
   onRefresh: () => void;
+  onEdit: () => void;
   recipient: string;
   sender: string;
   threshold: number;
@@ -42,6 +59,7 @@ interface MonitoringActiveComponentProps {
 
 const MonitoringActiveComponent = ({
   onRefresh,
+  onEdit,
   recipient,
   sender,
   threshold,
@@ -153,7 +171,10 @@ const MonitoringActiveComponent = ({
               readOnly
             />
             <InputGroupAddon align="block-start">
-              <Label htmlFor="textarea-last-notification" className="text-foreground">
+              <Label
+                htmlFor="textarea-last-notification"
+                className="text-foreground"
+              >
                 Last Notification Sent
               </Label>
               <Tooltip>
@@ -178,6 +199,23 @@ const MonitoringActiveComponent = ({
           </InputGroup>
         </div>
       </CardContent>
+      <CardFooter>
+        <div className="flex items-center gap-x-4">
+          <Button onClick={onEdit} disabled={isDisabling}>
+            <Edit3Icon className="h-4 w-4" />
+            Edit Configuration
+          </Button>
+
+          <Button
+            variant="secondary"
+            onClick={onRefresh}
+            disabled={isDisabling}
+          >
+            <RefreshCcwIcon className="h-4 w-4" />
+            Refresh Status
+          </Button>
+        </div>
+      </CardFooter>
     </Card>
   );
 };
