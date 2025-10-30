@@ -246,7 +246,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     // This works whether accessing via 192.168.224.1 or Tailscale IP
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     // Use 192.168.224.1 instead of localhost
-    const host = window.location.hostname === 'localhost' ? '192.168.224.1' : window.location.hostname;
+    const host = window.location.hostname === 'localhost' || window.location.hostname === '192.168.42.95' ? '192.168.224.1' : window.location.hostname;
     const wsUrl = `${protocol}//${host}:8838/data`;
 
     console.log('Attempting WebSocket connection to:', wsUrl);
@@ -282,16 +282,34 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
 To fix this, please visit the following URL in your browser
 and accept the self-signed certificate:
 
-  ${protocol}//${host}:8838/
+  ${window.location.protocol}//${host}:8838/
 
 Then refresh this page.
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
             `);
-            
+
             // Show a toast notification to the user
+            const certUrl = `${window.location.protocol}//${host}:8838/`;
             toast.toast({
               title: "WebSocket Connection Failed",
-              description: `Please accept the SSL certificate by visiting ${protocol}//${host}:8838/ and then refresh the page.`,
+              description: (
+                <span>
+                  Please accept the SSL certificate by{' '}
+                  <a 
+                    href={certUrl} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="underline font-semibold"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      window.open(certUrl, '_blank', 'noopener,noreferrer');
+                    }}
+                  >
+                    clicking here
+                  </a>
+                  {' '}and then refresh this page.
+                </span>
+              ),
               variant: "destructive",
               duration: 10000,
             });
@@ -300,7 +318,7 @@ Then refresh this page.
 
         ws.onclose = (event) => {
           console.log('WebSocket disconnected', event.code, event.reason);
-          
+
           // Don't auto-reconnect if it's an SSL certificate issue (code 1006)
           if (event.code !== 1006) {
             // Attempt to reconnect after 5 seconds for other disconnects
