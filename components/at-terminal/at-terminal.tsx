@@ -11,19 +11,13 @@ import {
 import { CopyIcon, CornerDownLeft, Dot, RefreshCcw, Terminal } from "lucide-react";
 import { BsCircleFill } from "react-icons/bs";
 import { useToast } from "@/hooks/use-toast";
+import { atCommandSender } from "@/utils/at-command";
 
 interface CommandHistoryItem {
   command: string;
   response: string;
   timestamp: string;
   status: string;
-}
-
-interface QueueResponse {
-  command: string;
-  response: string;
-  status: string;
-  error?: string;
 }
 
 interface TerminalComponentProps {
@@ -37,9 +31,51 @@ const TerminalComponent = ({ onCommandExecuted, onCommandSuccess, commandHistory
   const [output, setOutput] = useState<string>("");
   const [input, setInput] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [suggestion, setSuggestion] = useState<string>("");
+  const [commandDictionary, setCommandDictionary] = useState<string[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const authToken = typeof window !== 'undefined' ? localStorage.getItem("authToken") : null;
+  // Load command dictionary from localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem("atCommandDictionary");
+      if (stored) {
+        try {
+          setCommandDictionary(JSON.parse(stored));
+        } catch (e) {
+          console.error("Failed to parse command dictionary:", e);
+        }
+      }
+    }
+  }, []);
+
+  // Save command dictionary to localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined' && commandDictionary.length > 0) {
+      localStorage.setItem("atCommandDictionary", JSON.stringify(commandDictionary));
+    }
+  }, [commandDictionary]);
+
+  // Update suggestion when input changes
+  useEffect(() => {
+    if (input.trim() && commandDictionary.length > 0) {
+      const normalizedInput = input.toUpperCase().trim();
+      
+      // Find matching command that starts with the input
+      const match = commandDictionary.find(cmd => 
+        cmd.toUpperCase().startsWith(normalizedInput) && cmd.toUpperCase() !== normalizedInput
+      );
+      
+      if (match) {
+        // Get the remaining part of the command
+        setSuggestion(match.substring(input.trim().length));
+      } else {
+        setSuggestion("");
+      }
+    } else {
+      setSuggestion("");
+    }
+  }, [input, commandDictionary]);
 
   const executeCommand = async () => {
     const command = input.trim();
@@ -68,31 +104,15 @@ const TerminalComponent = ({ onCommandExecuted, onCommandSuccess, commandHistory
     setOutput(`> ${command}\nExecuting command, please wait...`);
 
     try {
-      const encodedCommand = encodeURIComponent(command);
-      const response = await fetch(
-        `/cgi-bin/quecmanager/at_cmd/at_queue_client.sh?command=${encodedCommand}`,
-        {
-          method: "GET",
-          headers: {
-            Authorization: `${authToken}`,
-          },
-        }
-      );
-      const data: QueueResponse = await response.json();
-
-      if (data.error) {
-        throw new Error(data.error);
-      }
-
-      if (!data.command || data.status === undefined) {
-        throw new Error("Invalid response from server. Check command syntax.");
-      }
+      // Use the at-command utility which properly handles errors
+      const data = await atCommandSender(command);
 
       let outputText = `> ${command}\n`;
       if (data.response) {
         outputText += data.response;
       }
       setOutput(outputText);
+      console.log("AT Command Response:", data);
 
       const newHistoryItem: CommandHistoryItem = {
         command: command,
@@ -103,27 +123,51 @@ const TerminalComponent = ({ onCommandExecuted, onCommandSuccess, commandHistory
 
       onCommandExecuted(newHistoryItem);
 
+      // Add command to dictionary if successful and not already present
+      if (data.status === "success" && !commandDictionary.includes(command)) {
+        setCommandDictionary(prev => [...prev, command]);
+      }
+
       if (data.status === "success") {
         onCommandSuccess(command);
-      } else {
-        toast({
-          title: "Command Error",
-          description: data.response || "Command execution failed",
-          variant: "destructive",
-        });
       }
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : "An unknown error occurred";
-      setOutput(`> ${command}\nError: ${errorMessage}`);
+      const errorOutput = `> ${command}\nError: ${errorMessage}`;
+      setOutput(errorOutput);
+
+      // Create error history item
+      const errorHistoryItem: CommandHistoryItem = {
+        command: command,
+        response: errorMessage,
+        timestamp: new Date().toISOString(),
+        status: "error",
+      };
+      onCommandExecuted(errorHistoryItem);
 
       toast({
-        title: "Error",
+        title: "Command Failed",
         description: errorMessage,
         variant: "destructive",
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    // Tab key - autocomplete suggestion
+    if (e.key === "Tab" && suggestion) {
+      e.preventDefault();
+      setInput(input + suggestion);
+      setSuggestion("");
+    }
+    
+    // Ctrl+Enter - execute command
+    if (e.key === "Enter" && e.ctrlKey) {
+      e.preventDefault();
+      executeCommand();
     }
   };
 
@@ -193,25 +237,8 @@ const TerminalComponent = ({ onCommandExecuted, onCommandSuccess, commandHistory
     setOutput(`> ${previousCommand}\nExecuting command, please wait...`);
 
     try {
-      const encodedCommand = encodeURIComponent(previousCommand);
-      const response = await fetch(
-        `/cgi-bin/quecmanager/at_cmd/at_queue_client.sh?command=${encodedCommand}`,
-        {
-          method: "GET",
-          headers: {
-            Authorization: `${authToken}`,
-          },
-        }
-      );
-      const data: QueueResponse = await response.json();
-
-      if (data.error) {
-        throw new Error(data.error);
-      }
-
-      if (!data.command || data.status === undefined) {
-        throw new Error("Invalid response from server. Check command syntax.");
-      }
+      // Use the at-command utility which properly handles errors
+      const data = await atCommandSender(previousCommand);
 
       let outputText = `> ${previousCommand}\n`;
       if (data.response) {
@@ -228,22 +255,31 @@ const TerminalComponent = ({ onCommandExecuted, onCommandSuccess, commandHistory
 
       onCommandExecuted(newHistoryItem);
 
+      // Add command to dictionary if successful and not already present
+      if (data.status === "success" && !commandDictionary.includes(previousCommand)) {
+        setCommandDictionary(prev => [...prev, previousCommand]);
+      }
+
       if (data.status === "success") {
         onCommandSuccess(previousCommand);
-      } else {
-        toast({
-          title: "Command Error",
-          description: data.response || "Command execution failed",
-          variant: "destructive",
-        });
       }
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : "An unknown error occurred";
-      setOutput(`> ${previousCommand}\nError: ${errorMessage}`);
+      const errorOutput = `> ${previousCommand}\nError: ${errorMessage}`;
+      setOutput(errorOutput);
+
+      // Create error history item
+      const errorHistoryItem: CommandHistoryItem = {
+        command: previousCommand,
+        response: errorMessage,
+        timestamp: new Date().toISOString(),
+        status: "error",
+      };
+      onCommandExecuted(errorHistoryItem);
 
       toast({
-        title: "Error",
+        title: "Command Failed",
         description: errorMessage,
         variant: "destructive",
       });
@@ -265,13 +301,26 @@ const TerminalComponent = ({ onCommandExecuted, onCommandSuccess, commandHistory
           readOnly
         />
         <InputGroupAddon align="block-end" className="border-t">
-          <InputGroupInput
-            id="at-terminal-input"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            className="text-sm"
-            placeholder="Enter AT command here (Press Ctrl + Enter to send)"
-          />
+          <div className="relative flex-1">
+            <InputGroupInput
+              id="at-terminal-input"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              className="text-sm relative z-10 bg-transparent"
+              placeholder="Enter AT command here (Press Tab to autocomplete, Ctrl + Enter to send)"
+            />
+            {suggestion && (
+              <div className="absolute inset-0 flex items-center px-3 pointer-events-none z-0">
+                <span className="text-sm text-transparent select-none">
+                  {input}
+                </span>
+                <span className="text-sm text-muted-foreground/50 select-none">
+                  {suggestion}
+                </span>
+              </div>
+            )}
+          </div>
           <InputGroupButton 
             size="sm" 
             className="ml-auto mt-1" 

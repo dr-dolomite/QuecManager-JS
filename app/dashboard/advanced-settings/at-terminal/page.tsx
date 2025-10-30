@@ -230,14 +230,19 @@ const handleCopyCommand = async (command: string) => {
                         key={`${item.timestamp}-${startIndex + index}`}
                       >
                         <AccordionTrigger className="px-4">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-1">
                             {item.status === "success" ? (
-                              <CircleCheckIcon className="h-4 w-4 text-green-500" />
+                              <CircleCheckIcon className="h-4 w-4 text-green-500 shrink-0" />
+                            ) : item.status === "error" ? (
+                              <CircleAlertIcon className="h-4 w-4 text-red-500 shrink-0" />
                             ) : (
-                              <CircleAlertIcon className="h-4 w-4 text-red-500" />
+                              <CircleAlertIcon className="h-4 w-4 text-yellow-500 shrink-0" />
                             )}
-                            <span className="text-sm font-medium">
+                            <span className="text-sm font-medium flex-1">
                               {item.command}
+                            </span>
+                            <span className="text-xs text-muted-foreground shrink-0">
+                              {item.status}
                             </span>
                           </div>
                         </AccordionTrigger>
