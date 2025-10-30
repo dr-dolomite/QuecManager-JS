@@ -251,35 +251,76 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
 
     console.log('Attempting WebSocket connection to:', wsUrl);
     let ws: WebSocket | null = null;
+    let reconnectTimeout: NodeJS.Timeout | null = null;
 
-    try {
-      ws = new WebSocket(wsUrl);
+    const connect = () => {
+      try {
+        ws = new WebSocket(wsUrl);
 
-      ws.onopen = () => {
-        console.log('WebSocket connected from Dashboard Layout');
-      };
+        ws.onopen = () => {
+          console.log('✓ WebSocket connected from Dashboard Layout');
+        };
 
-      ws.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          setWebsocketData(data);
-        } catch (error) {
-          console.error('Failed to parse WebSocket message:', error);
-        }
-      };
+        ws.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            console.log('← WebSocket message received:', data);
+            setWebsocketData(data);
+          } catch (error) {
+            console.error('Failed to parse WebSocket message:', error);
+          }
+        };
 
-      ws.onerror = (error) => {
-        console.error('WebSocket error:', error);
-      };
+        ws.onerror = (error) => {
+          console.error('✗ WebSocket error:', error);
+          
+          // Check if it's likely an SSL certificate issue
+          if (protocol === 'wss:') {
+            console.warn(`
+⚠️  SSL Certificate Issue Detected
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+To fix this, please visit the following URL in your browser
+and accept the self-signed certificate:
 
-      ws.onclose = () => {
-        console.log('WebSocket disconnected');
-      };
-    } catch (error) {
-      console.error('Failed to create WebSocket connection:', error);
-    }
+  ${protocol}//${host}:8838/
+
+Then refresh this page.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+            `);
+            
+            // Show a toast notification to the user
+            toast.toast({
+              title: "WebSocket Connection Failed",
+              description: `Please accept the SSL certificate by visiting ${protocol}//${host}:8838/ and then refresh the page.`,
+              variant: "destructive",
+              duration: 10000,
+            });
+          }
+        };
+
+        ws.onclose = (event) => {
+          console.log('WebSocket disconnected', event.code, event.reason);
+          
+          // Don't auto-reconnect if it's an SSL certificate issue (code 1006)
+          if (event.code !== 1006) {
+            // Attempt to reconnect after 5 seconds for other disconnects
+            reconnectTimeout = setTimeout(() => {
+              console.log('Attempting to reconnect WebSocket...');
+              connect();
+            }, 5000);
+          }
+        };
+      } catch (error) {
+        console.error('Failed to create WebSocket connection:', error);
+      }
+    };
+
+    connect();
 
     return () => {
+      if (reconnectTimeout) {
+        clearTimeout(reconnectTimeout);
+      }
       if (ws && ws.readyState === WebSocket.OPEN) {
         ws.close();
       }
