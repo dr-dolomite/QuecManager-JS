@@ -81,6 +81,14 @@ interface MccMncInfo {
   notes?: string;
 }
 
+const SCS_MAP =  [
+  15,
+  30,
+  60,
+  120,
+  240
+]
+
 // Cell frequency detail card component
 const FrequencyDetailCard = ({
   cell,
@@ -206,7 +214,7 @@ const FrequencyDetailCard = ({
                     </div>
                     <div className="text-muted-foreground">SSB SCS:</div>
                     <div className="font-medium">
-                      {(cell as NR5GCellInfo).ssbScs || "-"} kHz
+                      {SCS_MAP[(cell as NR5GCellInfo).ssbScs] || "-"} kHz
                     </div>
                   </>
                 )}
