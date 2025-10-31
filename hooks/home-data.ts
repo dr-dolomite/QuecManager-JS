@@ -291,7 +291,9 @@ const useHomeData = () => {
           scs: extractValueByNetworkType(
             rawData[10]?.response,
             getNetworkType(rawData[13]?.response),
+            { "NR5G-SA": 1, "NR5G-NSA": 2, LTE: 1 },
             { "NR5G-SA": 15, "NR5G-NSA": 10, LTE: 0 },
+            true
           ),
           signalQuality: getSignalQuality(rawData[19].response) || "Unknown",
         },

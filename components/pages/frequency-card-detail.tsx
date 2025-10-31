@@ -212,9 +212,9 @@ const FrequencyDetailCard = ({
                     <div className="font-medium">
                       {(cell as NR5GCellInfo).carrierBandwidth ||"-"} RB
                     </div>
-                    <div className="text-muted-foreground">SSB SCS:</div>
+                    <div className="text-muted-foreground">SCS:</div>
                     <div className="font-medium">
-                      {SCS_MAP[(cell as NR5GCellInfo).ssbScs] || "-"} kHz
+                      {SCS_MAP[(cell as NR5GCellInfo).scs] || "-"} kHz
                     </div>
                   </>
                 )}
