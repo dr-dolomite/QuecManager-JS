@@ -2,9 +2,8 @@
 
 # Smart Measurement Units Configuration Script
 # Manages distance unit preferences (km/mi) with automatic timezone-based defaults
-# Uses UCI configuration for OpenWRT integration
 # Author: dr-dolomite
-# Date: 2025-10-03
+# Date: 2025-08-04
 
 # Set content type and CORS headers
 echo "Content-Type: application/json"
@@ -14,9 +13,9 @@ echo "Access-Control-Allow-Headers: Content-Type"
 echo ""
 
 # Configuration
+CONFIG_DIR="/etc/quecmanager/settings"
+CONFIG_FILE="$CONFIG_DIR/measurement_units.conf"
 LOG_FILE="/tmp/measurement_units.log"
-UCI_CONFIG="quecmanager"
-UCI_SECTION="measurement_units"
 
 # Logging function
 log_message() {
@@ -44,16 +43,23 @@ send_success() {
     fi
 }
 
-# Initialize UCI configuration
-init_uci_config() {
-    # Ensure quecmanager config exists
-    touch /etc/config/quecmanager 2>/dev/null || true
-    
-    # Create section if it doesn't exist
-    if ! uci -q get quecmanager.measurement_units >/dev/null 2>&1; then
-        uci set quecmanager.measurement_units=settings
-        uci commit quecmanager
-        log_message "Initialized UCI config section"
+# Ensure configuration directory exists
+ensure_config_directory() {
+    if [ ! -d "$CONFIG_DIR" ]; then
+        log_message "Creating directory: $CONFIG_DIR"
+        mkdir -p "$CONFIG_DIR"
+        if [ $? -ne 0 ]; then
+            # Try to use a fallback location in /tmp
+            CONFIG_DIR="/tmp/quecmanager/settings"
+            CONFIG_FILE="$CONFIG_DIR/measurement_units.conf"
+            log_message "Fallback to alternative location: $CONFIG_DIR"
+            mkdir -p "$CONFIG_DIR"
+            if [ $? -ne 0 ]; then
+                send_error "DIRECTORY_ERROR" "Failed to create configuration directory"
+            fi
+        fi
+        chmod 755 "$CONFIG_DIR"
+        log_message "Created configuration directory: $CONFIG_DIR"
     fi
 }
 
@@ -173,56 +179,57 @@ get_default_unit() {
 
 # Get current measurement unit
 get_measurement_unit() {
-    # Initialize UCI if needed
-    init_uci_config
-    
-    # Try to read from UCI
-    local unit=$(uci -q get quecmanager.measurement_units.distance_unit)
-    if [ -n "$unit" ]; then
-        echo "$unit"
-        return
+    # If config file exists, read from it
+    if [ -f "$CONFIG_FILE" ]; then
+        unit=$(grep "^DISTANCE_UNIT=" "$CONFIG_FILE" | cut -d'=' -f2)
+        if [ -n "$unit" ]; then
+            echo "$unit"
+            return
+        fi
     fi
     
-    # If no config, determine default based on timezone
+    # If no config or empty config, determine default based on timezone
     get_default_unit
 }
 
-# Save measurement unit to UCI
+# Save measurement unit to config file
 save_measurement_unit() {
     local unit="$1"
+    ensure_config_directory
     
-    # Initialize UCI if needed
-    init_uci_config
-    
-    # Set UCI value
-    uci set quecmanager.measurement_units.distance_unit="$unit"
-    
-    # Commit changes
-    if ! uci commit quecmanager; then
-        log_message "ERROR: Failed to commit UCI changes"
-        return 1
+    # Create or update config file
+    if [ -f "$CONFIG_FILE" ]; then
+        # Update existing file
+        sed -i "s/^DISTANCE_UNIT=.*$/DISTANCE_UNIT=$unit/" "$CONFIG_FILE"
+        if [ $? -ne 0 ]; then
+            # If sed fails (e.g., no match), append the setting
+            echo "DISTANCE_UNIT=$unit" >> "$CONFIG_FILE"
+        fi
+    else
+        # Create new file
+        echo "DISTANCE_UNIT=$unit" > "$CONFIG_FILE"
     fi
     
-    log_message "Saved distance unit via UCI: $unit"
-    return 0
+    chmod 644 "$CONFIG_FILE"
+    log_message "Saved distance unit: $unit"
 }
 
-# Delete measurement unit configuration from UCI
+# Delete measurement unit configuration
 delete_measurement_unit() {
-    # Check if the option exists
-    if uci -q get quecmanager.measurement_units.distance_unit >/dev/null 2>&1; then
-        # Delete the option
-        uci delete quecmanager.measurement_units.distance_unit
-        if uci commit quecmanager; then
-            log_message "Deleted distance_unit from UCI"
-            return 0
-        else
-            log_message "ERROR: Failed to commit UCI deletion"
-            return 1
+    if [ -f "$CONFIG_FILE" ]; then
+        # Remove the DISTANCE_UNIT line
+        sed -i '/^DISTANCE_UNIT=/d' "$CONFIG_FILE"
+        log_message "Deleted distance unit configuration"
+        
+        # If file is empty after deletion, remove it
+        if [ ! -s "$CONFIG_FILE" ]; then
+            rm -f "$CONFIG_FILE"
+            log_message "Removed empty config file"
         fi
+        return 0
+    else
+        return 1
     fi
-    log_message "No distance_unit in UCI to delete"
-    return 0
 }
 
 # Handle GET request - Retrieve measurement unit preference
@@ -269,12 +276,12 @@ handle_get() {
         return
     fi
     
-    # Get current unit (from UCI or default)
+    # Get current unit (from config or default)
     local unit=$(get_measurement_unit)
     
-    # Check if it's from UCI or default
+    # Check if it's from config or default
     local is_default=true
-    if uci -q get quecmanager.measurement_units.distance_unit >/dev/null 2>&1; then
+    if [ -f "$CONFIG_FILE" ] && grep -q "^DISTANCE_UNIT=" "$CONFIG_FILE"; then
         is_default=false
     fi
     

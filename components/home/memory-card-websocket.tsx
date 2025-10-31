@@ -138,38 +138,38 @@ const MemoryCardWebSocket = () => {
       return;
     }
 
-    if (historyData && historyData.current) {
-      const time = formatTime();
-      const newDataPoint: MemoryChartData = {
-        time,
-        total: formatMemoryMB(historyData.current.total),
-        used: formatMemoryMB(historyData.current.used),
-        available: formatMemoryMB(historyData.current.available),
-        index: 0, // Will be set correctly below
-      };
+    if (historyData) {
+      // If we have history data, use it to populate/update the chart
+      if (historyData.history && historyData.history.length > 0) {
+        // Convert history to chart data format
+        const chartDataPoints = historyData.history.slice(-6).map((point, idx) => ({
+          time: new Date(point.timestamp).toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+          }),
+          total: formatMemoryMB(point.total),
+          used: formatMemoryMB(point.used),
+          available: formatMemoryMB(point.available),
+          index: idx + 1,
+        }));
 
-      setChartData((prevData) => {
-        let updatedData: MemoryChartData[];
+        setChartData(chartDataPoints);
+        localStorage.setItem("memoryChartData", JSON.stringify(chartDataPoints));
+      } else if (historyData.current) {
+        // Fallback to current data if no history
+        const time = formatTime();
+        const newDataPoint: MemoryChartData = {
+          time,
+          total: formatMemoryMB(historyData.current.total),
+          used: formatMemoryMB(historyData.current.used),
+          available: formatMemoryMB(historyData.current.available),
+          index: 1,
+        };
 
-        if (prevData.length < 6) {
-          // Fill up to 6 points
-          updatedData = [...prevData, newDataPoint].map((point, idx) => ({
-            ...point,
-            index: idx + 1,
-          }));
-        } else {
-          // Shift data points left and add new one
-          updatedData = [...prevData.slice(1), newDataPoint].map(
-            (point, idx) => ({
-              ...point,
-              index: idx + 1,
-            })
-          );
-        }
-
-        localStorage.setItem("memoryChartData", JSON.stringify(updatedData));
-        return updatedData;
-      });
+        setChartData([newDataPoint]);
+        localStorage.setItem("memoryChartData", JSON.stringify([newDataPoint]));
+      }
     }
   }, [historyData, config.enabled]);
 

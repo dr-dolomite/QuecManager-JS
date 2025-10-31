@@ -5,22 +5,10 @@ import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 
 // Components
-// import SimCard from "@/components/home/sim-data";
-// import Connection from "@/components/home/connection";
-// import DataTransmission from "@/components/home/data-transmission";
-// import CellularInformation from "@/components/home/cellular-info";
 import SignalChart from "@/components/home/signal-chart";
-import MemoryCard from "@/components/home/memory-card";
-import PingCard from "@/components/home/ping-card";
 
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -48,14 +36,9 @@ import useHomeData from "@/hooks/home-data";
 import useDataConnectionState from "@/hooks/home-connection";
 import useTrafficStats from "@/hooks/home-traffic";
 import useRunDiagnostics from "@/hooks/diagnostics";
-import useDataUsageTracking from "@/hooks/data-usage-tracking";
 import { BsSimSlashFill } from "react-icons/bs";
 import SpeedtestStream from "@/components/home/speedtest-card";
 import { atCommandSender } from "@/utils/at-command";
-import NetworkInfoCard from "@/components/home/network-info-card";
-import ApproxDistanceCard from "@/components/home/approx-distance-card";
-import DataUsageWarningDialog from "@/components/experimental/data-usage-warning-dialog";
-import WebSocketComponent from "@/components/home/websocket";
 import BandwidthMonitorCard from "@/components/home/bandwidth-monitor-card";
 import SummaryCardComponent from "@/components/home/summary-card";
 import BandsAccordionComponent from "@/components/home/bands-accordion";
@@ -94,17 +77,6 @@ const HomePage = () => {
 
   const { isRunningDiagnostics, runDiagnosticsData, startDiagnostics } =
     useRunDiagnostics();
-
-  // Data usage tracking for global warnings
-  const {
-    showWarning,
-    usagePercentage,
-    formattedUsage,
-    formattedLimit,
-    remaining,
-    dismissWarning,
-    closeWarning,
-  } = useDataUsageTracking();
 
   const {
     bytesSent,
@@ -398,9 +370,7 @@ const HomePage = () => {
 
             <Dialog>
               <DialogTrigger asChild>
-                <Button onClick={runDiagnostics}
-                variant="secondary"
-                >
+                <Button onClick={runDiagnostics} variant="secondary">
                   <CirclePlay className="xl:size-6 size-5" />
                   <span className="hidden md:block">Run Diagnostics</span>
                 </Button>
@@ -582,62 +552,9 @@ const HomePage = () => {
             onDataRefresh={refreshData}
           />
           <BandsAccordionComponent bands={bands} isLoading={isLoading} />
-          {/* <SimCard
-            data={homeData}
-            isLoading={isLoading}
-            hideSensitiveData={hideSensitiveData}
-          />
-          <Connection
-            data={homeData}
-            isLoading={isLoading}
-            dataConnectionState={dataConnectionState}
-            connectionStateLoading={isStateLoading}
-          />
-          <DataTransmission
-            data={homeData}
-            isLoading={isLoading}
-            bytesSent={bytesSent}
-            bytesReceived={bytesReceived}
-          />
-          <CellularInformation data={homeData} isLoading={isLoading} /> */}
         </div>
       </div>
 
-      {/* <div className="grid gap-4 w-full">
-        <h1 className="xl:text-3xl text-base font-bold">Active Addresses</h1>
-        <div>
-          <NetworkInfoCard
-            data={homeData}
-            isLoading={isLoading}
-            isPublicIPLoading={isPublicIPLoading}
-            hideSensitiveData={hideSensitiveData}
-          // onRefresh={refreshData}
-          />
-        </div>
-      </div> */}
-
-      {/* <div className="grid gap-4 w-full">
-        <h1 className="xl:text-3xl text-base font-bold">
-          Current Active Bands
-        </h1>
-        <div>
-          <BandTable bands={bands} isLoading={isLoading} />
-        </div>
-      </div> */}
-
-      {/* Global Data Usage Warning Dialog */}
-      {/* !NOTE Temporarily disabled */}
-      {/* <DataUsageWarningDialog
-        open={showWarning}
-        onClose={closeWarning}
-        onDismiss={dismissWarning}
-        usagePercentage={usagePercentage}
-        currentUsage={formattedUsage.total}
-        monthlyLimit={formattedLimit}
-        remaining={remaining}
-      /> */}
-
-      {/* Profile Setup Dialog */}
       <Dialog
         open={profileSetupDialogOpen}
         onOpenChange={setProfileSetupDialogOpen}
@@ -661,17 +578,6 @@ const HomePage = () => {
                 applying your preferred network settings, APN configuration, and
                 other cellular preferences.
               </h2>
-              {/* <div className="space-y-2">
-                <h4 className="font-medium">
-                  Benefits of setting up a profile:
-                </h4>
-                <ul className="text-sm space-y-1">
-                  <li>• Automatic network configuration</li>
-                  <li>• Quick switching between SIM cards</li>
-                  <li>• Backup and restore your settings</li>
-                  <li>• Optimized performance for your carrier</li>
-                </ul>
-              </div> */}
             </Card>
 
             <div className="flex flex-col gap-2 mt-4">
@@ -775,16 +681,6 @@ const HomePage = () => {
           </div>
         </DialogContent>
       </Dialog>
-      {/* Global Data Usage Warning Dialog */}
-      <DataUsageWarningDialog
-        open={showWarning}
-        onClose={closeWarning}
-        onDismiss={dismissWarning}
-        usagePercentage={usagePercentage}
-        currentUsage={formattedUsage.total}
-        monthlyLimit={formattedLimit}
-        remaining={remaining}
-      />
     </div>
   );
 };

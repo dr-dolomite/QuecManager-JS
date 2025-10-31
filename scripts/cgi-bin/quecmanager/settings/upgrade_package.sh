@@ -70,59 +70,15 @@ EOF
     exit 0
 fi
 
-# Check if available version exists (not empty)
-if [ -z "$AVAILABLE_VERSION" ]; then
-    qm_log_error "settings" "$SCRIPT_NAME" "No available version found in package list"
-    cat << EOF
-{
-    "status": "error",
-    "message": "No available version found. Try running 'Check for Updates' first.",
-    "package": "$PACKAGE_TO_UPGRADE",
-    "current_version": "$CURRENT_VERSION",
-    "timestamp": "$(date -Iseconds)"
-}
-EOF
-    exit 0
-fi
-
 # Perform the upgrade
 qm_log_info "settings" "$SCRIPT_NAME" "Starting upgrade from $CURRENT_VERSION to $AVAILABLE_VERSION"
+qm_log_debug "settings" "$SCRIPT_NAME" "Running: opkg upgrade $PACKAGE_TO_UPGRADE"
 
-# Use opkg install with force flags to avoid interactive prompts
-# --force-reinstall: Allow reinstalling same version
-# --force-overwrite: Overwrite files from other packages
-# --force-depends: Ignore dependency errors
-qm_log_debug "settings" "$SCRIPT_NAME" "Running: opkg install --force-reinstall --force-overwrite $PACKAGE_TO_UPGRADE"
-
-# Set timeout to prevent hanging (120 seconds = 2 minutes)
-TIMEOUT=120
-qm_log_debug "settings" "$SCRIPT_NAME" "Upgrade timeout set to ${TIMEOUT} seconds"
-
-# Run with timeout and capture output
-UPGRADE_OUTPUT=$(timeout $TIMEOUT opkg install --force-reinstall --force-overwrite "$PACKAGE_TO_UPGRADE" 2>&1)
+UPGRADE_OUTPUT=$(opkg upgrade "$PACKAGE_TO_UPGRADE" 2>&1)
 UPGRADE_EXIT_CODE=$?
 
 qm_log_debug "settings" "$SCRIPT_NAME" "Upgrade exit code: $UPGRADE_EXIT_CODE"
 qm_log_debug "settings" "$SCRIPT_NAME" "Upgrade output: $UPGRADE_OUTPUT"
-
-# Check for timeout (exit code 124)
-if [ $UPGRADE_EXIT_CODE -eq 124 ]; then
-    qm_log_error "settings" "$SCRIPT_NAME" "Upgrade timed out after ${TIMEOUT} seconds"
-    cat << EOF
-{
-    "status": "error",
-    "message": "Upgrade operation timed out",
-    "package": "$PACKAGE_TO_UPGRADE",
-    "current_version": "$CURRENT_VERSION",
-    "available_version": "$AVAILABLE_VERSION",
-    "exit_code": $UPGRADE_EXIT_CODE,
-    "error": "Operation timed out after ${TIMEOUT} seconds. This may indicate network issues or hung process.",
-    "timestamp": "$(date -Iseconds)"
-}
-EOF
-    qm_log_info "settings" "$SCRIPT_NAME" "Upgrade package script completed (timeout)"
-    exit 0
-fi
 
 if [ $UPGRADE_EXIT_CODE -eq 0 ]; then
     # Get new version after upgrade

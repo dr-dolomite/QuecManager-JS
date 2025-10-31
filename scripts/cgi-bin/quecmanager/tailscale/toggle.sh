@@ -28,6 +28,11 @@ fi
 
 # Execute the action
 if [ "$action" = "up" ]; then
+
+    # Set enabled to 1
+    uci set tailscale.settings.enabled='1'
+    # Commit the changes
+    uci commit tailscale
     # Start Tailscale service
     if command -v service >/dev/null 2>&1; then
         service tailscale start >/dev/null 2>&1
@@ -37,7 +42,7 @@ if [ "$action" = "up" ]; then
         echo '{"status":"error","action":"up","message":"Failed to start Tailscale","error":"Service command not found"}'
         exit 1
     fi
-    
+
     if [ $? -eq 0 ]; then
         echo '{"status":"success","action":"up","message":"Tailscale service has been started successfully."}'
     else
@@ -45,6 +50,11 @@ if [ "$action" = "up" ]; then
         exit 1
     fi
 elif [ "$action" = "down" ]; then
+
+    # Set enabled to 0
+    uci set tailscale.settings.enabled='0'
+    # Commit the changes
+    uci commit tailscale
     # Stop Tailscale service
     if command -v service >/dev/null 2>&1; then
         service tailscale stop >/dev/null 2>&1
@@ -54,7 +64,7 @@ elif [ "$action" = "down" ]; then
         echo '{"status":"error","action":"down","message":"Failed to stop Tailscale","error":"Service command not found"}'
         exit 1
     fi
-    
+
     if [ $? -eq 0 ]; then
         echo '{"status":"success","action":"down","message":"Tailscale service has been stopped successfully."}'
     else
