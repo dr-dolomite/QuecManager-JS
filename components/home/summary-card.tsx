@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Card,
   CardContent,
@@ -45,12 +45,14 @@ import { getAccessTech } from "@/constants/home/index";
 import { atCommandSender } from "@/utils/at-command";
 import { useToast } from "@/hooks/use-toast";
 import { useDistanceCalculation } from "@/hooks/use-distance-calculation";
-import { useConnectionUptime } from "@/hooks/use-connection-uptime";
-import { useDeviceUptime } from "@/hooks/use-device-uptime";
+
+// Import and use the WebSocket data context, setup the type inteface for the prop
+import { useWebSocketData } from "@/components/hoc/protected-route";
 
 interface SummaryCardProps {
   data: HomeData | null;
   isLoading: boolean;
+  websocketData?: any;
   dataConnectionState: string;
   connectionStateLoading: boolean;
   bytesSent: string;
@@ -63,6 +65,7 @@ interface SummaryCardProps {
 const SummaryCardComponent = ({
   data,
   isLoading,
+  websocketData: propWebsocketData,
   dataConnectionState,
   connectionStateLoading,
   bytesSent,
@@ -74,18 +77,37 @@ const SummaryCardComponent = ({
   const { toast } = useToast();
   const [isSwappingDialog, setIsSwappingDialog] = useState(false);
   const [isSwapping, setIsSwapping] = useState(false);
+  
+  // State to persist last known uptime data
+  const [lastUptimeData, setLastUptimeData] = useState<any>(null);
+  const [lastDeviceUptimeData, setLastDeviceUptimeData] = useState<any>(null);
+  
+  // Use prop if provided, otherwise fall back to context
 
+  const contextWebsocketData = useWebSocketData();
+  const websocketData = propWebsocketData || contextWebsocketData;
+  
   // Use distance calculation hook
   const { lteDistance, nrDistance, isUnitLoading } = useDistanceCalculation(
     data?.timeAdvance.lteTimeAdvance,
     data?.timeAdvance.nrTimeAdvance
   );
 
-  // Use connection uptime hook
-  const { uptimeData } = useConnectionUptime();
+  // Update last known uptime data when new data arrives
+  useEffect(() => {
+    // Should probably consider changing "type" to "channel" or vice versa on the other items for standardization
+    if (websocketData?.type === 'uptime') {
+      setLastUptimeData(websocketData);
+    }
+    // Should probably consider changing "type" to "channel" or vice versa on the other items for standardization
+    if (websocketData?.type === 'device_uptime') {
+      setLastDeviceUptimeData(websocketData);
+    }
+  }, [websocketData]);
 
-  // Use device uptime hook
-  const { uptimeData: deviceUptimeData } = useDeviceUptime();
+  // Use last known data to prevent flickering
+  const uptimeData = lastUptimeData;
+  const deviceUptimeData = lastDeviceUptimeData;
 
   // Calculate temperature progress (0-100°C scale)
   const getTemperatureProgress = (temp: string | undefined): number => {

@@ -59,11 +59,21 @@ echo "? Connection limits: 1000 messages per direction"
 
 # Start websocat server using exec to replace the shell process
 # This prevents the script from blocking and allows procd to manage it properly
-exec websocat -E -t \
+# exec websocat -E -t \
+#     --max-messages-rev 1000 \
+#     --max-messages 1000 \
+#     --ping-interval 10 \
+#     --ping-timeout 30 \
+#     ws-l:$BIND_ADDRESS:$PORT \
+#     broadcast:mirror: \
+#     2>&1 | tee "$LOG_FILE"
+exec websocat -E -k -t \
+    --pkcs12-der="/root/output.pkcs12" \
+    --pkcs12-passwd "password" \
     --max-messages-rev 1000 \
     --max-messages 1000 \
     --ping-interval 10 \
     --ping-timeout 30 \
-    ws-l:$BIND_ADDRESS:$PORT \
+    wss-l:$BIND_ADDRESS:$PORT \
     broadcast:mirror: \
     2>&1 | tee "$LOG_FILE"

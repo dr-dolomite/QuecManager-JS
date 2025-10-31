@@ -1,3 +1,8 @@
+/** NOTE THIS FILE IS DEPRECATED DUE TO WEBSOCKET INCORPORATION AND CAN BE DELETED AT CONVENIENCE - IM LEAVING IN PLACE FOR REFERENCE */
+/** NOTE THIS FILE IS DEPRECATED DUE TO WEBSOCKET INCORPORATION AND CAN BE DELETED AT CONVENIENCE - IM LEAVING IN PLACE FOR REFERENCE */
+/** NOTE THIS FILE IS DEPRECATED DUE TO WEBSOCKET INCORPORATION AND CAN BE DELETED AT CONVENIENCE - IM LEAVING IN PLACE FOR REFERENCE */
+/** NOTE THIS FILE IS DEPRECATED DUE TO WEBSOCKET INCORPORATION AND CAN BE DELETED AT CONVENIENCE - IM LEAVING IN PLACE FOR REFERENCE */
+/** NOTE THIS FILE IS DEPRECATED DUE TO WEBSOCKET INCORPORATION AND CAN BE DELETED AT CONVENIENCE - IM LEAVING IN PLACE FOR REFERENCE */
 import { useState, useEffect, useRef, useCallback } from 'react';
 
 interface MemoryData {
@@ -135,7 +140,7 @@ export const useMemoryMonitor = (): UseMemoryMonitorReturn => {
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
             // Use 192.168.224.1 instead of localhost
             const host = window.location.hostname === 'localhost' ? '192.168.224.1' : window.location.hostname;
-            const wsUrl = `${protocol}//${host}:8838`;
+            const wsUrl = `${protocol}//${host}:8838/old-mems`;
 
             // Connect to websocat server
             ws.current = new WebSocket(wsUrl);
