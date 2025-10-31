@@ -22,7 +22,7 @@ import {
   ArrowUpDown,
   ListFilter,
 } from "lucide-react";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useNetworkInterpretations } from "@/hooks/use-network-interpretations";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -214,14 +214,6 @@ const NetworkInsights = () => {
     <div className="flex min-h-screen w-full flex-col">
       <div className="flex flex-col sm:gap-4 sm:py-4 sm:pl-14">
         <div className="grid flex-1 items-start gap-4 p-4 sm:px-6 sm:py-0 md:gap-8">
-          {error && (
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>
-                Failed to load network insights: {error}
-              </AlertDescription>
-            </Alert>
-          )}
           <Tabs value={activeTab} onValueChange={setActiveTab}>
             <div className="flex items-center">
               <TabsList>
@@ -339,6 +331,17 @@ const NetworkInsights = () => {
                 </Button>
               </div>
             </div>
+            {error && (
+              <Alert variant="destructive" className="my-4">
+                <div className="flex items-center gap-x-2">
+                  <AlertCircle className="size-5" />
+                  <AlertTitle>
+                    Failed to load network insights: {error}
+                  </AlertTitle>
+                </div>
+              </Alert>
+            )}
+
             <TabsContent value="all">
               <Card>
                 <CardHeader>

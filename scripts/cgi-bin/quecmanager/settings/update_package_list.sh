@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# QuecManager Package Update Script (Optimized)
+# QuecManager Package Update Script (Optimized with Locking)
 # Updates the package list from repositories with smart caching
 
 # Load centralized logging
@@ -8,8 +8,10 @@
 
 # Configuration
 CACHE_FILE="/tmp/opkg_last_update"
+LOCK_FILE="/var/lock/opkg_update.lock"
 CACHE_MAX_AGE=300  # 5 minutes in seconds (adjust as needed)
 UPDATE_TIMEOUT=90
+LOCK_TIMEOUT=95    # Slightly longer than UPDATE_TIMEOUT
 
 SCRIPT_NAME="update_package_list"
 
@@ -39,6 +41,14 @@ send_json_response() {
     "output": "'"$output_escaped"'"')
 }
 EOF
+}
+
+# Cleanup function to remove lock on exit
+cleanup_lock() {
+    if [ -f "$LOCK_FILE" ]; then
+        rm -f "$LOCK_FILE"
+        qm_log_debug "settings" "$SCRIPT_NAME" "Lock file removed"
+    fi
 }
 
 # Set content type for JSON response
@@ -85,6 +95,42 @@ if [ -f "$CACHE_FILE" ] && [ $FORCE_UPDATE -eq 0 ]; then
     fi
 fi
 
+# Try to acquire lock with timeout
+LOCK_ACQUIRED=0
+LOCK_WAIT_START=$(date +%s)
+
+while [ $LOCK_ACQUIRED -eq 0 ]; do
+    # Try to create lock file atomically
+    if mkdir "$LOCK_FILE" 2>/dev/null; then
+        LOCK_ACQUIRED=1
+        qm_log_debug "settings" "$SCRIPT_NAME" "Lock acquired"
+        # Set trap to clean up lock on exit
+        trap cleanup_lock EXIT INT TERM
+    else
+        # Check if lock is stale (older than LOCK_TIMEOUT)
+        if [ -d "$LOCK_FILE" ]; then
+            LOCK_AGE=$((CURRENT_TIME - $(stat -c %Y "$LOCK_FILE" 2>/dev/null || echo $CURRENT_TIME)))
+            
+            if [ "$LOCK_AGE" -gt "$LOCK_TIMEOUT" ]; then
+                qm_log_debug "settings" "$SCRIPT_NAME" "Removing stale lock (age: ${LOCK_AGE}s)"
+                rm -rf "$LOCK_FILE"
+                continue
+            fi
+        fi
+        
+        # Check if we've been waiting too long
+        LOCK_WAIT_TIME=$(($(date +%s) - LOCK_WAIT_START))
+        if [ "$LOCK_WAIT_TIME" -gt 10 ]; then
+            qm_log_error "settings" "$SCRIPT_NAME" "Failed to acquire lock after ${LOCK_WAIT_TIME}s - another update is in progress"
+            send_json_response "error" "Another update is currently in progress. Please try again in a moment." 1 "Lock timeout - another process is updating" false 0
+            exit 1
+        fi
+        
+        qm_log_debug "settings" "$SCRIPT_NAME" "Waiting for lock (${LOCK_WAIT_TIME}s)..."
+        sleep 1
+    fi
+done
+
 # Run opkg update
 qm_log_debug "settings" "$SCRIPT_NAME" "Running: timeout $UPDATE_TIMEOUT opkg update"
 
@@ -114,4 +160,6 @@ case $UPDATE_EXIT_CODE in
 esac
 
 qm_log_info "settings" "$SCRIPT_NAME" "Update package list script completed"
+
+# Lock cleanup happens automatically via trap
 exit 0

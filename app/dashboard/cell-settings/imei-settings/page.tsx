@@ -252,8 +252,8 @@ const IMEIManglingPage = () => {
           </CardHeader>
           <CardContent>
             {isProfileControlled && activeProfile && (
-              <Alert className="mb-6">
-                <LockIcon className="h-4 w-4" color="orange" />
+              <Alert className="mb-6" variant="warning">
+                <LockIcon className="h-4 w-4" />
                 <AlertTitle>Profile Controlled</AlertTitle>
                 <AlertDescription>
                   IMEI is currently being managed by profile "

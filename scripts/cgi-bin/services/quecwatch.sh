@@ -94,6 +94,63 @@ EOF
     log_message "Status updated: $status - $message (latency: ${latency}ms)" "debug"
 }
 
+# Function to preserve connection monitor state before reboot
+preserve_connection_monitor_state() {
+    # Check if connection monitor daemon is running
+    if ! pgrep -f "connection_monitor_daemon.sh" >/dev/null 2>&1; then
+        return 0
+    fi
+    
+    log_message "Connection monitor is active, preserving disconnect state for post-reboot tracking" "info"
+    
+    local DISCONNECT_LOG="/tmp/quecmanager/connection_disconnect.log"
+    local PERSISTENT_STATE="/etc/quecmanager_connection_monitor_state"
+    local disconnect_time=""
+    local reboot_time=$(date '+%Y-%m-%d %H:%M:%S')
+    local reboot_epoch=$(date +%s)
+    
+    # Check if monitor already has a disconnect log (reached 5/5 failures)
+    if [ -f "$DISCONNECT_LOG" ]; then
+        disconnect_time=$(cat "$DISCONNECT_LOG" 2>/dev/null)
+        log_message "Using existing disconnect time from monitor: $disconnect_time" "info"
+    else
+        # Monitor hasn't reached 5/5 yet, calculate approximate disconnect time
+        # Use QuecWatch's own failure detection time
+        log_message "Monitor hasn't marked disconnect yet, calculating approximate time" "info"
+        
+        # Try to estimate based on current retry count and check interval
+        local check_interval=$(uci get quecmanager.quecwatch.check_interval 2>/dev/null || echo "60")
+        local current_retry=$CURRENT_RETRIES
+        
+        # Calculate approximate time when issues started
+        # Assume issues started at (current_time - (retries * check_interval))
+        local estimated_downtime=$((current_retry * check_interval))
+        local disconnect_epoch=$((reboot_epoch - estimated_downtime))
+        
+        # Convert epoch to readable format
+        disconnect_time=$(date -d "@$disconnect_epoch" '+%Y-%m-%d %H:%M:%S' 2>/dev/null)
+        
+        # Fallback if date conversion fails
+        if [ -z "$disconnect_time" ]; then
+            disconnect_time=$(date '+%Y-%m-%d %H:%M:%S')
+            log_message "Date conversion failed, using current time as fallback" "warn"
+        else
+            log_message "Calculated approximate disconnect time: $disconnect_time (based on $current_retry retries × ${check_interval}s interval)" "info"
+        fi
+    fi
+    
+    # Save state to persistent storage
+    cat > "$PERSISTENT_STATE" <<EOF
+disconnect_time=$disconnect_time
+reboot_time=$reboot_time
+reboot_epoch=$reboot_epoch
+quecwatch_reboot=1
+EOF
+    chmod 644 "$PERSISTENT_STATE"
+    
+    log_message "Saved connection monitor state: disconnect=$disconnect_time, reboot=$reboot_time" "info"
+}
+
 # Atomic lock functions for token operations
 acquire_token_lock() {
     local attempt=0
@@ -769,6 +826,9 @@ main() {
                             log_message "SIM failover failed, system will reboot" "error"
                             update_status "rebooting" "SIM failover failed, system will reboot"
                             
+                            # Preserve connection monitor state before reboot
+                            preserve_connection_monitor_state
+                            
                             # Reset retry counter before reboot
                             CURRENT_RETRIES=0
                             save_retry_count $CURRENT_RETRIES
@@ -780,6 +840,9 @@ main() {
                     else
                         log_message "Auto SIM failover disabled, system will reboot" "error"
                         update_status "rebooting" "Maximum retries reached, system will reboot"
+                        
+                        # Preserve connection monitor state before reboot
+                        preserve_connection_monitor_state
                         
                         # Reset retry counter before reboot
                         CURRENT_RETRIES=0

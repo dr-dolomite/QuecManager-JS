@@ -7,8 +7,6 @@ import TailScaleActive from "./tailscale-active";
 import TailscaleInactive from "./tailscale-inactive";
 import TailscaleSettingsLoading from "./tailscale-loading";
 import { useTailscaleStatus } from "@/hooks/use-tailscale-status";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertCircle } from "lucide-react";
 import TailscaleError from "./tailscale-error";
 import TailscaleAuth from "./tailscale-auth";
 

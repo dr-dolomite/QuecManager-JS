@@ -276,7 +276,8 @@ process_single_command() {
     local escaped_cmd=$(escape_json "$cmd")
     local escaped_output=$(escape_json "$output")
     
-    if [ $cmd_status -eq 0 ] && [ -n "$output" ]; then
+    # Check exit status only - failed commands also produce output
+    if [ $cmd_status -eq 0 ]; then
         echo "{\"command\":\"${escaped_cmd}\",\"response\":\"${escaped_output}\",\"status\":\"success\"}"
     else
         echo "{\"command\":\"${escaped_cmd}\",\"response\":\"${escaped_output}\",\"status\":\"error\"}"
@@ -319,7 +320,8 @@ process_batch_commands() {
         local escaped_cmd=$(escape_json "$cmd")
         local escaped_output=$(escape_json "$output")
         
-        if [ $cmd_status -eq 0 ] && [ -n "$output" ]; then
+        # Check exit status only - failed commands also produce output
+        if [ $cmd_status -eq 0 ]; then
             printf '{"command":"%s","response":"%s","status":"success"}' \
                 "${escaped_cmd}" "${escaped_output}"
         else

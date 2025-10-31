@@ -12,7 +12,7 @@ arp -a | while IFS= read -r line; do
         hostname=$(echo "$line" | awk '{print $1}')
         ip=$(echo "$line" | awk -F '[()]' '{print $2}')
         mac=$(echo "$line" | awk '{print $4}')
-
+        
         # Skip entries without valid MAC addresses
         if [ "$mac" = "<incomplete>" ]; then
             continue
@@ -27,7 +27,7 @@ arp -a | while IFS= read -r line; do
         echo "$hostname:$ip:$mac" >> "$temp_file"
     fi
 done
-echo "$(ip route | awk '/default/ {print $3}'):$(ip route | awk '/default/ {print $3}'):ff:ff:ff:ff:ff:ff" >> "$temp_file"
+
 # Initialize JSON array
 echo -n "["
 

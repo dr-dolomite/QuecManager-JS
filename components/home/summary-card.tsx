@@ -45,6 +45,8 @@ import { getAccessTech } from "@/constants/home/index";
 import { atCommandSender } from "@/utils/at-command";
 import { useToast } from "@/hooks/use-toast";
 import { useDistanceCalculation } from "@/hooks/use-distance-calculation";
+import { useConnectionUptime } from "@/hooks/use-connection-uptime";
+import { useDeviceUptime } from "@/hooks/use-device-uptime";
 
 interface SummaryCardProps {
   data: HomeData | null;
@@ -57,6 +59,14 @@ interface SummaryCardProps {
   bands: Band[] | null;
   onDataRefresh?: () => void;
 }
+
+const SCS_MAP = [
+  15,
+  30,
+  60,
+  120,
+  240
+]
 
 const SummaryCardComponent = ({
   data,
@@ -78,6 +88,12 @@ const SummaryCardComponent = ({
     data?.timeAdvance.lteTimeAdvance,
     data?.timeAdvance.nrTimeAdvance
   );
+
+  // Use connection uptime hook
+  const { uptimeData } = useConnectionUptime();
+
+  // Use device uptime hook
+  const { uptimeData: deviceUptimeData } = useDeviceUptime();
 
   // Calculate temperature progress (0-100°C scale)
   const getTemperatureProgress = (temp: string | undefined): number => {
@@ -270,6 +286,42 @@ const SummaryCardComponent = ({
           )}
         </div>
 
+        {/* Device Internet Connection Uptime */}
+        <div className="flex items-center justify-between">
+          <p>Connection Uptime</p>
+          {isLoading ? (
+            <Skeleton className="h-4 w-[100px]" />
+          ) : (
+            <div className="flex items-center gap-x-1">
+              <Tooltip>
+                <TooltipTrigger>
+                  <Info className="w-4 h-4 mr-0.5" />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p className="font-bold">
+                    {uptimeData?.is_connected ? "Connected" : "Disconnected"}
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+              <p className="font-bold">
+                {uptimeData?.uptime_formatted || "N/A"}
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Device Uptime */}
+        <div className="flex items-center justify-between">
+          <p>Device Uptime</p>
+          {isLoading ? (
+            <Skeleton className="h-4 w-[100px]" />
+          ) : (
+            <p className="font-bold">
+              {deviceUptimeData?.uptime_formatted || "N/A"}
+            </p>
+          )}
+        </div>
+
         <Separator className="my-1 w-full" />
 
         {/* SIM Slot */}
@@ -386,7 +438,15 @@ const SummaryCardComponent = ({
             <p className="font-bold">{data?.connection.apn}</p>
           )}
         </div>
-
+        
+        <div className="flex items-center justify-between">
+          <p>PCC SCS</p>
+          {isLoading ? (
+            <Skeleton className="h-4 w-[100px]" />
+          ) : (
+            <p className="font-bold">{SCS_MAP[data?.cellularInfo?.scs || 0] || '-'} kHz </p>
+          )}
+        </div>  
         <Separator className="my-1 w-full" />
 
         {/* Phone Number */}
