@@ -30,10 +30,7 @@ import { Loader2 } from "lucide-react";
 
 
 interface DNSCardProps {
-  passthrough: string | null;
-  selectedMac: string | null;
-  modemProtocol: string | null;
-  dnsProxy: string | null;
+  passthrough: string | null
 }
 interface Options {
   mode: string | null;

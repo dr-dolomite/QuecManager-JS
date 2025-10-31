@@ -473,7 +473,7 @@ const ConnectivitySettingsPage = () => {
       </Card>
 
       <EthernetCard/>
-      <DNSCard currentSettings={currentSettings} />
+      <DNSCard passthrough={currentSettings.passthrough} />
       <AlertDialog open={showRebootDialog} onOpenChange={setShowRebootDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
