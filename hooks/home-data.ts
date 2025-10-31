@@ -288,6 +288,11 @@ const useHomeData = () => {
             getNetworkType(rawData[13]?.response),
             { "NR5G-NSA": 3, LTE: 5, "NR5G-SA": 5 }
           ),
+          scs: extractValueByNetworkType(
+            rawData[10]?.response,
+            getNetworkType(rawData[13]?.response),
+            { "NR5G-SA": 15, "NR5G-NSA": 10, LTE: 0 },
+          ),
           signalQuality: getSignalQuality(rawData[19].response) || "Unknown",
         },
         currentBands: {

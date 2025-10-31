@@ -42,6 +42,7 @@ export interface CellularInfoData {
   earfcn?: string;
   mcc?: string;
   mnc?: string;
+  scs?: string;
   signalQuality?: string;
 }
 
