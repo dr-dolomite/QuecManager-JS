@@ -143,7 +143,7 @@ const DNSCard = (
   return (
     <Card>
       <CardHeader>
-        <CardTitle>DNS Setings</CardTitle>
+        <CardTitle>DNS Settings</CardTitle>
         <CardDescription>
           Configure DNS settings for your network clients
         </CardDescription>
