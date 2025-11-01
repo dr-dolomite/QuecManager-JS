@@ -11,10 +11,11 @@ interface UseBandwidthMonitorReturn {
 }
 
 /**
- * Custom hook for monitoring bandwidth data via WebSocket connection.
+ * Custom hook for monitoring bandwidth usage via WebSocket connection.
  * 
- * Connects to ws://192.168.224.1:8838 (websocat server) to receive real-time
- * bandwidth monitoring data and maintains a 30-second rolling history of 
+ * Connects to the websocat server on port 8838 using the current hostname
+ * (works with both direct IP access and Tailscale) to receive real-time
+ * bandwidth monitoring data and maintains a rolling history.
  * download and upload speeds in BITS per second.
  * 
  * Data is converted from bytes/sec to bits/sec by multiplying by 8.
@@ -178,11 +179,9 @@ export const useBandwidthMonitor = (): UseBandwidthMonitorReturn => {
             // Only connect if no existing connection (FIXED - prevents connection loops)
             if (ws.current) {
                 if (ws.current.readyState === WebSocket.CONNECTING) {
-                    console.log('WebSocket already connecting, aborting...');
                     return;
                 }
                 if (ws.current.readyState === WebSocket.OPEN) {
-                    console.log('WebSocket already connected, aborting new connection...');
                     return; // Don't close existing good connection
                 }
             }
@@ -190,13 +189,19 @@ export const useBandwidthMonitor = (): UseBandwidthMonitorReturn => {
             setConnectionStatus('Connecting...');
             setError(null);
 
+            // Dynamically get the WebSocket URL based on current window location
+            // This works whether accessing via 192.168.224.1 or Tailscale IP
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            // Use 192.168.224.1 instead of localhost
+            const host = window.location.hostname === 'localhost' ? '192.168.224.1' : window.location.hostname;
+            const wsUrl = `${protocol}//${host}:8838`;
+
             // Connect to websocat server (no path needed)
-            ws.current = new WebSocket('ws://192.168.224.1:8838');
+            ws.current = new WebSocket(wsUrl);
 
             // Set connection timeout
             connectionTimeoutRef.current = window.setTimeout(() => {
                 if (ws.current?.readyState === WebSocket.CONNECTING) {
-                    console.log('WebSocket connection timeout');
                     ws.current.close();
                     setError('Connection timeout');
                     setConnectionStatus('Timeout');
@@ -204,8 +209,6 @@ export const useBandwidthMonitor = (): UseBandwidthMonitorReturn => {
             }, 10000); // 10 second timeout
 
             ws.current.onopen = () => {
-                console.log('Bandwidth monitor WebSocket connected to websocat server');
-
                 // Clear connection timeout
                 if (connectionTimeoutRef.current) {
                     clearTimeout(connectionTimeoutRef.current);
@@ -277,8 +280,6 @@ export const useBandwidthMonitor = (): UseBandwidthMonitorReturn => {
                         }
                     } catch (jsonError) {
                         // Handle plain text messages that aren't JSON
-                        console.log('Received text message:', message);
-
                         // Try to parse as simple format: "download:123,upload:456"
                         const match = message.match(/download:(\d+(?:\.\d+)?),upload:(\d+(?:\.\d+)?)/);
                         if (match) {
@@ -299,7 +300,6 @@ export const useBandwidthMonitor = (): UseBandwidthMonitorReturn => {
             };
 
             ws.current.onclose = (event: CloseEvent) => {
-                console.log(`Bandwidth monitor WebSocket disconnected: Code=${event.code}, Reason="${event.reason}", WasClean=${event.wasClean}`);
                 setIsConnected(false);
 
                 // Clear heartbeat
@@ -394,7 +394,6 @@ export const useBandwidthMonitor = (): UseBandwidthMonitorReturn => {
     }, []);
 
     const reconnect = useCallback(() => {
-        console.log('Manual reconnect initiated...');
         disconnect();
         setTimeout(() => {
             setReconnectAttempts(0);

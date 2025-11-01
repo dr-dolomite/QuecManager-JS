@@ -103,11 +103,13 @@ const BandsAccordionComponent = ({ bands, isLoading }: BandsAccordionProps) => {
                   <AccordionTrigger className="font-bold">
                     <div className="flex items-center gap-2">
                       {/* {formatBandName(band.bandNumber)} */}
-                      <Badge className={`text-xs rounded-full ${
-                        isNR5G(band.bandNumber)
-                          ? "bg-blue-600 hover:bg-blue-800"
-                          : "bg-orange-600 hover:bg-orange-800"
-                      }`}>
+                      <Badge
+                        className={`text-xs rounded-full ${
+                          isNR5G(band.bandNumber)
+                            ? "bg-blue-600 hover:bg-blue-800"
+                            : "bg-orange-600 hover:bg-orange-800"
+                        }`}
+                      >
                         {isNR5G(band.bandNumber) ? "NR" : "LTE"}
                       </Badge>
                       <p className="font-bold">{band.bandNumber}</p>
@@ -116,7 +118,9 @@ const BandsAccordionComponent = ({ bands, isLoading }: BandsAccordionProps) => {
                   <AccordionContent className="grid gap-2 text-balance">
                     {/* RSRP */}
                     <div className="flex items-center justify-between">
-                      <p className="semibold">RSRP</p>
+                      <p className="semibold">
+                        {isNR5G(band.bandNumber) ? "NR_RSRP" : "RSRP"}
+                      </p>
                       <div className="flex items-center">
                         <Progress
                           value={rsrpPercentage}
@@ -132,7 +136,9 @@ const BandsAccordionComponent = ({ bands, isLoading }: BandsAccordionProps) => {
 
                     {/* RSRQ */}
                     <div className="flex items-center justify-between">
-                      <p className="semibold">RSRQ</p>
+                      <p className="semibold">
+                        {isNR5G(band.bandNumber) ? "NR_RSRQ" : "RSRQ"}
+                      </p>
                       <div className="flex items-center">
                         <Progress
                           value={rsrqPercentage}
@@ -149,7 +155,7 @@ const BandsAccordionComponent = ({ bands, isLoading }: BandsAccordionProps) => {
                     {/* SINR / NR-SNR */}
                     <div className="flex items-center justify-between">
                       <p className="semibold">
-                        {isNR5G(band.bandNumber) ? "NR-SNR" : "SINR"}
+                        {isNR5G(band.bandNumber) ? "NR_SNR" : "SINR"}
                       </p>
                       <div className="flex items-center">
                         <Progress

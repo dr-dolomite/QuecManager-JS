@@ -40,6 +40,7 @@ import GithubButtonToast from "@/components/github-button";
 import { atCommandSender } from "@/utils/at-command";
 import { PowerIcon } from "lucide-react";
 import EthernetCard from "@/components/home/ethernet-card";
+import DNSCard from "@/components/pages/dns-card";
 
 interface MacAddress {
   mac: string;
@@ -472,7 +473,7 @@ const ConnectivitySettingsPage = () => {
       </Card>
 
       <EthernetCard/>
-
+      <DNSCard passthrough={currentSettings.passthrough} />
       <AlertDialog open={showRebootDialog} onOpenChange={setShowRebootDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>

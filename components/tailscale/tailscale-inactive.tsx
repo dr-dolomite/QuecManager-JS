@@ -34,10 +34,9 @@ import {
 
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Button } from "../ui/button";
-import { ArrowUpRightIcon, RefreshCcwIcon, Trash2Icon } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { RefreshCcwIcon, Trash2Icon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface TailscaleInactiveProps {
