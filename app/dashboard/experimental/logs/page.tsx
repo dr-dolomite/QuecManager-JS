@@ -31,7 +31,7 @@ import {
   CheckCircle,
   XCircle,
 } from "lucide-react";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Alert, AlertTitle } from "@/components/ui/alert";
 
 // Types
 interface LogEntry {
@@ -165,7 +165,14 @@ const LogsPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [selectedCategory, selectedScript, selectedLevel, searchTerm, maxLines, sortOrder]);
+  }, [
+    selectedCategory,
+    selectedScript,
+    selectedLevel,
+    searchTerm,
+    maxLines,
+    sortOrder,
+  ]);
 
   // Auto-refresh functionality
   const [autoRefresh, setAutoRefresh] = useState<boolean>(false);
@@ -441,8 +448,10 @@ const LogsPage = () => {
       {/* Error Display */}
       {error && (
         <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>{error}</AlertDescription>
+          <div className="flex items-center gap-x-2">
+            <AlertCircle className="size-5" />
+            <AlertTitle>{error}</AlertTitle>
+          </div>
         </Alert>
       )}
 
@@ -454,8 +463,9 @@ const LogsPage = () => {
             {selectedScript ? (
               <>
                 Showing {logs.length} of {totalLogs} entries from{" "}
-                {selectedScript} ({sortOrder === "newest-first" ? "newest first" : "oldest first"})
-                {searchTerm && ` (filtered by "${searchTerm}")`}
+                {selectedScript} (
+                {sortOrder === "newest-first" ? "newest first" : "oldest first"}
+                ){searchTerm && ` (filtered by "${searchTerm}")`}
               </>
             ) : (
               "Select a category and script to view logs"

@@ -163,8 +163,8 @@ const ScheduledLockingCard = ({
       </CardHeader>
       <CardContent>
         {scheduleData.enabled && (
-          <Alert className="mb-6">
-            <LockIcon className="h-4 w-4" color="orange" />
+          <Alert className="mb-6" variant="warning">
+            <LockIcon className="size-5 " />
             <AlertTitle>Scheduled Cell Locking Active</AlertTitle>
             <AlertDescription>
               Cell locking is currently being managed by the scheduler. Manual

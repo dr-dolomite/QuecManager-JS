@@ -12,12 +12,6 @@ import {
 } from "@/components/ui/card";
 
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-
-import {
   HoverCard,
   HoverCardContent,
   HoverCardTrigger,
@@ -41,6 +35,27 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+
 import { Button } from "@/components/ui/button";
 import {
   AlertCircle,
@@ -48,25 +63,21 @@ import {
   Grid2X2,
   Loader2,
   List,
-  MoreVertical,
   PauseCircle,
-  PlayCircle,
-  PencilLine,
   Save,
   Trash2Icon,
   UserRoundPen,
   RefreshCcw,
-  Play,
-  Pause,
-  MenuIcon,
+  MoreHorizontalIcon,
+  Edit3Icon,
+  PauseCircleIcon,
+  PlayCircleIcon,
 } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Separator } from "@/components/ui/separator";
-import { cn } from "@/lib/utils";
 import { InfoCircledIcon } from "@radix-ui/react-icons";
 import confetti from "canvas-confetti";
 
@@ -633,13 +644,6 @@ const QuecProfilesPage = () => {
   // DELETE PROFILE FUNCTION
   const deleteProfile = async (iccid: string, name: string) => {
     try {
-      // Confirm deletion with user
-      if (
-        !window.confirm(`Are you sure you want to delete profile "${name}"?`)
-      ) {
-        return;
-      }
-
       const response = await fetch(
         "/cgi-bin/quecmanager/profiles/quec_profile_delete.sh",
         {
@@ -846,14 +850,12 @@ const QuecProfilesPage = () => {
         profileStatus.message.includes("No profile exists")
       ) {
         return (
-          <Alert className="mb-1" variant="default">
-            <AlertCircle className="h-4 w-4" color="orange" />
+          <Alert className="mb-1" variant="warning">
+            <AlertCircle className="size-5" />
             <AlertTitle>No Profile Found</AlertTitle>
-            <AlertDescription className="flex justify-between items-center">
-              <span>
-                No profile exists for the current SIM card. Create a profile to
-                configure your network settings.
-              </span>
+            <AlertDescription>
+              No profile exists for the current SIM card. Create a profile to
+              configure your network settings.
             </AlertDescription>
           </Alert>
         );
@@ -864,8 +866,8 @@ const QuecProfilesPage = () => {
     // Handle paused status
     else if (profileStatus.status === "paused") {
       return (
-        <Alert className="mb-1" variant="default">
-          <PauseCircle className="h-4 w-4" color="orange" />
+        <Alert className="mb-1" variant="warning">
+          <PauseCircle className="size-5" />
           <AlertTitle>Profile Paused</AlertTitle>
           <AlertDescription className="flex justify-between items-center">
             <span>
@@ -922,16 +924,16 @@ const QuecProfilesPage = () => {
     return (
       <Alert
         className="mb-1"
-        variant={profileStatus.status === "error" ? "destructive" : "default"}
+        variant={profileStatus.status === "error" ? "destructive" : "success"}
       >
         {profileStatus.status === "applying" ? (
-          <Loader2 className="h-4 w-4 animate-spin" />
+          <Loader2 className="size-5 animate-spin" />
         ) : profileStatus.status === "error" ? (
-          <AlertCircle className="h-4 w-4" color="orange" />
+          <AlertCircle className="size-5" />
         ) : profileStatus.status === "rebooting" ? (
-          <RefreshCcw className="h-4 w-4 animate-spin" />
+          <RefreshCcw className="size-5 animate-spin" />
         ) : (
-          <CheckCircle2 className="h-4 w-4" color="green" />
+          <CheckCircle2 className="size-5" />
         )}
         <AlertTitle>{titleToShow}</AlertTitle>
         <AlertDescription className="flex justify-between items-center">
@@ -1128,11 +1130,10 @@ const QuecProfilesPage = () => {
                         <SelectValue placeholder="Network Type" />
                       </SelectTrigger>
                       <SelectContent>
+                        <SelectItem value="AUTO">AUTO</SelectItem>
                         <SelectItem value="LTE">LTE Only</SelectItem>
-                        <SelectItem value="NR5G">NR5G Only</SelectItem>
-                        <SelectItem value="LTE:NR5G">
-                          NR5G-NSA w/ LTE
-                        </SelectItem>
+                        <SelectItem value="NR5G">5G-SA Only</SelectItem>
+                        <SelectItem value="LTE:NR5G">5G-NSA Only</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -1276,67 +1277,100 @@ const QuecProfilesPage = () => {
                           {profile.name}
                         </CardTitle>
 
-                        <Popover>
-                          <PopoverTrigger>
-                            <MenuIcon className="h-4 w-4" />
-                          </PopoverTrigger>
-                          <PopoverContent className="flex flex-row items-center justify-center gap-x-3 p-2 w-36">
+                        <DropdownMenu modal={false}>
+                          <DropdownMenuTrigger asChild>
                             <Button
+                              variant="outline"
+                              aria-label="Open menu"
                               size="icon"
-                              className="text-primary-foreground"
-                              onClick={() => handleEditClick(profile)}
                             >
-                              <PencilLine className="h-4 w-4" />
+                              <MoreHorizontalIcon />
                             </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent
+                            align="end"
+                            className="[--radius:1rem]"
+                          >
+                            <DropdownMenuGroup>
+                              <DropdownMenuItem
+                                onClick={() => handleEditClick(profile)}
+                              >
+                                <Edit3Icon />
+                                Edit Profile
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() =>
+                                  toggleProfilePause(
+                                    profile.iccid,
+                                    profile.name,
+                                    profile.paused || "0"
+                                  )
+                                }
+                              >
+                                {profile.paused === "1" ? (
+                                  <PlayCircleIcon />
+                                ) : (
+                                  <PauseCircleIcon />
+                                )}
 
-                            <Button
-                              onClick={() =>
-                                toggleProfilePause(
-                                  profile.iccid,
-                                  profile.name,
-                                  profile.paused || "0"
-                                )
-                              }
-                              className="bg-accent text-accent-foreground hover:bg-secondary/90"
-                              size="icon"
-                            >
-                              {profile.paused === "1" ? (
-                                <>
-                                  <PlayCircle className="h-4 w-4" />
-                                </>
-                              ) : (
-                                <>
-                                  <PauseCircle className="h-4 w-4" />
-                                </>
-                              )}
-                            </Button>
-
-                            <Button
-                              variant="destructive"
-                              onClick={() =>
-                                deleteProfile(profile.iccid, profile.name)
-                              }
-                              size="icon"
-                            >
-                              <Trash2Icon className="h-4 w-4" />
-                            </Button>
-                          </PopoverContent>
-                        </Popover>
+                                {profile.paused === "1"
+                                  ? "Resume Profile"
+                                  : "Pause Profile"}
+                              </DropdownMenuItem>
+                            </DropdownMenuGroup>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuGroup>
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <DropdownMenuItem
+                                    className="text-destructive"
+                                    onSelect={(e) => e.preventDefault()}
+                                  >
+                                    <Trash2Icon />
+                                    Delete Profile
+                                  </DropdownMenuItem>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent className="max-w-sm">
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>
+                                      Are you absolutely sure?
+                                    </AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      This action cannot be undone. This will
+                                      permanently delete the profile{" "}
+                                      <span className="font-semibold">
+                                        {profile.name}{" "}
+                                      </span>
+                                      from the system.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>
+                                      Cancel
+                                    </AlertDialogCancel>
+                                    <AlertDialogAction
+                                      className="bg-destructive hover:bg-destructive/90 focus:ring-destructive/50"
+                                      onClick={() =>
+                                        deleteProfile(
+                                          profile.iccid,
+                                          profile.name
+                                        )
+                                      }
+                                    >
+                                      <Trash2Icon className="h-4 w-4" />
+                                      Delete Profile
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </DropdownMenuGroup>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
                       <div className="flex items-center">
                         <Badge variant="secondary" className="text-xs">
                           {formatNetworkType(profile.network_type)}
                         </Badge>
-
-                        {/* Paused Status Badge */}
-                        {profile.paused === "1" && (
-                          <Badge
-                            variant="outline"
-                            className="ml-2 bg-orange-500 hover:bg-orange-600"
-                          >
-                            Paused
-                          </Badge>
-                        )}
                       </div>
                     </CardHeader>
                     <CardContent>
@@ -1583,23 +1617,28 @@ const QuecProfilesPage = () => {
                           )}
                         </td>
                         <td className="p-4">
-                          <div>
-                            <Popover>
-                              <PopoverTrigger asChild>
-                                <Button variant="ghost">
-                                  <MenuIcon className="h-4 w-4" />
-                                </Button>
-                              </PopoverTrigger>
-                              <PopoverContent className="flex flex-row items-center justify-center gap-x-3 p-2 w-36">
-                                <Button
-                                  size="icon"
-                                  className="text-primary-foreground"
+                          <DropdownMenu modal={false}>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="outline"
+                                aria-label="Open menu"
+                                size="icon"
+                              >
+                                <MoreHorizontalIcon />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent
+                              align="end"
+                              className="[--radius:1rem]"
+                            >
+                              <DropdownMenuGroup>
+                                <DropdownMenuItem
                                   onClick={() => handleEditClick(profile)}
                                 >
-                                  <PencilLine className="h-4 w-4" />
-                                </Button>
-
-                                <Button
+                                  <Edit3Icon />
+                                  Edit Profile
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
                                   onClick={() =>
                                     toggleProfilePause(
                                       profile.iccid,
@@ -1607,32 +1646,66 @@ const QuecProfilesPage = () => {
                                       profile.paused || "0"
                                     )
                                   }
-                                  className="bg-accent text-accent-foreground hover:bg-secondary/90"
-                                  size="icon"
                                 >
                                   {profile.paused === "1" ? (
-                                    <>
-                                      <PlayCircle className="h-4 w-4" />
-                                    </>
+                                    <PlayCircleIcon />
                                   ) : (
-                                    <>
-                                      <PauseCircle className="h-4 w-4" />
-                                    </>
+                                    <PauseCircleIcon />
                                   )}
-                                </Button>
 
-                                <Button
-                                  variant="destructive"
-                                  onClick={() =>
-                                    deleteProfile(profile.iccid, profile.name)
-                                  }
-                                  size="icon"
-                                >
-                                  <Trash2Icon className="h-4 w-4" />
-                                </Button>
-                              </PopoverContent>
-                            </Popover>
-                          </div>
+                                  {profile.paused === "1"
+                                    ? "Resume Profile"
+                                    : "Pause Profile"}
+                                </DropdownMenuItem>
+                              </DropdownMenuGroup>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuGroup>
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <DropdownMenuItem
+                                      className="text-destructive"
+                                      onSelect={(e) => e.preventDefault()}
+                                    >
+                                      <Trash2Icon />
+                                      Delete Profile
+                                    </DropdownMenuItem>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent className="max-w-sm">
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>
+                                        Are you absolutely sure?
+                                      </AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                        This action cannot be undone. This will
+                                        permanently delete the profile{" "}
+                                        <span className="font-semibold">
+                                          {profile.name}{" "}
+                                        </span>
+                                        from the system.
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>
+                                        Cancel
+                                      </AlertDialogCancel>
+                                      <AlertDialogAction
+                                        className="bg-destructive hover:bg-destructive/90 focus:ring-destructive/50"
+                                        onClick={() =>
+                                          deleteProfile(
+                                            profile.iccid,
+                                            profile.name
+                                          )
+                                        }
+                                      >
+                                        <Trash2Icon className="h-4 w-4" />
+                                        Delete Profile
+                                      </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              </DropdownMenuGroup>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </td>
                       </tr>
                     ))

@@ -52,10 +52,10 @@ ulimit -u 2048 2>/dev/null || true  # Increase process limit
 echo "$$" > "$PID_FILE"
 
 echo "Starting websocat server - Basic broadcast mode..."
-echo "✓ Binding to ws://$BIND_ADDRESS:$PORT"
-echo "✓ Broadcasting enabled - messages sent to one client are mirrored to all"
-echo "✓ Ping/pong enabled with 30s timeout"
-echo "✓ Connection limits: 1000 messages per direction"
+echo "? Binding to ws://$BIND_ADDRESS:$PORT"
+echo "? Broadcasting enabled - messages sent to one client are mirrored to all"
+echo "? Ping/pong enabled with 30s timeout"
+echo "? Connection limits: 1000 messages per direction"
 
 # Start websocat server using exec to replace the shell process
 # This prevents the script from blocking and allows procd to manage it properly

@@ -27,7 +27,8 @@ interface UseMemoryMonitorReturn {
 /**
  * Custom hook for monitoring memory usage via WebSocket connection.
  * 
- * Connects to ws://192.168.224.1:8838 (websocat server) to receive real-time
+ * Connects to the websocat server on port 8838 using the current hostname
+ * (works with both direct IP access and Tailscale) to receive real-time
  * memory monitoring data and maintains a 5-minute rolling history.
  * 
  * Features:
@@ -56,6 +57,7 @@ export const useMemoryMonitor = (): UseMemoryMonitorReturn => {
     const HISTORY_DURATION_MS = 5 * 60 * 1000;
     const MAX_HISTORY_POINTS = 300; // 5 minutes at 1/sec
     const MIN_UPDATE_INTERVAL_MS = 1000; // Throttle updates to max 1 per second
+    const STORED_HISTORY_SIZE = 6; // Store last 6 data points for persistence
 
     const formatMemory = useCallback((bytes: number): string => {
         if (bytes === 0) return "0 Bytes";
@@ -104,24 +106,23 @@ export const useMemoryMonitor = (): UseMemoryMonitorReturn => {
             minAvailable
         });
 
-        // Cache current data in localStorage for quick loading
+        // Cache last 10 data points in localStorage for persistence
         try {
-            localStorage.setItem('memoryData', JSON.stringify(memoryData));
+            const recentHistory = historyRef.current.slice(-STORED_HISTORY_SIZE);
+            localStorage.setItem('memoryHistoryData', JSON.stringify(recentHistory));
         } catch (err) {
-            console.error('Failed to cache memory data:', err);
+            console.error('Failed to cache memory history:', err);
         }
-    }, [HISTORY_DURATION_MS, MAX_HISTORY_POINTS, MIN_UPDATE_INTERVAL_MS]);
+    }, [HISTORY_DURATION_MS, MAX_HISTORY_POINTS, MIN_UPDATE_INTERVAL_MS, STORED_HISTORY_SIZE]);
 
     const connect = useCallback(() => {
         try {
             // Only connect if no existing connection
             if (ws.current) {
                 if (ws.current.readyState === WebSocket.CONNECTING) {
-                    console.log('WebSocket already connecting, aborting...');
                     return;
                 }
                 if (ws.current.readyState === WebSocket.OPEN) {
-                    console.log('WebSocket already connected, aborting new connection...');
                     return;
                 }
             }
@@ -129,13 +130,19 @@ export const useMemoryMonitor = (): UseMemoryMonitorReturn => {
             setConnectionStatus('Connecting...');
             setError(null);
 
+            // Dynamically get the WebSocket URL based on current window location
+            // This works whether accessing via 192.168.224.1 or Tailscale IP
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            // Use 192.168.224.1 instead of localhost
+            const host = window.location.hostname === 'localhost' ? '192.168.224.1' : window.location.hostname;
+            const wsUrl = `${protocol}//${host}:8838`;
+
             // Connect to websocat server
-            ws.current = new WebSocket('ws://192.168.224.1:8838');
+            ws.current = new WebSocket(wsUrl);
 
             // Set connection timeout
             connectionTimeoutRef.current = window.setTimeout(() => {
                 if (ws.current?.readyState === WebSocket.CONNECTING) {
-                    console.log('WebSocket connection timeout');
                     ws.current.close();
                     setError('Connection timeout');
                     setConnectionStatus('Timeout');
@@ -143,8 +150,6 @@ export const useMemoryMonitor = (): UseMemoryMonitorReturn => {
             }, 10000); // 10 second timeout
 
             ws.current.onopen = () => {
-                console.log('Memory monitor WebSocket connected to websocat server');
-
                 // Clear connection timeout
                 if (connectionTimeoutRef.current) {
                     clearTimeout(connectionTimeoutRef.current);
@@ -189,7 +194,6 @@ export const useMemoryMonitor = (): UseMemoryMonitorReturn => {
                         }
                     } catch (jsonError) {
                         // Not JSON or not memory data, ignore
-                        console.log('Received non-memory message:', message);
                     }
                 } catch (parseError) {
                     console.error('Failed to process WebSocket message:', parseError);
@@ -203,7 +207,6 @@ export const useMemoryMonitor = (): UseMemoryMonitorReturn => {
             };
 
             ws.current.onclose = (event: CloseEvent) => {
-                console.log(`Memory monitor WebSocket disconnected: Code=${event.code}, Reason="${event.reason}"`);
                 setIsConnected(false);
 
                 // Clear heartbeat
@@ -274,7 +277,6 @@ export const useMemoryMonitor = (): UseMemoryMonitorReturn => {
     }, []);
 
     const reconnect = useCallback(() => {
-        console.log('Manual reconnect initiated...');
         disconnect();
         setTimeout(() => {
             setError(null);
@@ -283,15 +285,33 @@ export const useMemoryMonitor = (): UseMemoryMonitorReturn => {
     }, [connect, disconnect]);
 
     useEffect(() => {
-        // Load cached data on mount
+        // Load cached history data on mount
         try {
-            const cached = localStorage.getItem('memoryData');
-            if (cached) {
-                const cachedData = JSON.parse(cached) as MemoryData;
-                addDataPoint(cachedData);
+            const cachedHistory = localStorage.getItem('memoryHistoryData');
+            if (cachedHistory) {
+                const storedHistory = JSON.parse(cachedHistory) as MemoryData[];
+                // Restore the history
+                historyRef.current = storedHistory;
+                
+                // Calculate initial statistics from stored data
+                if (storedHistory.length > 0) {
+                    const usedValues = storedHistory.map((p) => p.used);
+                    const availableValues = storedHistory.map((p) => p.available);
+                    const averageUsed = usedValues.reduce((a, b) => a + b, 0) / usedValues.length || 0;
+                    const maxUsed = Math.max(...usedValues) || 0;
+                    const minAvailable = Math.min(...availableValues) || 0;
+                    
+                    setHistoryData({
+                        current: storedHistory[storedHistory.length - 1],
+                        history: [...storedHistory],
+                        averageUsed,
+                        maxUsed,
+                        minAvailable
+                    });
+                }
             }
         } catch (err) {
-            console.error('Failed to load cached memory data:', err);
+            console.error('Failed to load cached memory history:', err);
         }
 
         connect();
@@ -299,7 +319,7 @@ export const useMemoryMonitor = (): UseMemoryMonitorReturn => {
         return () => {
             disconnect();
         };
-    }, [connect, disconnect, addDataPoint]);
+    }, [connect, disconnect]);
 
     return {
         historyData,

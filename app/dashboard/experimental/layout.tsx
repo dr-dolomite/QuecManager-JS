@@ -42,14 +42,14 @@ const ExperimentalLayout = ({ children }: ExperimentalLayoutProps) => {
             Internet Quality
           </Link>
           <Link
-            href="/dashboard/experimental/keep-alive"
+            href="/dashboard/experimental/user-alerts"
             className={`${
-              currentPathName === "/dashboard/experimental/keep-alive/"
+              currentPathName === "/dashboard/experimental/user-alerts/"
                 ? "font-semibold text-primary"
                 : "text-sm"
             }`}
           >
-            Keep Alive
+            Monitoring Alerts
           </Link>
           <Link
             href="/dashboard/experimental/tailscale-settings"
@@ -71,16 +71,16 @@ const ExperimentalLayout = ({ children }: ExperimentalLayoutProps) => {
           >
             Logs
           </Link>
-          {/* <Link
-            href="/dashboard/experimental/data-usage-tracking"
+          <Link
+            href="/dashboard/experimental/keep-alive"
             className={`${
-              currentPathName === "/dashboard/experimental/data-usage-tracking/"
+              currentPathName === "/dashboard/experimental/keep-alive/"
                 ? "font-semibold text-primary"
                 : "text-sm"
             }`}
           >
-            Data Usage Tracking
-          </Link> */}
+            Keep Alive
+          </Link>
         </nav>
         {children}
       </div>

@@ -569,8 +569,8 @@ const BasicSettings = () => {
           </CardHeader>
           <CardContent>
             {activeProfile && hasProfileControlledSettings() && (
-              <Alert className="mb-6">
-                <LockIcon className="h-4 w-4" color="orange" />
+              <Alert className="mb-6" variant="warning">
+                <LockIcon className="h-4 w-4" />
                 <AlertTitle>Profile Controlled Settings</AlertTitle>
                 <AlertDescription>
                   Some settings are currently being managed by profile "
