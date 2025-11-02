@@ -19,11 +19,11 @@ LOG_CATEGORY="daemon"
 # Configuration
 PID_FILE="/tmp/quecmanager/speedtest_daemon.pid"
 TMP_DIR="/tmp/quecmanager"
-WEB_PROTOCOL="ws"  # Change to "wss" if using SSL
+# Default to wss with self-signed certificate
 WEBSOCKET_PORT=8838
 WEBSOCKET_HOST="localhost"
-WS_CMD="websocat --one-message ${WEB_PROTOCOL}://${WEBSOCKET_HOST}:${WEBSOCKET_PORT}"
-[ "$WEB_PROTOCOL" = "wss" ] && WS_CMD="websocat -k --one-message ${WEB_PROTOCOL}://${WEBSOCKET_HOST}:${WEBSOCKET_PORT}"
+WEBSOCKET_URL="wss://${WEBSOCKET_HOST}:${WEBSOCKET_PORT}"
+WS_CMD="websocat -k --one-message ${WEBSOCKET_URL}"
 
 # Log helper function
 log() {
@@ -132,8 +132,12 @@ run_speedtest() {
     # -f json: JSON output format
     # -p yes: Enable progress updates
     # --progress-update-interval=100: Update every 100ms
-    /usr/bin/speedtest --accept-license --accept-gdpr -f json -p yes --progress-update-interval=100 2>&1 | \
-    while IFS= read -r line; do
+    # Use a wrapper to capture exit code while streaming
+    local exit_code_file="/tmp/quecmanager/speedtest_exit.$$"
+    (
+        speedtest --accept-license --accept-gdpr -f json -p yes --progress-update-interval=100 2>&1
+        echo $? > "$exit_code_file"
+    ) | while IFS= read -r line; do
         # Skip empty lines
         [ -z "$line" ] && continue
         
@@ -154,12 +158,16 @@ run_speedtest() {
             # If this is the final result, we're done
             if echo "$line" | grep -q '"type":"result"'; then
                 log "Speedtest completed successfully"
-                break
             fi
         fi
     done
     
-    local speedtest_exit=$?
+    # Read the exit code from the file
+    local speedtest_exit=0
+    if [ -f "$exit_code_file" ]; then
+        speedtest_exit=$(cat "$exit_code_file")
+        rm -f "$exit_code_file" 2>/dev/null || true
+    fi
     
     if [ $speedtest_exit -ne 0 ]; then
         log_error "Speedtest CLI exited with error code: $speedtest_exit"

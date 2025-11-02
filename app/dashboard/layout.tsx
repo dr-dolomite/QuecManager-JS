@@ -245,7 +245,8 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   useEffect(() => {
     // Dynamically get the WebSocket URL based on current window location
     // This works whether accessing via 192.168.224.1 or Tailscale IP
-    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+    // Force wss: to match backend configuration
+    const protocol = "wss:";
     // Use 192.168.224.1 instead of localhost
     const host =
       window.location.hostname === "localhost" ||

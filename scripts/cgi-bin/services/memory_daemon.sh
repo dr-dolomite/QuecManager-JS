@@ -15,22 +15,16 @@ export PATH="/usr/sbin:/usr/bin:/sbin:/bin:$PATH"
 TMP_DIR="/tmp/quecmanager"
 OUT_JSON="$TMP_DIR/memory.json"
 PID_FILE="$TMP_DIR/memory_daemon.pid"
-DEFAULT_INTERVAL=1
+DEFAULT_INTERVAL=0.5
 SCRIPT_NAME="memory_daemon"
 UCI_CONFIG="quecmanager"
 
-# Websocket Configuration
-WEB_PROTOCOL="ws"  # Change to "wss" if using SSL
+# Websocket Configuration - Default to wss with self-signed certificate
 WEBSOCKET_PORT=8838
 WEBSOCKET_HOST="localhost"
-WEBSOCKET_URL="${WEB_PROTOCOL}://${WEBSOCKET_HOST}:${WEBSOCKET_PORT}"
+WEBSOCKET_URL="wss://${WEBSOCKET_HOST}:${WEBSOCKET_PORT}"
 WEBSOCKET_SERVICE="websocat"
-WS_ARGS=" --one-message ${WEB_PROTOCOL}://${WEBSOCKET_HOST}:${WEBSOCKET_PORT}"
-[ "$WEB_PROTOCOL" = "wss" ] && WS_ARGS=" -k${WS_ARGS}"
-WS_CMD="${WEBSOCKET_SERVICE}${WS_ARGS}"
-
-# Non-SSL Command:  websocat -k --one-message ws://localhost:8838/data
-# SSL Command:      websocat -k --one-message wss://localhost:8838/data
+WS_CMD="${WEBSOCKET_SERVICE} -k --one-message ${WEBSOCKET_URL}"
 
 
 # Ensure temp directory exists

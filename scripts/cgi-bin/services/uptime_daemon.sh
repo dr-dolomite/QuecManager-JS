@@ -22,18 +22,12 @@ REALTIME_JSON="$TMP_DIR/ping_realtime.json"
 LOG_FILE="/tmp/log/uptime_daemon/uptime_daemon.log"
 SCRIPT_NAME="uptime_daemon"
 
-# Websocket Configuration
-WEB_PROTOCOL="ws"  # Change to "wss" if using SSL
+# Websocket Configuration - Default to wss with self-signed certificate
 WEBSOCKET_PORT=8838
 WEBSOCKET_HOST="localhost"
-WEBSOCKET_URL="${WEB_PROTOCOL}://${WEBSOCKET_HOST}:${WEBSOCKET_PORT}"
+WEBSOCKET_URL="wss://${WEBSOCKET_HOST}:${WEBSOCKET_PORT}"
 WEBSOCKET_SERVICE="websocat"
-WS_ARGS=" --one-message ${WEB_PROTOCOL}://${WEBSOCKET_HOST}:${WEBSOCKET_PORT}"
-[ "$WEB_PROTOCOL" = "wss" ] && WS_ARGS=" -k${WS_ARGS}"
-WS_CMD="${WEBSOCKET_SERVICE}${WS_ARGS}"
-
-# Non-SSL Command:  websocat -k --one-message ws://localhost:8838/data
-# SSL Command:      websocat -k --one-message wss://localhost:8838/data
+WS_CMD="${WEBSOCKET_SERVICE} -k --one-message ${WEBSOCKET_URL}"
 
 # State variables (kept in memory)
 UPTIME_SECONDS=0

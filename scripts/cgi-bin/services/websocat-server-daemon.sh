@@ -110,34 +110,27 @@ ulimit -u 2048 2>/dev/null || true  # Increase process limit
 # Write our PID (shell's PID, websocat will replace it via exec)
 echo "$$" > "$PID_FILE"
 
+# Default to wss with self-signed certificate
+WS_PROTOCOL="wss"
+WS_CERT_PATH="/root/output.pkcs12"
+WS_CERT_PASSWORD="password"
+
 log "Starting websocat server - Basic broadcast mode..."
-log "Binding to ws://$BIND_ADDRESS:$PORT"
+log "Protocol: $WS_PROTOCOL"
+log "Binding to ${WS_PROTOCOL}://$BIND_ADDRESS:$PORT"
 log "Broadcasting enabled - messages sent to one client are mirrored to all"
 log "Ping/pong enabled with 30s timeout"
 log "Connection limits: 1000 messages per direction"
+log "Using secure WebSocket (wss) with certificate: $WS_CERT_PATH"
 
-# Start websocat server using exec to replace the shell process
-# This prevents the script from blocking and allows procd to manage it properly
-# Plain WebSocket (ws://) - matches all daemon configurations
-exec websocat -E -t \
+# Start websocat server with wss and self-signed certificate
+exec websocat -E -k -t \
+    --pkcs12-der="$WS_CERT_PATH" \
+    --pkcs12-passwd "$WS_CERT_PASSWORD" \
     --max-messages-rev 1000 \
     --max-messages 1000 \
     --ping-interval 10 \
     --ping-timeout 30 \
-    ws-l:$BIND_ADDRESS:$PORT \
+    wss-l:$BIND_ADDRESS:$PORT \
     broadcast:mirror: \
     2>&1 | tee "$LOG_FILE"
-
-# Secure WebSocket (wss://) - uncomment if you need SSL
-# Note: Requires valid PKCS12 certificate at /root/output.pkcs12
-# Also requires changing all daemons' WEB_PROTOCOL from "ws" to "wss"
-# exec websocat -E -k -t \
-#     --pkcs12-der="/root/output.pkcs12" \
-#     --pkcs12-passwd "password" \
-#     --max-messages-rev 1000 \
-#     --max-messages 1000 \
-#     --ping-interval 10 \
-#     --ping-timeout 30 \
-#     wss-l:$BIND_ADDRESS:$PORT \
-#     broadcast:mirror: \
-#     2>&1 | tee "$LOG_FILE"

@@ -8,8 +8,7 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Badge } from "@/components/ui/badge";
-import { MonitorCheckIcon, MonitorOffIcon, WifiIcon } from "lucide-react";
+import { MonitorCheckIcon, MonitorOffIcon } from "lucide-react";
 import { useWebSocketData } from "@/components/hoc/protected-route";
 
 import Link from "next/link";
