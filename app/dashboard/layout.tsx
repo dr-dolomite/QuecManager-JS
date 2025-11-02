@@ -249,7 +249,6 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     const host = window.location.hostname === 'localhost' || window.location.hostname === '192.168.42.95' ? '192.168.224.1' : window.location.hostname;
     const wsUrl = `${protocol}//${host}:8838/data`;
 
-    console.log('Attempting WebSocket connection to:', wsUrl);
     let ws: WebSocket | null = null;
     let reconnectTimeout: NodeJS.Timeout | null = null;
 
@@ -258,36 +257,21 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
         ws = new WebSocket(wsUrl);
 
         ws.onopen = () => {
-          console.log('✓ WebSocket connected from Dashboard Layout');
+          // WebSocket connected successfully
         };
 
         ws.onmessage = (event) => {
           try {
             const data = JSON.parse(event.data);
-            console.log('← WebSocket message received:', data);
             setWebsocketData(data);
           } catch (error) {
-            console.error('Failed to parse WebSocket message:', error);
+            // Failed to parse WebSocket message
           }
         };
 
         ws.onerror = (error) => {
-          console.error('✗ WebSocket error:', error);
-          
           // Check if it's likely an SSL certificate issue
           if (protocol === 'wss:') {
-            console.warn(`
-⚠️  SSL Certificate Issue Detected
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-To fix this, please visit the following URL in your browser
-and accept the self-signed certificate:
-
-  ${window.location.protocol}//${host}:8838/
-
-Then refresh this page.
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-            `);
-
             // Show a toast notification to the user
             const certUrl = `${window.location.protocol}//${host}:8838/`;
             toast.toast({
@@ -317,19 +301,16 @@ Then refresh this page.
         };
 
         ws.onclose = (event) => {
-          console.log('WebSocket disconnected', event.code, event.reason);
-
           // Don't auto-reconnect if it's an SSL certificate issue (code 1006)
           if (event.code !== 1006) {
             // Attempt to reconnect after 5 seconds for other disconnects
             reconnectTimeout = setTimeout(() => {
-              console.log('Attempting to reconnect WebSocket...');
               connect();
             }, 5000);
           }
         };
       } catch (error) {
-        console.error('Failed to create WebSocket connection:', error);
+        // Failed to create WebSocket connection
       }
     };
 
