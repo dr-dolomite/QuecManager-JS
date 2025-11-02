@@ -22,6 +22,8 @@ export const useTailscalePeers = (): UseTailscalePeersReturn => {
     try {
       const response = await fetch("/cgi-bin/quecmanager/tailscale/fetch-peers.sh");
 
+      console.log("Tailscale peers response: ", response);
+
       if (!response.ok) {
         throw new Error(`HTTP error! Status: ${response.status}`);
       }

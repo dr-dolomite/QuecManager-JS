@@ -172,7 +172,7 @@ const useHomeData = () => {
       }
 
       const rawData = await response.json();
-      console.log(rawData);
+      // console.log(rawData);
       // Add type annotation for rawData
       if (
         rawData.some((x: { response: string }) =>
@@ -372,7 +372,7 @@ const useHomeData = () => {
       setData(processedData);
       setRetryCount(0);
       setError(null);
-      console.log("Processed home data:", processedData); //
+      // console.log("Processed home data:", processedData);
       
       // Fetch public IP separately (non-blocking)
       fetchPublicIP();

@@ -38,7 +38,6 @@ echo "$ts_status" | while IFS= read -r line; do
     fi
     
     # Parse peer line format: IP HOSTNAME USER OS STATUS
-    # Example: 100.115.191.105 rm551e-gl russel.yasol@ linux -
     ip=$(echo "$line" | awk '{print $1}')
     hostname=$(echo "$line" | awk '{print $2}')
     user=$(echo "$line" | awk '{print $3}')

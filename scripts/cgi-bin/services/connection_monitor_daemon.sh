@@ -117,7 +117,7 @@ restore_persistent_state() {
     if [ -z "$disconnect_time" ] || [ -z "$quecwatch_reboot" ]; then
         log "Invalid persistent state file, ignoring" "warn"
         rm -f "$PERSISTENT_STATE_FILE"
-        return 1
+        return 0
     fi
     
     # Restore the disconnect state
