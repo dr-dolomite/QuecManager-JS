@@ -172,7 +172,7 @@ const useHomeData = () => {
       }
 
       const rawData = await response.json();
-      // console.log(rawData);
+      console.log(rawData);
       // Add type annotation for rawData
       if (
         rawData.some((x: { response: string }) =>
@@ -291,8 +291,8 @@ const useHomeData = () => {
           scs: extractValueByNetworkType(
             rawData[10]?.response,
             getNetworkType(rawData[13]?.response),
-            { "NR5G-SA": 1, "NR5G-NSA": 2, LTE: 1 },
-            { "NR5G-SA": 15, "NR5G-NSA": 10, LTE: 0 },
+            { "NR5G-SA": 3, "NR5G-NSA": 3 },
+            { "NR5G-SA": 15, "NR5G-NSA": 10 },
             true
           ),
           signalQuality: getSignalQuality(rawData[19].response) || "Unknown",
@@ -372,7 +372,7 @@ const useHomeData = () => {
       setData(processedData);
       setRetryCount(0);
       setError(null);
-      // console.log("Processed home data:", processedData); //
+      console.log("Processed home data:", processedData); //
       
       // Fetch public IP separately (non-blocking)
       fetchPublicIP();

@@ -58,6 +58,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { usePathname } from "next/navigation";
 import { LightRays } from "@/components/ui/light-rays";
+import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler";
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -244,9 +245,13 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   useEffect(() => {
     // Dynamically get the WebSocket URL based on current window location
     // This works whether accessing via 192.168.224.1 or Tailscale IP
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     // Use 192.168.224.1 instead of localhost
-    const host = window.location.hostname === 'localhost' || window.location.hostname === '192.168.42.95' ? '192.168.224.1' : window.location.hostname;
+    const host =
+      window.location.hostname === "localhost" ||
+      window.location.hostname === "192.168.42.95"
+        ? "192.168.224.1"
+        : window.location.hostname;
     const wsUrl = `${protocol}//${host}:8838/data`;
 
     let ws: WebSocket | null = null;
@@ -271,27 +276,27 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
 
         ws.onerror = (error) => {
           // Check if it's likely an SSL certificate issue
-          if (protocol === 'wss:') {
+          if (protocol === "wss:") {
             // Show a toast notification to the user
             const certUrl = `${window.location.protocol}//${host}:8838/`;
             toast.toast({
               title: "WebSocket Connection Failed",
               description: (
                 <span>
-                  Please accept the SSL certificate by{' '}
-                  <a 
-                    href={certUrl} 
-                    target="_blank" 
+                  Please accept the SSL certificate by{" "}
+                  <a
+                    href={certUrl}
+                    target="_blank"
                     rel="noopener noreferrer"
                     className="underline font-semibold"
                     onClick={(e) => {
                       e.preventDefault();
-                      window.open(certUrl, '_blank', 'noopener,noreferrer');
+                      window.open(certUrl, "_blank", "noopener,noreferrer");
                     }}
                   >
                     clicking here
-                  </a>
-                  {' '}and then refresh this page.
+                  </a>{" "}
+                  and then refresh this page.
                 </span>
               ),
               variant: "destructive",
@@ -637,28 +642,9 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
           </SheetContent>
         </Sheet>
         <div className="flex w-full items-center gap-4 md:ml-auto md:gap-2 lg:gap-4">
-          <form className="ml-auto flex-1 sm:flex-initial">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="icon">
-                  <Sun className="h-[1.2rem] w-[1.2rem] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-                  <Moon className="absolute h-[1.2rem] w-[1.2rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-                  <span className="sr-only">Toggle theme</span>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => setTheme("light")}>
-                  Light
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setTheme("dark")}>
-                  Dark
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setTheme("system")}>
-                  System
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </form>
+          <div className="ml-auto flex-1 sm:flex-initial">
+            <AnimatedThemeToggler />
+          </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="secondary" size="icon" className="rounded-full">
@@ -768,7 +754,9 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
         </div>
       </header>
       <main className="flex min-h-[calc(100vh_-_theme(spacing.16))] flex-1 flex-col gap-4 p-4 md:gap-8 md:p-10 relative">
-        <ProtectedRoute websocketData={websocketData}>{children}</ProtectedRoute>
+        <ProtectedRoute websocketData={websocketData}>
+          {children}
+        </ProtectedRoute>
         <LightRays />
       </main>
     </div>

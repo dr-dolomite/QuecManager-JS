@@ -19,6 +19,7 @@ import { calculateSignalPercentage } from "@/utils/signalMetrics";
 import { ArrowRightIcon } from "@radix-ui/react-icons";
 
 import { useAuth } from "@/hooks/auth";
+import { AnimatedThemeToggler } from "../ui/animated-theme-toggler";
 
 interface ModemResponse {
   response: string;
@@ -177,7 +178,8 @@ export default function ChartPreviewSignal() {
       <CardHeader>
         <div className="flex flex-row justify-between items-center">
           <CardTitle>QuecManager Quick Stats</CardTitle>
-          <ModeToggle />
+          {/* <ModeToggle /> */}
+          <AnimatedThemeToggler />
         </div>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">

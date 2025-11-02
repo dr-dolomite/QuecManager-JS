@@ -124,26 +124,43 @@ const MonitoringSetupComponent = ({
         );
       }
 
+      // Handle error responses from the server
+      if (configData.status === "error") {
+        toast({
+          title: "Configuration Failed",
+          description: configData.message || "Failed to configure email settings",
+          variant: "destructive",
+        });
+        
+        // If there are error details, log them for debugging
+        if (configData.error_details) {
+          console.error("Configuration error details:", configData.error_details);
+        }
+        
+        setIsLoading(false);
+        return;
+      }
+
       if (configData.status !== "success") {
-        throw new Error(configData.message || "Failed to configure email");
+        throw new Error(configData.message || "Unknown error occurred");
       }
 
       // Show appropriate toast based on mode
       if (isEditMode) {
         toast({
-          title: "Configuration Updated! 🎉",
+          title: "Configuration Updated!",
           description: "Email settings have been updated successfully.",
         });
       } else {
         // Show appropriate toast based on test email result
         if (configData.test_email_sent) {
           toast({
-            title: "Configuration Successful! 🎉",
+            title: "Configuration Successful!",
             description: `Email settings saved and test email sent to ${recipient}. Starting monitoring service...`,
           });
         } else {
           toast({
-            title: "Configuration Saved ⚠️",
+            title: "Configuration Saved with Warnings",
             description:
               "Email settings saved but test email failed. Please check your credentials.",
             variant: "destructive",

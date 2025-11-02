@@ -27,11 +27,7 @@ import {
   Loader2,
   Repeat2Icon,
 } from "lucide-react";
-import {
-  HiOutlineStatusOnline,
-  HiOutlineStatusOffline,
-  HiOutlineSwitchHorizontal,
-} from "react-icons/hi";
+
 import { Progress } from "@/components/ui/progress";
 import {
   Tooltip,
@@ -46,7 +42,7 @@ import { atCommandSender } from "@/utils/at-command";
 import { useToast } from "@/hooks/use-toast";
 import { useDistanceCalculation } from "@/hooks/use-distance-calculation";
 
-// Import and use the WebSocket data context, setup the type inteface for the prop
+// Import and use the WebSocket data context, setup the type interface for the prop
 import { useWebSocketData } from "@/components/hoc/protected-route";
 
 interface SummaryCardProps {
@@ -62,13 +58,14 @@ interface SummaryCardProps {
   onDataRefresh?: () => void;
 }
 
+// create an SCS_MAP array to map scs index to string values. If undefined, show '-'
 const SCS_MAP = [
-  15,
-  30,
-  60,
-  120,
-  240
-]
+  "15",
+  "30",
+  "60",
+  "120",
+  "240",
+]; 
 
 const SummaryCardComponent = ({
   data,
@@ -85,16 +82,16 @@ const SummaryCardComponent = ({
   const { toast } = useToast();
   const [isSwappingDialog, setIsSwappingDialog] = useState(false);
   const [isSwapping, setIsSwapping] = useState(false);
-  
+
   // State to persist last known uptime data
   const [lastUptimeData, setLastUptimeData] = useState<any>(null);
   const [lastDeviceUptimeData, setLastDeviceUptimeData] = useState<any>(null);
-  
+
   // Use prop if provided, otherwise fall back to context
 
   const contextWebsocketData = useWebSocketData();
   const websocketData = propWebsocketData || contextWebsocketData;
-  
+
   // Use distance calculation hook
   const { lteDistance, nrDistance, isUnitLoading } = useDistanceCalculation(
     data?.timeAdvance.lteTimeAdvance,
@@ -104,11 +101,11 @@ const SummaryCardComponent = ({
   // Update last known uptime data when new data arrives
   useEffect(() => {
     // Should probably consider changing "type" to "channel" or vice versa on the other items for standardization
-    if (websocketData?.type === 'uptime') {
+    if (websocketData?.type === "uptime") {
       setLastUptimeData(websocketData);
     }
     // Should probably consider changing "type" to "channel" or vice versa on the other items for standardization
-    if (websocketData?.type === 'device_uptime') {
+    if (websocketData?.type === "device_uptime") {
       setLastDeviceUptimeData(websocketData);
     }
   }, [websocketData]);
@@ -131,11 +128,6 @@ const SummaryCardComponent = ({
     if (tempValue > 65) return "bg-red-600";
     if (tempValue > 50) return "bg-orange-600";
     return "bg-green-600";
-  };
-
-  // Check if operator is connected
-  const isOperatorConnected = (operatorState: string | undefined): boolean => {
-    return operatorState === "Registered" || operatorState === "Roaming";
   };
 
   // Calculate total bandwidth from all active bands
@@ -424,6 +416,30 @@ const SummaryCardComponent = ({
           )}
         </div>
 
+        {/* Tracking Area Code (TAC) */}
+        <div className="flex items-center justify-between">
+          <p>Tracking Area Code</p>
+          {isLoading ? (
+            <Skeleton className="h-4 w-[80px]" />
+          ) : (
+            <TooltipProvider>
+              <div className="flex items-center gap-x-1">
+                <Tooltip>
+                  <TooltipTrigger>
+                    <Info className="w-4 h-4 mr-0.5" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>{data?.cellularInfo.trackingAreaCodeRaw || "N/A"}</p>
+                  </TooltipContent>
+                </Tooltip>
+                <p className="font-bold">
+                  {data?.cellularInfo.trackingAreaCode || "N/A"}
+                </p>
+              </div>
+            </TooltipProvider>
+          )}
+        </div>
+
         {/* Operator */}
         <div className="flex items-center justify-between">
           <p>Operator</p>
@@ -434,11 +450,6 @@ const SummaryCardComponent = ({
               <div className="flex items-center gap-x-1">
                 <Tooltip>
                   <TooltipTrigger>
-                    {/* {isOperatorConnected(data?.connection.operatorState) ? (
-                      <HiOutlineStatusOnline className="w-4 h-4 mr-0.5 text-green-500" />
-                    ) : (
-                      <HiOutlineStatusOffline className="w-4 h-4 mr-0.5 text-red-500" />
-                    )} */}
                     <Info className="w-4 h-4 mr-0.5" />
                   </TooltipTrigger>
                   <TooltipContent>
@@ -460,15 +471,25 @@ const SummaryCardComponent = ({
             <p className="font-bold">{data?.connection.apn}</p>
           )}
         </div>
-        
+
         <div className="flex items-center justify-between">
           <p>PCC SCS</p>
           {isLoading ? (
             <Skeleton className="h-4 w-[100px]" />
           ) : (
-            <p className="font-bold">{SCS_MAP[data?.cellularInfo?.scs || 0] || '-'} kHz </p>
+            <>
+              {data?.cellularInfo?.scs !== undefined ? (
+                <p className="font-bold">
+                  {SCS_MAP[Number(data?.cellularInfo?.scs)]
+                    ? `${SCS_MAP[Number(data?.cellularInfo?.scs)]} kHz`
+                    : "-"}
+                </p>
+              ) : (
+                <p className="font-bold">-</p>
+              )}
+            </>
           )}
-        </div>  
+        </div>
         <Separator className="my-1 w-full" />
 
         {/* Phone Number */}
