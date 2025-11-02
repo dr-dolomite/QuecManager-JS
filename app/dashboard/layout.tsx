@@ -79,6 +79,9 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const [hasProfileImage, setHasProfileImage] = useState<boolean>(false);
   const toast = useToast();
 
+  // WebSocket state - add your specific data structure
+  const [websocketData, setWebsocketData] = useState<any>(null);
+
   // Cache keys for localStorage
   const CACHE_KEY = "profile_picture_data";
   const CACHE_METADATA_KEY = "profile_picture_metadata";
@@ -234,6 +237,111 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
         handleProfilePictureUpdate
       );
       window.removeEventListener("storage", handleStorageChange);
+    };
+  }, []);
+
+  // WebSocket connection management
+  useEffect(() => {
+    // Dynamically get the WebSocket URL based on current window location
+    // This works whether accessing via 192.168.224.1 or Tailscale IP
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    // Use 192.168.224.1 instead of localhost
+    const host = window.location.hostname === 'localhost' || window.location.hostname === '192.168.42.95' ? '192.168.224.1' : window.location.hostname;
+    const wsUrl = `${protocol}//${host}:8838/data`;
+
+    console.log('Attempting WebSocket connection to:', wsUrl);
+    let ws: WebSocket | null = null;
+    let reconnectTimeout: NodeJS.Timeout | null = null;
+
+    const connect = () => {
+      try {
+        ws = new WebSocket(wsUrl);
+
+        ws.onopen = () => {
+          console.log('✓ WebSocket connected from Dashboard Layout');
+        };
+
+        ws.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            console.log('← WebSocket message received:', data);
+            setWebsocketData(data);
+          } catch (error) {
+            console.error('Failed to parse WebSocket message:', error);
+          }
+        };
+
+        ws.onerror = (error) => {
+          console.error('✗ WebSocket error:', error);
+          
+          // Check if it's likely an SSL certificate issue
+          if (protocol === 'wss:') {
+            console.warn(`
+⚠️  SSL Certificate Issue Detected
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+To fix this, please visit the following URL in your browser
+and accept the self-signed certificate:
+
+  ${window.location.protocol}//${host}:8838/
+
+Then refresh this page.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+            `);
+
+            // Show a toast notification to the user
+            const certUrl = `${window.location.protocol}//${host}:8838/`;
+            toast.toast({
+              title: "WebSocket Connection Failed",
+              description: (
+                <span>
+                  Please accept the SSL certificate by{' '}
+                  <a 
+                    href={certUrl} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="underline font-semibold"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      window.open(certUrl, '_blank', 'noopener,noreferrer');
+                    }}
+                  >
+                    clicking here
+                  </a>
+                  {' '}and then refresh this page.
+                </span>
+              ),
+              variant: "destructive",
+              duration: 10000,
+            });
+          }
+        };
+
+        ws.onclose = (event) => {
+          console.log('WebSocket disconnected', event.code, event.reason);
+
+          // Don't auto-reconnect if it's an SSL certificate issue (code 1006)
+          if (event.code !== 1006) {
+            // Attempt to reconnect after 5 seconds for other disconnects
+            reconnectTimeout = setTimeout(() => {
+              console.log('Attempting to reconnect WebSocket...');
+              connect();
+            }, 5000);
+          }
+        };
+      } catch (error) {
+        console.error('Failed to create WebSocket connection:', error);
+      }
+    };
+
+    connect();
+
+    return () => {
+      if (reconnectTimeout) {
+        clearTimeout(reconnectTimeout);
+      }
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.close();
+      }
     };
   }, []);
 
@@ -679,7 +787,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
         </div>
       </header>
       <main className="flex min-h-[calc(100vh_-_theme(spacing.16))] flex-1 flex-col gap-4 p-4 md:gap-8 md:p-10 relative">
-        <ProtectedRoute>{children}</ProtectedRoute>
+        <ProtectedRoute websocketData={websocketData}>{children}</ProtectedRoute>
         <LightRays />
       </main>
     </div>
