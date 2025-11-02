@@ -62,6 +62,14 @@ interface SummaryCardProps {
   onDataRefresh?: () => void;
 }
 
+const SCS_MAP = [
+  15,
+  30,
+  60,
+  120,
+  240
+]
+
 const SummaryCardComponent = ({
   data,
   isLoading,
@@ -452,7 +460,15 @@ const SummaryCardComponent = ({
             <p className="font-bold">{data?.connection.apn}</p>
           )}
         </div>
-
+        
+        <div className="flex items-center justify-between">
+          <p>PCC SCS</p>
+          {isLoading ? (
+            <Skeleton className="h-4 w-[100px]" />
+          ) : (
+            <p className="font-bold">{SCS_MAP[data?.cellularInfo?.scs || 0] || '-'} kHz </p>
+          )}
+        </div>  
         <Separator className="my-1 w-full" />
 
         {/* Phone Number */}

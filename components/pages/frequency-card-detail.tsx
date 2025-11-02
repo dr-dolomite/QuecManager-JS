@@ -81,6 +81,14 @@ interface MccMncInfo {
   notes?: string;
 }
 
+const SCS_MAP =  [
+  15,
+  30,
+  60,
+  120,
+  240
+]
+
 // Cell frequency detail card component
 const FrequencyDetailCard = ({
   cell,
@@ -193,10 +201,10 @@ const FrequencyDetailCard = ({
                 ) : (
                   <>
                     <div className="text-muted-foreground">
-                      Subcarrier Spacing:
+                      Subcarrier Spacing (SCS):
                     </div>
                     <div className="font-medium">
-                      {(cell as NR5GCellInfo).scs || "-"} kHz
+                      {SCS_MAP[(cell as NR5GCellInfo).scs] || "-"} kHz
                     </div>
                     <div className="text-muted-foreground">
                       Carrier Bandwidth:
@@ -205,8 +213,8 @@ const FrequencyDetailCard = ({
                       {(cell as NR5GCellInfo).carrierBandwidth ||"-"} RB
                     </div>
                     <div className="text-muted-foreground">SSB SCS:</div>
-                    <div className="font-medium">
-                      {(cell as NR5GCellInfo).ssbScs || "-"} kHz
+                    <div className="font-medium"> 
+                      {SCS_MAP[(cell as NR5GCellInfo).ssbScs] || "-"} kHz
                     </div>
                   </>
                 )}
