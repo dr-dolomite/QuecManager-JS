@@ -68,12 +68,24 @@ const QuecManagerUpdate = () => {
   const [isChecking, setIsChecking] = useState(false);
   const [isUpgrading, setIsUpgrading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [releases, setReleases] = useState<GitHubRelease[]>([]);
-  const [isLoadingReleases, setIsLoadingReleases] = useState(true);
+  const [releases, setReleases] = useState<GitHubRelease[]>(() => {
+    // Load cached releases immediately on mount
+    try {
+      const cached = localStorage.getItem("quecmanager_releases");
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        return parsed.data || [];
+      }
+    } catch (err) {
+      console.error("Error loading cached releases:", err);
+    }
+    return [];
+  });
+  const [isLoadingReleases, setIsLoadingReleases] = useState(releases.length === 0);
   const { toast } = useToast();
 
-  // Fetch GitHub releases
-  const fetchReleases = async () => {
+  // Fetch GitHub releases with caching
+  const fetchReleases = async (isBackground: boolean = false) => {
     try {
       const response = await fetch(
         "https://api.github.com/repos/dr-dolomite/QuecManager-JS/releases",
@@ -89,14 +101,32 @@ const QuecManagerUpdate = () => {
       }
 
       const data: GitHubRelease[] = await response.json();
+      
+      // Save to localStorage
+      localStorage.setItem(
+        "quecmanager_releases",
+        JSON.stringify({
+          data,
+          timestamp: Date.now(),
+        })
+      );
+      
       setReleases(data);
+      
+      // Only show error toast if this is not a background fetch and no cached data exists
+      if (!isBackground && releases.length === 0) {
+        // Success - data loaded
+      }
     } catch (err) {
       console.error("Error fetching releases:", err);
-      toast({
-        title: "Release Notes Unavailable",
-        description: "Could not fetch release notes from GitHub",
-        variant: "destructive",
-      });
+      // Only show toast if not background fetch and no cached data
+      if (!isBackground && releases.length === 0) {
+        toast({
+          title: "Release Notes Unavailable",
+          description: "Could not fetch release notes from GitHub",
+          variant: "destructive",
+        });
+      }
     } finally {
       setIsLoadingReleases(false);
     }
@@ -229,12 +259,15 @@ const QuecManagerUpdate = () => {
 
   // Initial load - smart package list update
   useEffect(() => {
-    toast({
-      title: "Checking for Updates",
-      description:
-        "Please wait while we fetch the latest package information...",
-      duration: 4000,
-    });
+    // Only show toast if no cached releases (first time load)
+    if (releases.length === 0) {
+      toast({
+        title: "Checking for Updates",
+        description:
+          "Please wait while we fetch the latest package information...",
+        duration: 4000,
+      });
+    }
 
     const initializeData = async () => {
       try {
@@ -250,7 +283,9 @@ const QuecManagerUpdate = () => {
     };
 
     initializeData();
-    fetchReleases();
+    
+    // Fetch releases in background (will update if new data available)
+    fetchReleases(true);
   }, []);
 
   // Show error toast when error state changes
