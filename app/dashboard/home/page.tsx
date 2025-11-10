@@ -522,24 +522,10 @@ const HomePage = () => {
           <div>
             <SignalChart />
           </div>
-          {/* <div>
-            <BandwidthMonitorCard />
-          </div> */}
-          {/* <div><WebSocketComponent /></div> */}
           <div className="grid gap-2 lg:grid-cols-2 grid-cols-1 grid-flow-row">
-            {/* <EthernetCard /> */}
-            {/* <ApproxDistanceCard
-              lteTimeAdvance={homeData?.timeAdvance?.lteTimeAdvance}
-              nrTimeAdvance={homeData?.timeAdvance?.nrTimeAdvance}
-              isLoading={isLoading}
-              networkType={homeData?.connection?.networkType}
-            /> */}
-
-            {/* <MemoryCard /> */}
             <PingCardWebSocket websocketData={websocketData} />
             <BandwidthMonitorCard websocketData={websocketData} />
             <SpeedtestStream />
-
             <MemoryCardWebSocket websocketData={websocketData} />
           </div>
         </div>

@@ -187,7 +187,7 @@ const MemoryCardWebSocket = ({ websocketData: propWebsocketData }: MemoryCardWeb
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+      <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>Device Memory Usage</CardTitle>
         <div className="flex items-center gap-2">
           {!config.enabled ? (
