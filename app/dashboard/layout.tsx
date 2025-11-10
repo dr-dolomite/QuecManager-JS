@@ -59,6 +59,8 @@ import { useToast } from "@/hooks/use-toast";
 import { usePathname } from "next/navigation";
 import { LightRays } from "@/components/ui/light-rays";
 import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { ShieldAlert, X } from "lucide-react";
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -82,6 +84,10 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
 
   // WebSocket state - add your specific data structure
   const [websocketData, setWebsocketData] = useState<any>(null);
+  
+  // SSL Certificate banner state
+  const [showCertBanner, setShowCertBanner] = useState(false);
+  const [certBannerDismissed, setCertBannerDismissed] = useState(false);
 
   // Cache keys for localStorage
   const CACHE_KEY = "profile_picture_data";
@@ -241,6 +247,40 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     };
   }, []);
 
+  // Check SSL certificate on mount
+  useEffect(() => {
+    const checkSSLCertificate = async () => {
+      // Check if user already dismissed the banner in this session
+      const dismissed = sessionStorage.getItem('cert_banner_dismissed');
+      if (dismissed === 'true') {
+        return;
+      }
+
+      const host =
+        window.location.hostname === "localhost" ||
+        window.location.hostname === "192.168.42.95"
+          ? "192.168.224.1"
+          : window.location.hostname;
+      
+      const certUrl = `https://${host}:8838/`;
+
+      try {
+        // Try to fetch the WebSocket server endpoint
+        const response = await fetch(certUrl, { 
+          method: 'HEAD',
+          mode: 'no-cors' // This will succeed if cert is accepted
+        });
+        // If we get here without error, certificate is accepted
+        setShowCertBanner(false);
+      } catch (error) {
+        // Certificate not accepted or connection failed
+        setShowCertBanner(true);
+      }
+    };
+
+    checkSSLCertificate();
+  }, []);
+
   // WebSocket connection management
   useEffect(() => {
     // Dynamically get the WebSocket URL based on current window location
@@ -263,7 +303,8 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
         ws = new WebSocket(wsUrl);
 
         ws.onopen = () => {
-          // WebSocket connected successfully
+          // WebSocket connected successfully - hide certificate banner
+          setShowCertBanner(false);
         };
 
         ws.onmessage = (event) => {
@@ -276,33 +317,9 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
         };
 
         ws.onerror = (error) => {
-          // Check if it's likely an SSL certificate issue
-          if (protocol === "wss:") {
-            // Show a toast notification to the user
-            const certUrl = `${window.location.protocol}//${host}:8838/`;
-            toast.toast({
-              title: "WebSocket Connection Failed",
-              description: (
-                <span>
-                  Please accept the SSL certificate by{" "}
-                  <a
-                    href={certUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="underline font-semibold"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      window.open(certUrl, "_blank", "noopener,noreferrer");
-                    }}
-                  >
-                    clicking here
-                  </a>{" "}
-                  and then refresh this page.
-                </span>
-              ),
-              variant: "destructive",
-              duration: 10000,
-            });
+          // Show certificate banner if not already shown and not dismissed
+          if (protocol === "wss:" && !certBannerDismissed) {
+            setShowCertBanner(true);
           }
         };
 
@@ -754,6 +771,53 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
           </DropdownMenu>
         </div>
       </header>
+      
+      {/* SSL Certificate Banner */}
+      {showCertBanner && !certBannerDismissed && (
+        <div className="border-b bg-yellow-50 dark:bg-yellow-950/20">
+          <div className="container mx-auto px-4 py-3">
+            <Alert className="border-yellow-200 dark:border-yellow-800">
+              <ShieldAlert className="h-4 w-4 text-yellow-600 dark:text-yellow-500" />
+              <AlertTitle className="flex items-center justify-between">
+                <span>SSL Certificate Required</span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6"
+                  onClick={() => {
+                    setCertBannerDismissed(true);
+                    setShowCertBanner(false);
+                    sessionStorage.setItem('cert_banner_dismissed', 'true');
+                  }}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </AlertTitle>
+              <AlertDescription className="flex items-center justify-between">
+                <span className="text-sm">
+                  To enable real-time updates, please accept the SSL certificate for the WebSocket server.
+                </span>
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    const host =
+                      window.location.hostname === "localhost" ||
+                      window.location.hostname === "192.168.42.95"
+                        ? "192.168.224.1"
+                        : window.location.hostname;
+                    const certUrl = `https://${host}:8838/`;
+                    window.open(certUrl, "_blank", "noopener,noreferrer");
+                  }}
+                  className="ml-4 whitespace-nowrap"
+                >
+                  Accept Certificate
+                </Button>
+              </AlertDescription>
+            </Alert>
+          </div>
+        </div>
+      )}
+      
       <main className="flex min-h-[calc(100vh_-_theme(spacing.16))] flex-1 flex-col gap-4 p-4 md:gap-8 md:p-10 relative">
         <ProtectedRoute websocketData={websocketData}>
           {children}

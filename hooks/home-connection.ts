@@ -76,31 +76,22 @@ const useDataConnectionState = () => {
     try {
       setIsStateLoading(true);
       
-      // Check if ping monitoring is active first
+      // Always check actual internet connectivity first
+      const response = await fetch("/cgi-bin/quecmanager/home/check_net.sh");
+      const data = await response.json();
+      setDataConnectionState(data.connection === "ACTIVE" ? "Connected" : "Disconnected");
+      
+      // Then check if ping monitoring is active (for UI display purposes)
       const pingActive = await checkPingMonitoring();
       setIsPingMonitoringActive(pingActive);
       
-      if (pingActive) {
-        // If ping monitoring is active, show monitoring status and stop further automatic refreshes
-        setDataConnectionState("Connected");
-        setIsStateLoading(false);
-        
-        // Clear the interval to stop automatic refreshes
-        clearCurrentInterval();
-        return;
-      }
-      
-      const response = await fetch("/cgi-bin/quecmanager/home/check_net.sh");
-      // const response = await fetch("/data-connection-state");
-      const data = await response.json();
-      setDataConnectionState(data.connection === "ACTIVE" ? "Connected" : "Disconnected");
       setIsStateLoading(false);
     } catch (error) {
       console.error("Error fetching data connection state:", error);
       setDataConnectionState("Unknown");
       setIsStateLoading(false); 
     }
-  }, [checkPingMonitoring, clearCurrentInterval]);
+  }, [checkPingMonitoring]);
 
   const startInterval = useCallback(() => {
     // Clear any existing interval

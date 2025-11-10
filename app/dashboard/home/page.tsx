@@ -80,6 +80,11 @@ const HomePage = () => {
     isPingMonitoringActive,
   } = useDataConnectionState();
 
+  // Debug: Log only when dataConnectionState actually changes
+  useEffect(() => {
+    console.log("Data Connection:", dataConnectionState);
+  }, [dataConnectionState]);
+
   const { isRunningDiagnostics, runDiagnosticsData, startDiagnostics } =
     useRunDiagnostics();
 
@@ -628,17 +633,6 @@ const HomePage = () => {
                 applying your preferred network settings, APN configuration, and
                 other cellular preferences.
               </h2>
-              {/* <div className="space-y-2">
-                <h4 className="font-medium">
-                  Benefits of setting up a profile:
-                </h4>
-                <ul className="text-sm space-y-1">
-                  <li>• Automatic network configuration</li>
-                  <li>• Quick switching between SIM cards</li>
-                  <li>• Backup and restore your settings</li>
-                  <li>• Optimized performance for your carrier</li>
-                </ul>
-              </div> */}
             </Card>
 
             <div className="flex flex-col gap-2 mt-4">

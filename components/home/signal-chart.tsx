@@ -22,8 +22,7 @@ import {
   Area,
   YAxis,
 } from "recharts";
-import { Skeleton } from "../ui/skeleton";
-import { useBandwidthMonitor } from "@/hooks/use-bandwidth-monitor";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface SignalMetrics {
   datetime: string;
