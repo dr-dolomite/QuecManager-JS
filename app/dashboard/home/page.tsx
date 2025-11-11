@@ -78,7 +78,6 @@ const HomePage = () => {
     dataConnectionState,
     isStateLoading,
     refresh: refreshConnectionState,
-    isPingMonitoringActive,
   } = useDataConnectionState();
 
   // Debug: Log only when dataConnectionState actually changes

@@ -628,6 +628,90 @@ const SummaryCardComponent = ({
             </TooltipProvider>
           )}
         </div>
+
+        <Separator className="my-1 w-full" />
+
+        {/* Public IPv4 */}
+        <div className="flex items-center justify-between">
+          <p>Public IPv4</p>
+          {isLoading ? (
+            <Skeleton className="h-4 w-[140px]" />
+          ) : hideSensitiveData ? (
+            <div className="border-none bg-gray-600 rounded-md h-5 md:w-36 w-24" />
+          ) : (
+            <p className="font-bold">
+              {data?.networkAddressing.publicIPv4 || "N/A"}
+            </p>
+          )}
+        </div>
+
+        {/* WAN IPv4 */}
+        <div className="flex items-center justify-between">
+          <p>WAN IPv4</p>
+          {isLoading ? (
+            <Skeleton className="h-4 w-[140px]" />
+          ) : hideSensitiveData ? (
+            <div className="border-none bg-gray-600 rounded-md h-5 md:w-36 w-24" />
+          ) : (
+            <p className="font-bold">
+              {data?.networkAddressing.cellularIPv4 || "N/A"}
+            </p>
+          )}
+        </div>
+
+        {/* WAN IPv6 */}
+        <div className="flex items-center justify-between">
+          <p>WAN IPv6</p>
+          {isLoading ? (
+            <Skeleton className="h-4 w-[140px]" />
+          ) : hideSensitiveData ? (
+            <div className="border-none bg-gray-600 rounded-md h-5 md:w-36 w-24" />
+          ) : (
+            <p className="font-bold">
+              {data?.networkAddressing.cellularIPv6 || "N/A"}
+            </p>
+          )}
+        </div>
+
+        {/* Primary DNS */}
+        <div className="flex items-center justify-between">
+          <p>Primary DNS</p>
+          {isLoading ? (
+            <Skeleton className="h-4 w-[140px]" />
+          ) : hideSensitiveData ? (
+            <div className="border-none bg-gray-600 rounded-md h-5 md:w-36 w-24" />
+          ) : (
+            <p className="font-bold">
+              {data?.networkAddressing.carrierPrimaryDNS || "N/A"}
+            </p>
+          )}
+        </div>
+
+        {/* Secondary DNS */}
+        <div className="flex items-center justify-between">
+          <p>Secondary DNS</p>
+          {isLoading ? (
+            <Skeleton className="h-4 w-[100px]" />
+          ) : (
+            <TooltipProvider>
+              <div className="flex items-center gap-x-1">
+                <Tooltip>
+                  <TooltipTrigger>
+                    <Info className="w-4 h-4 mr-0.5" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>
+                      {data?.networkAddressing.rawCarrierSecondaryDNS || "N/A"}
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+                <p className="font-bold">
+                  {data?.networkAddressing.carrierSecondaryDNS || "N/A"}
+                </p>
+              </div>
+            </TooltipProvider>
+          )}
+        </div>
       </CardContent>
 
       {/* SIM Swap Confirmation Dialog */}
@@ -640,16 +724,6 @@ const SummaryCardComponent = ({
               {data?.simCard.slot === "1" ? "SIM 2" : "SIM 1"}?
             </DialogDescription>
           </DialogHeader>
-          {/* <div className="space-y-4 py-4"> */}
-          {/* <div className="rounded-lg bg-muted p-4">
-              <p className="text-sm">
-                <strong>Current SIM:</strong> SIM {data?.simCard.slot}
-              </p>
-              <p className="text-sm mt-2">
-                <strong>Switch to:</strong> SIM{" "}
-                {data?.simCard.slot === "1" ? "2" : "1"}
-              </p>
-            </div> */}
           <div className="rounded-lg bg-yellow-500/10 border border-yellow-500/20 p-4">
             <p className="text-sm text-yellow-700 dark:text-yellow-500 text-pretty text-center">
               The device will disconnect and reconnect to the network. This

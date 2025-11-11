@@ -325,7 +325,7 @@ const useHomeData = () => {
           ) || ["Unknown"],
         },
         networkAddressing: {
-          publicIPv4: "Loading...", // Placeholder, will be updated by fetchPublicIP
+          publicIPv4: "Checking...", // Placeholder, will be updated by fetchPublicIP
           // Extract IPv4 address from QMAP="WWAN" response
           cellularIPv4: extractIPAddress(rawData, "IPV4"),
           cellularIPv6: extractIPAddress(rawData, "IPV6"),
