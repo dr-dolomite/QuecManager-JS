@@ -1,68 +1,96 @@
 #!/bin/sh
 # Profile Dialog Settings Management Script
-# Manages the display of profile setup dialog on home page
-# Uses UCI configuration for OpenWRT integration
-# Date: 2025-10-03
+# Manages the display of profile setup dialog on home page using UCI
+# Author: dr-dolomite
+# Date: 2025-11-11
 
-# Configuration
+# UCI Configuration
 UCI_CONFIG="quecmanager"
-UCI_SECTION="profile_dialog"
-
-# Default setting is ENABLED 
-DEFAULT_SETTING="ENABLED"
+UCI_SECTION="preferences"
+UCI_OPTION="profile_dialog"
+DEFAULT_SETTING="show"
 
 # HTTP headers
 echo "Content-Type: application/json"
 echo "Cache-Control: no-cache"
+echo "Access-Control-Allow-Origin: *"
+echo "Access-Control-Allow-Methods: GET, POST, DELETE, OPTIONS"
+echo "Access-Control-Allow-Headers: Content-Type"
 echo ""
 
-# Initialize UCI configuration
-init_uci_config() {
-    # Ensure quecmanager config exists
-    touch /etc/config/quecmanager 2>/dev/null || true
+# Error response function
+send_error() {
+    local error_code="$1"
+    local error_message="$2"
+    echo "{\"status\":\"error\",\"code\":\"$error_code\",\"message\":\"$error_message\"}"
+    exit 1
+}
+
+# Success response function
+send_success() {
+    local message="$1"
+    local enabled="$2"
+    local is_default="$3"
+    echo "{\"status\":\"success\",\"message\":\"$message\",\"data\":{\"enabled\":$enabled,\"isDefault\":$is_default}}"
+}
+
+# Ensure UCI section exists
+ensure_uci_section() {
+    # Check if config exists, create if not
+    if ! uci -q get ${UCI_CONFIG} >/dev/null 2>&1; then
+        touch /etc/config/${UCI_CONFIG}
+    fi
     
-    # Create section if it doesn't exist
-    if ! uci -q get quecmanager.profile_dialog >/dev/null 2>&1; then
-        uci set quecmanager.profile_dialog=settings
-        uci commit quecmanager
+    # Check if section exists, create if not
+    if ! uci -q get ${UCI_CONFIG}.${UCI_SECTION} >/dev/null 2>&1; then
+        uci set ${UCI_CONFIG}.${UCI_SECTION}=settings
+        uci commit ${UCI_CONFIG}
     fi
 }
 
-# Function to read current setting from UCI
-read_setting() {
-    # Initialize UCI if needed
-    init_uci_config
+# Get current setting from UCI
+get_setting() {
+    ensure_uci_section
     
-    # Read from UCI
-    local setting=$(uci -q get quecmanager.profile_dialog.enabled)
+    local setting=$(uci -q get ${UCI_CONFIG}.${UCI_SECTION}.${UCI_OPTION})
     
-    if [ -n "$setting" ]; then
-        # Convert UCI format to ENABLED/DISABLED
-        case "$setting" in
-            1|true|on|yes|enabled|ENABLED) echo "ENABLED" ;;
-            *) echo "DISABLED" ;;
-        esac
-    else
-        echo "$DEFAULT_SETTING"
+    # If no setting in UCI, set default and return it
+    if [ -z "$setting" ]; then
+        setting="$DEFAULT_SETTING"
+        uci set ${UCI_CONFIG}.${UCI_SECTION}.${UCI_OPTION}="$setting"
+        uci commit ${UCI_CONFIG}
     fi
+    
+    echo "$setting"
 }
 
-# Function to write setting to UCI
-write_setting() {
+# Save setting to UCI
+save_setting() {
     local setting="$1"
+    ensure_uci_section
     
-    # Initialize UCI if needed
-    init_uci_config
+    uci set ${UCI_CONFIG}.${UCI_SECTION}.${UCI_OPTION}="$setting"
+    uci commit ${UCI_CONFIG}
+}
+
+# Delete setting (revert to default)
+delete_setting() {
+    ensure_uci_section
     
-    # Convert ENABLED/DISABLED to UCI format (1/0)
-    local uci_value="0"
-    [ "$setting" = "ENABLED" ] && uci_value="1"
+    uci delete ${UCI_CONFIG}.${UCI_SECTION}.${UCI_OPTION} 2>/dev/null
+    uci commit ${UCI_CONFIG}
+}
+
+# Check if current setting is default
+is_default_setting() {
+    local setting=$(uci -q get ${UCI_CONFIG}.${UCI_SECTION}.${UCI_OPTION})
     
-    # Set UCI value
-    uci set quecmanager.profile_dialog.enabled="$uci_value"
-    
-    # Commit changes
-    uci commit quecmanager
+    # If UCI entry doesn't exist or equals default, it's default
+    if [ -z "$setting" ] || [ "$setting" = "$DEFAULT_SETTING" ]; then
+        echo "true"
+    else
+        echo "false"
+    fi
 }
 
 # Function to return JSON response
@@ -84,49 +112,75 @@ json_response() {
 EOF
 }
 
-# Handle different HTTP methods
-case "$REQUEST_METHOD" in
-    "GET")
-        # Read current setting
-        current_setting=$(read_setting)
-        if [ "$current_setting" = "ENABLED" ]; then
-            enabled="true"
-        else
-            enabled="false"
-        fi
-        
-        # Check if it's default (UCI option doesn't exist or contains default value)
-        if ! uci -q get quecmanager.profile_dialog.enabled >/dev/null 2>&1 || [ "$current_setting" = "$DEFAULT_SETTING" ]; then
-            is_default="true"
-        else
-            is_default="false"
-        fi
-        
-        json_response "success" "Profile dialog setting retrieved successfully" "$enabled" "$is_default"
+# Handle GET request
+handle_get() {
+    local setting=$(get_setting)
+    local is_default=$(is_default_setting)
+    
+    # Convert show/hide to boolean
+    local enabled="true"
+    [ "$setting" = "hide" ] && enabled="false"
+    
+    send_success "Profile dialog setting retrieved successfully" "$enabled" "$is_default"
+}
+
+# Handle POST request
+handle_post() {
+    if [ -z "$CONTENT_LENGTH" ] || [ "$CONTENT_LENGTH" -eq 0 ]; then
+        send_error "NO_DATA" "No data provided"
+    fi
+    
+    # Read JSON input
+    local input=$(head -c "$CONTENT_LENGTH")
+    
+    # Extract enabled value
+    local enabled=$(echo "$input" | grep -o '"enabled"[[:space:]]*:[[:space:]]*[^,}]*' | sed 's/.*:[[:space:]]*//' | tr -d '"' | tr -d ' ')
+    
+    if [ "$enabled" = "true" ]; then
+        save_setting "show"
+        send_success "Profile dialog enabled successfully" "true" "false"
+    elif [ "$enabled" = "false" ]; then
+        save_setting "hide"
+        send_success "Profile dialog disabled successfully" "false" "false"
+    else
+                else
+        send_error "INVALID_VALUE" "Invalid value for enabled. Must be true or false."
+    fi
+}
+
+# Handle DELETE request
+handle_delete() {
+    delete_setting
+    
+    # After deleting, get the current setting (will be default)
+    local setting=$(get_setting)
+    local enabled="true"
+    [ "$setting" = "hide" ] && enabled="false"
+    
+    send_success "Profile dialog setting reset to default" "$enabled" "true"
+}
+
+# Main execution
+case "${REQUEST_METHOD:-GET}" in
+    GET)
+        handle_get
         ;;
-        
-    "POST")
-        # Update setting from JSON input
-        if [ -n "$CONTENT_LENGTH" ] && [ "$CONTENT_LENGTH" -gt 0 ]; then
-            # Read JSON input
-            input=$(head -c "$CONTENT_LENGTH")
-            
-            # Extract enabled value using simple parsing
-            enabled=$(echo "$input" | grep -o '"enabled"[[:space:]]*:[[:space:]]*[^,}]*' | sed 's/.*:[[:space:]]*//' | tr -d '"' | tr -d ' ')
-            
-            if [ "$enabled" = "true" ]; then
-                write_setting "ENABLED"
-                json_response "success" "Profile dialog enabled successfully" "true" "false"
-            elif [ "$enabled" = "false" ]; then
-                write_setting "DISABLED"
-                json_response "success" "Profile dialog disabled successfully" "false" "false"
-            else
-                json_response "error" "Invalid enabled value. Must be true or false" "false" "true"
-            fi
-        else
-            json_response "error" "No data provided" "false" "true"
-        fi
+    POST)
+        handle_post
         ;;
+    DELETE)
+        handle_delete
+        ;;
+    OPTIONS)
+        # Handle CORS preflight
+        exit 0
+        ;;
+    *)
+        send_error "METHOD_NOT_ALLOWED" "HTTP method ${REQUEST_METHOD} not supported"
+        ;;
+esac
+
+exit 0
         
     "DELETE")
         # Reset to default (remove UCI option)

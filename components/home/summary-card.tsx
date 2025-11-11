@@ -52,19 +52,14 @@ interface SummaryCardProps {
   connectionStateLoading: boolean;
   bytesSent: string;
   bytesReceived: string;
+  temperatureUnit: string;
   hideSensitiveData: boolean;
   bands: Band[] | null;
   onDataRefresh?: () => void;
 }
 
 // create an SCS_MAP array to map scs index to string values. If undefined, show '-'
-const SCS_MAP = [
-  "15",
-  "30",
-  "60",
-  "120",
-  "240",
-]; 
+const SCS_MAP = ["15", "30", "60", "120", "240"];
 
 const SummaryCardComponent = ({
   data,
@@ -74,6 +69,7 @@ const SummaryCardComponent = ({
   connectionStateLoading,
   bytesSent,
   bytesReceived,
+  temperatureUnit,
   hideSensitiveData,
   bands,
   onDataRefresh,
@@ -127,6 +123,17 @@ const SummaryCardComponent = ({
     if (tempValue > 65) return "bg-red-600";
     if (tempValue > 50) return "bg-orange-600";
     return "bg-green-600";
+  };
+
+  // Use temperature unit to format temperature display based on user preference
+  const formatTemperature = (tempCelsius: string | undefined): string => {
+    if (!tempCelsius) return "N/A";
+    if (temperatureUnit === "fahrenheit") {
+      const celsiusValue = parseFloat(tempCelsius.replace("°C", ""));
+      const fahrenheitValue = (celsiusValue * 9) / 5 + 32;
+      return `${fahrenheitValue.toFixed(1)} °F`;
+    }
+    return `${tempCelsius}`;
   };
 
   // Calculate total bandwidth from all active bands
@@ -254,7 +261,7 @@ const SummaryCardComponent = ({
                 )}`}
               />
               <p className="ml-2 font-bold">
-                {data?.connection.modemTemperature}
+                {formatTemperature(data?.connection.modemTemperature)}
               </p>
             </div>
           )}

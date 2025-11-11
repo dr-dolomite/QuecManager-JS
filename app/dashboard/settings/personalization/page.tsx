@@ -97,6 +97,15 @@ interface ProfileDialogResponse {
   };
 }
 
+interface TemperatureUnitResponse {
+  status: string;
+  message: string;
+  data?: {
+    unit: "celsius" | "fahrenheit";
+    isDefault: boolean;
+  };
+}
+
 const PersonalizationPage = () => {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -107,6 +116,9 @@ const PersonalizationPage = () => {
   const [measurementUnit, setMeasurementUnit] = useState<"km" | "mi">("km");
   const [isUnitLoading, setIsUnitLoading] = useState<boolean>(false);
   const [isUnitDefault, setIsUnitDefault] = useState<boolean>(true);
+  const [temperatureUnit, setTemperatureUnit] = useState<"celsius" | "fahrenheit">("celsius");
+  const [isTempUnitLoading, setIsTempUnitLoading] = useState<boolean>(false);
+  const [isTempUnitDefault, setIsTempUnitDefault] = useState<boolean>(true);
   const [pingEnabled, setPingEnabled] = useState<boolean>(true);
   const [pingInterval, setPingInterval] = useState<number>(5);
   const [isPingLoading, setIsPingLoading] = useState<boolean>(false);
@@ -132,6 +144,7 @@ const PersonalizationPage = () => {
     loadCachedImage();
     fetchProfilePicture();
     fetchMeasurementUnit();
+    fetchTemperatureUnit();
     fetchPingSettings();
     fetchMemorySettings();
     fetchProfileDialogSettings();
@@ -617,6 +630,105 @@ const PersonalizationPage = () => {
     }
   };
 
+  // Temperature units functions
+  const fetchTemperatureUnit = async () => {
+    try {
+      setIsTempUnitLoading(true);
+      const response = await fetch(
+        "/cgi-bin/quecmanager/settings/temperature_units.sh"
+      );
+      const data: TemperatureUnitResponse = await response.json();
+
+      if (data.status === "success" && data.data) {
+        setTemperatureUnit(data.data.unit);
+        setIsTempUnitDefault(data.data.isDefault);
+      }
+    } catch (error) {
+      console.error("Error fetching temperature unit:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load temperature unit preferences.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsTempUnitLoading(false);
+    }
+  };
+
+  const updateTemperatureUnit = async (unit: "celsius" | "fahrenheit") => {
+    try {
+      setIsTempUnitLoading(true);
+      const response = await fetch(
+        "/cgi-bin/quecmanager/settings/temperature_units.sh",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ unit }),
+        }
+      );
+      const data: TemperatureUnitResponse = await response.json();
+
+      if (data.status === "success") {
+        setTemperatureUnit(unit);
+        setIsTempUnitDefault(false);
+        toast({
+          title: "Preference Updated",
+          description: `Temperature unit set to ${
+            unit === "celsius" ? "Celsius (°C)" : "Fahrenheit (°F)"
+          }.`,
+        });
+      } else {
+        throw new Error(data.message || "Failed to update temperature unit");
+      }
+    } catch (error) {
+      console.error("Error updating temperature unit:", error);
+      toast({
+        title: "Update Failed",
+        description: error instanceof Error ? error.message : "Unknown error",
+        variant: "destructive",
+      });
+    } finally {
+      setIsTempUnitLoading(false);
+    }
+  };
+
+  const resetTemperatureUnit = async () => {
+    try {
+      setIsTempUnitLoading(true);
+      const response = await fetch(
+        "/cgi-bin/quecmanager/settings/temperature_units.sh",
+        {
+          method: "DELETE",
+        }
+      );
+      const data: TemperatureUnitResponse = await response.json();
+
+      if (data.status === "success" && data.data) {
+        setTemperatureUnit(data.data.unit);
+        setIsTempUnitDefault(true);
+        toast({
+          title: "Preference Reset",
+          description: `Temperature unit reset to system default (${
+            data.data.unit === "celsius" ? "Celsius (°C)" : "Fahrenheit (°F)"
+          }).`,
+        });
+      } else {
+        throw new Error(data.message || "Failed to reset temperature unit");
+      }
+    } catch (error) {
+      console.error("Error resetting temperature unit:", error);
+      toast({
+        title: "Reset Failed",
+        description: error instanceof Error ? error.message : "Unknown error",
+        variant: "destructive",
+      });
+    } finally {
+      setIsTempUnitLoading(false);
+    }
+  };
+
   // Ping settings functions
   const fetchPingSettings = async () => {
     try {
@@ -1087,6 +1199,61 @@ const PersonalizationPage = () => {
           <div className="grid lg:grid-cols-2 grid-flow-row gap-4">
             <div className="lg:col-span-2 col-span-1">
               <div className="grid w-full max-w-sm items-center gap-2">
+                <Label htmlFor="ProfileDialogSettings">
+                  Profile Setup Dialog
+                </Label>
+                {isProfileDialogLoading ? (
+                  <Skeleton className="h-8" />
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    <div className="flex flex-row gap-2 items-center">
+                      <Select
+                        disabled={isProfileDialogLoading}
+                        value={profileDialogEnabled ? "enabled" : "disabled"}
+                        onValueChange={(value: string) =>
+                          updateProfileDialogSettings(value === "enabled")
+                        }
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue>
+                            {profileDialogEnabled
+                              ? "Show Dialog"
+                              : "Hide Dialog"}
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectGroup>
+                            <SelectLabel>Profile Setup Dialog</SelectLabel>
+                            <SelectItem value="enabled">
+                              Show profile setup dialog
+                            </SelectItem>
+                            <SelectItem value="disabled">
+                              Hide profile setup dialog
+                            </SelectItem>
+                          </SelectGroup>
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        disabled={
+                          isProfileDialogLoading || isProfileDialogDefault
+                        }
+                        onClick={resetProfileDialogSettings}
+                      >
+                        <Undo2Icon className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                <p className="text-sm text-muted-foreground">
+                  Controls whether to show the profile setup on the home page.
+                </p>
+              </div>
+            </div>
+
+            <div className="col-span-1">
+              <div className="grid w-full max-w-sm items-center gap-2">
                 <Label htmlFor="MeasurementUnits">
                   Distance Measurement Unit
                 </Label>
@@ -1139,58 +1306,59 @@ const PersonalizationPage = () => {
               </div>
             </div>
 
-            <div className="lg:col-span-2 col-span-1">
+            <div className="col-span-1">
               <div className="grid w-full max-w-sm items-center gap-2">
-                <Label htmlFor="ProfileDialogSettings">
-                  Profile Setup Dialog
+                <Label htmlFor="TemperatureUnits">
+                  Temperature Measurement Unit
                 </Label>
-                {isProfileDialogLoading ? (
+                {isTempUnitLoading ? (
                   <Skeleton className="h-8" />
                 ) : (
-                  <div className="flex flex-col gap-2">
-                    <div className="flex flex-row gap-2 items-center">
-                      <Select
-                        disabled={isProfileDialogLoading}
-                        value={profileDialogEnabled ? "enabled" : "disabled"}
-                        onValueChange={(value: string) =>
-                          updateProfileDialogSettings(value === "enabled")
-                        }
-                      >
-                        <SelectTrigger className="w-full">
-                          <SelectValue>
-                            {profileDialogEnabled
-                              ? "Show Dialog"
-                              : "Hide Dialog"}
-                          </SelectValue>
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectGroup>
-                            <SelectLabel>Profile Setup Dialog</SelectLabel>
-                            <SelectItem value="enabled">
-                              Show profile setup dialog
-                            </SelectItem>
-                            <SelectItem value="disabled">
-                              Hide profile setup dialog
-                            </SelectItem>
-                          </SelectGroup>
-                        </SelectContent>
-                      </Select>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        disabled={
-                          isProfileDialogLoading || isProfileDialogDefault
-                        }
-                        onClick={resetProfileDialogSettings}
-                      >
-                        <Undo2Icon className="h-4 w-4" />
-                      </Button>
-                    </div>
+                  <div className="flex flex-row gap-2 items-center">
+                    <Select
+                      disabled={isTempUnitLoading}
+                      value={temperatureUnit}
+                      onValueChange={(value: "celsius" | "fahrenheit") =>
+                        updateTemperatureUnit(value)
+                      }
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue>
+                          {temperatureUnit === "celsius"
+                            ? "Celsius (°C)"
+                            : "Fahrenheit (°F)"}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectGroup>
+                          <SelectLabel>Temperature Unit</SelectLabel>
+                          <SelectItem value="celsius">Celsius (°C)</SelectItem>
+                          <SelectItem value="fahrenheit">
+                            Fahrenheit (°F)
+                          </SelectItem>
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      disabled={isTempUnitLoading || isTempUnitDefault}
+                      onClick={resetTemperatureUnit}
+                    >
+                      <Undo2Icon className="h-4 w-4" />
+                    </Button>
                   </div>
                 )}
-                <p className="text-sm text-muted-foreground">
-                  Controls whether to show the profile setup on the home page.
-                </p>
+
+                {isTempUnitDefault ? (
+                  <p className="text-sm text-muted-foreground">
+                    This is the default unit based on your system settings.
+                  </p>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    This is a custom unit setting.
+                  </p>
+                )}
               </div>
             </div>
 

@@ -65,6 +65,7 @@ const HomePage = () => {
   const websocketData = useWebSocketData();
   
   const [noSimDialogOpen, setNoSimDialogOpen] = useState(false);
+    const [temperatureUnit, setTemperatureUnit] = useState<string>("celsius");
   const [profileSetupDialogOpen, setProfileSetupDialogOpen] = useState(false);
   const [hideSensitiveData, setHideSensitiveData] = useState(false);
   const {
@@ -307,6 +308,28 @@ const HomePage = () => {
     }
   }, [homeData, isLoading]);
 
+  // Get temperature unit from backend script
+  // cgi-bin/quecmanager/settings/temperature_units.sh
+  useEffect(() => {
+    const fetchTemperatureUnit = async () => {
+      try {
+        const response = await fetch(
+          "/cgi-bin/quecmanager/settings/temperature_units.sh"
+        );
+        if (response.ok) {
+          const data = await response.json();
+          if (data.status === "success" && data.data) {
+            setTemperatureUnit(data.data.unit);
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching temperature unit:", error);
+      }
+    };
+
+    fetchTemperatureUnit();
+  }, []);
+
   return (
     <div className="grid xl:gap-y-10 gap-y-8 gap-4">
       <div className="grid gap-4">
@@ -544,6 +567,7 @@ const HomePage = () => {
             connectionStateLoading={isStateLoading}
             bytesSent={bytesSent}
             bytesReceived={bytesReceived}
+            temperatureUnit={temperatureUnit}
             hideSensitiveData={hideSensitiveData}
             bands={bands}
             onDataRefresh={refreshData}
