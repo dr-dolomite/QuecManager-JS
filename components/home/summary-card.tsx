@@ -9,7 +9,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -176,7 +175,17 @@ const SummaryCardComponent = ({
         description: `Switching from SIM ${currentSlot} to SIM ${newSlot}...`,
       });
 
-      // Step 2: Switch to the other slot
+      // Turn off CFUN first
+      const cfunOffResponse = await atCommandSender("AT+CFUN=0");
+
+      if (cfunOffResponse.status !== "success") {
+        throw new Error("Failed to set CFUN to 0");
+      }
+
+      // Sleep for 1 second to ensure CFUN is set
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
+      // Switch to the other slot
       const switchCommand = `AT+QUIMSLOT=${newSlot}`;
       const switchResponse = await atCommandSender(switchCommand);
 
@@ -184,24 +193,19 @@ const SummaryCardComponent = ({
         throw new Error("Failed to switch SIM slot");
       }
 
+      // Sleep for 1 second to ensure slot switch is complete
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
+      // Step 2: Set CFUN back to full functionality
+      const cfunOnResponse = await atCommandSender("AT+CFUN=1");
+
+      if (cfunOnResponse.status !== "success") {
+        throw new Error("Failed to set CFUN to 1");
+      }
+
       toast({
         title: "SIM Slot Switched",
         description: `Successfully switched to SIM ${newSlot}. Reconnecting to network...`,
-      });
-
-      // Step 3: Wait 3 seconds then disconnect from network
-      await new Promise((resolve) => setTimeout(resolve, 3000));
-
-      await atCommandSender("AT+COPS=2");
-
-      // Step 4: Wait 2 seconds then reconnect to network
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-
-      await atCommandSender("AT+COPS=0");
-
-      toast({
-        title: "Network Reconnected",
-        description: "The device has been reconnected to the network",
       });
 
       // Step 5: Refresh data after 3 seconds
