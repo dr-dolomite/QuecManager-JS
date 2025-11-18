@@ -1,13 +1,10 @@
-#!/bin/sh /etc/rc.common
+#!/bin/sh
 
-# WebSocket Setup Service
-# Ensures UCI configuration and SSL certificates are ready before websocat starts
-# This service runs before quecmanager_services (START=49)
-
-START=48
-STOP=51
-
-USE_PROCD=1
+# WebSocket Setup Script
+# Handles UCI configuration and SSL certificate generation for WebSocket services
+# This script is called by the websocat_setup init.d service
+# Author: dr-dolomite
+# Date: 2025-11-18
 
 # Load centralized logging if available
 LOGGER_SCRIPT="/www/cgi-bin/services/quecmanager_logger.sh"
@@ -72,10 +69,19 @@ setup_uci_config() {
 setup_ssl_certificates() {
     log_info "Checking SSL certificates..."
     
-    local cert_path="/root/cert.pem"
-    local key_path="/root/key.pem"
-    local pkcs12_path="/root/output.pkcs12"
+    local cert_path="/etc/ssl/quecmanager_certs/cert.pem"
+    local key_path="/etc/ssl/quecmanager_certs/private/key.pem"
+    local pkcs12_path="/etc/ssl/quecmanager_certs/output.pkcs12"
     local need_generation=0
+
+    # Check for and create certificate directory if missing
+    if [ ! -d "/etc/ssl/quecmanager_certs" ]; then
+        mkdir -p "/etc/ssl/quecmanager_certs/private" || {
+            log_error "Failed to create certificate directory"
+            return 1
+        }
+        log_info "Created certificate directory"
+    fi
     
     # Check if all required files exist
     if [ ! -f "$cert_path" ] || [ ! -f "$key_path" ] || [ ! -f "$pkcs12_path" ]; then
@@ -119,44 +125,26 @@ setup_ssl_certificates() {
     return 0
 }
 
-start_service() {
-    log_info "WebSocket setup service starting..."
+# Main execution
+main() {
+    log_info "WebSocket setup script starting..."
     
-    # Create a simple procd service that runs once
-    procd_open_instance
-    procd_set_param command /bin/sh -c "
-        # Setup UCI configuration
-        $(type setup_uci_config | sed '1,3d;$d')
-        setup_uci_config
-        
-        # Setup SSL certificates
-        $(type setup_ssl_certificates | sed '1,3d;$d')
-        setup_ssl_certificates
-        
-        exit 0
-    "
-    procd_set_param stdout 1
-    procd_set_param stderr 1
-    procd_close_instance
-    
-    # Run setup immediately
+    # Setup UCI configuration
     setup_uci_config
-    setup_result=$?
+    uci_result=$?
     
+    # Setup SSL certificates
     setup_ssl_certificates
     ssl_result=$?
     
-    if [ $setup_result -eq 0 ] && [ $ssl_result -eq 0 ]; then
+    if [ $uci_result -eq 0 ] && [ $ssl_result -eq 0 ]; then
         log_info "WebSocket setup completed successfully"
+        return 0
     else
         log_error "WebSocket setup completed with errors"
+        return 1
     fi
 }
 
-stop_service() {
-    log_info "WebSocket setup service stopping (nothing to stop)"
-}
-
-service_triggers() {
-    procd_add_reload_trigger "quecmanager"
-}
+# Run main function
+main "$@"

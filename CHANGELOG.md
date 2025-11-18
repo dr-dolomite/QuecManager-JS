@@ -7,4 +7,10 @@
 4. Added animation to theme toggler
 5. Added Tracking Area Code
 6. Added New Feature: Connection Monitoring Alerts. This feature sends an automated email once there was a disconnect happened. 
-7. Now requires https
+7. Added alert dialog for accepting SSL certificate for wss
+8. Added back IPs and DNS to data to home
+9. Added preferred temperature measurement unit
+10. Improved uci usage for preferred settings
+11. 
+
+Note: Using https is now recommended

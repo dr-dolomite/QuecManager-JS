@@ -112,7 +112,7 @@ echo "$$" > "$PID_FILE"
 
 # Default to wss with self-signed certificate
 WS_PROTOCOL="wss"
-WS_CERT_PATH="/root/output.pkcs12"
+WS_CERT_PATH="/etc/ssl/quecmanager_certs/output.pkcs12"
 WS_CERT_PASSWORD="password"
 
 log "Starting websocat server - Basic broadcast mode..."
