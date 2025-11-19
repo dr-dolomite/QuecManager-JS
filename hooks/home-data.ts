@@ -291,8 +291,8 @@ const useHomeData = () => {
           scs: extractValueByNetworkType(
             rawData[10]?.response,
             getNetworkType(rawData[13]?.response),
-            { "NR5G-SA": 1, "NR5G-NSA": 2, LTE: 1 },
-            { "NR5G-SA": 15, "NR5G-NSA": 10, LTE: 0 },
+            { "NR5G-SA": 3, "NR5G-NSA": 3 },
+            { "NR5G-SA": 15, "NR5G-NSA": 10 },
             true
           ),
           signalQuality: getSignalQuality(rawData[19].response) || "Unknown",
@@ -325,7 +325,7 @@ const useHomeData = () => {
           ) || ["Unknown"],
         },
         networkAddressing: {
-          publicIPv4: "Loading...", // Placeholder, will be updated by fetchPublicIP
+          publicIPv4: "Checking...", // Placeholder, will be updated by fetchPublicIP
           // Extract IPv4 address from QMAP="WWAN" response
           cellularIPv4: extractIPAddress(rawData, "IPV4"),
           cellularIPv6: extractIPAddress(rawData, "IPV6"),
@@ -372,7 +372,7 @@ const useHomeData = () => {
       setData(processedData);
       setRetryCount(0);
       setError(null);
-      // console.log("Processed home data:", processedData); //
+      // console.log("Processed home data:", processedData);
       
       // Fetch public IP separately (non-blocking)
       fetchPublicIP();

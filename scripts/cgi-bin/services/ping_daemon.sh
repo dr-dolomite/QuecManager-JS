@@ -27,21 +27,29 @@ DEFAULT_INTERVAL=10
 SCRIPT_NAME="ping_daemon"
 UCI_CONFIG="quecmanager"
 
+# Websocket Configuration - Default to wss with self-signed certificate
+WEBSOCKET_PORT=8838
+WEBSOCKET_HOST="localhost"
+WEBSOCKET_URL="wss://${WEBSOCKET_HOST}:${WEBSOCKET_PORT}"
+WEBSOCKET_SERVICE="websocat"
+WS_CMD="${WEBSOCKET_SERVICE} -k --one-message ${WEBSOCKET_URL}"
+
+
 # Data retention settings
 MAX_REALTIME_ENTRIES=15      # Real-time rolling window
 MAX_MINUTELY_ENTRIES=60      # Keep 60 minutes (1 hour)
 MAX_HOURLY_ENTRIES=24        # Keep 24 hours (1 day)
 MAX_DAILY_ENTRIES=365        # Keep 1 year
 
-ensure_tmp_dir() { 
+ensure_tmp_dir() {
     [ -d "$TMP_DIR" ] || mkdir -p "$TMP_DIR" 2>/dev/null || true
     [ -d "/tmp/log/ping_daemon" ] || mkdir -p "/tmp/log/ping_daemon" 2>/dev/null || true
 }
 
-log() { 
+log() {
     local message="$1"
     local level="${2:-info}"
-    
+
     # Use centralized logging if available
     if [ "$USE_CENTRALIZED_LOGGING" -eq 1 ]; then
         case "$level" in
@@ -59,7 +67,7 @@ log() {
                 ;;
         esac
     fi
-    
+
     # Also log to legacy file for backward compatibility
     local timestamp=$(date "+%Y-%m-%d %H:%M:%S" 2>/dev/null || date)
     echo "[$timestamp] [$level] $message" >> "$LOG_FILE" 2>/dev/null || true
@@ -70,7 +78,7 @@ daemon_is_running() {
     pid=$(cat "$PID_FILE" 2>/dev/null || echo "")
     if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
       if [ -r "/proc/$pid/cmdline" ] && grep -q "ping_daemon.sh" "/proc/$pid/cmdline" 2>/dev/null; then
-        return 0 
+        return 0
       else
         rm -f "$PID_FILE" 2>/dev/null || true
       fi
@@ -102,20 +110,20 @@ read_config() {
   HOST="$DEFAULT_HOST"
   BACKUP="$BACKUP_HOST"
   INTERVAL="$DEFAULT_INTERVAL"
-  
+
   init_uci_config
-  
+
   PING_ENABLED=$(uci get "$UCI_CONFIG.ping_monitoring.enabled" 2>/dev/null || echo "1")
   PING_HOST=$(uci get "$UCI_CONFIG.ping_monitoring.host" 2>/dev/null || echo "$DEFAULT_HOST")
   PING_INTERVAL=$(uci get "$UCI_CONFIG.ping_monitoring.interval" 2>/dev/null || echo "$DEFAULT_INTERVAL")
-  
-  case "$PING_ENABLED" in 
-    true|1|on|yes|enabled) ENABLED=true ;; 
-    *) ENABLED=false ;; 
+
+  case "$PING_ENABLED" in
+    true|1|on|yes|enabled) ENABLED=true ;;
+    *) ENABLED=false ;;
   esac
-  
+
   [ -n "$PING_HOST" ] && HOST="$PING_HOST"
-  
+
   if echo "$PING_INTERVAL" | grep -qE '^[0-9]+$'; then
     if [ "$PING_INTERVAL" -ge 1 ] && [ "$PING_INTERVAL" -le 3600 ]; then
       INTERVAL="$PING_INTERVAL"
@@ -138,7 +146,7 @@ write_json_atomic() {
 trim_file() {
   local file="$1"
   local max_lines="$2"
-  
+
   if [ -f "$file" ]; then
     line_count=$(wc -l < "$file" 2>/dev/null || echo "0")
     if [ "$line_count" -gt "$max_lines" ]; then
@@ -173,10 +181,10 @@ load_state() {
 collect_minutely() {
   # Get current hour identifier (YYYY-MM-DD-HH)
   current_hourly_id=$(date +"%Y-%m-%d-%H" 2>/dev/null || date +"%Y%m%d%H")
-  
+
   # Load state
   load_state
-  
+
   # If we're in a new hour, aggregate the PREVIOUS hour's real-time data into hourly
   if [ "$current_hourly_id" != "${last_minutely_hour:-}" ]; then
     if [ -f "$REALTIME_JSON" ]; then
@@ -184,35 +192,35 @@ collect_minutely() {
       total_latency=0
       total_packet_loss=0
       valid_count=0
-      
+
       while IFS= read -r line; do
         latency=$(echo "$line" | grep -oE '"latency":[0-9]+' | cut -d':' -f2)
         packet_loss=$(echo "$line" | grep -oE '"packet_loss":[0-9]+' | cut -d':' -f2)
-        
+
         if [ -n "$latency" ]; then
           total_latency=$((total_latency + latency))
           total_packet_loss=$((total_packet_loss + packet_loss))
           valid_count=$((valid_count + 1))
         fi
       done < "$REALTIME_JSON"
-      
+
       # Create hourly entry directly (skip minutely aggregation)
       if [ "$valid_count" -gt 0 ]; then
         avg_latency=$((total_latency / valid_count))
         avg_packet_loss=$((total_packet_loss / valid_count))
-        
+
         # Use the START of the previous hour (BusyBox compatible)
         prev_hour_ts=$(date +"%Y-%m-%dT%H:00:00Z" 2>/dev/null || date -u +"%Y-%m-%dT%H:00:00Z")
-        
-        hourly_json="{\"timestamp\":\"$prev_hour_ts\",\"host\":\"$HOST\",\"latency\":$avg_latency,\"packet_loss\":$avg_packet_loss,\"sample_count\":$valid_count}"
-        
+
+        hourly_json="{\"channel\":\"ping\",\"timestamp\":\"$prev_hour_ts\",\"host\":\"$HOST\",\"latency\":$avg_latency,\"packet_loss\":$avg_packet_loss,\"sample_count\":$valid_count}"
+
         echo "$hourly_json" >> "$HOURLY_JSON" 2>/dev/null || true
         log "Created hourly entry from realtime data: $hourly_json"
-        
+
         trim_file "$HOURLY_JSON" "$MAX_HOURLY_ENTRIES"
       fi
     fi
-    
+
     # Update state
     save_state "$current_hourly_id" "${last_hourly_day:-}"
   fi
@@ -221,49 +229,49 @@ collect_minutely() {
 aggregate_hourly() {
   # Get current day identifier (YYYY-MM-DD)
   current_day_id=$(date +"%Y-%m-%d" 2>/dev/null || date +"%Y%m%d")
-  
+
   # Load state
   load_state
-  
+
   # If we're in a new day, aggregate the PREVIOUS day's hourly data into daily
   if [ "$current_day_id" != "${last_hourly_day:-}" ]; then
     if [ -f "$HOURLY_JSON" ]; then
       line_count=$(wc -l < "$HOURLY_JSON" 2>/dev/null || echo "0")
-      
+
       # Need at least 6 hourly entries to make a meaningful daily aggregate
       if [ "$line_count" -ge 6 ]; then
         total_latency=0
         total_packet_loss=0
         valid_count=0
-        
+
         while IFS= read -r line; do
           latency=$(echo "$line" | grep -oE '"latency":[0-9]+' | cut -d':' -f2)
           packet_loss=$(echo "$line" | grep -oE '"packet_loss":[0-9]+' | cut -d':' -f2)
-          
+
           if [ -n "$latency" ]; then
             total_latency=$((total_latency + latency))
             total_packet_loss=$((total_packet_loss + packet_loss))
             valid_count=$((valid_count + 1))
           fi
         done < "$HOURLY_JSON"
-        
+
         if [ "$valid_count" -gt 0 ]; then
           avg_latency=$((total_latency / valid_count))
           avg_packet_loss=$((total_packet_loss / valid_count))
-          
+
           # Use the START of the previous day (BusyBox compatible)
           prev_day_ts=$(date +"%Y-%m-%dT00:00:00Z" 2>/dev/null || date -u +"%Y-%m-%dT00:00:00Z")
-          
-          daily_json="{\"timestamp\":\"$prev_day_ts\",\"host\":\"$HOST\",\"latency\":$avg_latency,\"packet_loss\":$avg_packet_loss,\"sample_count\":$valid_count}"
-          
+
+          daily_json="{\"channel\":\"ping\",\"timestamp\":\"$prev_day_ts\",\"host\":\"$HOST\",\"latency\":$avg_latency,\"packet_loss\":$avg_packet_loss,\"sample_count\":$valid_count}"
+
           echo "$daily_json" >> "$DAILY_JSON" 2>/dev/null || true
           log "Created daily aggregate from hourly data: $daily_json"
-          
+
           trim_file "$DAILY_JSON" "$MAX_DAILY_ENTRIES"
         fi
       fi
     fi
-    
+
     # Update state
     save_state "${last_minutely_hour:-}" "$current_day_id"
   fi
@@ -273,12 +281,12 @@ aggregate_hourly() {
 
 ensure_tmp_dir
 log "Starting ping daemon (PID: $$)"
-if daemon_is_running; then 
+if daemon_is_running; then
     log "Already running" "warn"
     exit 0
 fi
 
-trap cleanup EXIT INT TERM 
+trap cleanup EXIT INT TERM
 write_pid
 
 # Initialize state
@@ -286,86 +294,86 @@ load_state
 
 while true; do
   read_config
-  if [ "$ENABLED" != "true" ]; then 
+  if [ "$ENABLED" != "true" ]; then
       log "Disabled in config" "info"
       exit 0
   fi
-  
+
   ts=$(date -u +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date +"%Y-%m-%dT%H:%M:%SZ")
   PING_BIN=$(command -v ping 2>/dev/null || echo "/bin/ping")
-  
+
   # Dual-ping logic: Try primary host first (8.8.8.8), then backup (1.1.1.1) if primary fails
   # Send 3 pings with 2 second timeout per ping to primary host
   output=$("$PING_BIN" -c 3 -W 2 "$HOST" 2>/dev/null || echo "")
   used_host="$HOST"
-  
+
   # Check if primary ping succeeded
   if ! echo "$output" | grep -q "packets transmitted"; then
     log "Primary host $HOST failed, trying backup $BACKUP" "warn"
-    
+
     # Try backup host with 2 pings
     output=$("$PING_BIN" -c 2 -W 2 "$BACKUP" 2>/dev/null || echo "")
     used_host="$BACKUP"
-    
+
     # If backup also fails, record total failure
     if ! echo "$output" | grep -q "packets transmitted"; then
       log "Both primary ($HOST) and backup ($BACKUP) failed - no internet" "error"
-      json="{\"timestamp\":\"$ts\",\"host\":\"$used_host\",\"latency\":null,\"packet_loss\":100,\"ok\":false}"
-      
+      json="{\"channel\":\"ping\",\"timestamp\":\"$ts\",\"host\":\"$used_host\",\"latency\":null,\"packet_loss\":100,\"ok\":false}"
+
       write_json_atomic "$json"
       append_to_realtime "$json"
-      
+
       # Send to WebSocket server if available
-      if command -v websocat >/dev/null 2>&1; then
-        echo "$json" | websocat --one-message ws://localhost:8838 2>/dev/null || true
+      if command -v "${WEBSOCKET_SERVICE}" >/dev/null 2>&1; then
+        echo "$json" | ${WS_CMD} 2>/dev/null || true
       fi
-      
+
       log "Wrote: $json"
-      
+
       # Still perform aggregations
       collect_minutely
       aggregate_hourly
-      
+
       sleep "$INTERVAL"
       continue
     fi
   fi
-  
+
   # Parse successful ping results (either from primary or backup)
   if echo "$output" | grep -q "packets transmitted"; then
     packet_loss=$(echo "$output" | grep -oE '[0-9]+% packet loss' | grep -oE '[0-9]+' | head -n1)
     [ -z "$packet_loss" ] && packet_loss=0
-    
+
     if echo "$output" | grep -q "round-trip"; then
       latency_ms=$(echo "$output" | grep -oE 'round-trip[^=]*= [0-9.]+/[0-9.]+/[0-9.]+' | grep -oE '[0-9.]+/[0-9.]+/[0-9.]+' | cut -d'/' -f2 | cut -d'.' -f1)
       [ -z "$latency_ms" ] && latency_ms=0
     else
       latency_ms=0
     fi
-    
-    json="{\"timestamp\":\"$ts\",\"host\":\"$used_host\",\"latency\":$latency_ms,\"packet_loss\":$packet_loss,\"ok\":true}"
-    
+
+    json="{\"channel\":\"ping\",\"timestamp\":\"$ts\",\"host\":\"$used_host\",\"latency\":$latency_ms,\"packet_loss\":$packet_loss,\"ok\":true}"
+
     if [ "$used_host" != "$HOST" ]; then
       log "Using backup host $used_host: latency=${latency_ms}ms, loss=${packet_loss}%" "warn"
     fi
   else
-    json="{\"timestamp\":\"$ts\",\"host\":\"$used_host\",\"latency\":null,\"packet_loss\":100,\"ok\":false}"
+    json="{\"channel\":\"ping\",\"timestamp\":\"$ts\",\"host\":\"$used_host\",\"latency\":null,\"packet_loss\":100,\"ok\":false}"
   fi
-  
+
   # Write current ping
   write_json_atomic "$json"
   append_to_realtime "$json"
-  
+
   # Send to WebSocket server if available (non-blocking)
-  if command -v websocat >/dev/null 2>&1; then
-    echo "$json" | websocat --one-message ws://localhost:8838 2>/dev/null || true
+  if command -v "${WEBSOCKET_SERVICE}" >/dev/null 2>&1; then
+    echo "$json" | ${WS_CMD} 2>/dev/null || true
   fi
-  
+
   log "Wrote: $json"
-  
+
   # Perform aggregations (these check internally if it's time to aggregate)
   collect_minutely  # Creates hourly data from realtime (every hour)
   aggregate_hourly  # Creates daily data from hourly (every day)
-  
+
   sleep "$INTERVAL"
 done

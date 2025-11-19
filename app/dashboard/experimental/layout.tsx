@@ -62,6 +62,16 @@ const ExperimentalLayout = ({ children }: ExperimentalLayoutProps) => {
             Tailscale Settings
           </Link>
           <Link
+            href="/dashboard/experimental/custom-dns"
+            className={`${
+              currentPathName === "/dashboard/experimental/custom-dns/"
+                ? "font-semibold text-primary"
+                : "text-sm"
+            }`}
+          >
+            Custom DNS
+          </Link>
+          <Link
             href="/dashboard/experimental/logs"
             className={`${
               currentPathName === "/dashboard/experimental/logs/"
@@ -71,6 +81,7 @@ const ExperimentalLayout = ({ children }: ExperimentalLayoutProps) => {
           >
             Logs
           </Link>
+
           <Link
             href="/dashboard/experimental/keep-alive"
             className={`${

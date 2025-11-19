@@ -75,14 +75,15 @@ main() {
         configured=true
     fi
     
-    # Check if daemon is running via procd
-    # Only check if the process is actually running
-    if pgrep -f "connection_monitor_daemon.sh" >/dev/null 2>&1; then
+    # Check if monitoring is enabled via UCI state (primary source of truth)
+    local enabled_state=$(uci get quecmanager.connection_monitor.enabled 2>/dev/null || echo "0")
+    
+    if [ "$enabled_state" = "1" ]; then
         is_running=true
-        qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Connection monitor daemon is running"
+        qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Connection monitoring is enabled (UCI state: enabled=1)"
     else
         is_running=false
-        qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Connection monitor daemon is not running"
+        qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Connection monitoring is disabled (UCI state: enabled=0)"
     fi
     
     for package in $REQUIRED_PACKAGES; do

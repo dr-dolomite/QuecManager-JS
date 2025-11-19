@@ -18,8 +18,19 @@ import {
   InputGroupButton,
   InputGroupInput,
   InputGroupText,
-  InputGroupTextarea,
 } from "@/components/ui/input-group";
+
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 import {
   Tooltip,
@@ -36,6 +47,7 @@ import {
   KeyRoundIcon,
   Loader2,
   MailIcon,
+  Trash2Icon,
 } from "lucide-react";
 import { Label } from "@/components/ui/label";
 
@@ -56,6 +68,7 @@ const MonitoringSetupComponent = ({
 }: MonitoringSetupProps) => {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [email, setEmail] = useState(defaultEmail);
   const [appPassword, setAppPassword] = useState("");
   const [recipient, setRecipient] = useState(defaultRecipient);
@@ -94,18 +107,17 @@ const MonitoringSetupComponent = ({
 
       // Configure or update email settings
       const configResponse = await fetch(endpoint, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            email: email,
-            app_password: appPassword,
-            recipient: recipient,
-            threshold: threshold,
-          }),
-        }
-      );
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: email,
+          app_password: appPassword,
+          recipient: recipient,
+          threshold: threshold,
+        }),
+      });
 
       if (!configResponse.ok) {
         throw new Error(`HTTP error! status: ${configResponse.status}`);
@@ -120,30 +132,81 @@ const MonitoringSetupComponent = ({
       } catch (parseError) {
         console.error("Failed to parse JSON:", responseText);
         throw new Error(
-          `Server returned invalid JSON. Response: ${responseText.substring(0, 200)}`
+          `Server returned invalid JSON. Response: ${responseText.substring(
+            0,
+            200
+          )}`
         );
       }
 
+      // Handle error responses from the server
+      if (configData.status === "error") {
+        // Parse common SMTP/authentication errors for better user experience
+        let errorMessage =
+          configData.message || "Failed to configure email settings";
+
+        // Check for authentication/app password errors
+        if (configData.error_details) {
+          const errorDetails = configData.error_details.toLowerCase();
+
+          if (
+            errorDetails.includes("authentication") ||
+            errorDetails.includes("535") ||
+            errorDetails.includes("invalid credentials") ||
+            errorDetails.includes("username and password not accepted")
+          ) {
+            errorMessage =
+              "Authentication failed. Please check your email and app password. Make sure you're using an App Password, not your regular Gmail password.";
+          } else if (
+            errorDetails.includes("connection") ||
+            errorDetails.includes("timeout")
+          ) {
+            errorMessage =
+              "Connection failed. Please check your internet connection and try again.";
+          } else if (
+            errorDetails.includes("tls") ||
+            errorDetails.includes("ssl")
+          ) {
+            errorMessage =
+              "Secure connection failed. This might be a temporary issue with Gmail's servers.";
+          }
+
+          console.error(
+            "Configuration error details:",
+            configData.error_details
+          );
+        }
+
+        toast({
+          title: "Configuration Failed",
+          description: errorMessage,
+          variant: "destructive",
+        });
+
+        setIsLoading(false);
+        return;
+      }
+
       if (configData.status !== "success") {
-        throw new Error(configData.message || "Failed to configure email");
+        throw new Error(configData.message || "Unknown error occurred");
       }
 
       // Show appropriate toast based on mode
       if (isEditMode) {
         toast({
-          title: "Configuration Updated! 🎉",
+          title: "Configuration Updated!",
           description: "Email settings have been updated successfully.",
         });
       } else {
         // Show appropriate toast based on test email result
         if (configData.test_email_sent) {
           toast({
-            title: "Configuration Successful! 🎉",
+            title: "Configuration Successful!",
             description: `Email settings saved and test email sent to ${recipient}. Starting monitoring service...`,
           });
         } else {
           toast({
-            title: "Configuration Saved ⚠️",
+            title: "Configuration Saved with Warnings",
             description:
               "Email settings saved but test email failed. Please check your credentials.",
             variant: "destructive",
@@ -201,6 +264,53 @@ const MonitoringSetupComponent = ({
       setIsLoading(false);
     }
   };
+
+  const handleDelete = async () => {
+    setIsDeleting(true);
+
+    try {
+      const deleteResponse = await fetch(
+        "/cgi-bin/quecmanager/alerts/delete_config.sh",
+        {
+          method: "GET",
+          cache: "no-store",
+        }
+      );
+
+      if (!deleteResponse.ok) {
+        throw new Error(`HTTP error! status: ${deleteResponse.status}`);
+      }
+
+      const deleteData = await deleteResponse.json();
+
+      if (deleteData.status === "error") {
+        throw new Error(deleteData.message || "Failed to delete configuration");
+      }
+
+      toast({
+        title: "Configuration Deleted",
+        description: "Email alert settings have been removed successfully.",
+      });
+
+      // Refresh parent component to show setup form
+      setTimeout(() => {
+        onRefresh();
+      }, 500);
+    } catch (error) {
+      console.error("Error deleting configuration:", error);
+      toast({
+        title: "Delete Failed",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Failed to delete configuration",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -337,19 +447,70 @@ const MonitoringSetupComponent = ({
               </InputGroupAddon>
             </InputGroup>
           </div>
-          <Button type="submit" className="w-40" disabled={isLoading}>
-            {isLoading ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                {isEditMode ? "Updating..." : "Saving..."}
-              </>
-            ) : (
-              <>
-                <DownloadCloudIcon className="h-4 w-4" />
-                {isEditMode ? "Update Settings" : "Save Settings"}
-              </>
+          <div className="flex items-center gap-4">
+            <Button
+              type="submit"
+              className="w-40"
+              disabled={isLoading || isDeleting}
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  {isEditMode ? "Updating..." : "Saving..."}
+                </>
+              ) : (
+                <>
+                  <DownloadCloudIcon className="h-4 w-4" />
+                  {isEditMode ? "Update Settings" : "Save Settings"}
+                </>
+              )}
+            </Button>
+            {isEditMode && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="destructive"
+                    disabled={isLoading || isDeleting}
+                  >
+                    <Trash2Icon className="h-4 w-4" />
+                    Delete Config
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>
+                      Are you absolutely sure?
+                    </AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This action cannot be undone. This will permanently delete
+                      your account and remove your data from our servers.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      onClick={handleDelete}
+                      disabled={isLoading || isDeleting}
+                    >
+                      {isDeleting ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Deleting...
+                        </>
+                      ) : (
+                        <>
+                          <Trash2Icon className="h-4 w-4" />
+                          Delete Config
+                        </>
+                      )}
+                    </Button>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             )}
-          </Button>
+          </div>
         </form>
       </CardContent>
     </Card>

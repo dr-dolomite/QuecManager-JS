@@ -9,7 +9,7 @@ echo ""
 # Check if tailscale command is available
 if ! command -v tailscale >/dev/null 2>&1; then
     echo '{"status":"error","peers":[],"total":0,"online":0,"offline":0,"message":"Tailscale command not found","error":"Tailscale is not installed or not in PATH"}'
-    exit 1
+    exit 0
 fi
 
 # Run tailscale status and capture output
@@ -18,7 +18,7 @@ ts_status=$(tailscale status 2>&1)
 # Check if logged out
 if echo "$ts_status" | grep -q "Logged out"; then
     echo '{"status":"error","peers":[],"total":0,"online":0,"offline":0,"message":"Not authenticated","error":"Device is not authenticated with Tailscale"}'
-    exit 1
+    exit 0
 fi
 
 # Create temp file to store parsed peers
@@ -31,39 +31,61 @@ online_peers=0
 offline_peers=0
 
 # Parse each line of tailscale status output
-echo "$ts_status" | while IFS= read -r line; do
+# Save to temp file first to avoid subshell issues with pipes
+echo "$ts_status" > "/tmp/tailscale_status_$$.txt"
+
+while IFS= read -r line; do
     # Skip empty lines and health check lines
     if [ -z "$line" ] || echo "$line" | grep -q "^#"; then
         continue
     fi
     
-    # Parse peer line format: IP HOSTNAME USER OS STATUS
-    # Example: 100.115.191.105 rm551e-gl russel.yasol@ linux -
+    # Parse peer line format: IP HOSTNAME USER OS STATUS [additional info]
     ip=$(echo "$line" | awk '{print $1}')
     hostname=$(echo "$line" | awk '{print $2}')
     user=$(echo "$line" | awk '{print $3}')
     os=$(echo "$line" | awk '{print $4}')
     status_flag=$(echo "$line" | awk '{print $5}')
     
-    # Remove @ symbol from user
-    user=$(echo "$user" | sed 's/@//g')
-    
     # Skip if IP doesn't look valid (basic check for 100.x.x.x pattern)
     if ! echo "$ip" | grep -q "^100\."; then
         continue
     fi
     
+    # Remove @ symbol from user and handle empty user
+    user=$(echo "$user" | sed 's/@//g')
+    if [ -z "$user" ]; then
+        user="unknown"
+    fi
+    
+    # Handle empty hostname
+    if [ -z "$hostname" ] || [ "$hostname" = "-" ]; then
+        hostname="unknown"
+    fi
+    
+    # Handle empty OS
+    if [ -z "$os" ] || [ "$os" = "-" ]; then
+        os="unknown"
+    fi
+    
     # Determine online/offline status
-    # "-" means online, "offline" means offline
-    if [ "$status_flag" = "offline" ]; then
+    # "-" means online/active, "offline" in status_flag means offline
+    if echo "$line" | grep -q "offline"; then
         peer_status="offline"
     else
         peer_status="online"
     fi
     
+    # Escape any quotes in the values to prevent JSON issues
+    hostname=$(echo "$hostname" | sed 's/"/\\"/g')
+    user=$(echo "$user" | sed 's/"/\\"/g')
+    
     # Output peer JSON object to temp file
     echo "{\"ip\":\"$ip\",\"hostname\":\"$hostname\",\"user\":\"$user\",\"os\":\"$os\",\"status\":\"$peer_status\"}" >> "$temp_file"
-done
+done < "/tmp/tailscale_status_$$.txt"
+
+# Clean up status temp file
+rm -f "/tmp/tailscale_status_$$.txt"
 
 # Count peers and online/offline status
 if [ -f "$temp_file" ]; then
@@ -97,3 +119,5 @@ echo "\"message\":\"Successfully fetched $total_peers peer(s)\"}"
 
 # Clean up temp file
 rm -f "$temp_file"
+
+exit 0

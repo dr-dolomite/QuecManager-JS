@@ -22,8 +22,7 @@ import {
   Area,
   YAxis,
 } from "recharts";
-import { Skeleton } from "../ui/skeleton";
-import { useBandwidthMonitor } from "@/hooks/use-bandwidth-monitor";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface SignalMetrics {
   datetime: string;
@@ -99,7 +98,7 @@ const formatSpeed = (bytesPerSecond: number): string => {
 
 const SignalChart = () => {
   // Get bandwidth data from the hook
-  
+
   // Initialize with 5 data points to show a graph right away
   const [chartData, setChartData] = useState<ChartDataPoint[]>(() => {
     const now = new Date();
@@ -168,7 +167,7 @@ const SignalChart = () => {
       // Add a new data point with zeros rather than clearing the chart
       const now = new Date().toISOString();
 
-      setChartData(prevData => {
+      setChartData((prevData) => {
         // Keep last 20 points to prevent excessive memory usage
         const newData = [...prevData];
         if (newData.length >= 20) {
@@ -218,7 +217,10 @@ const SignalChart = () => {
   };
 
   // Helper function to format values based on metric type
-  const formatValue = (metric: keyof typeof chartConfig, value: number): string => {
+  const formatValue = (
+    metric: keyof typeof chartConfig,
+    value: number
+  ): string => {
     switch (metric) {
       case "rsrp":
       case "rsrq":
@@ -261,7 +263,8 @@ const SignalChart = () => {
         <div className="flex flex-1 flex-col justify-center gap-1 px-6 py-5 sm:py-6">
           <CardTitle>Signal & Bandwidth Metrics</CardTitle>
           <CardDescription>
-            Per-port signal values averaged across all active ports + real-time bandwidth
+            Per-port signal values averaged across all active ports + real-time
+            bandwidth
           </CardDescription>
         </div>
         <div className="flex flex-wrap">
@@ -281,9 +284,8 @@ const SignalChart = () => {
                   <Skeleton className="h-4 sm:h-6 lg:h-8 w-full" />
                 ) : (
                   <span className="text-sm font-bold leading-none sm:text-base lg:text-2xl whitespace-nowrap px-2">
-                      {currentValues[chart].toFixed(0)}{
-                        chart === "rsrp" ? " dBm" : " dB"
-                      }
+                    {currentValues[chart].toFixed(0)}
+                    {chart === "rsrp" ? " dBm" : " dB"}
                   </span>
                 )}
               </button>
@@ -342,7 +344,13 @@ const SignalChart = () => {
                   stopOpacity={0.1}
                 />
               </linearGradient>
-              <linearGradient id="fillDownloadSpeed" x1="0" y1="0" x2="0" y2="1">
+              <linearGradient
+                id="fillDownloadSpeed"
+                x1="0"
+                y1="0"
+                x2="0"
+                y2="1"
+              >
                 <stop
                   offset="5%"
                   stopColor="var(--color-downloadSpeed)"
@@ -399,7 +407,10 @@ const SignalChart = () => {
                     });
                   }}
                   formatter={(value, name) => [
-                    formatValue(name as keyof typeof chartConfig, value as number),
+                    formatValue(
+                      name as keyof typeof chartConfig,
+                      value as number
+                    ),
                     chartConfig[name as keyof typeof chartConfig]?.label,
                   ]}
                 />
@@ -421,17 +432,17 @@ const SignalChart = () => {
       </CardContent>
       <CardFooter className="flex-col items-start gap-2 text-sm">
         <div className="flex gap-2 font-medium leading-none">
-          Signal metrics averaged across all active antenna ports + real-time bandwidth monitoring.
+          Signal metrics averaged across all active antenna ports + real-time
+          bandwidth monitoring.
         </div>
-        <div className="leading-none text-muted-foreground italic">
-
-            <>Higher signal values indicate better connection quality.</>
-        </div>
-        {error && (
+        <p className="leading-none text-muted-foreground italic">
+          Higher signal values indicate better connection quality.
+        </p>
+        {/* {error && (
           <div className="text-xs text-red-600 bg-red-50 p-2 rounded border w-full">
             {error}
           </div>
-        )}
+        )} */}
       </CardFooter>
     </Card>
   );

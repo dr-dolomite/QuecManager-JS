@@ -8,10 +8,14 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Badge } from "@/components/ui/badge";
-import { MonitorCheckIcon, MonitorOffIcon, WifiIcon } from "lucide-react";
-import { useMemoryMonitor } from "@/hooks/use-memory-monitor";
+import { MonitorCheckIcon, MonitorOffIcon } from "lucide-react";
+import { useWebSocketData } from "@/components/hoc/protected-route";
+
 import Link from "next/link";
+
+interface MemoryCardWebSocketProps {
+  websocketData?: any;
+}
 
 interface MemoryConfig {
   enabled: boolean;
@@ -25,6 +29,14 @@ interface MemoryChartData {
   used: number;
   available: number;
   index: number;
+}
+
+interface WebSocketMemoryData {
+  channel: string;
+  total: number;
+  used: number;
+  available: number;
+  timestamp: string;
 }
 
 const chartConfig = {
@@ -70,13 +82,14 @@ const formatMemoryBadge = (bytes: number): string => {
  * Displays memory usage in an area chart similar to ping-card.
  *
  * Features:
- * - Real-time updates via WebSocket
- * - Area chart showing last 10 data points
+ * - Real-time updates via WebSocket context
+ * - Area chart showing last 6 data points
  * - Used and Available memory visualization
  * - Current usage percentage badge
  */
-const MemoryCardWebSocket = () => {
-  const { historyData, isConnected, error, reconnect } = useMemoryMonitor();
+const MemoryCardWebSocket = ({ websocketData: propWebsocketData }: MemoryCardWebSocketProps) => {
+  const contextWebsocketData = useWebSocketData();
+  const websocketData = propWebsocketData || contextWebsocketData;
 
   const [chartData, setChartData] = useState<MemoryChartData[]>(() => {
     const savedData = localStorage.getItem("memoryChartData");
@@ -90,8 +103,11 @@ const MemoryCardWebSocket = () => {
   });
 
   const [isLoading, setIsLoading] = useState(true);
+  const [historyBuffer, setHistoryBuffer] = useState<WebSocketMemoryData[]>([]);
 
-  const hasData = historyData !== null;
+  // Determine if we have memory data from websocket
+  const hasMemoryData = websocketData?.channel === 'memory';
+  const isConnected = !!websocketData;
 
   // Fetch memory configuration to check if enabled
   const fetchMemoryConfig = useCallback(async () => {
@@ -130,19 +146,27 @@ const MemoryCardWebSocket = () => {
     initialize();
   }, [fetchMemoryConfig]);
 
-  // Update chart data when new memory data arrives (only if enabled)
+  // Update chart data when new memory data arrives via WebSocket
   useEffect(() => {
     if (!config.enabled) {
       // Clear chart data when disabled
       setChartData([]);
+      setHistoryBuffer([]);
       return;
     }
 
-    if (historyData) {
-      // If we have history data, use it to populate/update the chart
-      if (historyData.history && historyData.history.length > 0) {
-        // Convert history to chart data format
-        const chartDataPoints = historyData.history.slice(-6).map((point, idx) => ({
+    if (hasMemoryData) {
+      const memoryData = websocketData as WebSocketMemoryData;
+      // Add to history buffer
+      setHistoryBuffer(prev => {
+        const updated = [...prev, memoryData];
+        // Keep only last 6 data points
+        return updated.slice(-6);
+      });
+
+      // Update chart data
+      setHistoryBuffer(currentHistory => {
+        const chartDataPoints = currentHistory.map((point, idx) => ({
           time: new Date(point.timestamp).toLocaleTimeString([], {
             hour: "2-digit",
             minute: "2-digit",
@@ -153,29 +177,17 @@ const MemoryCardWebSocket = () => {
           available: formatMemoryMB(point.available),
           index: idx + 1,
         }));
-
         setChartData(chartDataPoints);
         localStorage.setItem("memoryChartData", JSON.stringify(chartDataPoints));
-      } else if (historyData.current) {
-        // Fallback to current data if no history
-        const time = formatTime();
-        const newDataPoint: MemoryChartData = {
-          time,
-          total: formatMemoryMB(historyData.current.total),
-          used: formatMemoryMB(historyData.current.used),
-          available: formatMemoryMB(historyData.current.available),
-          index: 1,
-        };
 
-        setChartData([newDataPoint]);
-        localStorage.setItem("memoryChartData", JSON.stringify([newDataPoint]));
-      }
+        return currentHistory;
+      });
     }
-  }, [historyData, config.enabled]);
+  }, [websocketData, hasMemoryData, config.enabled]);
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+      <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>Device Memory Usage</CardTitle>
         <div className="flex items-center gap-2">
           {!config.enabled ? (
@@ -206,16 +218,14 @@ const MemoryCardWebSocket = () => {
               </Link>
             </p>
           </div>
-        ) : !hasData ? (
+        ) : chartData.length === 0 ? (
           <div className="h-[200px] flex flex-col items-center justify-center">
-            {/* <Skeleton className="h-8 w-32 mb-2" /> */}
             <p className="text-sm text-muted-foreground">
               {isConnected ? "Waiting for data..." : "Connecting..."}
             </p>
-            {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
           </div>
         ) : (
-          <>
+          <> 
             <ChartContainer config={chartConfig}>
               <AreaChart
                 accessibilityLayer

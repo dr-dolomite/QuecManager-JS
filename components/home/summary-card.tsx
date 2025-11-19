@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Card,
   CardContent,
@@ -9,7 +9,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -27,11 +26,7 @@ import {
   Loader2,
   Repeat2Icon,
 } from "lucide-react";
-import {
-  HiOutlineStatusOnline,
-  HiOutlineStatusOffline,
-  HiOutlineSwitchHorizontal,
-} from "react-icons/hi";
+
 import { Progress } from "@/components/ui/progress";
 import {
   Tooltip,
@@ -45,36 +40,36 @@ import { getAccessTech } from "@/constants/home/index";
 import { atCommandSender } from "@/utils/at-command";
 import { useToast } from "@/hooks/use-toast";
 import { useDistanceCalculation } from "@/hooks/use-distance-calculation";
-import { useConnectionUptime } from "@/hooks/use-connection-uptime";
-import { useDeviceUptime } from "@/hooks/use-device-uptime";
+
+// Import and use the WebSocket data context, setup the type interface for the prop
+import { useWebSocketData } from "@/components/hoc/protected-route";
 
 interface SummaryCardProps {
   data: HomeData | null;
   isLoading: boolean;
+  websocketData?: any;
   dataConnectionState: string;
   connectionStateLoading: boolean;
   bytesSent: string;
   bytesReceived: string;
+  temperatureUnit: string;
   hideSensitiveData: boolean;
   bands: Band[] | null;
   onDataRefresh?: () => void;
 }
 
-const SCS_MAP = [
-  15,
-  30,
-  60,
-  120,
-  240
-]
+// create an SCS_MAP array to map scs index to string values. If undefined, show '-'
+const SCS_MAP = ["15", "30", "60", "120", "240"];
 
 const SummaryCardComponent = ({
   data,
   isLoading,
+  websocketData: propWebsocketData,
   dataConnectionState,
   connectionStateLoading,
   bytesSent,
   bytesReceived,
+  temperatureUnit,
   hideSensitiveData,
   bands,
   onDataRefresh,
@@ -83,17 +78,36 @@ const SummaryCardComponent = ({
   const [isSwappingDialog, setIsSwappingDialog] = useState(false);
   const [isSwapping, setIsSwapping] = useState(false);
 
+  // State to persist last known uptime data
+  const [lastUptimeData, setLastUptimeData] = useState<any>(null);
+  const [lastDeviceUptimeData, setLastDeviceUptimeData] = useState<any>(null);
+
+  // Use prop if provided, otherwise fall back to context
+
+  const contextWebsocketData = useWebSocketData();
+  const websocketData = propWebsocketData || contextWebsocketData;
+
   // Use distance calculation hook
   const { lteDistance, nrDistance, isUnitLoading } = useDistanceCalculation(
     data?.timeAdvance.lteTimeAdvance,
     data?.timeAdvance.nrTimeAdvance
   );
 
-  // Use connection uptime hook
-  const { uptimeData } = useConnectionUptime();
+  // Update last known uptime data when new data arrives
+  useEffect(() => {
+    // Should probably consider changing "type" to "channel" or vice versa on the other items for standardization
+    if (websocketData?.type === "uptime") {
+      setLastUptimeData(websocketData);
+    }
+    // Should probably consider changing "type" to "channel" or vice versa on the other items for standardization
+    if (websocketData?.type === "device_uptime") {
+      setLastDeviceUptimeData(websocketData);
+    }
+  }, [websocketData]);
 
-  // Use device uptime hook
-  const { uptimeData: deviceUptimeData } = useDeviceUptime();
+  // Use last known data to prevent flickering
+  const uptimeData = lastUptimeData;
+  const deviceUptimeData = lastDeviceUptimeData;
 
   // Calculate temperature progress (0-100°C scale)
   const getTemperatureProgress = (temp: string | undefined): number => {
@@ -111,9 +125,15 @@ const SummaryCardComponent = ({
     return "bg-green-600";
   };
 
-  // Check if operator is connected
-  const isOperatorConnected = (operatorState: string | undefined): boolean => {
-    return operatorState === "Registered" || operatorState === "Roaming";
+  // Use temperature unit to format temperature display based on user preference
+  const formatTemperature = (tempCelsius: string | undefined): string => {
+    if (!tempCelsius) return "N/A";
+    if (temperatureUnit === "fahrenheit") {
+      const celsiusValue = parseFloat(tempCelsius.replace("°C", ""));
+      const fahrenheitValue = (celsiusValue * 9) / 5 + 32;
+      return `${fahrenheitValue.toFixed(1)} °F`;
+    }
+    return `${tempCelsius}`;
   };
 
   // Calculate total bandwidth from all active bands
@@ -162,7 +182,17 @@ const SummaryCardComponent = ({
         description: `Switching from SIM ${currentSlot} to SIM ${newSlot}...`,
       });
 
-      // Step 2: Switch to the other slot
+      // Turn off CFUN first
+      const cfunOffResponse = await atCommandSender("AT+CFUN=0");
+
+      if (cfunOffResponse.status !== "success") {
+        throw new Error("Failed to set CFUN to 0");
+      }
+
+      // Sleep for 1 second to ensure CFUN is set
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
+      // Switch to the other slot
       const switchCommand = `AT+QUIMSLOT=${newSlot}`;
       const switchResponse = await atCommandSender(switchCommand);
 
@@ -170,24 +200,19 @@ const SummaryCardComponent = ({
         throw new Error("Failed to switch SIM slot");
       }
 
+      // Sleep for 1 second to ensure slot switch is complete
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
+      // Step 2: Set CFUN back to full functionality
+      const cfunOnResponse = await atCommandSender("AT+CFUN=1");
+
+      if (cfunOnResponse.status !== "success") {
+        throw new Error("Failed to set CFUN to 1");
+      }
+
       toast({
         title: "SIM Slot Switched",
         description: `Successfully switched to SIM ${newSlot}. Reconnecting to network...`,
-      });
-
-      // Step 3: Wait 3 seconds then disconnect from network
-      await new Promise((resolve) => setTimeout(resolve, 3000));
-
-      await atCommandSender("AT+COPS=2");
-
-      // Step 4: Wait 2 seconds then reconnect to network
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-
-      await atCommandSender("AT+COPS=0");
-
-      toast({
-        title: "Network Reconnected",
-        description: "The device has been reconnected to the network",
       });
 
       // Step 5: Refresh data after 3 seconds
@@ -236,7 +261,7 @@ const SummaryCardComponent = ({
                 )}`}
               />
               <p className="ml-2 font-bold">
-                {data?.connection.modemTemperature}
+                {formatTemperature(data?.connection.modemTemperature)}
               </p>
             </div>
           )}
@@ -402,6 +427,30 @@ const SummaryCardComponent = ({
           )}
         </div>
 
+        {/* Tracking Area Code (TAC) */}
+        <div className="flex items-center justify-between">
+          <p>Tracking Area Code</p>
+          {isLoading ? (
+            <Skeleton className="h-4 w-[80px]" />
+          ) : (
+            <TooltipProvider>
+              <div className="flex items-center gap-x-1">
+                <Tooltip>
+                  <TooltipTrigger>
+                    <Info className="w-4 h-4 mr-0.5" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>{data?.cellularInfo.trackingAreaCodeRaw || "N/A"}</p>
+                  </TooltipContent>
+                </Tooltip>
+                <p className="font-bold">
+                  {data?.cellularInfo.trackingAreaCode || "N/A"}
+                </p>
+              </div>
+            </TooltipProvider>
+          )}
+        </div>
+
         {/* Operator */}
         <div className="flex items-center justify-between">
           <p>Operator</p>
@@ -412,11 +461,6 @@ const SummaryCardComponent = ({
               <div className="flex items-center gap-x-1">
                 <Tooltip>
                   <TooltipTrigger>
-                    {/* {isOperatorConnected(data?.connection.operatorState) ? (
-                      <HiOutlineStatusOnline className="w-4 h-4 mr-0.5 text-green-500" />
-                    ) : (
-                      <HiOutlineStatusOffline className="w-4 h-4 mr-0.5 text-red-500" />
-                    )} */}
                     <Info className="w-4 h-4 mr-0.5" />
                   </TooltipTrigger>
                   <TooltipContent>
@@ -438,15 +482,25 @@ const SummaryCardComponent = ({
             <p className="font-bold">{data?.connection.apn}</p>
           )}
         </div>
-        
+
         <div className="flex items-center justify-between">
           <p>PCC SCS</p>
           {isLoading ? (
             <Skeleton className="h-4 w-[100px]" />
           ) : (
-            <p className="font-bold">{SCS_MAP[data?.cellularInfo?.scs || 0] || '-'} kHz </p>
+            <>
+              {data?.cellularInfo?.scs !== undefined ? (
+                <p className="font-bold">
+                  {SCS_MAP[Number(data?.cellularInfo?.scs)]
+                    ? `${SCS_MAP[Number(data?.cellularInfo?.scs)]} kHz`
+                    : "-"}
+                </p>
+              ) : (
+                <p className="font-bold">-</p>
+              )}
+            </>
           )}
-        </div>  
+        </div>
         <Separator className="my-1 w-full" />
 
         {/* Phone Number */}
@@ -574,6 +628,90 @@ const SummaryCardComponent = ({
             </TooltipProvider>
           )}
         </div>
+
+        <Separator className="my-1 w-full" />
+
+        {/* Public IPv4 */}
+        <div className="flex items-center justify-between">
+          <p>Public IPv4</p>
+          {isLoading ? (
+            <Skeleton className="h-4 w-[140px]" />
+          ) : hideSensitiveData ? (
+            <div className="border-none bg-gray-600 rounded-md h-5 md:w-36 w-24" />
+          ) : (
+            <p className="font-bold">
+              {data?.networkAddressing.publicIPv4 || "N/A"}
+            </p>
+          )}
+        </div>
+
+        {/* WAN IPv4 */}
+        <div className="flex items-center justify-between">
+          <p>WAN IPv4</p>
+          {isLoading ? (
+            <Skeleton className="h-4 w-[140px]" />
+          ) : hideSensitiveData ? (
+            <div className="border-none bg-gray-600 rounded-md h-5 md:w-36 w-24" />
+          ) : (
+            <p className="font-bold">
+              {data?.networkAddressing.cellularIPv4 || "N/A"}
+            </p>
+          )}
+        </div>
+
+        {/* WAN IPv6 */}
+        <div className="flex items-center justify-between">
+          <p>WAN IPv6</p>
+          {isLoading ? (
+            <Skeleton className="h-4 w-[140px]" />
+          ) : hideSensitiveData ? (
+            <div className="border-none bg-gray-600 rounded-md h-5 md:w-36 w-24" />
+          ) : (
+            <p className="font-bold">
+              {data?.networkAddressing.cellularIPv6 || "N/A"}
+            </p>
+          )}
+        </div>
+
+        {/* Primary DNS */}
+        <div className="flex items-center justify-between">
+          <p>Primary DNS</p>
+          {isLoading ? (
+            <Skeleton className="h-4 w-[140px]" />
+          ) : hideSensitiveData ? (
+            <div className="border-none bg-gray-600 rounded-md h-5 md:w-36 w-24" />
+          ) : (
+            <p className="font-bold">
+              {data?.networkAddressing.carrierPrimaryDNS || "N/A"}
+            </p>
+          )}
+        </div>
+
+        {/* Secondary DNS */}
+        <div className="flex items-center justify-between">
+          <p>Secondary DNS</p>
+          {isLoading ? (
+            <Skeleton className="h-4 w-[100px]" />
+          ) : (
+            <TooltipProvider>
+              <div className="flex items-center gap-x-1">
+                <Tooltip>
+                  <TooltipTrigger>
+                    <Info className="w-4 h-4 mr-0.5" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>
+                      {data?.networkAddressing.rawCarrierSecondaryDNS || "N/A"}
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+                <p className="font-bold">
+                  {data?.networkAddressing.carrierSecondaryDNS || "N/A"}
+                </p>
+              </div>
+            </TooltipProvider>
+          )}
+        </div>
       </CardContent>
 
       {/* SIM Swap Confirmation Dialog */}
@@ -586,16 +724,6 @@ const SummaryCardComponent = ({
               {data?.simCard.slot === "1" ? "SIM 2" : "SIM 1"}?
             </DialogDescription>
           </DialogHeader>
-          {/* <div className="space-y-4 py-4"> */}
-          {/* <div className="rounded-lg bg-muted p-4">
-              <p className="text-sm">
-                <strong>Current SIM:</strong> SIM {data?.simCard.slot}
-              </p>
-              <p className="text-sm mt-2">
-                <strong>Switch to:</strong> SIM{" "}
-                {data?.simCard.slot === "1" ? "2" : "1"}
-              </p>
-            </div> */}
           <div className="rounded-lg bg-yellow-500/10 border border-yellow-500/20 p-4">
             <p className="text-sm text-yellow-700 dark:text-yellow-500 text-pretty text-center">
               The device will disconnect and reconnect to the network. This

@@ -23,6 +23,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { useWebSocketData } from "@/components/hoc/protected-route";
 
 import {
   Gauge,
@@ -124,6 +125,9 @@ const formatSpeed = (bandwidth?: number): string => {
 const SpeedtestStream = () => {
   const { toast } = useToast();
 
+  // WebSocket data
+  const websocketData = useWebSocketData();
+
   // State management
   const [speedtestData, setSpeedtestData] = useState<SpeedtestData | null>(
     null
@@ -134,14 +138,9 @@ const SpeedtestStream = () => {
   const [error, setError] = useState<string | null>(null);
   const [showResults, setShowResults] = useState<boolean>(false);
   const [isTestRunning, setIsTestRunning] = useState<boolean>(false);
-  const [isStarting, setIsStarting] = useState<boolean>(false);
   const [pingProgress, setPingProgress] = useState<number>(0);
   const [isCooldown, setIsCooldown] = useState<boolean>(false);
   const [isDialogOpen, setIsDialogOpen] = useState<boolean>(false);
-
-  const pollInterval = useRef<NodeJS.Timeout | null>(null);
-  const speedtestDataRef = useRef<SpeedtestData | null>(null);
-  const showResultsRef = useRef<boolean>(false);
 
   const resetState = useCallback(() => {
     setSpeedtestData(null);
@@ -149,21 +148,21 @@ const SpeedtestStream = () => {
     setError(null);
     setShowResults(false);
     setIsTestRunning(false);
-    setIsStarting(false);
     setPingProgress(0);
-    speedtestDataRef.current = null;
-    showResultsRef.current = false;
+  }, []);
 
-    // Clear any existing poll interval
-    if (pollInterval.current) {
-      clearInterval(pollInterval.current);
-      pollInterval.current = null;
+  // Load speedtest data from sessionStorage on mount
+  useEffect(() => {
+    const storedData = sessionStorage.getItem("speedtestData");
+    if (storedData) {
+      const data = JSON.parse(storedData);
+      setSpeedtestData(data);
+      setShowResults(true);
     }
   }, []);
 
+  // Cooldown timer after test completion
   useEffect(() => {
-    const storedData = sessionStorage.getItem("speedtestData");
-    if (storedData) setSpeedtestData(JSON.parse(storedData));
     if (showResults && !isTestRunning) {
       setIsCooldown(true);
       const timer = setTimeout(() => {
@@ -173,112 +172,51 @@ const SpeedtestStream = () => {
     }
   }, [showResults, isTestRunning]);
 
+  // Listen to WebSocket messages for speedtest updates
   useEffect(() => {
-    // Cleanup function
-    return () => {
-      if (pollInterval.current) {
-        clearInterval(pollInterval.current);
-      }
-    };
-  }, []);
+    if (!websocketData || websocketData.channel !== "speedtest") {
+      return;
+    }
 
-  const pollStatus = useCallback(async () => {
-    try {
-      const response = await fetch(
-        "/cgi-bin/quecmanager/home/speedtest/speedtest_status.sh"
-      );
-      if (!response.ok) {
-        throw new Error(`Failed to fetch status: ${response.status}`);
-      }
+    const data = websocketData as SpeedtestData;
 
-      const data = await response.json();
-
-      // Check if test is not running
-      if (data.status === "not_running") {
-        if (isTestRunning) {
-          setError("Test ended unexpectedly");
-          setIsTestRunning(false);
-        }
-
-        if (pollInterval.current) {
-          clearInterval(pollInterval.current);
-          pollInterval.current = null;
-        }
-        return;
-      }
-
-      // Update state based on the data type
-      if (data.type) {
-        try {
-          switch (data.type) {
-            case "ping":
-              setCurrentType("ping");
-              if (data.ping && typeof data.ping.progress === "number") {
-                setPingProgress(data.ping.progress);
-              }
-              break;
-            case "download":
-            case "upload":
-              // Only update type if we're not in ping phase
-              if (currentType !== "ping") {
-                setCurrentType(data.type);
-              }
-              break;
-            case "result":
-              // We received the final result - make sure it has the required data
-              if (data.download && data.upload && data.ping) {
-                // We have complete data - show results
-                speedtestDataRef.current = data;
-                setSpeedtestData(data);
-                showResultsRef.current = true;
-                setShowResults(true);
-                setIsTestRunning(false);
-
-                sessionStorage.setItem("speedtestData", JSON.stringify(data));
-                if (pollInterval.current) {
-                  clearInterval(pollInterval.current);
-                  pollInterval.current = null;
-                }
-                return; // Exit early as we have complete results
-              } else {
-                console.warn("Incomplete result data received:", data);
-              }
-              break;
+    // Update current type based on message
+    if (data.type) {
+      switch (data.type) {
+        case "ping":
+          setCurrentType("ping");
+          if (data.ping && typeof data.ping.progress === "number") {
+            setPingProgress(data.ping.progress);
           }
-        } catch (error) {
-          console.error("Error processing speedtest data:", error);
-        }
+          break;
+
+        case "download":
+        case "upload":
+          setCurrentType(data.type);
+          break;
+
+        case "result":
+          // Final result received
+          if (data.download && data.upload && data.ping) {
+            setSpeedtestData(data);
+            setShowResults(true);
+            setIsTestRunning(false);
+            sessionStorage.setItem("speedtestData", JSON.stringify(data));
+          } else {
+            console.warn("Incomplete result data received:", data);
+          }
+          return;
       }
 
-      // Check if we should stop polling (using ref to avoid stale closure)
-      if (showResultsRef.current) {
-        if (pollInterval.current) {
-          clearInterval(pollInterval.current);
-          pollInterval.current = null;
-        }
-        return;
-      }
-
-      // Update the speedtest data - only if we have meaningful data
+      // Update speedtest data for intermediate updates
       if (
-        (data.type && (data.download || data.upload || data.ping)) ||
-        data.isp
+        data.type &&
+        (data.download || data.upload || data.ping || data.isp)
       ) {
-        speedtestDataRef.current = data;
         setSpeedtestData(data);
       }
-    } catch (error) {
-      console.error("Error polling speedtest status:", error);
-      if (isTestRunning) {
-        setError("Failed to get speedtest status");
-        setIsTestRunning(false);
-        if (pollInterval.current) {
-          clearInterval(pollInterval.current);
-          pollInterval.current = null;
-        }
-      }
     }
-  }, [currentType, isTestRunning]);
+  }, [websocketData]);
 
   const startSpeedtest = useCallback(async () => {
     if (isCooldown) return;
@@ -286,13 +224,12 @@ const SpeedtestStream = () => {
     try {
       // Reset all state before starting new test
       resetState();
-      setIsStarting(true);
       setIsTestRunning(true);
       setIsDialogOpen(true);
 
-      // Start the speedtest
+      // Start the speedtest (WebSocket version)
       const startResponse = await fetch(
-        "/cgi-bin/quecmanager/home/speedtest/start_speedtest.sh",
+        "/cgi-bin/quecmanager/home/speedtest/start_speedtest_ws.sh",
         { method: "GET" }
       );
 
@@ -300,9 +237,13 @@ const SpeedtestStream = () => {
         throw new Error("Failed to start speedtest");
       }
 
-      // Begin polling for status updates - 300ms for smoother UI updates
-      pollInterval.current = setInterval(pollStatus, 300);
-      setIsStarting(false);
+      const result = await startResponse.json();
+
+      if (result.status !== "started") {
+        throw new Error(result.message || "Failed to start speedtest");
+      }
+
+      // WebSocket will handle real-time updates - no polling needed!
     } catch (startError) {
       console.error("Speedtest start error:", startError);
       setError(
@@ -310,22 +251,20 @@ const SpeedtestStream = () => {
           ? `Failed to start speedtest: ${startError.message}`
           : "Failed to start speedtest"
       );
-      setIsStarting(false);
       setIsTestRunning(false);
     }
-  }, [isCooldown, resetState, pollStatus]);
+  }, [isCooldown, resetState]);
 
   const renderSpeedtestContent = () => {
-    
     // Check if we have complete results (same logic as "Run Again" button)
-    const hasCompleteResults = showResults || (
-      speedtestData && 
-      speedtestData.download && 
-      speedtestData.upload && 
-      speedtestData.ping && 
-      !isTestRunning
-    );
-    
+    const hasCompleteResults =
+      showResults ||
+      (speedtestData &&
+        speedtestData.download &&
+        speedtestData.upload &&
+        speedtestData.ping &&
+        !isTestRunning);
+
     // Result view (original design) - CHECK THIS FIRST!
     if (hasCompleteResults) {
       // Ensure speedtestData and all required nested properties exist
@@ -356,14 +295,14 @@ const SpeedtestStream = () => {
       }
 
       return (
-        <div className="grid gap-4 w-full min-w-sm">
+        <div className="grid gap-4 w-[300px] md:w-full max-w-full">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center">
                 <Gauge className="mr-4 text-violet-600" /> Speedtest Result
               </CardTitle>
             </CardHeader>
-            <CardContent className="lg:py-12 py-6 min-w-sm w-full">
+            <CardContent className="lg:py-12 py-6">
               <div className="grid lg:grid-cols-2 grid-cols-1 grid-flow-row gap-4 lg:gap-y-0 gap-y-8 gap-x-8">
                 <div className="grid gap-1 place-items-center">
                   <div className="flex items-center space-x-2">
@@ -517,7 +456,7 @@ const SpeedtestStream = () => {
         </div>
       );
     }
-    
+
     if (error) {
       return (
         <div className="flex flex-col items-center justify-center space-y-4">
@@ -539,9 +478,8 @@ const SpeedtestStream = () => {
       );
     }
 
-    // Waiting for speedtest to start - show this when we're in the starting state
-    // or when we're running the test but don't have data yet
-    if (isStarting || (isTestRunning && !speedtestData)) {
+    // Waiting for speedtest to start - show this when running but no data yet
+    if (isTestRunning && !speedtestData) {
       return (
         <div className="flex flex-col items-center justify-center space-y-4">
           <Play className="text-primary lg:size-48 size-16 animate-pulse" />
@@ -699,10 +637,9 @@ const SpeedtestStream = () => {
             {/* Live upload speed with smooth number transitions */}
             <div className="space-y-2">
               <div className="text-4xl lg:text-5xl font-bold text-violet-600 tabular-nums transition-all duration-200 tracking-tight">
-                {speedtestData?.upload?.bandwidth 
+                {speedtestData?.upload?.bandwidth
                   ? formatSpeed(speedtestData.upload.bandwidth)
-                  : "0 Mbps"
-                }
+                  : "0 Mbps"}
               </div>
               {speedtestData?.upload && (
                 <div className="space-y-1 text-sm text-gray-500">
@@ -711,189 +648,14 @@ const SpeedtestStream = () => {
                   </div>
                   {speedtestData.upload.elapsed && (
                     <div className="tabular-nums">
-                      {(speedtestData.upload.elapsed / 1000).toFixed(1)}s elapsed
+                      {(speedtestData.upload.elapsed / 1000).toFixed(1)}s
+                      elapsed
                     </div>
                   )}
                 </div>
               )}
             </div>
           </div>
-        </div>
-      );
-    }
-
-    // Result view (original design)
-    if (hasCompleteResults) {
-      // Ensure speedtestData and all required nested properties exist
-      if (
-        !speedtestData ||
-        !speedtestData.download ||
-        !speedtestData.upload ||
-        !speedtestData.ping
-      ) {
-        return (
-          <div className="flex flex-col items-center justify-center space-y-4">
-            <TriangleAlert className="text-amber-500 lg:size-16 size-8" />
-            <h3 className="text-xl font-semibold">Incomplete Test Results</h3>
-            <p className="text-sm text-gray-500 text-center">
-              The test didn't complete properly. Some data may be missing.
-              <span
-                className="underline cursor-pointer ml-2 block"
-                onClick={() => {
-                  resetState();
-                  startSpeedtest();
-                }}
-              >
-                Run the test again
-              </span>
-            </p>
-          </div>
-        );
-      }
-
-      return (
-        <div className="grid gap-4 w-full min-w-sm">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Gauge className="mr-4 text-violet-600" /> Speedtest Result
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="lg:py-12 py-6 min-w-sm w-full">
-              <div className="grid lg:grid-cols-2 grid-cols-1 grid-flow-row gap-4 lg:gap-y-0 gap-y-8 gap-x-8">
-                <div className="grid gap-1 place-items-center">
-                  <div className="flex items-center space-x-2">
-                    <CircleArrowDown className="text-green-600 lg:size-6 size-4" />
-                    <p className="font-semibold">Download</p>
-                  </div>
-                  <h1 className="text-[3rem] font-semibold text-center antialiased leading-tight">
-                    {formatSpeed(speedtestData.download?.bandwidth)}
-                  </h1>
-                  <div className="grid gap-0.5 lg:flex lg:items-center lg:space-x-1">
-                    <div className="flex items-center justify-center gap-x-2">
-                      <TrendingDown className="text-gray-600 lg:size-6 size-4" />
-                      <p className="text-foreground-muted text-sm text-center">
-                        Latency
-                      </p>
-                    </div>
-                    <p className="text-foreground-muted text-sm text-center">
-                      {speedtestData.download?.latency?.iqm?.toFixed(2) ??
-                        "N/A"}{" "}
-                      ms
-                    </p>
-                  </div>
-                </div>
-
-                <div className="grid gap-1.5 place-items-center">
-                  <div className="flex items-center space-x-2">
-                    <CircleArrowUp className="text-violet-600 lg:size-6 size-4" />
-                    <p className="font-semibold">Upload</p>
-                  </div>
-                  <h1 className="text-[3rem] font-semibold text-center antialiased leading-tight">
-                    {formatSpeed(speedtestData.upload?.bandwidth)}
-                  </h1>
-                  <div className="grid gap-0.5 lg:flex lg:items-center lg:space-x-1">
-                    <div className="flex items-center justify-center gap-x-2">
-                      <TrendingDown className="text-gray-600 lg:size-6 size-4" />
-                      <p className="text-foreground-muted text-sm text-center">
-                        Latency
-                      </p>
-                    </div>
-                    <p className="text-foreground-muted text-sm text-center">
-                      {speedtestData.upload?.latency?.iqm?.toFixed(2) ?? "N/A"}{" "}
-                      ms
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-            <CardFooter className="flex items-center justify-between mx-auto">
-              <div className="grid gap-0.5 lg:flex lg:items-center lg:space-x-1">
-                <div className="flex items-center justify-center gap-x-2">
-                  <Clock className="text-gray-600 lg:size-6 size-4" />
-                  <p className="text-foreground-muted text-sm text-center">
-                    Ping
-                  </p>
-                </div>
-                <p className="text-foreground-muted text-sm text-center">
-                  {speedtestData.ping?.latency?.toFixed(2) ?? "N/A"} ms
-                </p>
-              </div>
-
-              <div className="grid gap-0.5 lg:flex lg:items-center lg:space-x-1">
-                <div className="flex items-center justify-center gap-x-2">
-                  <TrendingUp className="text-gray-600 lg:size-6 size-4" />
-                  <p className="text-foreground-muted text-sm text-center">
-                    Jitter
-                  </p>
-                </div>
-                <p className="text-foreground-muted text-sm text-center">
-                  {speedtestData.ping?.jitter?.toFixed(2) ?? "N/A"} ms
-                </p>
-              </div>
-            </CardFooter>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Network className="mr-4 text-blue-600" /> Connection & Server
-                Details
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-2">
-                <div className="grid grid-cols-2 grid-flow-row gap-2 truncate">
-                  <p className="font-medium">ISP:</p>
-                  <p>{speedtestData.isp || "N/A"}</p>
-                </div>
-
-                <div className="grid grid-cols-2 grid-flow-row gap-2 truncate">
-                  <p className="font-medium">Internal IP:</p>
-                  <p>{speedtestData.interface?.internalIp || "N/A"}</p>
-                </div>
-
-                <div className="grid grid-cols-2 grid-flow-row gap-2 truncate">
-                  <p className="font-medium">External IP:</p>
-                  <p>{speedtestData.interface?.externalIp || "N/A"}</p>
-                </div>
-
-                <div className="grid grid-cols-2 grid-flow-row gap-2 truncate">
-                  <p className="font-medium">Server Name:</p>
-                  <p>{speedtestData.server?.name || "N/A"}</p>
-                </div>
-
-                <div className="grid grid-cols-2 grid-flow-row gap-2 truncate">
-                  <p className="font-medium">Location:</p>
-                  <p>{speedtestData.server?.location || "N/A"}</p>
-                </div>
-
-                <div className="grid grid-cols-2 grid-flow-row gap-2 truncate">
-                  <p className="font-medium">Country:</p>
-                  <p>{speedtestData.server?.country || "N/A"}</p>
-                </div>
-
-                <div className="grid grid-cols-2 grid-flow-row gap-2 truncate">
-                  <p className="font-medium">Server IP:</p>
-                  <p>{speedtestData.server?.host || "N/A"}</p>
-                </div>
-
-                {speedtestData.result?.url && (
-                  <div className="flex items-center gap-x-2 mt-4">
-                    <Link className="text-blue-600 size-4" />
-                    <a
-                      href={speedtestData.result.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="font-medium text-blue-600 hover:underline"
-                    >
-                      View Full Result Online
-                    </a>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
         </div>
       );
     }
@@ -915,7 +677,7 @@ const SpeedtestStream = () => {
       <CardHeader>
         <CardTitle>Network Speedtest</CardTitle>
       </CardHeader>
-      <CardContent className="flex flex-col gap-6 p-4 items-center justify-center">
+      <CardContent className="flex flex-col gap-6 p-2 items-center justify-center">
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
             <div className="relative flex flex-col items-center justify-center">
@@ -957,33 +719,32 @@ const SpeedtestStream = () => {
             <div className="lg:max-w-full mx-auto min-w-sm py-6">
               {renderSpeedtestContent()}
             </div>
-            <DialogFooter className="flex justify-between gap-4">
+            <DialogFooter>
               {showResults ? (
-                <>
-                  <div>
-                    <Button
-                      onClick={() => {
-                        if (!isCooldown) {
-                          resetState();
-                          startSpeedtest();
-                        } else {
-                          toast({
-                            title: "Please wait",
-                            description: "Cooldown period active",
-                          });
-                        }
-                      }}
-                      variant="outline"
-                      disabled={isCooldown}
-                    >
-                      <RefreshCw className="h-4 w-4" />
-                      Run Again
-                    </Button>
-                  </div>
+                <div className="grid md:grid-cols-2 grid-cols-1 grid-flow-row gap-2">
+                  <Button
+                    onClick={() => {
+                      if (!isCooldown) {
+                        resetState();
+                        startSpeedtest();
+                      } else {
+                        toast({
+                          title: "Please wait",
+                          description: "Cooldown period active",
+                        });
+                      }
+                    }}
+                    variant="secondary"
+                    disabled={isCooldown}
+                  >
+                    <RefreshCw className="h-4 w-4" />
+                    Run Again
+                  </Button>
+
                   <Button onClick={() => setIsDialogOpen(false)}>Close</Button>
-                </>
+                </div>
               ) : (
-                <>
+                <div className="flex justify-end w-full">
                   {isTestRunning ? (
                     <Button
                       onClick={() => {
@@ -999,7 +760,7 @@ const SpeedtestStream = () => {
                       Close
                     </Button>
                   )}
-                </>
+                </div>
               )}
             </DialogFooter>
           </DialogContent>
@@ -1036,13 +797,6 @@ const SpeedtestStream = () => {
                   </div>
                 </div>
               </div>
-              {/* <div className="relative flex flex-col items-center justify-center mt-2">
-                <div className="grid grid-cols-1 grid-flow-row">
-                  <div className="grid place-items-center ">
-                    { !isTestRunning && speedtestData.timestamp ? `Latest Test: ${speedtestData?.timestamp}` : ''}
-                  </div>
-                </div>
-              </div> */}
             </div>
           ) : isTestRunning ? (
             <p className="text-sm text-gray-500 text-center">

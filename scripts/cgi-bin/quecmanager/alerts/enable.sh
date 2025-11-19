@@ -27,6 +27,17 @@ fi
 START_OUTPUT=$(/etc/init.d/quecmanager_connection_monitor start 2>&1)
 START_RESULT=$?
 
+# Set UCI state to enabled
+uci set quecmanager.connection_monitor.enabled='1' >/dev/null 2>&1
+uci commit quecmanager >/dev/null 2>&1
+UCI_RESULT=$?
+
+if [ $UCI_RESULT -ne 0 ]; then
+    qm_log_warn "$LOG_CATEGORY" "$SCRIPT_NAME" "Failed to update UCI state (exit code: $UCI_RESULT)"
+else
+    qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "UCI state updated: enabled=1"
+fi
+
 if [ $START_RESULT -eq 0 ]; then
     qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Monitoring service enabled for boot and started successfully"
     printf '{"status":"success","message":"Connection monitoring enabled and will start on reboot"}\n'

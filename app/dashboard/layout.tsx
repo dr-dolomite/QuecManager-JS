@@ -58,6 +58,8 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { usePathname } from "next/navigation";
 import { LightRays } from "@/components/ui/light-rays";
+import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler";
+import { ShieldAlert } from "lucide-react";
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -78,6 +80,13 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [hasProfileImage, setHasProfileImage] = useState<boolean>(false);
   const toast = useToast();
+
+  // WebSocket state - add your specific data structure
+  const [websocketData, setWebsocketData] = useState<any>(null);
+  
+  // SSL Certificate dialog state
+  const [showCertDialog, setShowCertDialog] = useState(false);
+  const [certDialogDismissed, setCertDialogDismissed] = useState(false);
 
   // Cache keys for localStorage
   const CACHE_KEY = "profile_picture_data";
@@ -234,6 +243,108 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
         handleProfilePictureUpdate
       );
       window.removeEventListener("storage", handleStorageChange);
+    };
+  }, []);
+
+  // Check SSL certificate on mount
+  useEffect(() => {
+    const checkSSLCertificate = async () => {
+      // Check if user already dismissed the dialog in this session
+      const dismissed = sessionStorage.getItem('cert_dialog_dismissed');
+      if (dismissed === 'true') {
+        return;
+      }
+
+      const host =
+        window.location.hostname === "localhost" ||
+        window.location.hostname === "192.168.42.95"
+          ? "192.168.224.1"
+          : window.location.hostname;
+
+      const certUrl = `https://${host}:8838/`;
+
+      try {
+        // Try to fetch the WebSocket server endpoint
+        const response = await fetch(certUrl, {
+          method: 'HEAD',
+          mode: 'no-cors' // This will succeed if cert is accepted
+        });
+        // If we get here without error, certificate is accepted
+        setShowCertDialog(false);
+      } catch (error) {
+        // Certificate not accepted or connection failed
+        setShowCertDialog(true);
+      }
+    };
+
+    checkSSLCertificate();
+  }, []);
+
+  // WebSocket connection management
+  useEffect(() => {
+    // Dynamically get the WebSocket URL based on current window location
+    // This works whether accessing via 192.168.224.1 or Tailscale IP
+    // Force wss: to match backend configuration
+    const protocol = "wss:";
+    // Use 192.168.224.1 instead of localhost
+    const host =
+      window.location.hostname === "localhost" ||
+      window.location.hostname === "192.168.42.95"
+        ? "192.168.224.1"
+        : window.location.hostname;
+    const wsUrl = `${protocol}//${host}:8838/data`;
+
+    let ws: WebSocket | null = null;
+    let reconnectTimeout: NodeJS.Timeout | null = null;
+
+    const connect = () => {
+      try {
+        ws = new WebSocket(wsUrl);
+
+        ws.onopen = () => {
+          // WebSocket connected successfully - hide certificate dialog
+          setShowCertDialog(false);
+        };
+
+        ws.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            setWebsocketData(data);
+          } catch (error) {
+            // Failed to parse WebSocket message
+          }
+        };
+
+        ws.onerror = (error) => {
+          // Show certificate dialog if not already shown and not dismissed
+          if (protocol === "wss:" && !certDialogDismissed) {
+            setShowCertDialog(true);
+          }
+        };
+
+        ws.onclose = (event) => {
+          // Don't auto-reconnect if it's an SSL certificate issue (code 1006)
+          if (event.code !== 1006) {
+            // Attempt to reconnect after 5 seconds for other disconnects
+            reconnectTimeout = setTimeout(() => {
+              connect();
+            }, 5000);
+          }
+        };
+      } catch (error) {
+        // Failed to create WebSocket connection
+      }
+    };
+
+    connect();
+
+    return () => {
+      if (reconnectTimeout) {
+        clearTimeout(reconnectTimeout);
+      }
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.close();
+      }
     };
   }, []);
 
@@ -548,28 +659,9 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
           </SheetContent>
         </Sheet>
         <div className="flex w-full items-center gap-4 md:ml-auto md:gap-2 lg:gap-4">
-          <form className="ml-auto flex-1 sm:flex-initial">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="icon">
-                  <Sun className="h-[1.2rem] w-[1.2rem] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-                  <Moon className="absolute h-[1.2rem] w-[1.2rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-                  <span className="sr-only">Toggle theme</span>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => setTheme("light")}>
-                  Light
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setTheme("dark")}>
-                  Dark
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setTheme("system")}>
-                  System
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </form>
+          <div className="ml-auto flex-1 sm:flex-initial">
+            <AnimatedThemeToggler />
+          </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="secondary" size="icon" className="rounded-full">
@@ -678,8 +770,53 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
           </DropdownMenu>
         </div>
       </header>
+
+      {/* SSL Certificate Dialog */}
+      <AlertDialog open={showCertDialog && !certDialogDismissed} onOpenChange={(open) => {
+        if (!open) {
+          setCertDialogDismissed(true);
+          setShowCertDialog(false);
+          sessionStorage.setItem('cert_dialog_dismissed', 'true');
+        }
+      }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <ShieldAlert className="h-5 w-5 text-yellow-600 dark:text-yellow-500" />
+              SSL Certificate Required
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              To enable real-time updates, please accept the SSL certificate for the WebSocket server.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => {
+              setCertDialogDismissed(true);
+              setShowCertDialog(false);
+              sessionStorage.setItem('cert_dialog_dismissed', 'true');
+            }}
+            >
+              Maybe Later
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={() => {
+              const host =
+                window.location.hostname === "localhost" ||
+                window.location.hostname === "192.168.42.95"
+                  ? "192.168.224.1"
+                  : window.location.hostname;
+              const certUrl = `https://${host}:8838/`;
+              window.open(certUrl, "_blank", "noopener,noreferrer");
+            }}>
+              Accept Certificate
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <main className="flex min-h-[calc(100vh_-_theme(spacing.16))] flex-1 flex-col gap-4 p-4 md:gap-8 md:p-10 relative">
-        <ProtectedRoute>{children}</ProtectedRoute>
+        <ProtectedRoute websocketData={websocketData}>
+          {children}
+        </ProtectedRoute>
         <LightRays />
       </main>
     </div>

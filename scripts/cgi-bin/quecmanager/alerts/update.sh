@@ -18,7 +18,7 @@ CONTENT_LENGTH="${CONTENT_LENGTH:-0}"
 if [ "$CONTENT_LENGTH" -eq 0 ]; then
     qm_log_error "$LOG_CATEGORY" "$SCRIPT_NAME" "No POST data received"
     printf '{"status":"error","message":"No configuration data received"}\n'
-    exit 1
+    exit 0
 fi
 
 POST_DATA=$(dd bs=1 count=$CONTENT_LENGTH 2>/dev/null)
@@ -26,7 +26,7 @@ POST_DATA=$(dd bs=1 count=$CONTENT_LENGTH 2>/dev/null)
 if [ -z "$POST_DATA" ]; then
     qm_log_error "$LOG_CATEGORY" "$SCRIPT_NAME" "Empty POST data"
     printf '{"status":"error","message":"Empty configuration data"}\n'
-    exit 1
+    exit 0
 fi
 
 # Function to extract JSON values
@@ -46,7 +46,7 @@ THRESHOLD=$(echo "$POST_DATA" | grep -o '"threshold"[[:space:]]*:[[:space:]]*"[^
 if [ -z "$EMAIL" ] || [ -z "$APP_PASSWORD" ] || [ -z "$RECIPIENT" ] || [ -z "$THRESHOLD" ]; then
     qm_log_error "$LOG_CATEGORY" "$SCRIPT_NAME" "Missing required fields"
     printf '{"status":"error","message":"Missing required configuration fields"}\n'
-    exit 1
+    exit 0
 fi
 
 qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Updating email configuration for $EMAIL"
@@ -72,7 +72,7 @@ EOF
 if [ $? -ne 0 ]; then
     qm_log_error "$LOG_CATEGORY" "$SCRIPT_NAME" "Failed to create msmtprc file"
     printf '{"status":"error","message":"Failed to create email configuration file"}\n'
-    exit 1
+    exit 0
 fi
 
 # Set proper permissions
@@ -101,8 +101,10 @@ uci commit quecmanager 2>/dev/null
 if [ $? -ne 0 ]; then
     qm_log_error "$LOG_CATEGORY" "$SCRIPT_NAME" "Failed to update UCI configuration"
     printf '{"status":"error","message":"Failed to update system configuration"}\n'
-    exit 1
+    exit 0
 fi
 
 qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Configuration updated successfully"
 printf '{"status":"success","message":"Configuration updated successfully","email":"%s","recipient":"%s","threshold":%s}\n' "$EMAIL" "$RECIPIENT" "$THRESHOLD"
+
+exit 0

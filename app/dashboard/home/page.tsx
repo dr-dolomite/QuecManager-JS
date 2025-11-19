@@ -36,6 +36,7 @@ import useHomeData from "@/hooks/home-data";
 import useDataConnectionState from "@/hooks/home-connection";
 import useTrafficStats from "@/hooks/home-traffic";
 import useRunDiagnostics from "@/hooks/diagnostics";
+import { useWebSocketData } from "@/components/hoc/protected-route";
 import { BsSimSlashFill } from "react-icons/bs";
 import SpeedtestStream from "@/components/home/speedtest-card";
 import { atCommandSender } from "@/utils/at-command";
@@ -59,7 +60,12 @@ interface newBands {
 const HomePage = () => {
   const { toast } = useToast();
   const router = useRouter();
+  
+  // Get WebSocket data from context
+  const websocketData = useWebSocketData();
+  
   const [noSimDialogOpen, setNoSimDialogOpen] = useState(false);
+    const [temperatureUnit, setTemperatureUnit] = useState<string>("celsius");
   const [profileSetupDialogOpen, setProfileSetupDialogOpen] = useState(false);
   const [hideSensitiveData, setHideSensitiveData] = useState(false);
   const {
@@ -72,8 +78,12 @@ const HomePage = () => {
     dataConnectionState,
     isStateLoading,
     refresh: refreshConnectionState,
-    isPingMonitoringActive,
   } = useDataConnectionState();
+
+  // Debug: Log only when dataConnectionState actually changes
+  useEffect(() => {
+    console.log("Data Connection:", dataConnectionState);
+  }, [dataConnectionState]);
 
   const { isRunningDiagnostics, runDiagnosticsData, startDiagnostics } =
     useRunDiagnostics();
@@ -297,6 +307,28 @@ const HomePage = () => {
     }
   }, [homeData, isLoading]);
 
+  // Get temperature unit from backend script
+  // cgi-bin/quecmanager/settings/temperature_units.sh
+  useEffect(() => {
+    const fetchTemperatureUnit = async () => {
+      try {
+        const response = await fetch(
+          "/cgi-bin/quecmanager/settings/temperature_units.sh"
+        );
+        if (response.ok) {
+          const data = await response.json();
+          if (data.status === "success" && data.data) {
+            setTemperatureUnit(data.data.unit);
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching temperature unit:", error);
+      }
+    };
+
+    fetchTemperatureUnit();
+  }, []);
+
   return (
     <div className="grid xl:gap-y-10 gap-y-8 gap-4">
       <div className="grid gap-4">
@@ -517,36 +549,24 @@ const HomePage = () => {
           <div>
             <SignalChart />
           </div>
-          {/* <div>
-            <BandwidthMonitorCard />
-          </div> */}
-          {/* <div><WebSocketComponent /></div> */}
           <div className="grid gap-2 lg:grid-cols-2 grid-cols-1 grid-flow-row">
-            {/* <EthernetCard /> */}
-            {/* <ApproxDistanceCard
-              lteTimeAdvance={homeData?.timeAdvance?.lteTimeAdvance}
-              nrTimeAdvance={homeData?.timeAdvance?.nrTimeAdvance}
-              isLoading={isLoading}
-              networkType={homeData?.connection?.networkType}
-            /> */}
-
-            {/* <MemoryCard /> */}
-            <PingCardWebSocket />
-            <BandwidthMonitorCard />
+            <PingCardWebSocket websocketData={websocketData} />
+            <BandwidthMonitorCard websocketData={websocketData} />
             <SpeedtestStream />
-
-            <MemoryCardWebSocket />
+            <MemoryCardWebSocket websocketData={websocketData} />
           </div>
         </div>
 
         <div className="grid lg:grid-cols-2 grid-cols-1 grid-flow-row gap-4">
           <SummaryCardComponent
+            websocketData={websocketData}
             data={homeData}
             isLoading={isLoading}
             dataConnectionState={dataConnectionState}
             connectionStateLoading={isStateLoading}
             bytesSent={bytesSent}
             bytesReceived={bytesReceived}
+            temperatureUnit={temperatureUnit}
             hideSensitiveData={hideSensitiveData}
             bands={bands}
             onDataRefresh={refreshData}
@@ -636,17 +656,6 @@ const HomePage = () => {
                 applying your preferred network settings, APN configuration, and
                 other cellular preferences.
               </h2>
-              {/* <div className="space-y-2">
-                <h4 className="font-medium">
-                  Benefits of setting up a profile:
-                </h4>
-                <ul className="text-sm space-y-1">
-                  <li>• Automatic network configuration</li>
-                  <li>• Quick switching between SIM cards</li>
-                  <li>• Backup and restore your settings</li>
-                  <li>• Optimized performance for your carrier</li>
-                </ul>
-              </div> */}
             </Card>
 
             <div className="flex flex-col gap-2 mt-4">

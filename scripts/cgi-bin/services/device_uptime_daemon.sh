@@ -19,15 +19,23 @@ TMP_DIR="/tmp/quecmanager"
 PID_FILE="$TMP_DIR/device_uptime_daemon.pid"
 SCRIPT_NAME="device_uptime_daemon"
 
+# Websocket Configuration - Default to wss with self-signed certificate
+WEBSOCKET_PORT=8838
+WEBSOCKET_HOST="localhost"
+WEBSOCKET_URL="wss://${WEBSOCKET_HOST}:${WEBSOCKET_PORT}"
+WEBSOCKET_SERVICE="websocat"
+WS_CMD="${WEBSOCKET_SERVICE} -k --one-message ${WEBSOCKET_URL}"
+
+
 # Ensure directories exist
-ensure_tmp_dir() { 
+ensure_tmp_dir() {
     [ -d "$TMP_DIR" ] || mkdir -p "$TMP_DIR" 2>/dev/null || true
 }
 
-log() { 
+log() {
     local message="$1"
     local level="${2:-info}"
-    
+
     # Use centralized logging if available
     if [ "$USE_CENTRALIZED_LOGGING" -eq 1 ]; then
         case "$level" in
@@ -83,7 +91,7 @@ format_uptime() {
     local hours=$(((total_seconds % 86400) / 3600))
     local minutes=$(((total_seconds % 3600) / 60))
     local seconds=$((total_seconds % 60))
-    
+
     if [ $days -gt 0 ]; then
         echo "${days}d ${hours}h ${minutes}m ${seconds}s"
     elif [ $hours -gt 0 ]; then
@@ -100,15 +108,15 @@ send_update() {
     local uptime_seconds=$1
     local uptime_formatted=$2
     local current_timestamp=$(date +%s)
-    
+
     # Create JSON message (single line to avoid heredoc issues)
     local json_msg="{\"type\":\"device_uptime\",\"uptime_seconds\":$uptime_seconds,\"uptime_formatted\":\"$uptime_formatted\",\"timestamp\":$current_timestamp}"
-    
+
     # Log the update being sent
     log "Sending update: ${uptime_formatted} (${uptime_seconds}s)" "debug"
-    
-    # Send via websocat on port 8838 (use --one-message like other daemons)
-    if echo "$json_msg" | websocat --one-message ws://127.0.0.1:8838 2>/dev/null; then
+
+    # Send via ${WEBSOCKET_SERVICE} on port ${WEBSOCKET_PORT} (use --one-message like other daemons)
+    if echo "$json_msg" | ${WS_CMD} 2>/dev/null; then
         log "Update sent successfully" "debug"
     else
         log "Failed to send update via WebSocket" "warn"
@@ -119,39 +127,39 @@ send_update() {
 main() {
     ensure_tmp_dir
     check_running
-    
+
     # Write PID file
     echo $$ > "$PID_FILE"
-    
+
     log "Device uptime daemon started (PID: $$)"
-    
-    # Test if websocat is available and WebSocket server is running
-    if ! command -v websocat >/dev/null 2>&1; then
-        log "websocat command not found!" "error"
+
+    # Test if ${WEBSOCKET_SERVICE} is available and WebSocket server is running
+    if ! command -v "${WEBSOCKET_SERVICE}" >/dev/null 2>&1; then
+        log "${WEBSOCKET_SERVICE} command not found!" "error"
         exit 1
     fi
-    
-    log "websocat found, starting main loop" "debug"
-    
+
+    log "${WEBSOCKET_SERVICE} found, starting main loop" "debug"
+
     # Send a test message to verify WebSocket connectivity
     test_msg='{"type":"device_uptime","uptime_seconds":0,"uptime_formatted":"test","timestamp":0}'
-    if echo "$test_msg" | websocat --one-message ws://127.0.0.1:8838 2>/dev/null; then
+    if echo "$test_msg" | ${WS_CMD} 2>/dev/null; then
         log "Test message sent successfully" "debug"
     else
         log "Failed to send test message - WebSocket may not be ready" "warn"
     fi
-    
+
     # Main loop - update every 5 seconds
     while true; do
         # Get current system uptime
         uptime_seconds=$(get_uptime_seconds)
         uptime_formatted=$(format_uptime "$uptime_seconds")
-        
+
         log "Current uptime: ${uptime_formatted}" "debug"
-        
+
         # Send update via WebSocket
         send_update "$uptime_seconds" "$uptime_formatted"
-        
+
         # Sleep for 5 seconds before next update
         sleep 5
     done

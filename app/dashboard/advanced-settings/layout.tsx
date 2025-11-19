@@ -54,7 +54,7 @@ const CellSettingsLayout = ({ children }: CellSettingsLayoutProps) => {
                     <Link
             href="/dashboard/advanced-settings/scheduled-reboot"
             className={`${
-              currentPathName === "/dashboard/advanced-settings/scheduled-reboot"
+              currentPathName === "/dashboard/advanced-settings/scheduled-reboot/"
                 ? "font-semibold text-primary"
                 : "text-sm"
             }`}

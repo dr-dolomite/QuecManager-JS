@@ -73,10 +73,10 @@ if ! echo "$RECIPIENT" | grep -qE '^[^@]+@[^@]+\.[^@]+$'; then
 fi
 
 # Backup existing config if it exists
-if [ -f "$CONFIG_FILE" ]; then
-    qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Backing up existing configuration"
-    cp "$CONFIG_FILE" "${CONFIG_FILE}.backup.$(date +%s)"
-fi
+# if [ -f "$CONFIG_FILE" ]; then
+#     qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Backing up existing configuration"
+#     cp "$CONFIG_FILE" "${CONFIG_FILE}.backup.$(date +%s)"
+# fi
 
 # Create msmtprc configuration
 qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Creating msmtprc configuration for $EMAIL"
@@ -144,41 +144,102 @@ HOSTNAME=$(uci get system.@system[0].hostname 2>/dev/null || echo "OpenWRT-Route
 CURRENT_TIME=$(date '+%Y-%m-%d %H:%M:%S %Z')
 
 # Send test email
-{
-    echo "Subject: ✅ Quecmanager Alert System Configuration Successful"
-    echo "From: Quecmanager Monitor <$EMAIL>"
-    echo "To: $RECIPIENT"
-    echo "Content-Type: text/plain; charset=UTF-8"
-    echo ""
-    echo "QUECMANAGER CONNECTION MONITORING"
-    echo "================================================================"
-    echo ""
-    echo "🎉 Congratulations!"
-    echo ""
-    echo "Your email alert system has been successfully configured and is"
-    echo "now ready to monitor your network connection."
-    echo ""
-    echo "📡 Device Information"
-    echo "   Hostname: $HOSTNAME"
-    echo ""
-    echo "📧 Email Configuration"
-    echo "   Sender: $EMAIL"
-    echo "   Recipient: $RECIPIENT"
-    echo ""
-    echo "⏱️  Alert Threshold"
-    echo "   $THRESHOLD minute(s)"
-    echo ""
-    echo "   You will receive an email notification when your network"
-    echo "   connection is restored after a disconnection that lasts"
-    echo "   longer than $THRESHOLD minute(s)."
-    echo ""
-    echo "================================================================"
-    echo ""
-    echo "This is an automated test message to confirm your email"
-    echo "configuration is working correctly."
-    echo ""
-    echo "Generated: $CURRENT_TIME"
-} | msmtp "$RECIPIENT" >/dev/null 2>&1
+cat <<EOF | msmtp "$RECIPIENT" 2>&1
+Subject: =?UTF-8?Q?=E2=9C=85?= Quecmanager Alert System Configuration Successful
+From: Quecmanager Monitor <$EMAIL>
+To: $RECIPIENT
+Content-Type: text/html; charset=UTF-8
+MIME-Version: 1.0
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Configuration Success</title>
+</head>
+<body style="font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #f4f4f4;">
+    <!-- Main email container table -->
+    <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #f4f4f4;">
+        <tr>
+            <td align="center" style="padding: 20px 0;">
+                <!-- Content table -->
+                <table width="600" border="0" cellspacing="0" cellpadding="0" style="max-width: 600px; width: 100%; background-color: #ffffff; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border: 1px solid #ddd;">
+                    
+                    <!-- Header -->
+                    <tr>
+                        <td align="center" style="padding: 30px 20px; border-bottom: 1px solid #eee; background-color: #5cb85c; color: #ffffff; border-top-left-radius: 8px; border-top-right-radius: 8px;">
+                            <h1 style="margin: 0; font-size: 28px; font-weight: 600;">&#127881; Configuration Successful</h1>
+                        </td>
+                    </tr>
+                    
+                    <!-- Content Body -->
+                    <tr>
+                        <td style="padding: 35px 40px;">
+                            <p style="font-size: 16px; color: #333; line-height: 1.6;">
+                                Congratulations! Your email alert system has been successfully configured on <strong>$HOSTNAME</strong> and is now ready to monitor your network connection.
+                            </p>
+                            
+                            <!-- Info Box -->
+                            <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin-top: 25px; border: 1px solid #ddd; border-radius: 8px; background-color: #fafafa;">
+                                <tr>
+                                    <td style="padding: 25px;">
+                                        <p style="margin: 0 0 18px 0; font-size: 18px; font-weight: 600; color: #5cb85c;">Configuration Details</p>
+                                        
+                                        <p style="font-size: 16px; color: #333; margin: 14px 0; line-height: 1.5;">
+                                            <strong style="color: #555; min-width: 140px; display: inline-block;">&#128241; Device:</strong>
+                                            <strong>$HOSTNAME</strong>
+                                        </p>
+                                        
+                                        <p style="font-size: 16px; color: #333; margin: 14px 0; line-height: 1.5;">
+                                            <strong style="color: #555; min-width: 140px; display: inline-block;">&#128231; Sender Email:</strong>
+                                            <strong>$EMAIL</strong>
+                                        </p>
+                                        
+                                        <p style="font-size: 16px; color: #333; margin: 14px 0; line-height: 1.5;">
+                                            <strong style="color: #555; min-width: 140px; display: inline-block;">&#128236; Recipient:</strong>
+                                            <strong>$RECIPIENT</strong>
+                                        </p>
+                                        
+                                        <p style="font-size: 16px; color: #333; margin: 14px 0; line-height: 1.5;">
+                                            <strong style="color: #555; min-width: 140px; display: inline-block;">&#8986; Alert Threshold:</strong>
+                                            <strong>$THRESHOLD minute(s)</strong>
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
+                            
+                            <!-- Alert Information -->
+                            <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin-top: 25px; border-left: 4px solid #5cb85c; background-color: #f0f9ff; border-radius: 4px;">
+                                <tr>
+                                    <td style="padding: 20px;">
+                                        <p style="font-size: 14px; color: #333; margin: 0; line-height: 1.6;">
+                                            <strong>&#9432; What happens next?</strong><br>
+                                            You will receive an email notification when your network connection is restored after a disconnection that lasts longer than <strong>$THRESHOLD minute(s)</strong>.
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                    
+                    <!-- Footer -->
+                    <tr>
+                        <td align="center" style="padding: 25px 40px; border-top: 1px solid #eee; background-color: #f9f9f9; border-bottom-left-radius: 8px; border-bottom-right-radius: 8px;">
+                            <p style="font-size: 12px; color: #888; margin: 0;">
+                                Generated by Quecmanager Connection Monitor
+                                <br>
+                                $CURRENT_TIME
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
+EOF
 EMAIL_STATUS=$?
 
 if [ $EMAIL_STATUS -eq 0 ]; then

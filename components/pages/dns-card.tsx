@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 
-import { Badge } from "@/components/ui/badge";
 import {
   Card,
   CardHeader,
@@ -164,8 +163,7 @@ const DNSCard = (
                 </div>
               )}
             </div>
-          <Separator className="my-2" />
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
             {['Primary', 'Secondary', 'Tertiary'].map((label, index) => (
               <div key={index} className="grid gap-2 w-full">
                 <Label htmlFor={`dns-${index}`} className="text-sm text-muted-foreground">
@@ -195,9 +193,14 @@ const DNSCard = (
         </div>
       </CardContent>
       <CardFooter className="flex justify-end">
-        <Button 
-          onClick={handleSave} 
-          disabled={isSaving}
+        <Button
+          onClick={handleSave}
+          disabled={
+            isSaving ||
+            isLoading ||
+            currentOptions.mode !== "enabled" ||
+            (!currentOptions.dns1 && !currentOptions.dns2 && !currentOptions.dns3)
+          }
         >
           {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
           {isSaving ? "Saving..." : "Save DNS Settings"}

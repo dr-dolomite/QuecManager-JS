@@ -16,8 +16,20 @@ check_installed() {
 check_running() {
     # Check via /etc/init.d script
     if [ -f /etc/init.d/tailscale ]; then
-        /etc/init.d/tailscale status >/dev/null 2>&1
-        return $?
+        local service_status=$(/etc/init.d/tailscale status 2>&1)
+        
+        # Check the actual status message, not just exit code
+        # "running" = fully operational
+        # "active with no instances" = enabled but not running (logged out/disabled in LuCI)
+        # "inactive" = disabled
+        
+        if echo "$service_status" | grep -q "^running$"; then
+            return 0  # Fully running
+        elif echo "$service_status" | grep -q "active with no instances"; then
+            return 2  # Enabled but not operational
+        else
+            return 1  # Inactive/disabled
+        fi
     fi
 
     return 1
@@ -100,21 +112,18 @@ check_authentication() {
 
 # Main logic
 if check_installed; then
-    # Package is installed, check if running
-    if check_running; then
-        # Service is running, check authentication
+    # Package is installed, check service status
+    check_running
+    running_status=$?
+    
+    if [ $running_status -eq 0 ]; then
+        # Service is fully running, check authentication
         auth_url=$(check_authentication)
         auth_status=$?
-        service_status=$(/etc/init.d/tailscale status)
-        # Debug: Log to stderr (will appear in web server error log)
-        echo "DEBUG: auth_status=$auth_status, auth_url='$auth_url'" >&2
-
-        if [ $auth_status -eq 0 ] && [ "$service_status" == 'running' ]; then
+        
+        if [ $auth_status -eq 0 ]; then
             # State 1: Installed, running, and authenticated
             echo '{"status":"success","installed":true,"running":true,"authenticated":true,"message":"Tailscale is installed, running, and authenticated"}'
-        elif [ $auth_status -eq 0 ] && [ "$service_status" == 'active with no instances' ]; then
-            # State 5: Installed, running, but authentication status unknown
-            echo '{"status":"success","installed":true,"running":false,"authenticated":false,"message":"Tailscaled is not running"}'
         elif [ $auth_status -eq 2 ]; then
             # State 4: Installed, running, but not authenticated (has login URL)
             echo "{\"status\":\"success\",\"installed\":true,\"running\":true,\"authenticated\":false,\"login_url\":\"$auth_url\",\"message\":\"Tailscale is running but not authenticated\"}"
@@ -125,8 +134,12 @@ if check_installed; then
             # State 5: Installed, running, but authentication status unknown
             echo '{"status":"success","installed":true,"running":true,"authenticated":false,"message":"Tailscale is running but authentication status is unknown"}'
         fi
+    elif [ $running_status -eq 2 ]; then
+        # Service enabled but not operational (logged out/disabled in LuCI)
+        # State 7: Active but no instances (service enabled but tailscaled not running)
+        echo '{"status":"success","installed":true,"running":false,"authenticated":false,"message":"Tailscale service is enabled but not operational. Please restart the service or check LuCI configuration."}'
     else
-        # State 2: Installed but not running
+        # State 2: Installed but not running (inactive/disabled)
         echo '{"status":"success","installed":true,"running":false,"authenticated":false,"message":"Tailscale is installed but inactive"}'
     fi
 else

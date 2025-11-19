@@ -29,5 +29,16 @@ if [ $DISABLE_RESULT -ne 0 ]; then
     qm_log_warn "$LOG_CATEGORY" "$SCRIPT_NAME" "Failed to disable monitoring service from boot (exit code: $DISABLE_RESULT)"
 fi
 
+# Set UCI state to disabled
+uci set quecmanager.connection_monitor.enabled='0' >/dev/null 2>&1
+uci commit quecmanager >/dev/null 2>&1
+UCI_RESULT=$?
+
+if [ $UCI_RESULT -ne 0 ]; then
+    qm_log_warn "$LOG_CATEGORY" "$SCRIPT_NAME" "Failed to update UCI state (exit code: $UCI_RESULT)"
+else
+    qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "UCI state updated: enabled=0"
+fi
+
 qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Monitoring service stopped and disabled from boot"
 printf '{"status":"success","message":"Connection monitoring disabled and will not start on reboot"}\n'
