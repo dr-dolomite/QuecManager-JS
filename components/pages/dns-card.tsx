@@ -17,10 +17,8 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 
-
-
 interface DNSCardProps {
-  passthrough: string | null
+  passthrough: string | null;
 }
 interface Options {
   mode: string | null;
@@ -31,10 +29,7 @@ interface Options {
 
 const isLoading = false;
 
-
-const DNSCard = (
-  currentSettings: DNSCardProps
-) => {
+const DNSCard = (currentSettings: DNSCardProps) => {
   const [currentOptions, setCurrentOptions] = useState<Options>({
     mode: null,
     dns1: "",
@@ -43,11 +38,15 @@ const DNSCard = (
   });
   const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
-  const activeNic = (currentSettings: DNSCardProps ) => currentSettings?.passthrough && currentSettings?.passthrough?.toLowerCase().trim() !== 'disabled' ? "lan_bind4" : "lan";
+  const activeNic = (currentSettings: DNSCardProps) =>
+    currentSettings?.passthrough &&
+    currentSettings?.passthrough?.toLowerCase().trim() !== "disabled"
+      ? "lan_bind4"
+      : "lan";
 
   const handleSave = async () => {
     setIsSaving(true);
-    
+
     try {
       const nic = activeNic(currentSettings);
       const payload = {
@@ -62,7 +61,7 @@ const DNSCard = (
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `${localStorage.getItem("authToken")}`,
+          Authorization: `${localStorage.getItem("authToken")}`,
         },
         body: JSON.stringify(payload),
       });
@@ -92,9 +91,10 @@ const DNSCard = (
     }
   };
 
-
   useEffect(() => {
-    let url = `/cgi-bin/quecmanager/advance/dns.sh?nic=${activeNic(currentSettings)}`;
+    let url = `/cgi-bin/quecmanager/advance/dns.sh?nic=${activeNic(
+      currentSettings
+    )}`;
     const fetchDNSSettings = async () => {
       try {
         const response = await fetch(url, {
@@ -102,7 +102,7 @@ const DNSCard = (
           cache: "no-store",
           headers: {
             "Content-Type": "application/json",
-            "Authorization": `${localStorage.getItem("authToken")}`,
+            Authorization: `${localStorage.getItem("authToken")}`,
           },
         });
 
@@ -123,24 +123,29 @@ const DNSCard = (
       } catch (error) {
         console.error("Failed to fetch DNS settings:", error);
       }
-    }
+    };
     fetchDNSSettings();
     setCurrentOptions((prev) => ({
       ...prev,
-    }))
+    }));
   }, [currentSettings]);
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>DNS Settings</CardTitle>
-        <CardDescription>
-          Configure DNS settings for your network clients
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="flex flex-col gap-4 w-full">
-          <div className="grid w-full items-center gap-2">
+    <div className="container mx-auto p-6">
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold mb-2">DNS Settings</h1>
+        <p className="text-muted-foreground">
+          Configure custom DNS settings for your device to enhance network
+          performance and security.
+        </p>
+      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>DNS Settings</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col gap-4 w-full">
+            <div className="grid w-full items-center gap-2">
               <Label htmlFor="dns-mode">Custom DNS Mode</Label>
               {isLoading ? (
                 <Skeleton className="w-full h-8" />
@@ -148,64 +153,74 @@ const DNSCard = (
                 <div className="flex items-center space-x-2">
                   <Switch
                     id="dns-mode"
-                    checked={currentOptions.mode === 'enabled'}
+                    checked={currentOptions.mode === "enabled"}
                     onCheckedChange={(checked) => {
                       setCurrentOptions((prev) => ({
                         ...prev,
-                        mode: checked ? 'enabled' : 'disabled',
+                        mode: checked ? "enabled" : "disabled",
                       }));
                     }}
                   />
                   <Label htmlFor="dns-mode" className="cursor-pointer">
-                    {currentOptions.mode === 'enabled' ? 'Enabled' : 'Disabled'}
+                    {currentOptions.mode === "enabled" ? "Enabled" : "Disabled"}
                   </Label>
                 </div>
               )}
             </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
-            {['Primary', 'Secondary', 'Tertiary'].map((label, index) => (
-              <div key={index} className="grid gap-2 w-full">
-                <Label htmlFor={`dns-${index}`} className="text-sm text-muted-foreground">
-                  {label} DNS
-                </Label>
-                {isLoading ? (
-                  <Skeleton className="h-10 w-full" />
-                ) : (
-                  <Input
-                    id={`dns-${index}`}
-                    type="text"
-                    placeholder={`Enter ${label.toLowerCase()} DNS`}
-                    className="w-full"
-                    disabled={currentOptions.mode !== 'enabled'}
-                    value={currentOptions[`dns${index + 1}` as keyof Options] as string}
-                    onChange={(e) => {
-                      setCurrentOptions((prev) => ({
-                        ...prev,
-                        [`dns${index + 1}`]: e.target.value,
-                      }));
-                    }}
-                  />
-                )}
-              </div>
-            ))}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
+              {["Primary", "Secondary", "Tertiary"].map((label, index) => (
+                <div key={index} className="grid gap-2 w-full">
+                  <Label
+                    htmlFor={`dns-${index}`}
+                    className="text-sm text-muted-foreground"
+                  >
+                    {label} DNS
+                  </Label>
+                  {isLoading ? (
+                    <Skeleton className="h-10 w-full" />
+                  ) : (
+                    <Input
+                      id={`dns-${index}`}
+                      type="text"
+                      placeholder={`Enter ${label.toLowerCase()} DNS`}
+                      className="w-full"
+                      disabled={currentOptions.mode !== "enabled"}
+                      value={
+                        currentOptions[
+                          `dns${index + 1}` as keyof Options
+                        ] as string
+                      }
+                      onChange={(e) => {
+                        setCurrentOptions((prev) => ({
+                          ...prev,
+                          [`dns${index + 1}`]: e.target.value,
+                        }));
+                      }}
+                    />
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
-      </CardContent>
-      <CardFooter className="flex justify-end">
-        <Button
-          onClick={handleSave}
-          disabled={
-            isSaving ||
-            isLoading ||
-            currentOptions.mode !== "enabled" ||
-            (!currentOptions.dns1 && !currentOptions.dns2 && !currentOptions.dns3)
-          }
-        >
-          {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          {isSaving ? "Saving..." : "Save DNS Settings"}
-        </Button>
-      </CardFooter>
-    </Card>
+        </CardContent>
+        <CardFooter className="flex justify-end">
+          <Button
+            onClick={handleSave}
+            disabled={
+              isSaving ||
+              isLoading ||
+              currentOptions.mode !== "enabled" ||
+              (!currentOptions.dns1 &&
+                !currentOptions.dns2 &&
+                !currentOptions.dns3)
+            }
+          >
+            {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {isSaving ? "Saving..." : "Save DNS Settings"}
+          </Button>
+        </CardFooter>
+      </Card>
+    </div>
   );
 };
 

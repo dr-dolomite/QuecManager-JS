@@ -327,13 +327,19 @@ const ConnectivitySettingsPage = () => {
   }, []);
 
   return (
+        <div className="container mx-auto p-6">
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold mb-2">
+          Device Connectivity Settings
+        </h1>
+        <p className="text-muted-foreground">
+          Configure your device's connectivity options including IP Passthrough and USB Modem Protocol.
+        </p>
+      </div>
     <div className="grid gap-4">
       <Card>
         <CardHeader>
           <CardTitle>Connectivity Settings</CardTitle>
-          <CardDescription>
-            Configure your device's connectivity settings.
-          </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 lg:grid-cols-2 grid-flow-row gap-6">
@@ -473,7 +479,7 @@ const ConnectivitySettingsPage = () => {
       </Card>
 
       <EthernetCard/>
-      <DNSCard passthrough={currentSettings.passthrough} />
+      {/* <DNSCard passthrough={currentSettings.passthrough} /> */}
       <AlertDialog open={showRebootDialog} onOpenChange={setShowRebootDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -492,6 +498,7 @@ const ConnectivitySettingsPage = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+    </div>
     </div>
   );
 };

@@ -116,7 +116,9 @@ const PersonalizationPage = () => {
   const [measurementUnit, setMeasurementUnit] = useState<"km" | "mi">("km");
   const [isUnitLoading, setIsUnitLoading] = useState<boolean>(false);
   const [isUnitDefault, setIsUnitDefault] = useState<boolean>(true);
-  const [temperatureUnit, setTemperatureUnit] = useState<"celsius" | "fahrenheit">("celsius");
+  const [temperatureUnit, setTemperatureUnit] = useState<
+    "celsius" | "fahrenheit"
+  >("celsius");
   const [isTempUnitLoading, setIsTempUnitLoading] = useState<boolean>(false);
   const [isTempUnitDefault, setIsTempUnitDefault] = useState<boolean>(true);
   const [pingEnabled, setPingEnabled] = useState<boolean>(true);
@@ -1110,125 +1112,243 @@ const PersonalizationPage = () => {
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Personalization Settings</CardTitle>
-        <CardDescription>
+    <div className="container mx-auto p-6 max-w-4xl">
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold mb-2">Personalization Settings</h1>
+        <p className="text-muted-foreground">
           Customize your profile and preferences.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="grid gap-6">
-          {/* Profile Picture Section */}
-          <div className="flex flex-col items-center space-y-4">
-            <div className="grid gap-6"></div>
-            {/* Avatar Display */}
-            <div className="relative">
-              <Avatar className="lg:h-48 lg:w-48 h-32 w-32 border-4 border-dashed border-gray-300 hover:border-gray-400 transition-colors">
-                {profileImage ? (
-                  <AvatarImage src={profileImage} alt="Profile Picture" />
-                ) : (
-                  <AvatarFallback className="bg-gray-100">
-                    <User className="h-12 w-12 text-gray-400" />
-                  </AvatarFallback>
-                )}
-              </Avatar>
+        </p>
+      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Personalization Settings</CardTitle>
+          {/* <CardDescription>
+          Customize your profile and preferences.
+        </CardDescription> */}
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-6">
+            {/* Profile Picture Section */}
+            <div className="flex flex-col items-center space-y-4">
+              <div className="grid gap-6"></div>
+              {/* Avatar Display */}
+              <div className="relative">
+                <Avatar className="lg:h-48 lg:w-48 h-32 w-32 border-4 border-dashed border-gray-300 hover:border-gray-400 transition-colors">
+                  {profileImage ? (
+                    <AvatarImage src={profileImage} alt="Profile Picture" />
+                  ) : (
+                    <AvatarFallback className="bg-gray-100">
+                      <User className="h-12 w-12 text-gray-400" />
+                    </AvatarFallback>
+                  )}
+                </Avatar>
 
-              {/* Upload overlay */}
-              <div
-                className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 rounded-full opacity-0 hover:opacity-100 transition-opacity cursor-pointer"
-                onClick={triggerFileInput}
-              >
-                <Camera className="h-8 w-8 text-white" />
+                {/* Upload overlay */}
+                <div
+                  className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 rounded-full opacity-0 hover:opacity-100 transition-opacity cursor-pointer"
+                  onClick={triggerFileInput}
+                >
+                  <Camera className="h-8 w-8 text-white" />
+                </div>
               </div>
-            </div>
 
-            <p className="text-muted-foreground text-sm italic">
-              Supported formats: JPEG, PNG, GIF, WebP (max 3MB).
-            </p>
+              <p className="text-muted-foreground text-sm italic">
+                Supported formats: JPEG, PNG, GIF, WebP (max 3MB).
+              </p>
 
-            {/* Action Buttons */}
-            <div className="flex space-x-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={triggerFileInput}
-                disabled={isUploading || isLoading || isDeleting}
-              >
-                {isUploading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Upload className="h-4 w-4" />
+              {/* Action Buttons */}
+              <div className="flex space-x-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={triggerFileInput}
+                  disabled={isUploading || isLoading || isDeleting}
+                >
+                  {isUploading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Upload className="h-4 w-4" />
+                  )}
+                  <span>{isUploading ? "Uploading..." : "Upload"}</span>
+                </Button>
+
+                {hasProfileImage && (
+                  <>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={deleteProfilePicture}
+                      disabled={
+                        isLoading ||
+                        isDeleting ||
+                        isUploading ||
+                        !hasProfileImage
+                      }
+                    >
+                      {isDeleting ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-4 w-4" />
+                      )}
+                      <span>{isDeleting ? "Deleting..." : "Delete"}</span>
+                    </Button>
+                  </>
                 )}
-                <span>{isUploading ? "Uploading..." : "Upload"}</span>
-              </Button>
+              </div>
 
-              {hasProfileImage && (
-                <>
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={deleteProfilePicture}
-                    disabled={
-                      isLoading || isDeleting || isUploading || !hasProfileImage
-                    }
-                  >
-                    {isDeleting ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Trash2 className="h-4 w-4" />
-                    )}
-                    <span>{isDeleting ? "Deleting..." : "Delete"}</span>
-                  </Button>
-                </>
-              )}
+              {/* Hidden File Input */}
+              <Input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
+                onChange={handleFileSelect}
+                className="hidden"
+              />
             </div>
 
-            {/* Hidden File Input */}
-            <Input
-              ref={fileInputRef}
-              type="file"
-              accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
-              onChange={handleFileSelect}
-              className="hidden"
-            />
-          </div>
+            <Separator className="w-full my-2" />
 
-          <Separator className="w-full my-2" />
+            <div className="grid lg:grid-cols-2 grid-flow-row gap-4">
+              <div className="lg:col-span-2 col-span-1">
+                <div className="grid w-full max-w-sm items-center gap-2">
+                  <Label htmlFor="ProfileDialogSettings">
+                    Profile Setup Dialog
+                  </Label>
+                  {isProfileDialogLoading ? (
+                    <Skeleton className="h-8" />
+                  ) : (
+                    <div className="flex flex-col gap-2">
+                      <div className="flex flex-row gap-2 items-center">
+                        <Select
+                          disabled={isProfileDialogLoading}
+                          value={profileDialogEnabled ? "enabled" : "disabled"}
+                          onValueChange={(value: string) =>
+                            updateProfileDialogSettings(value === "enabled")
+                          }
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue>
+                              {profileDialogEnabled
+                                ? "Show Dialog"
+                                : "Hide Dialog"}
+                            </SelectValue>
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectGroup>
+                              <SelectLabel>Profile Setup Dialog</SelectLabel>
+                              <SelectItem value="enabled">
+                                Show profile setup dialog
+                              </SelectItem>
+                              <SelectItem value="disabled">
+                                Hide profile setup dialog
+                              </SelectItem>
+                            </SelectGroup>
+                          </SelectContent>
+                        </Select>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          disabled={
+                            isProfileDialogLoading || isProfileDialogDefault
+                          }
+                          onClick={resetProfileDialogSettings}
+                        >
+                          <Undo2Icon className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                  <p className="text-sm text-muted-foreground">
+                    Controls whether to show the profile setup on the home page.
+                  </p>
+                </div>
+              </div>
 
-          <div className="grid lg:grid-cols-2 grid-flow-row gap-4">
-            <div className="lg:col-span-2 col-span-1">
-              <div className="grid w-full max-w-sm items-center gap-2">
-                <Label htmlFor="ProfileDialogSettings">
-                  Profile Setup Dialog
-                </Label>
-                {isProfileDialogLoading ? (
-                  <Skeleton className="h-8" />
-                ) : (
-                  <div className="flex flex-col gap-2">
+              <div className="col-span-1">
+                <div className="grid w-full max-w-sm items-center gap-2">
+                  <Label htmlFor="MeasurementUnits">
+                    Distance Measurement Unit
+                  </Label>
+                  {isUnitLoading ? (
+                    <Skeleton className="h-8" />
+                  ) : (
                     <div className="flex flex-row gap-2 items-center">
                       <Select
-                        disabled={isProfileDialogLoading}
-                        value={profileDialogEnabled ? "enabled" : "disabled"}
-                        onValueChange={(value: string) =>
-                          updateProfileDialogSettings(value === "enabled")
+                        disabled={isUnitLoading}
+                        value={measurementUnit}
+                        onValueChange={(value: "km" | "mi") =>
+                          updateMeasurementUnit(value)
                         }
                       >
                         <SelectTrigger className="w-full">
                           <SelectValue>
-                            {profileDialogEnabled
-                              ? "Show Dialog"
-                              : "Hide Dialog"}
+                            {measurementUnit === "km"
+                              ? "Kilometers (km)"
+                              : "Miles (mi)"}
                           </SelectValue>
                         </SelectTrigger>
                         <SelectContent>
                           <SelectGroup>
-                            <SelectLabel>Profile Setup Dialog</SelectLabel>
-                            <SelectItem value="enabled">
-                              Show profile setup dialog
+                            <SelectLabel>Distance Unit</SelectLabel>
+                            <SelectItem value="km">Kilometers (km)</SelectItem>
+                            <SelectItem value="mi">Miles (mi)</SelectItem>
+                          </SelectGroup>
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        disabled={isUnitLoading || isUnitDefault}
+                        onClick={resetMeasurementUnit}
+                      >
+                        <Undo2Icon className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  )}
+
+                  {isUnitDefault ? (
+                    <p className="text-sm text-muted-foreground">
+                      This is the default unit based on your system settings.
+                    </p>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      This is a custom unit setting.
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div className="col-span-1">
+                <div className="grid w-full max-w-sm items-center gap-2">
+                  <Label htmlFor="TemperatureUnits">
+                    Temperature Measurement Unit
+                  </Label>
+                  {isTempUnitLoading ? (
+                    <Skeleton className="h-8" />
+                  ) : (
+                    <div className="flex flex-row gap-2 items-center">
+                      <Select
+                        disabled={isTempUnitLoading}
+                        value={temperatureUnit}
+                        onValueChange={(value: "celsius" | "fahrenheit") =>
+                          updateTemperatureUnit(value)
+                        }
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue>
+                            {temperatureUnit === "celsius"
+                              ? "Celsius (°C)"
+                              : "Fahrenheit (°F)"}
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectGroup>
+                            <SelectLabel>Temperature Unit</SelectLabel>
+                            <SelectItem value="celsius">
+                              Celsius (°C)
                             </SelectItem>
-                            <SelectItem value="disabled">
-                              Hide profile setup dialog
+                            <SelectItem value="fahrenheit">
+                              Fahrenheit (°F)
                             </SelectItem>
                           </SelectGroup>
                         </SelectContent>
@@ -1236,10 +1356,62 @@ const PersonalizationPage = () => {
                       <Button
                         variant="outline"
                         size="icon"
-                        disabled={
-                          isProfileDialogLoading || isProfileDialogDefault
+                        disabled={isTempUnitLoading || isTempUnitDefault}
+                        onClick={resetTemperatureUnit}
+                      >
+                        <Undo2Icon className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  )}
+
+                  {isTempUnitDefault ? (
+                    <p className="text-sm text-muted-foreground">
+                      This is the default unit based on your system settings.
+                    </p>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      This is a custom unit setting.
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div className="grid w-full max-w-sm items-center gap-2">
+                <Label htmlFor="PingSettings">Network Latency Testing</Label>
+                {isPingLoading ? (
+                  <Skeleton className="h-8" />
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    <div className="flex flex-row gap-2 items-center">
+                      <Select
+                        disabled={isPingLoading}
+                        value={pingEnabled ? "enabled" : "disabled"}
+                        onValueChange={(value: string) =>
+                          updatePingSettings(value === "enabled")
                         }
-                        onClick={resetProfileDialogSettings}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue>
+                            {pingEnabled ? "Enabled" : "Disabled"}
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectGroup>
+                            <SelectLabel>Latency Testing</SelectLabel>
+                            <SelectItem value="enabled">
+                              Enable latency testing
+                            </SelectItem>
+                            <SelectItem value="disabled">
+                              Disable latency testing
+                            </SelectItem>
+                          </SelectGroup>
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        disabled={isPingLoading || isPingDefault}
+                        onClick={resetPingSettings}
                       >
                         <Undo2Icon className="h-4 w-4" />
                       </Button>
@@ -1247,322 +1419,165 @@ const PersonalizationPage = () => {
                   </div>
                 )}
                 <p className="text-sm text-muted-foreground">
-                  Controls whether to show the profile setup on the home page.
+                  Controls whether the device measures network latency.
                 </p>
               </div>
-            </div>
 
-            <div className="col-span-1">
               <div className="grid w-full max-w-sm items-center gap-2">
-                <Label htmlFor="MeasurementUnits">
-                  Distance Measurement Unit
-                </Label>
-                {isUnitLoading ? (
+                {isPingLoading ? (
                   <Skeleton className="h-8" />
                 ) : (
-                  <div className="flex flex-row gap-2 items-center">
-                    <Select
-                      disabled={isUnitLoading}
-                      value={measurementUnit}
-                      onValueChange={(value: "km" | "mi") =>
-                        updateMeasurementUnit(value)
-                      }
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue>
-                          {measurementUnit === "km"
-                            ? "Kilometers (km)"
-                            : "Miles (mi)"}
-                        </SelectValue>
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectGroup>
-                          <SelectLabel>Distance Unit</SelectLabel>
-                          <SelectItem value="km">Kilometers (km)</SelectItem>
-                          <SelectItem value="mi">Miles (mi)</SelectItem>
-                        </SelectGroup>
-                      </SelectContent>
-                    </Select>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      disabled={isUnitLoading || isUnitDefault}
-                      onClick={resetMeasurementUnit}
-                    >
-                      <Undo2Icon className="h-4 w-4" />
-                    </Button>
+                  <div className="grid w-full items-center gap-2">
+                    <Label htmlFor="PingPolling">Polling Rate</Label>
+                    <div className="flex flex-row gap-2 items-center">
+                      <Select
+                        disabled={isPingLoading || !pingEnabled}
+                        value={String(pingInterval)}
+                        onValueChange={(value: string) => {
+                          const next = parseInt(value, 10);
+                          setPingInterval(next);
+                          // Persist immediately to backend while keeping UX consistent
+                          updatePingSettings(pingEnabled, next);
+                        }}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue>{pingInterval} seconds</SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectGroup>
+                            <SelectLabel>Polling Rate</SelectLabel>
+                            <SelectItem value="2">Every 2 seconds</SelectItem>
+                            <SelectItem value="5">Every 5 seconds</SelectItem>
+                            <SelectItem value="10">Every 10 seconds</SelectItem>
+                            <SelectItem value="15">Every 15 seconds</SelectItem>
+                            <SelectItem value="30">Every 30 seconds</SelectItem>
+                            <SelectItem value="60">Every 60 seconds</SelectItem>
+                          </SelectGroup>
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        disabled={
+                          isPingLoading || pingInterval === 5 || isPingDefault
+                        }
+                        onClick={() => updatePingSettings(pingEnabled, 5)}
+                      >
+                        <Undo2Icon className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Controls how often the device measures latency.
+                    </p>
                   </div>
                 )}
-
-                {isUnitDefault ? (
-                  <p className="text-sm text-muted-foreground">
-                    This is the default unit based on your system settings.
-                  </p>
-                ) : (
-                  <p className="text-sm text-muted-foreground">
-                    This is a custom unit setting.
-                  </p>
-                )}
               </div>
-            </div>
 
-            <div className="col-span-1">
               <div className="grid w-full max-w-sm items-center gap-2">
-                <Label htmlFor="TemperatureUnits">
-                  Temperature Measurement Unit
-                </Label>
-                {isTempUnitLoading ? (
+                <Label htmlFor="MemorySettings">Memory Monitoring</Label>
+                {isMemoryLoading ? (
                   <Skeleton className="h-8" />
                 ) : (
-                  <div className="flex flex-row gap-2 items-center">
-                    <Select
-                      disabled={isTempUnitLoading}
-                      value={temperatureUnit}
-                      onValueChange={(value: "celsius" | "fahrenheit") =>
-                        updateTemperatureUnit(value)
-                      }
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue>
-                          {temperatureUnit === "celsius"
-                            ? "Celsius (°C)"
-                            : "Fahrenheit (°F)"}
-                        </SelectValue>
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectGroup>
-                          <SelectLabel>Temperature Unit</SelectLabel>
-                          <SelectItem value="celsius">Celsius (°C)</SelectItem>
-                          <SelectItem value="fahrenheit">
-                            Fahrenheit (°F)
-                          </SelectItem>
-                        </SelectGroup>
-                      </SelectContent>
-                    </Select>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      disabled={isTempUnitLoading || isTempUnitDefault}
-                      onClick={resetTemperatureUnit}
-                    >
-                      <Undo2Icon className="h-4 w-4" />
-                    </Button>
+                  <div className="flex flex-col gap-2">
+                    <div className="flex flex-row gap-2 items-center">
+                      <Select
+                        disabled={isMemoryLoading}
+                        value={memoryEnabled ? "enabled" : "disabled"}
+                        onValueChange={(value: string) =>
+                          updateMemorySettings(value === "enabled")
+                        }
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue>
+                            {memoryEnabled ? "Enabled" : "Disabled"}
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectGroup>
+                            <SelectLabel>Memory Monitoring</SelectLabel>
+                            <SelectItem value="enabled">
+                              Enable memory monitoring
+                            </SelectItem>
+                            <SelectItem value="disabled">
+                              Disable memory monitoring
+                            </SelectItem>
+                          </SelectGroup>
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        disabled={isMemoryLoading || isMemoryDefault}
+                        onClick={resetMemorySettings}
+                      >
+                        <Undo2Icon className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                 )}
+                <p className="text-sm text-muted-foreground">
+                  Controls whether the device measures memory usage.
+                </p>
+              </div>
 
-                {isTempUnitDefault ? (
-                  <p className="text-sm text-muted-foreground">
-                    This is the default unit based on your system settings.
-                  </p>
+              <div className="grid w-full max-w-sm items-center gap-2">
+                {isMemoryLoading ? (
+                  <Skeleton className="h-8" />
                 ) : (
-                  <p className="text-sm text-muted-foreground">
-                    This is a custom unit setting.
-                  </p>
+                  <div className="grid w-full items-center gap-2">
+                    <Label htmlFor="MemoryUpdateRate">Update Rate</Label>
+                    <div className="flex flex-row gap-2 items-center">
+                      <Select
+                        disabled={isMemoryLoading || !memoryEnabled}
+                        value={String(memoryInterval)}
+                        onValueChange={(value: string) => {
+                          const next = parseInt(value, 10);
+                          setMemoryInterval(next);
+                          // Persist immediately to backend while keeping UX consistent
+                          updateMemorySettings(memoryEnabled, next);
+                        }}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue>
+                            {memoryInterval} second
+                            {memoryInterval === 1 ? "" : "s"}
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectGroup>
+                            <SelectLabel>Update Rate</SelectLabel>
+                            <SelectItem value="1">Every 1 second</SelectItem>
+                            <SelectItem value="2">Every 2 seconds</SelectItem>
+                            <SelectItem value="3">Every 3 seconds</SelectItem>
+                            <SelectItem value="5">Every 5 seconds</SelectItem>
+                            <SelectItem value="10">Every 10 seconds</SelectItem>
+                          </SelectGroup>
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        disabled={
+                          isMemoryLoading ||
+                          memoryInterval === 1 ||
+                          isMemoryDefault
+                        }
+                        onClick={() => updateMemorySettings(memoryEnabled, 1)}
+                      >
+                        <Undo2Icon className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Controls how often memory usage is updated.
+                    </p>
+                  </div>
                 )}
               </div>
-            </div>
-
-            <div className="grid w-full max-w-sm items-center gap-2">
-              <Label htmlFor="PingSettings">Network Latency Testing</Label>
-              {isPingLoading ? (
-                <Skeleton className="h-8" />
-              ) : (
-                <div className="flex flex-col gap-2">
-                  <div className="flex flex-row gap-2 items-center">
-                    <Select
-                      disabled={isPingLoading}
-                      value={pingEnabled ? "enabled" : "disabled"}
-                      onValueChange={(value: string) =>
-                        updatePingSettings(value === "enabled")
-                      }
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue>
-                          {pingEnabled ? "Enabled" : "Disabled"}
-                        </SelectValue>
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectGroup>
-                          <SelectLabel>Latency Testing</SelectLabel>
-                          <SelectItem value="enabled">
-                            Enable latency testing
-                          </SelectItem>
-                          <SelectItem value="disabled">
-                            Disable latency testing
-                          </SelectItem>
-                        </SelectGroup>
-                      </SelectContent>
-                    </Select>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      disabled={isPingLoading || isPingDefault}
-                      onClick={resetPingSettings}
-                    >
-                      <Undo2Icon className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              )}
-              <p className="text-sm text-muted-foreground">
-                Controls whether the device measures network latency.
-              </p>
-            </div>
-
-            <div className="grid w-full max-w-sm items-center gap-2">
-              {isPingLoading ? (
-                <Skeleton className="h-8" />
-              ) : (
-                <div className="grid w-full items-center gap-2">
-                  <Label htmlFor="PingPolling">Polling Rate</Label>
-                  <div className="flex flex-row gap-2 items-center">
-                    <Select
-                      disabled={isPingLoading || !pingEnabled}
-                      value={String(pingInterval)}
-                      onValueChange={(value: string) => {
-                        const next = parseInt(value, 10);
-                        setPingInterval(next);
-                        // Persist immediately to backend while keeping UX consistent
-                        updatePingSettings(pingEnabled, next);
-                      }}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue>{pingInterval} seconds</SelectValue>
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectGroup>
-                          <SelectLabel>Polling Rate</SelectLabel>
-                          <SelectItem value="2">Every 2 seconds</SelectItem>
-                          <SelectItem value="5">Every 5 seconds</SelectItem>
-                          <SelectItem value="10">Every 10 seconds</SelectItem>
-                          <SelectItem value="15">Every 15 seconds</SelectItem>
-                          <SelectItem value="30">Every 30 seconds</SelectItem>
-                          <SelectItem value="60">Every 60 seconds</SelectItem>
-                        </SelectGroup>
-                      </SelectContent>
-                    </Select>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      disabled={
-                        isPingLoading || pingInterval === 5 || isPingDefault
-                      }
-                      onClick={() => updatePingSettings(pingEnabled, 5)}
-                    >
-                      <Undo2Icon className="h-4 w-4" />
-                    </Button>
-                  </div>
-                  <p className="text-sm text-muted-foreground">
-                    Controls how often the device measures latency.
-                  </p>
-                </div>
-              )}
-            </div>
-
-            <div className="grid w-full max-w-sm items-center gap-2">
-              <Label htmlFor="MemorySettings">Memory Monitoring</Label>
-              {isMemoryLoading ? (
-                <Skeleton className="h-8" />
-              ) : (
-                <div className="flex flex-col gap-2">
-                  <div className="flex flex-row gap-2 items-center">
-                    <Select
-                      disabled={isMemoryLoading}
-                      value={memoryEnabled ? "enabled" : "disabled"}
-                      onValueChange={(value: string) =>
-                        updateMemorySettings(value === "enabled")
-                      }
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue>
-                          {memoryEnabled ? "Enabled" : "Disabled"}
-                        </SelectValue>
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectGroup>
-                          <SelectLabel>Memory Monitoring</SelectLabel>
-                          <SelectItem value="enabled">
-                            Enable memory monitoring
-                          </SelectItem>
-                          <SelectItem value="disabled">
-                            Disable memory monitoring
-                          </SelectItem>
-                        </SelectGroup>
-                      </SelectContent>
-                    </Select>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      disabled={isMemoryLoading || isMemoryDefault}
-                      onClick={resetMemorySettings}
-                    >
-                      <Undo2Icon className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              )}
-              <p className="text-sm text-muted-foreground">
-                Controls whether the device measures memory usage.
-              </p>
-            </div>
-
-            <div className="grid w-full max-w-sm items-center gap-2">
-              {isMemoryLoading ? (
-                <Skeleton className="h-8" />
-              ) : (
-                <div className="grid w-full items-center gap-2">
-                  <Label htmlFor="MemoryUpdateRate">Update Rate</Label>
-                  <div className="flex flex-row gap-2 items-center">
-                    <Select
-                      disabled={isMemoryLoading || !memoryEnabled}
-                      value={String(memoryInterval)}
-                      onValueChange={(value: string) => {
-                        const next = parseInt(value, 10);
-                        setMemoryInterval(next);
-                        // Persist immediately to backend while keeping UX consistent
-                        updateMemorySettings(memoryEnabled, next);
-                      }}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue>
-                          {memoryInterval} second
-                          {memoryInterval === 1 ? "" : "s"}
-                        </SelectValue>
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectGroup>
-                          <SelectLabel>Update Rate</SelectLabel>
-                          <SelectItem value="1">Every 1 second</SelectItem>
-                          <SelectItem value="2">Every 2 seconds</SelectItem>
-                          <SelectItem value="3">Every 3 seconds</SelectItem>
-                          <SelectItem value="5">Every 5 seconds</SelectItem>
-                          <SelectItem value="10">Every 10 seconds</SelectItem>
-                        </SelectGroup>
-                      </SelectContent>
-                    </Select>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      disabled={
-                        isMemoryLoading ||
-                        memoryInterval === 1 ||
-                        isMemoryDefault
-                      }
-                      onClick={() => updateMemorySettings(memoryEnabled, 1)}
-                    >
-                      <Undo2Icon className="h-4 w-4" />
-                    </Button>
-                  </div>
-                  <p className="text-sm text-muted-foreground">
-                    Controls how often memory usage is updated.
-                  </p>
-                </div>
-              )}
             </div>
           </div>
-        </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    </div>
   );
 };
 

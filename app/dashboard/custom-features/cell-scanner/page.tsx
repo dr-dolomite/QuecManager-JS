@@ -726,6 +726,15 @@ const CellScannerPage = () => {
 
   // Main UI component
   return (
+        <div className="container mx-auto p-6">
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold mb-2">
+          QuecManager Cell Scanner
+        </h1>
+        <p className="text-muted-foreground">
+          Scan and analyze cellular network cells from various operators.
+        </p>
+      </div>
     <div className="grid gap-5">
       <Card>
         <CardHeader>
@@ -989,6 +998,7 @@ const CellScannerPage = () => {
         isLoading={scanState.status === "scanning"}
         mccMncList={mccMncList}
       />
+    </div>
     </div>
   );
 };

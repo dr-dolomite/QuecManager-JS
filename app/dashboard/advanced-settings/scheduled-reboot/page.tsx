@@ -240,12 +240,18 @@ const ScheduledRebootPage = () => {
   }, []);
 
   return (
+        <div className="container mx-auto p-6">
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold mb-2">
+          Scheduled Reboot Settings
+        </h1>
+        <p className="text-muted-foreground">
+          Configure scheduled reboot settings for your device.
+        </p>
+      </div>
     <Card>
       <CardHeader>
         <CardTitle>Scheduled Reboot</CardTitle>
-        <CardDescription>
-          Manage the scheduled reboot settings for your device.
-        </CardDescription>
       </CardHeader>
       <CardContent className="grid space-y-6">
         <div className="flex items-center space-x-2 mt-4">
@@ -358,6 +364,7 @@ const ScheduledRebootPage = () => {
         </Button>
       </CardFooter>
     </Card>
+    </div>
   );
 };
 

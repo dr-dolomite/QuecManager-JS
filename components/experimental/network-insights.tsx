@@ -212,8 +212,8 @@ const NetworkInsights = () => {
 
   return (
     <div className="flex min-h-screen w-full flex-col">
-      <div className="flex flex-col sm:gap-4 sm:py-4 sm:pl-14">
-        <div className="grid flex-1 items-start gap-4 p-4 sm:px-6 sm:py-0 md:gap-8">
+      <div className="flex flex-col sm:py-4">
+        <div className="grid flex-1 items-start gap-4 sm:py-0 md:gap-8">
           <Tabs value={activeTab} onValueChange={setActiveTab}>
             <div className="flex items-center">
               <TabsList>
@@ -346,12 +346,6 @@ const NetworkInsights = () => {
               <Card>
                 <CardHeader>
                   <CardTitle>Network Insights</CardTitle>
-                  <CardDescription>
-                    Real-time insights into your cellular network changes,
-                    including band switches, carrier aggregation events, and
-                    signal quality changes. The monitoring service runs
-                    automatically as part of QuecManager services.
-                  </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <Table>

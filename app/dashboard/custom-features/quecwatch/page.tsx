@@ -63,8 +63,6 @@ interface QuecWatchConfig {
   refreshCount?: number;
 }
 
-
-
 interface QuecWatchResponse {
   status: string;
   serviceStatus?: string;
@@ -325,247 +323,131 @@ const QuecWatchPage = () => {
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>QuecWatch</CardTitle>
-        <CardDescription>
-          An intelligent watchdog service for Quectel-AP modems that ensures
-          network reliability through automated monitoring, connection
-          management, and SIM failover capabilities.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="grid gap-8">
-          <div className="grid gap-2">
-            <div className="flex justify-between items-center gap-x-4 rounded-lg border p-4">
-              <Label>QuecWatch Status</Label>
-              <div className="flex items-center space-x-1">
-                {status === "loading" ? (
-                  <>
-                    <Loader2 className="animate-spin text-primary size-4" />
-                    <p className="text-muted-foreground text-sm">Loading...</p>
-                  </>
-                ) : status === "inactive" ? (
-                  <>
-                    <ShieldClose className="text-rose-500 size-4" />
-                    <p className="text-muted-foreground text-sm">Inactive</p>
-                  </>
-                ) : status === "active" ? (
-                  <>
-                    <ShieldCheck className="text-green-500 size-4" />
-                    <p className="text-muted-foreground text-sm">Active</p>
-                  </>
-                ) : status === "maxRetries" ? (
-                  <>
-                    <AlertTriangle className="text-yellow-500 size-4" />
-                    <p className="text-muted-foreground text-sm">
-                      Maximum Retries Exhausted
-                    </p>
-                  </>
-                ) : (
-                  <>
-                    <ShieldClose className="text-amber-500 size-4" />
-                    <p className="text-muted-foreground text-sm">Error</p>
-                  </>
-                )}
-              </div>
-            </div>
-            <div className="flex justify-between items-center gap-x-4 rounded-lg border p-4">
-              <Label>Remaining Retries</Label>
-              <div className="flex items-center gap-2">
-                {(status === "active" || status === "maxRetries") && (
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          className="h-6 w-6"
-                          onClick={resetRetryCounter}
-                          disabled={isLoading}
-                        >
-                          <RotateCcw className="h-4 w-4" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>Reset the retry counter</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                )}
-                <p className="text-muted-foreground text-sm">
-                  {currentRetries} / {config.maxRetries}
-                </p>
-              </div>
-            </div>
-          </div>
-          <div className="grid grid-flow-row lg:grid-cols-2 grid-cols-1 gap-4">
-            <div className="grid w-full items-center gap-1.5">
-              <Label htmlFor="ping">Ping Target</Label>
-              <Input
-                id="ping"
-                placeholder="8.8.8.8"
-                value={config.pingTarget}
-                disabled={status === "active" || status === "maxRetries"}
-                onChange={(e) =>
-                  setConfig((prev) => ({
-                    ...prev,
-                    pingTarget: e.target.value,
-                  }))
-                }
-              />
-            </div>
-
-            <div className="grid w-full items-center gap-1.5">
-              <Label htmlFor="ping-interval">Ping Interval</Label>
-              <Select
-                value={config.pingInterval.toString()}
-                disabled={status === "active" || status === "maxRetries"}
-                onValueChange={(value) =>
-                  setConfig((prev) => ({
-                    ...prev,
-                    pingInterval: parseInt(value),
-                  }))
-                }
-              >
-                <SelectTrigger id="ping-interval">
-                  <SelectValue placeholder="Select Ping Interval" />
-                </SelectTrigger>
-                <SelectContent>
-                  {[5, 10, 15, 30, 60, 120, 300, 600, 1800, 3600].map(
-                    (interval) => (
-                      <SelectItem key={interval} value={interval.toString()}>
-                        {interval >= 3600
-                          ? `${interval / 3600} hour${
-                              interval > 3600 ? "s" : ""
-                            }`
-                          : interval >= 60
-                          ? `${interval / 60} minute${
-                              interval >= 120 ? "s" : ""
-                            }`
-                          : `${interval} second${interval !== 1 ? "s" : ""}`}
-                      </SelectItem>
-                    )
+    <div className="container mx-auto p-6">
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold mb-2">QuecWatch</h1>
+        <p className="text-muted-foreground">
+          An intelligent watchdog service that ensures network reliability
+          through automated monitoring, connection management, and SIM failover
+          capabilities.
+        </p>
+      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>QuecWatch</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-8">
+            <div className="grid gap-2">
+              <div className="flex justify-between items-center gap-x-4 rounded-lg border p-4">
+                <Label>QuecWatch Status</Label>
+                <div className="flex items-center space-x-1">
+                  {status === "loading" ? (
+                    <>
+                      <Loader2 className="animate-spin text-primary size-4" />
+                      <p className="text-muted-foreground text-sm">
+                        Loading...
+                      </p>
+                    </>
+                  ) : status === "inactive" ? (
+                    <>
+                      <ShieldClose className="text-rose-500 size-4" />
+                      <p className="text-muted-foreground text-sm">Inactive</p>
+                    </>
+                  ) : status === "active" ? (
+                    <>
+                      <ShieldCheck className="text-green-500 size-4" />
+                      <p className="text-muted-foreground text-sm">Active</p>
+                    </>
+                  ) : status === "maxRetries" ? (
+                    <>
+                      <AlertTriangle className="text-yellow-500 size-4" />
+                      <p className="text-muted-foreground text-sm">
+                        Maximum Retries Exhausted
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <ShieldClose className="text-amber-500 size-4" />
+                      <p className="text-muted-foreground text-sm">Error</p>
+                    </>
                   )}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="grid w-full items-center gap-1.5">
-              <Label htmlFor="ping-failure">Ping Failures</Label>
-              <Select
-                value={config.pingFailures.toString()}
-                disabled={status === "active" || status === "maxRetries"}
-                onValueChange={(value) =>
-                  setConfig((prev) => ({
-                    ...prev,
-                    pingFailures: parseInt(value),
-                  }))
-                }
-              >
-                <SelectTrigger id="ping-failure">
-                  <SelectValue placeholder="Select Ping Failures" />
-                </SelectTrigger>
-                <SelectContent>
-                  {[1, 3, 5, 10].map((failures) => (
-                    <SelectItem key={failures} value={failures.toString()}>
-                      {failures} failure{failures !== 1 ? "s" : ""}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="grid w-full items-center gap-1.5">
-              <Label htmlFor="max-retries">Max Retries</Label>
-              <Select
-                value={config.maxRetries.toString()}
-                disabled={status === "active" || status === "maxRetries"}
-                onValueChange={(value) =>
-                  setConfig((prev) => ({
-                    ...prev,
-                    maxRetries: parseInt(value),
-                  }))
-                }
-              >
-                <SelectTrigger id="max-retries">
-                  <SelectValue placeholder="Select Max Retries" />
-                </SelectTrigger>
-                <SelectContent>
-                  {[1, 3, 5, 10, 15, 20].map((retries) => (
-                    <SelectItem key={retries} value={retries.toString()}>
-                      {retries}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <div className="flex flex-row items-center justify-between rounded-lg border p-4">
-            <div className="space-y-0.5 grid">
-              <Label className="text-base">Connection Refresh</Label>
-              <Label className="text-sm font-normal text-muted-foreground">
-                Toggle the connection refresh for the modem to first attempt
-                reconnecting to the network before restarting.
-              </Label>
-            </div>
-            <Switch
-              checked={config.connectionRefresh}
-              disabled={status === "active" || status === "maxRetries"}
-              onCheckedChange={(checked) =>
-                setConfig((prev) => ({
-                  ...prev,
-                  connectionRefresh: checked,
-                }))
-              }
-            />
-          </div>
-          
-          <div className="rounded-lg border p-4 grid gap-y-6">
-            <div className="flex flex-row items-center justify-between">
-              <div className="space-y-0.5 grid">
-                <Label className="text-base">High Latency Monitoring</Label>
-                <Label className="text-sm font-normal text-muted-foreground">
-                  Monitor ping latency and trigger recovery actions when latency exceeds threshold.
-                </Label>
+                </div>
               </div>
-              <Switch
-                checked={config.highLatencyMonitoring}
-                disabled={status === "active" || status === "maxRetries"}
-                onCheckedChange={(checked) =>
-                  setConfig((prev) => ({
-                    ...prev,
-                    highLatencyMonitoring: checked,
-                  }))
-                }
-              />
+              <div className="flex justify-between items-center gap-x-4 rounded-lg border p-4">
+                <Label>Remaining Retries</Label>
+                <div className="flex items-center gap-2">
+                  {(status === "active" || status === "maxRetries") && (
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="h-6 w-6"
+                            onClick={resetRetryCounter}
+                            disabled={isLoading}
+                          >
+                            <RotateCcw className="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Reset the retry counter</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  )}
+                  <p className="text-muted-foreground text-sm">
+                    {currentRetries} / {config.maxRetries}
+                  </p>
+                </div>
+              </div>
             </div>
-
             <div className="grid grid-flow-row lg:grid-cols-2 grid-cols-1 gap-4">
               <div className="grid w-full items-center gap-1.5">
-                <Label htmlFor="latency-ceiling">Latency Ceiling (ms)</Label>
-                <Select
-                  value={config.latencyCeiling.toString()}
-                  disabled={
-                    status === "active" ||
-                    status === "maxRetries" ||
-                    !config.highLatencyMonitoring
+                <Label htmlFor="ping">Ping Target</Label>
+                <Input
+                  id="ping"
+                  placeholder="8.8.8.8"
+                  value={config.pingTarget}
+                  disabled={status === "active" || status === "maxRetries"}
+                  onChange={(e) =>
+                    setConfig((prev) => ({
+                      ...prev,
+                      pingTarget: e.target.value,
+                    }))
                   }
+                />
+              </div>
+
+              <div className="grid w-full items-center gap-1.5">
+                <Label htmlFor="ping-interval">Ping Interval</Label>
+                <Select
+                  value={config.pingInterval.toString()}
+                  disabled={status === "active" || status === "maxRetries"}
                   onValueChange={(value) =>
                     setConfig((prev) => ({
                       ...prev,
-                      latencyCeiling: parseInt(value),
+                      pingInterval: parseInt(value),
                     }))
                   }
                 >
-                  <SelectTrigger id="latency-ceiling">
-                    <SelectValue placeholder="Select Latency Ceiling" />
+                  <SelectTrigger id="ping-interval">
+                    <SelectValue placeholder="Select Ping Interval" />
                   </SelectTrigger>
                   <SelectContent>
-                    {[50, 100, 150, 200, 300, 500, 750, 1000, 1500, 2000].map(
-                      (ceiling) => (
-                        <SelectItem key={ceiling} value={ceiling.toString()}>
-                          {ceiling}ms
+                    {[5, 10, 15, 30, 60, 120, 300, 600, 1800, 3600].map(
+                      (interval) => (
+                        <SelectItem key={interval} value={interval.toString()}>
+                          {interval >= 3600
+                            ? `${interval / 3600} hour${
+                                interval > 3600 ? "s" : ""
+                              }`
+                            : interval >= 60
+                            ? `${interval / 60} minute${
+                                interval >= 120 ? "s" : ""
+                              }`
+                            : `${interval} second${interval !== 1 ? "s" : ""}`}
                         </SelectItem>
                       )
                     )}
@@ -574,26 +456,22 @@ const QuecWatchPage = () => {
               </div>
 
               <div className="grid w-full items-center gap-1.5">
-                <Label htmlFor="latency-failures">Latency Failures</Label>
+                <Label htmlFor="ping-failure">Ping Failures</Label>
                 <Select
-                  value={config.latencyFailures.toString()}
-                  disabled={
-                    status === "active" ||
-                    status === "maxRetries" ||
-                    !config.highLatencyMonitoring
-                  }
+                  value={config.pingFailures.toString()}
+                  disabled={status === "active" || status === "maxRetries"}
                   onValueChange={(value) =>
                     setConfig((prev) => ({
                       ...prev,
-                      latencyFailures: parseInt(value),
+                      pingFailures: parseInt(value),
                     }))
                   }
                 >
-                  <SelectTrigger id="latency-failures">
-                    <SelectValue placeholder="Select Latency Failures" />
+                  <SelectTrigger id="ping-failure">
+                    <SelectValue placeholder="Select Ping Failures" />
                   </SelectTrigger>
                   <SelectContent>
-                    {[1, 2, 3, 5, 8, 10].map((failures) => (
+                    {[1, 3, 5, 10].map((failures) => (
                       <SelectItem key={failures} value={failures.toString()}>
                         {failures} failure{failures !== 1 ? "s" : ""}
                       </SelectItem>
@@ -601,112 +479,240 @@ const QuecWatchPage = () => {
                   </SelectContent>
                 </Select>
               </div>
-            </div>
-          </div>
 
-          <div className=" rounded-lg border p-4 grid gap-y-6">
-            <div className="flex flex-row items-center justify-between">
+              <div className="grid w-full items-center gap-1.5">
+                <Label htmlFor="max-retries">Max Retries</Label>
+                <Select
+                  value={config.maxRetries.toString()}
+                  disabled={status === "active" || status === "maxRetries"}
+                  onValueChange={(value) =>
+                    setConfig((prev) => ({
+                      ...prev,
+                      maxRetries: parseInt(value),
+                    }))
+                  }
+                >
+                  <SelectTrigger id="max-retries">
+                    <SelectValue placeholder="Select Max Retries" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {[1, 3, 5, 10, 15, 20].map((retries) => (
+                      <SelectItem key={retries} value={retries.toString()}>
+                        {retries}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="flex flex-row items-center justify-between rounded-lg border p-4">
               <div className="space-y-0.5 grid">
-                <Label className="text-base">Auto SIM Failover</Label>
+                <Label className="text-base">Connection Refresh</Label>
                 <Label className="text-sm font-normal text-muted-foreground">
-                  Auto SIM Failover will automatically switch to the next
-                  available SIM card when the current SIM card fails to connect
-                  to the network.
+                  Toggle the connection refresh for the modem to first attempt
+                  reconnecting to the network before restarting.
                 </Label>
               </div>
               <Switch
-                checked={config.autoSimFailover}
+                checked={config.connectionRefresh}
                 disabled={status === "active" || status === "maxRetries"}
                 onCheckedChange={(checked) =>
                   setConfig((prev) => ({
                     ...prev,
-                    autoSimFailover: checked,
+                    connectionRefresh: checked,
                   }))
                 }
               />
             </div>
 
-            <div className="grid w-full items-center gap-1.5">
-              <Label htmlFor="sim-failover">Schedule SIM Checking</Label>
-              <Select
-                value={config.simFailoverSchedule.toString()}
-                disabled={
-                  status === "active" ||
-                  status === "maxRetries" ||
-                  !config.autoSimFailover
-                }
-                onValueChange={(value) =>
-                  setConfig((prev) => ({
-                    ...prev,
-                    simFailoverSchedule: parseInt(value),
-                  }))
-                }
-              >
-                <SelectTrigger id="sim-failover" className="max-w-xs">
-                  <SelectValue placeholder="Select SIM Checking Interval" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="0">Disabled</SelectItem>
-                  <SelectItem value="1">1 Minute</SelectItem>
-                  <SelectItem value="5">5 Minutes</SelectItem>
-                  <SelectItem value="30">30 Minutes</SelectItem>
-                  <SelectItem value="60">1 Hour</SelectItem>
-                  <SelectItem value="360">6 Hours</SelectItem>
-                  <SelectItem value="720">12 Hours</SelectItem>
-                  <SelectItem value="1440">24 Hours</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="rounded-lg border p-4 grid gap-y-6">
+              <div className="flex flex-row items-center justify-between">
+                <div className="space-y-0.5 grid">
+                  <Label className="text-base">High Latency Monitoring</Label>
+                  <Label className="text-sm font-normal text-muted-foreground">
+                    Monitor ping latency and trigger recovery actions when
+                    latency exceeds threshold.
+                  </Label>
+                </div>
+                <Switch
+                  checked={config.highLatencyMonitoring}
+                  disabled={status === "active" || status === "maxRetries"}
+                  onCheckedChange={(checked) =>
+                    setConfig((prev) => ({
+                      ...prev,
+                      highLatencyMonitoring: checked,
+                    }))
+                  }
+                />
+              </div>
+
+              <div className="grid grid-flow-row lg:grid-cols-2 grid-cols-1 gap-4">
+                <div className="grid w-full items-center gap-1.5">
+                  <Label htmlFor="latency-ceiling">Latency Ceiling (ms)</Label>
+                  <Select
+                    value={config.latencyCeiling.toString()}
+                    disabled={
+                      status === "active" ||
+                      status === "maxRetries" ||
+                      !config.highLatencyMonitoring
+                    }
+                    onValueChange={(value) =>
+                      setConfig((prev) => ({
+                        ...prev,
+                        latencyCeiling: parseInt(value),
+                      }))
+                    }
+                  >
+                    <SelectTrigger id="latency-ceiling">
+                      <SelectValue placeholder="Select Latency Ceiling" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {[50, 100, 150, 200, 300, 500, 750, 1000, 1500, 2000].map(
+                        (ceiling) => (
+                          <SelectItem key={ceiling} value={ceiling.toString()}>
+                            {ceiling}ms
+                          </SelectItem>
+                        )
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="grid w-full items-center gap-1.5">
+                  <Label htmlFor="latency-failures">Latency Failures</Label>
+                  <Select
+                    value={config.latencyFailures.toString()}
+                    disabled={
+                      status === "active" ||
+                      status === "maxRetries" ||
+                      !config.highLatencyMonitoring
+                    }
+                    onValueChange={(value) =>
+                      setConfig((prev) => ({
+                        ...prev,
+                        latencyFailures: parseInt(value),
+                      }))
+                    }
+                  >
+                    <SelectTrigger id="latency-failures">
+                      <SelectValue placeholder="Select Latency Failures" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {[1, 2, 3, 5, 8, 10].map((failures) => (
+                        <SelectItem key={failures} value={failures.toString()}>
+                          {failures} failure{failures !== 1 ? "s" : ""}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
             </div>
+
+            <div className=" rounded-lg border p-4 grid gap-y-6">
+              <div className="flex flex-row items-center justify-between">
+                <div className="space-y-0.5 grid">
+                  <Label className="text-base">Auto SIM Failover</Label>
+                  <Label className="text-sm font-normal text-muted-foreground">
+                    Auto SIM Failover will automatically switch to the next
+                    available SIM card when the current SIM card fails to
+                    connect to the network.
+                  </Label>
+                </div>
+                <Switch
+                  checked={config.autoSimFailover}
+                  disabled={status === "active" || status === "maxRetries"}
+                  onCheckedChange={(checked) =>
+                    setConfig((prev) => ({
+                      ...prev,
+                      autoSimFailover: checked,
+                    }))
+                  }
+                />
+              </div>
+
+              <div className="grid w-full items-center gap-1.5">
+                <Label htmlFor="sim-failover">Schedule SIM Checking</Label>
+                <Select
+                  value={config.simFailoverSchedule.toString()}
+                  disabled={
+                    status === "active" ||
+                    status === "maxRetries" ||
+                    !config.autoSimFailover
+                  }
+                  onValueChange={(value) =>
+                    setConfig((prev) => ({
+                      ...prev,
+                      simFailoverSchedule: parseInt(value),
+                    }))
+                  }
+                >
+                  <SelectTrigger id="sim-failover" className="max-w-xs">
+                    <SelectValue placeholder="Select SIM Checking Interval" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="0">Disabled</SelectItem>
+                    <SelectItem value="1">1 Minute</SelectItem>
+                    <SelectItem value="5">5 Minutes</SelectItem>
+                    <SelectItem value="30">30 Minutes</SelectItem>
+                    <SelectItem value="60">1 Hour</SelectItem>
+                    <SelectItem value="360">6 Hours</SelectItem>
+                    <SelectItem value="720">12 Hours</SelectItem>
+                    <SelectItem value="1440">24 Hours</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="rounded-lg border p-4">
+              <Label className="text-base">Last Activity</Label>
+              <p className="text-sm text-muted-foreground mt-2">
+                {lastActivity || "No recent activity"}
+              </p>
+            </div>
+            {error && <div className="text-red-500 text-sm">{error}</div>}
           </div>
-          <div className="rounded-lg border p-4">
-            <Label className="text-base">Last Activity</Label>
-            <p className="text-sm text-muted-foreground mt-2">
-              {lastActivity || "No recent activity"}
-            </p>
-          </div>
-          {error && <div className="text-red-500 text-sm">{error}</div>}
-        </div>
-      </CardContent>
-      <CardFooter className="flex gap-4 border-t py-4">
-        {(status === "inactive" || status === "error") && (
-          <Button
-            onClick={enableQuecWatch}
-            disabled={isLoading || !config.pingTarget}
-          >
-            {isLoading ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Enabling...
-              </>
-            ) : (
-              <>
-                <ScanEyeIcon className="w-4 h-4" />
-                Enable QuecWatch
-              </>
-            )}
-          </Button>
-        )}
-        {(status === "active" || status === "maxRetries") && (
-          <Button
-            variant="destructive"
-            onClick={disableQuecWatch}
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Disabling...
-              </>
-            ) : (
-              <>
-                <BanIcon className="w-4 h-4" />
-                Disable QuecWatch
-              </>
-            )}
-          </Button>
-        )}
-      </CardFooter>
-    </Card>
+        </CardContent>
+        <CardFooter className="flex gap-4 border-t py-4">
+          {(status === "inactive" || status === "error") && (
+            <Button
+              onClick={enableQuecWatch}
+              disabled={isLoading || !config.pingTarget}
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Enabling...
+                </>
+              ) : (
+                <>
+                  <ScanEyeIcon className="w-4 h-4" />
+                  Enable QuecWatch
+                </>
+              )}
+            </Button>
+          )}
+          {(status === "active" || status === "maxRetries") && (
+            <Button
+              variant="destructive"
+              onClick={disableQuecWatch}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Disabling...
+                </>
+              ) : (
+                <>
+                  <BanIcon className="w-4 h-4" />
+                  Disable QuecWatch
+                </>
+              )}
+            </Button>
+          )}
+        </CardFooter>
+      </Card>
+    </div>
   );
 };
 

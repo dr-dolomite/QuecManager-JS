@@ -329,9 +329,7 @@ const CellLockingPage = () => {
       console.log("Lock command result:", lockResult);
 
       if (lockResult.status !== "success") {
-        throw new Error(
-          lockResult.response || "Failed to lock LTE cells"
-        );
+        throw new Error(lockResult.response || "Failed to lock LTE cells");
       }
 
       // Wait for a second
@@ -345,8 +343,7 @@ const CellLockingPage = () => {
 
       if (saveResult.status !== "success") {
         throw new Error(
-          saveResult.response ||
-            "Failed to save LTE lock configuration"
+          saveResult.response || "Failed to save LTE lock configuration"
         );
       }
 
@@ -393,9 +390,7 @@ const CellLockingPage = () => {
       const lockResult = await atCommandSender(lockCommand, true);
 
       if (lockResult.status !== "success") {
-        throw new Error(
-          lockResult.response || "Failed to lock NR5G cell"
-        );
+        throw new Error(lockResult.response || "Failed to lock NR5G cell");
       }
 
       // Wait for a second
@@ -409,8 +404,7 @@ const CellLockingPage = () => {
 
       if (saveResult.status !== "success") {
         throw new Error(
-          saveResult.response ||
-            "Failed to save NR5G lock configuration"
+          saveResult.response || "Failed to save NR5G lock configuration"
         );
       }
 
@@ -448,9 +442,7 @@ const CellLockingPage = () => {
       );
 
       if (resetResult.status !== "success") {
-        throw new Error(
-          resetResult.response || "Failed to reset LTE lock"
-        );
+        throw new Error(resetResult.response || "Failed to reset LTE lock");
       }
 
       // Wait for a second
@@ -464,8 +456,7 @@ const CellLockingPage = () => {
 
       if (saveResult.status !== "success") {
         throw new Error(
-          saveResult.response ||
-            "Failed to save LTE reset configuration"
+          saveResult.response || "Failed to save LTE reset configuration"
         );
       }
 
@@ -474,8 +465,7 @@ const CellLockingPage = () => {
 
       if (copsOffResult.status !== "success") {
         throw new Error(
-          copsOffResult.response ||
-            "Failed to disconnect from network"
+          copsOffResult.response || "Failed to disconnect from network"
         );
       }
 
@@ -523,9 +513,7 @@ const CellLockingPage = () => {
       );
 
       if (resetResult.status !== "success") {
-        throw new Error(
-          resetResult.response || "Failed to reset NR5G lock"
-        );
+        throw new Error(resetResult.response || "Failed to reset NR5G lock");
       }
 
       // Reset NR5G persist and do not save
@@ -536,8 +524,7 @@ const CellLockingPage = () => {
 
       if (saveResult.status !== "success") {
         throw new Error(
-          saveResult.response ||
-            "Failed to save NR5G reset configuration"
+          saveResult.response || "Failed to save NR5G reset configuration"
         );
       }
 
@@ -546,8 +533,7 @@ const CellLockingPage = () => {
 
       if (copsOffResult.status !== "success") {
         throw new Error(
-          copsOffResult.response ||
-            "Failed to disconnect from network"
+          copsOffResult.response || "Failed to disconnect from network"
         );
       }
 
@@ -597,8 +583,7 @@ const CellLockingPage = () => {
 
       if (toggleResult.status !== "success") {
         throw new Error(
-          toggleResult.response ||
-            "Failed to update LTE persist setting"
+          toggleResult.response || "Failed to update LTE persist setting"
         );
       }
 
@@ -636,8 +621,7 @@ const CellLockingPage = () => {
 
       if (toggleResult.status !== "success") {
         throw new Error(
-          toggleResult.response ||
-            "Failed to update NR5G persist setting"
+          toggleResult.response || "Failed to update NR5G persist setting"
         );
       }
 
@@ -729,300 +713,324 @@ const CellLockingPage = () => {
   }, [locked]);
 
   return (
-    <div className="grid gap-6">
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle>4G LTE Cellular Locking</CardTitle>
-            <Badge>
-              {locked ? (
-                <p
-                  className="flex items-center
+    <div className="container mx-auto p-6">
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold mb-2">Cell Locking Settings</h1>
+        <p className="text-muted-foreground">
+          This feature locks the Primary Component Carrier (PCC) for both LTE
+          and NR5G networks to specific cellular towers.
+        </p>
+      </div>
+      <div className="grid gap-6">
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle>4G LTE Cellular Locking</CardTitle>
+              <Badge>
+                {locked ? (
+                  <p
+                    className="flex items-center
             gap-x-1"
-                >
-                  <LockIcon className="h-3 w-3" />
-                  Locked
-                </p>
-              ) : (
-                <p
-                  className="flex items-center
+                  >
+                    <LockIcon className="h-3 w-3" />
+                    Locked
+                  </p>
+                ) : (
+                  <p
+                    className="flex items-center
               gap-x-1"
-                >
-                  <UnlockIcon className="h-3 w-3" />
-                  Unlocked
-                </p>
+                  >
+                    <UnlockIcon className="h-3 w-3" />
+                    Unlocked
+                  </p>
+                )}
+              </Badge>
+            </div>
+
+            <CardDescription>
+              Lock the device to specific LTE Physical Cell IDs.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form className="grid lg:grid-cols-2 grid-cols-1 grid-flow-row gap-6">
+              <div className="grid w-full max-w-sm items-center gap-2">
+                <Label htmlFor="EARFCN1">EARFCN 1</Label>
+                <Input
+                  type="text"
+                  id="EARFCN1"
+                  placeholder="EARFCN 1"
+                  value={lteState.EARFCN1}
+                  onChange={(e) =>
+                    setLteState((prev) => ({
+                      ...prev,
+                      EARFCN1: e.target.value,
+                    }))
+                  }
+                  disabled={loading || (scheduleData.enabled && locked)}
+                />
+              </div>
+              <div className="grid w-full max-w-sm items-center gap-2">
+                <Label htmlFor="PCI1">PCI 1</Label>
+                <Input
+                  type="text"
+                  id="PCI1"
+                  placeholder="PCI 1"
+                  value={lteState.PCI1}
+                  onChange={(e) =>
+                    setLteState((prev) => ({ ...prev, PCI1: e.target.value }))
+                  }
+                  disabled={loading || (scheduleData.enabled && locked)}
+                />
+              </div>
+              <Separator className="my-1 lg:col-span-2 col-span-1 w-full" />
+              <div className="grid w-full max-w-sm items-center gap-2">
+                <Label htmlFor="EARFCN2">EARFCN 2</Label>
+                <Input
+                  type="text"
+                  id="EARFCN2"
+                  placeholder="EARFCN 2"
+                  value={lteState.EARFCN2}
+                  onChange={(e) =>
+                    setLteState((prev) => ({
+                      ...prev,
+                      EARFCN2: e.target.value,
+                    }))
+                  }
+                  disabled={loading || (scheduleData.enabled && locked)}
+                />
+              </div>
+              <div className="grid w-full max-w-sm items-center gap-2">
+                <Label htmlFor="PCI2">PCI 2</Label>
+                <Input
+                  type="text"
+                  id="PCI2"
+                  placeholder="PCI 2"
+                  value={lteState.PCI2}
+                  onChange={(e) =>
+                    setLteState((prev) => ({ ...prev, PCI2: e.target.value }))
+                  }
+                  disabled={loading || (scheduleData.enabled && locked)}
+                />
+              </div>
+              <Separator className="my-1 lg:col-span-2 col-span-1 w-full" />
+              <div className="grid w-full max-w-sm items-center gap-2">
+                <Label htmlFor="EARFCN3">EARFCN 3</Label>
+                <Input
+                  type="text"
+                  id="EARFCN3"
+                  placeholder="EARFCN 3"
+                  value={lteState.EARFCN3}
+                  onChange={(e) =>
+                    setLteState((prev) => ({
+                      ...prev,
+                      EARFCN3: e.target.value,
+                    }))
+                  }
+                  disabled={loading || (scheduleData.enabled && locked)}
+                />
+              </div>
+              <div className="grid w-full max-w-sm items-center gap-2">
+                <Label htmlFor="PCI3">PCI 3</Label>
+                <Input
+                  type="text"
+                  id="PCI3"
+                  placeholder="PCI 3"
+                  value={lteState.PCI3}
+                  onChange={(e) =>
+                    setLteState((prev) => ({ ...prev, PCI3: e.target.value }))
+                  }
+                  disabled={loading || (scheduleData.enabled && locked)}
+                />
+              </div>
+            </form>
+          </CardContent>
+          <CardFooter className="border-t py-4 grid grid-flow-row md:grid-cols-3 grid-cols-1 gap-4">
+            <Button
+              onClick={lteLocked ? handleLTEReset : handleLTELock}
+              disabled={loading || scheduleData.enabled}
+            >
+              {lteLockLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : lteLocked ? (
+                <UnlockIcon className="h-4 w-4" />
+              ) : (
+                <LockIcon className="h-4 w-4" />
               )}
-            </Badge>
-          </div>
+              {lteLockLoading
+                ? lteLocked
+                  ? "Unlocking LTE Cell"
+                  : "Locking LTE Cell"
+                : lteLocked
+                ? "Unlock LTE Cell"
+                : "Lock LTE Cell"}
+            </Button>
+            <Toggle
+              pressed={ltePersist}
+              onPressedChange={handleLTEPersistToggle}
+              // disable it too if theres no input or if scheduling is enabled
+              disabled={
+                loading ||
+                scheduleData.enabled ||
+                !lteState.EARFCN1 ||
+                !lteState.PCI1
+              }
+              className="data-[state=on]:border-none data-[state=on]:bg-blue-600 data-[state=on]:text-white"
+              variant="outline"
+            >
+              <Save className="h-4 w-4" />
+              Persistent
+            </Toggle>
+            <Button
+              variant="secondary"
+              onClick={handleLTEReset}
+              disabled={loading || scheduleData.enabled}
+            >
+              <RefreshCcw className="h-4 w-4" />
+              Reset to Default
+            </Button>
+          </CardFooter>
+        </Card>
 
-          <CardDescription>
-            Lock the device to specific LTE Physical Cell IDs.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form className="grid lg:grid-cols-2 grid-cols-1 grid-flow-row gap-6">
-            <div className="grid w-full max-w-sm items-center gap-2">
-              <Label htmlFor="EARFCN1">EARFCN 1</Label>
-              <Input
-                type="text"
-                id="EARFCN1"
-                placeholder="EARFCN 1"
-                value={lteState.EARFCN1}
-                onChange={(e) =>
-                  setLteState((prev) => ({ ...prev, EARFCN1: e.target.value }))
-                }
-                disabled={loading || (scheduleData.enabled && locked)}
-              />
-            </div>
-            <div className="grid w-full max-w-sm items-center gap-2">
-              <Label htmlFor="PCI1">PCI 1</Label>
-              <Input
-                type="text"
-                id="PCI1"
-                placeholder="PCI 1"
-                value={lteState.PCI1}
-                onChange={(e) =>
-                  setLteState((prev) => ({ ...prev, PCI1: e.target.value }))
-                }
-                disabled={loading || (scheduleData.enabled && locked)}
-              />
-            </div>
-            <Separator className="my-1 lg:col-span-2 col-span-1 w-full" />
-            <div className="grid w-full max-w-sm items-center gap-2">
-              <Label htmlFor="EARFCN2">EARFCN 2</Label>
-              <Input
-                type="text"
-                id="EARFCN2"
-                placeholder="EARFCN 2"
-                value={lteState.EARFCN2}
-                onChange={(e) =>
-                  setLteState((prev) => ({ ...prev, EARFCN2: e.target.value }))
-                }
-                disabled={loading || (scheduleData.enabled && locked)}
-              />
-            </div>
-            <div className="grid w-full max-w-sm items-center gap-2">
-              <Label htmlFor="PCI2">PCI 2</Label>
-              <Input
-                type="text"
-                id="PCI2"
-                placeholder="PCI 2"
-                value={lteState.PCI2}
-                onChange={(e) =>
-                  setLteState((prev) => ({ ...prev, PCI2: e.target.value }))
-                }
-                disabled={loading || (scheduleData.enabled && locked)}
-              />
-            </div>
-            <Separator className="my-1 lg:col-span-2 col-span-1 w-full" />
-            <div className="grid w-full max-w-sm items-center gap-2">
-              <Label htmlFor="EARFCN3">EARFCN 3</Label>
-              <Input
-                type="text"
-                id="EARFCN3"
-                placeholder="EARFCN 3"
-                value={lteState.EARFCN3}
-                onChange={(e) =>
-                  setLteState((prev) => ({ ...prev, EARFCN3: e.target.value }))
-                }
-                disabled={loading || (scheduleData.enabled && locked)}
-              />
-            </div>
-            <div className="grid w-full max-w-sm items-center gap-2">
-              <Label htmlFor="PCI3">PCI 3</Label>
-              <Input
-                type="text"
-                id="PCI3"
-                placeholder="PCI 3"
-                value={lteState.PCI3}
-                onChange={(e) =>
-                  setLteState((prev) => ({ ...prev, PCI3: e.target.value }))
-                }
-                disabled={loading || (scheduleData.enabled && locked)}
-              />
-            </div>
-          </form>
-        </CardContent>
-        <CardFooter className="border-t py-4 grid grid-flow-row md:grid-cols-3 grid-cols-1 gap-4">
-          <Button
-            onClick={lteLocked ? handleLTEReset : handleLTELock}
-            disabled={loading || scheduleData.enabled}
-          >
-            {lteLockLoading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : lteLocked ? (
-              <UnlockIcon className="h-4 w-4" />
-            ) : (
-              <LockIcon className="h-4 w-4" />
-            )}
-            {lteLockLoading
-              ? lteLocked
-                ? "Unlocking LTE Cell"
-                : "Locking LTE Cell"
-              : lteLocked
-              ? "Unlock LTE Cell"
-              : "Lock LTE Cell"}
-          </Button>
-          <Toggle
-            pressed={ltePersist}
-            onPressedChange={handleLTEPersistToggle}
-            // disable it too if theres no input or if scheduling is enabled
-            disabled={
-              loading ||
-              scheduleData.enabled ||
-              !lteState.EARFCN1 ||
-              !lteState.PCI1
-            }
-            className="data-[state=on]:border-none data-[state=on]:bg-blue-600 data-[state=on]:text-white"
-            variant="outline"
-          >
-            <Save className="h-4 w-4" />
-            Persistent
-          </Toggle>
-          <Button
-            variant="secondary"
-            onClick={handleLTEReset}
-            disabled={loading || scheduleData.enabled}
-          >
-            <RefreshCcw className="h-4 w-4" />
-            Reset to Default
-          </Button>
-        </CardFooter>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>NR5G-SA Cellular Locking</CardTitle>
-          <CardDescription>
-            Lock the device to a specific NR5G-SA Physical Cell ID.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form className="grid lg:grid-cols-2 grid-cols-1 grid-flow-row gap-6">
-            <div className="grid w-full max-w-sm items-center gap-2">
-              <Label htmlFor="NR-ARFCN">NR ARFCN</Label>
-              <Input
-                type="text"
-                id="NR-ARFCN"
-                placeholder="NR ARFCN"
-                value={nr5gState.NRARFCN}
-                onChange={(e) =>
-                  setNr5gState((prev) => ({ ...prev, NRARFCN: e.target.value }))
-                }
-                disabled={loading || (scheduleData.enabled && locked)}
-              />
-            </div>
-            <div className="grid w-full max-w-sm items-center gap-2">
-              <Label htmlFor="NR-PCI">NR PCI</Label>
-              <Input
-                type="text"
-                id="NR-PCI"
-                placeholder="NR PCI"
-                value={nr5gState.NRPCI}
-                onChange={(e) =>
-                  setNr5gState((prev) => ({ ...prev, NRPCI: e.target.value }))
-                }
-                disabled={loading || (scheduleData.enabled && locked)}
-              />
-            </div>
-            <Separator className="my-0.5 lg:col-span-2 col-span-1 w-full" />
-            <div className="grid w-full max-w-sm items-center gap-2">
-              <Label htmlFor="SCS">SCS</Label>
-              <Select
-                value={nr5gState.SCS}
-                onValueChange={(value) =>
-                  setNr5gState((prev) => ({ ...prev, SCS: value }))
-                }
-                disabled={loading || (scheduleData.enabled && locked)}
-              >
-                <SelectTrigger id="SCS">
-                  <SelectValue placeholder="SCS" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    <SelectLabel>SCS</SelectLabel>
-                    <SelectItem value="15">15 kHz</SelectItem>
-                    <SelectItem value="30">30 kHz</SelectItem>
-                    <SelectItem value="60">60 kHz</SelectItem>
-                    <SelectItem value="120">120 kHz</SelectItem>
-                    <SelectItem value="240">240 kHz</SelectItem>
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid w-full max-w-sm items-center gap-2">
-              <Label htmlFor="NRBAND">NR Band</Label>
-              <Input
-                type="text"
-                id="NRBAND"
-                placeholder="NR BAND"
-                value={nr5gState.NRBAND}
-                onChange={(e) =>
-                  setNr5gState((prev) => ({ ...prev, NRBAND: e.target.value }))
-                }
-                disabled={loading || (scheduleData.enabled && locked)}
-              />
-            </div>
-          </form>
-        </CardContent>
-        <CardFooter className="border-t py-4 grid grid-flow-row md:grid-cols-3 grid-cols-1 gap-4">
-          <Button
-            onClick={nr5gLocked ? handleNR5GReset : handleNR5GLock}
-            disabled={loading || scheduleData.enabled}
-          >
-            {nr5gLockLoading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : nr5gLocked ? (
-              <UnlockIcon className="h-4 w-4" />
-            ) : (
-              <LockIcon className="h-4 w-4" />
-            )}
-            {nr5gLockLoading
-              ? nr5gLocked
-                ? "Unlocking NR5G Cell"
-                : "Locking NR5G Cell"
-              : nr5gLocked
-              ? "Unlock NR5G Cell"
-              : "Lock NR5G Cell"}
-          </Button>
-          <Toggle
-            pressed={nr5gPersist}
-            onPressedChange={handleNR5GPersistToggle}
-            disabled={
-              loading ||
-              scheduleData.enabled ||
-              !nr5gState.NRPCI ||
-              !nr5gState.NRARFCN ||
-              !nr5gState.SCS ||
-              !nr5gState.NRBAND
-            }
-            className="data-[state=on]:border-none data-[state=on]:bg-blue-600 data-[state=on]:text-white"
-            variant="outline"
-          >
-            <Save className="h-4 w-4" />
-            Persistent
-          </Toggle>
-          <Button
-            variant="secondary"
-            onClick={handleNR5GReset}
-            disabled={loading || scheduleData.enabled}
-          >
-            <RefreshCcw className="h-4 w-4" />
-            Reset to Default
-          </Button>
-        </CardFooter>
-      </Card>
-      <ScheduledLockingCard
-        loading={loading}
-        scheduleData={scheduleData}
-        onStartTimeChange={(time) => {
-          setScheduleData((prev) => ({ ...prev, startTime: time }));
-        }}
-        onEndTimeChange={(time) => {
-          setScheduleData((prev) => ({ ...prev, endTime: time }));
-        }}
-        onSchedulingToggle={handleScheduleToggle}
-      />
+        <Card>
+          <CardHeader>
+            <CardTitle>NR5G-SA Cellular Locking</CardTitle>
+            <CardDescription>
+              Lock the device to a specific NR5G-SA Physical Cell ID.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form className="grid lg:grid-cols-2 grid-cols-1 grid-flow-row gap-6">
+              <div className="grid w-full max-w-sm items-center gap-2">
+                <Label htmlFor="NR-ARFCN">NR ARFCN</Label>
+                <Input
+                  type="text"
+                  id="NR-ARFCN"
+                  placeholder="NR ARFCN"
+                  value={nr5gState.NRARFCN}
+                  onChange={(e) =>
+                    setNr5gState((prev) => ({
+                      ...prev,
+                      NRARFCN: e.target.value,
+                    }))
+                  }
+                  disabled={loading || (scheduleData.enabled && locked)}
+                />
+              </div>
+              <div className="grid w-full max-w-sm items-center gap-2">
+                <Label htmlFor="NR-PCI">NR PCI</Label>
+                <Input
+                  type="text"
+                  id="NR-PCI"
+                  placeholder="NR PCI"
+                  value={nr5gState.NRPCI}
+                  onChange={(e) =>
+                    setNr5gState((prev) => ({ ...prev, NRPCI: e.target.value }))
+                  }
+                  disabled={loading || (scheduleData.enabled && locked)}
+                />
+              </div>
+              <Separator className="my-0.5 lg:col-span-2 col-span-1 w-full" />
+              <div className="grid w-full max-w-sm items-center gap-2">
+                <Label htmlFor="SCS">SCS</Label>
+                <Select
+                  value={nr5gState.SCS}
+                  onValueChange={(value) =>
+                    setNr5gState((prev) => ({ ...prev, SCS: value }))
+                  }
+                  disabled={loading || (scheduleData.enabled && locked)}
+                >
+                  <SelectTrigger id="SCS">
+                    <SelectValue placeholder="SCS" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      <SelectLabel>SCS</SelectLabel>
+                      <SelectItem value="15">15 kHz</SelectItem>
+                      <SelectItem value="30">30 kHz</SelectItem>
+                      <SelectItem value="60">60 kHz</SelectItem>
+                      <SelectItem value="120">120 kHz</SelectItem>
+                      <SelectItem value="240">240 kHz</SelectItem>
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid w-full max-w-sm items-center gap-2">
+                <Label htmlFor="NRBAND">NR Band</Label>
+                <Input
+                  type="text"
+                  id="NRBAND"
+                  placeholder="NR BAND"
+                  value={nr5gState.NRBAND}
+                  onChange={(e) =>
+                    setNr5gState((prev) => ({
+                      ...prev,
+                      NRBAND: e.target.value,
+                    }))
+                  }
+                  disabled={loading || (scheduleData.enabled && locked)}
+                />
+              </div>
+            </form>
+          </CardContent>
+          <CardFooter className="border-t py-4 grid grid-flow-row md:grid-cols-3 grid-cols-1 gap-4">
+            <Button
+              onClick={nr5gLocked ? handleNR5GReset : handleNR5GLock}
+              disabled={loading || scheduleData.enabled}
+            >
+              {nr5gLockLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : nr5gLocked ? (
+                <UnlockIcon className="h-4 w-4" />
+              ) : (
+                <LockIcon className="h-4 w-4" />
+              )}
+              {nr5gLockLoading
+                ? nr5gLocked
+                  ? "Unlocking NR5G Cell"
+                  : "Locking NR5G Cell"
+                : nr5gLocked
+                ? "Unlock NR5G Cell"
+                : "Lock NR5G Cell"}
+            </Button>
+            <Toggle
+              pressed={nr5gPersist}
+              onPressedChange={handleNR5GPersistToggle}
+              disabled={
+                loading ||
+                scheduleData.enabled ||
+                !nr5gState.NRPCI ||
+                !nr5gState.NRARFCN ||
+                !nr5gState.SCS ||
+                !nr5gState.NRBAND
+              }
+              className="data-[state=on]:border-none data-[state=on]:bg-blue-600 data-[state=on]:text-white"
+              variant="outline"
+            >
+              <Save className="h-4 w-4" />
+              Persistent
+            </Toggle>
+            <Button
+              variant="secondary"
+              onClick={handleNR5GReset}
+              disabled={loading || scheduleData.enabled}
+            >
+              <RefreshCcw className="h-4 w-4" />
+              Reset to Default
+            </Button>
+          </CardFooter>
+        </Card>
+        <ScheduledLockingCard
+          loading={loading}
+          scheduleData={scheduleData}
+          onStartTimeChange={(time) => {
+            setScheduleData((prev) => ({ ...prev, startTime: time }));
+          }}
+          onEndTimeChange={(time) => {
+            setScheduleData((prev) => ({ ...prev, endTime: time }));
+          }}
+          onSchedulingToggle={handleScheduleToggle}
+        />
+      </div>
     </div>
   );
 };

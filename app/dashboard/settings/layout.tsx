@@ -32,6 +32,16 @@ const SettingsPageLayout = ({ children }: SettingsPageLayoutProps) => {
             Personalization
           </Link>
           <Link
+            href="/dashboard/settings/https-redirect"
+            className={`${
+              currentPathName === "/dashboard/settings/https-redirect/"
+                ? "font-semibold text-primary"
+                : "text-sm"
+            }`}
+          >
+            HTTPS Redirect
+          </Link>
+          <Link
             href="/dashboard/settings/security"
             className={`${
               currentPathName === "/dashboard/settings/security/"

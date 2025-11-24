@@ -31,7 +31,7 @@ const CellSettingsLayout = ({ children }: CellSettingsLayoutProps) => {
           >
             Basic Settings
           </Link>
-                    <Link
+          <Link
             href="/dashboard/cell-settings/network-priority"
             className={`${
               currentPathName === "/dashboard/cell-settings/network-priority/"
@@ -79,7 +79,7 @@ const CellSettingsLayout = ({ children }: CellSettingsLayoutProps) => {
                 : "text-sm"
             }`}
           >
-            SMS Inbox
+            Messages
           </Link>
         </nav>
         {children}

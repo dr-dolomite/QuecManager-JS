@@ -39,7 +39,7 @@ const SecurityPage = () => {
         method: "POST",
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",
-          "Authorization": `${localStorage.getItem("authToken") || ""}`,
+          Authorization: `${localStorage.getItem("authToken") || ""}`,
         },
         body: `password=${encodeURIComponent(password)}`,
       });
@@ -56,7 +56,7 @@ const SecurityPage = () => {
         console.error("Failed to parse JSON:", text);
         throw new Error("Invalid response format");
       }
-      
+
       return data.state === "success";
     } catch (error) {
       console.error("Password verification failed:", error);
@@ -95,16 +95,19 @@ const SecurityPage = () => {
       }
 
       // Change password
-      const response = await fetch("/cgi-bin/quecmanager/settings/change-password.sh", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-          "Authorization": `${localStorage.getItem("authToken") || ""}`,
-        },
-        body: `oldPassword=${encodeURIComponent(
-          formData.oldPassword
-        )}&newPassword=${encodeURIComponent(formData.newPassword)}`,
-      });
+      const response = await fetch(
+        "/cgi-bin/quecmanager/settings/change-password.sh",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+            Authorization: `${localStorage.getItem("authToken") || ""}`,
+          },
+          body: `oldPassword=${encodeURIComponent(
+            formData.oldPassword
+          )}&newPassword=${encodeURIComponent(formData.newPassword)}`,
+        }
+      );
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -131,7 +134,10 @@ const SecurityPage = () => {
     } catch (error) {
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "An unexpected error occurred",
+        description:
+          error instanceof Error
+            ? error.message
+            : "An unexpected error occurred",
         variant: "destructive",
       });
       console.error("Password change failed:", error);
@@ -149,51 +155,59 @@ const SecurityPage = () => {
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Change Device Password</CardTitle>
-        <CardDescription>
-          This changes the password for the web interface and terminal access.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <Input
-            placeholder="Old Password"
-            type="password"
-            name="oldPassword"
-            value={formData.oldPassword}
-            onChange={handleChange}
-            aria-label="Old Password"
-          />
-          <Input
-            placeholder="New Password"
-            type="password"
-            name="newPassword"
-            value={formData.newPassword}
-            onChange={handleChange}
-            aria-label="New Password"
-          />
-          <Input
-            placeholder="Confirm New Password"
-            type="password"
-            name="confirmPassword"
-            value={formData.confirmPassword}
-            onChange={handleChange}
-            aria-label="Confirm New Password"
-          />
-        </form>
-      </CardContent>
-      <CardFooter className="border-t px-6 py-4">
-        <Button
-          type="submit"
-          onClick={(e) => handleSubmit(e)}
-          disabled={isLoading}
-        >
-          {isLoading ? "Saving..." : "Save"}
-        </Button>
-      </CardFooter>
-    </Card>
+    <div className="container mx-auto p-6 max-w-4xl">
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold mb-2">Security Settings</h1>
+        <p className="text-muted-foreground">
+          Manage your device security settings.
+        </p>
+      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Change Device Password</CardTitle>
+          <CardDescription>
+            This changes the password for the web interface and terminal access.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <Input
+              placeholder="Old Password"
+              type="password"
+              name="oldPassword"
+              value={formData.oldPassword}
+              onChange={handleChange}
+              aria-label="Old Password"
+            />
+            <Input
+              placeholder="New Password"
+              type="password"
+              name="newPassword"
+              value={formData.newPassword}
+              onChange={handleChange}
+              aria-label="New Password"
+            />
+            <Input
+              placeholder="Confirm New Password"
+              type="password"
+              name="confirmPassword"
+              value={formData.confirmPassword}
+              onChange={handleChange}
+              aria-label="Confirm New Password"
+            />
+          </form>
+        </CardContent>
+        <CardFooter className="border-t px-6 py-4">
+          <Button
+            type="submit"
+            onClick={(e) => handleSubmit(e)}
+            disabled={isLoading}
+          >
+            {isLoading ? "Saving..." : "Save"}
+          </Button>
+        </CardFooter>
+      </Card>
+    </div>
   );
 };
 

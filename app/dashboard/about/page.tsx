@@ -70,40 +70,31 @@ const AboutPage = () => {
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>QuecManager</CardTitle>
-        <div className="grid xl:gap-y-10 gap-y-8 gap-4">
-          <div className="grid gap-4">
-            <div className="flex flex-row gap-2 justify-between items-center">
-              <div className="flex flex-row items-center gap-x-2">
-                <CardDescription>
-                  What is QuecManager and how it can help you.
-                </CardDescription>
-              </div>
-              <div className="flex flex-row items-center gap-x-2">
-                <Button onClick={() => setHideSensitiveData((prev) => !prev)}>
-                  {hideSensitiveData ? (
-                    <Eye className="xl:size-6 size-5" />
-                  ) : (
-                    <EyeOff className="xl:size-6 size-5" />
-                  )}
-                  <span className="hidden md:block">
-                    {hideSensitiveData ? "Show" : "Hide"} Sensitive Data
-                  </span>
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent className="grid lg:grid-cols-2 grid-cols-1 grid-flow-row gap-8">
+    <div className="container mx-auto p-6">
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold mb-2">About QuecManager</h1>
+        <p className="text-muted-foreground">
+          Learn more about QuecManager and the team behind it.
+        </p>
+      </div>
+      <div className="grid lg:grid-cols-2 grid-cols-1 grid-flow-row gap-8">
         <Card>
           <CardHeader>
-            <CardTitle>Device Technical Details</CardTitle>
-            <CardDescription>
-              View technical details of your device.
-            </CardDescription>
+            <div className="flex items-center justify-between">
+              <div className="space-y-1">
+                <CardTitle>Device Technical Details</CardTitle>
+                <CardDescription>
+                  View technical details of your device.
+                </CardDescription>
+              </div>
+              <Button onClick={() => setHideSensitiveData((prev) => !prev)}>
+                {hideSensitiveData ? (
+                  <Eye className="xl:size-6 size-5" />
+                ) : (
+                  <EyeOff className="xl:size-6 size-5" />
+                )}
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
             <div className="mb-4">
@@ -476,11 +467,11 @@ const AboutPage = () => {
             </CardContent>
           </Card>
         </div>
-      </CardContent>
-      <CardFooter className="flex justify-center">
-        <p>QuecManager © 2024 - For Personal Use Only. All rights reserved.</p>
-      </CardFooter>
-    </Card>
+      </div>
+      <footer className="flex justify-center mt-6">
+        <p className="font-semibold">QuecManager © 2024 - For Personal Use Only. All rights reserved.</p>
+      </footer>
+    </div>
   );
 };
 

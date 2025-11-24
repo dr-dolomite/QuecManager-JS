@@ -68,9 +68,7 @@ const TTLSettingsPage = () => {
 
       try {
         // Fetch TTL settings
-        const ttlResponse = await fetch(
-          "/cgi-bin/quecmanager/advance/ttl.sh"
-        );
+        const ttlResponse = await fetch("/cgi-bin/quecmanager/advance/ttl.sh");
         console.log("TTL Response:", ttlResponse);
         if (!ttlResponse.ok) {
           throw new Error(
@@ -198,67 +196,74 @@ const TTLSettingsPage = () => {
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>TTL Settings</CardTitle>
-        <CardDescription>
-          Configure TTL mangling for your connection.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        {isProfileControlled && activeProfile && (
-          <Alert className="mb-6">
-            <LockIcon className="h-4 w-4" color="orange" />
-            <AlertTitle>Profile Controlled</AlertTitle>
-            <AlertDescription>
-              TTL is currently being managed by profile "{activeProfile.name}".
-            </AlertDescription>
-          </Alert>
-        )}
+    <div className="container mx-auto p-6">
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold mb-2">Device TTL Settings</h1>
+        <p className="text-muted-foreground">
+          Configure the Time To Live (TTL) settings for your device's network
+          packets.
+        </p>
+      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>TTL Settings</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {isProfileControlled && activeProfile && (
+            <Alert className="mb-6">
+              <LockIcon className="h-4 w-4" color="orange" />
+              <AlertTitle>Profile Controlled</AlertTitle>
+              <AlertDescription>
+                TTL is currently being managed by profile "{activeProfile.name}
+                ".
+              </AlertDescription>
+            </Alert>
+          )}
 
-        <form onSubmit={handleSubmit} className="space-y-8">
-          <div className="space-y-6">
-            <div>
-              <label className="text-sm font-medium">TTL Value</label>
-              <Input
-                type="number"
-                min="0"
-                max="255"
-                value={ttlValue}
-                onChange={(e) => setTtlValue(e.target.value)}
-                disabled={!ttlState || isProfileControlled || loading}
-                className="mt-1"
-              />
-              <p className="text-sm text-gray-500 mt-1">
-                Set the TTL value for your connection (0-255).
-              </p>
-            </div>
-
-            <div className="flex items-center justify-between rounded-lg border p-4">
+          <form onSubmit={handleSubmit} className="space-y-8">
+            <div className="space-y-6">
               <div>
-                <label className="text-base font-medium">TTL State</label>
-                <p className="text-sm text-gray-500">
-                  Toggle to enable or disable TTL mangling
+                <label className="text-sm font-medium">TTL Value</label>
+                <Input
+                  type="number"
+                  min="0"
+                  max="255"
+                  value={ttlValue}
+                  onChange={(e) => setTtlValue(e.target.value)}
+                  disabled={!ttlState || isProfileControlled || loading}
+                  className="mt-1"
+                />
+                <p className="text-sm text-gray-500 mt-1">
+                  Set the TTL value for your connection (0-255).
                 </p>
               </div>
-              <Switch
-                checked={ttlState}
-                onCheckedChange={setTtlState}
-                disabled={isProfileControlled || loading}
-              />
-            </div>
-          </div>
 
-          <Button
-            type="submit"
-            className="w-full"
-            disabled={loading || isProfileControlled}
-          >
-            Save Configuration
-          </Button>
-        </form>
-      </CardContent>
-    </Card>
+              <div className="flex items-center justify-between rounded-lg border p-4">
+                <div>
+                  <label className="text-base font-medium">TTL State</label>
+                  <p className="text-sm text-gray-500">
+                    Toggle to enable or disable TTL mangling
+                  </p>
+                </div>
+                <Switch
+                  checked={ttlState}
+                  onCheckedChange={setTtlState}
+                  disabled={isProfileControlled || loading}
+                />
+              </div>
+            </div>
+
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={loading || isProfileControlled}
+            >
+              Save Configuration
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+    </div>
   );
 };
 
