@@ -682,7 +682,7 @@ const SpeedtestStream = () => {
           <DialogTrigger asChild>
             <div className="relative flex flex-col items-center justify-center">
               <PuffLoader
-                color="#5420ab"
+                color="#183ea5"
                 size={192}
                 className="-top-8 -left-8 absolute"
                 style={{
