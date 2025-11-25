@@ -92,8 +92,17 @@ const MemoryCardWebSocket = ({ websocketData: propWebsocketData }: MemoryCardWeb
   const websocketData = propWebsocketData || contextWebsocketData;
 
   const [chartData, setChartData] = useState<MemoryChartData[]>(() => {
-    const savedData = localStorage.getItem("memoryChartData");
-    return savedData ? JSON.parse(savedData) : [];
+    if (typeof window !== "undefined") {
+      const savedData = localStorage.getItem("memoryChartData");
+      if (savedData) {
+        try {
+          return JSON.parse(savedData);
+        } catch {
+          return [];
+        }
+      }
+    }
+    return [];
   });
 
   const [config, setConfig] = useState<MemoryConfig>({
@@ -103,7 +112,19 @@ const MemoryCardWebSocket = ({ websocketData: propWebsocketData }: MemoryCardWeb
   });
 
   const [isLoading, setIsLoading] = useState(true);
-  const [historyBuffer, setHistoryBuffer] = useState<WebSocketMemoryData[]>([]);
+  const [historyBuffer, setHistoryBuffer] = useState<WebSocketMemoryData[]>(() => {
+    if (typeof window !== "undefined") {
+      const savedData = localStorage.getItem("memoryHistoryBuffer");
+      if (savedData) {
+        try {
+          return JSON.parse(savedData);
+        } catch {
+          return [];
+        }
+      }
+    }
+    return [];
+  });
 
   // Determine if we have memory data from websocket
   const hasMemoryData = websocketData?.channel === 'memory';
@@ -146,43 +167,53 @@ const MemoryCardWebSocket = ({ websocketData: propWebsocketData }: MemoryCardWeb
     initialize();
   }, [fetchMemoryConfig]);
 
-  // Update chart data when new memory data arrives via WebSocket
+  // Clear data when monitoring is disabled
   useEffect(() => {
-    if (!config.enabled) {
-      // Clear chart data when disabled
+    if (!isLoading && !config.enabled) {
       setChartData([]);
       setHistoryBuffer([]);
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("memoryChartData");
+        localStorage.removeItem("memoryHistoryBuffer");
+      }
+    }
+  }, [config.enabled, isLoading]);
+
+  // Update chart data when new memory data arrives via WebSocket
+  useEffect(() => {
+    if (!config.enabled || !hasMemoryData) {
       return;
     }
 
-    if (hasMemoryData) {
-      const memoryData = websocketData as WebSocketMemoryData;
-      // Add to history buffer
-      setHistoryBuffer(prev => {
-        const updated = [...prev, memoryData];
-        // Keep only last 6 data points
-        return updated.slice(-6);
-      });
-
-      // Update chart data
-      setHistoryBuffer(currentHistory => {
-        const chartDataPoints = currentHistory.map((point, idx) => ({
-          time: new Date(point.timestamp).toLocaleTimeString([], {
-            hour: "2-digit",
-            minute: "2-digit",
-            second: "2-digit",
-          }),
-          total: formatMemoryMB(point.total),
-          used: formatMemoryMB(point.used),
-          available: formatMemoryMB(point.available),
-          index: idx + 1,
-        }));
-        setChartData(chartDataPoints);
+    const memoryData = websocketData as WebSocketMemoryData;
+    
+    setHistoryBuffer(prev => {
+      // Add new data point and keep only last 6
+      const updated = [...prev, memoryData].slice(-6);
+      
+      // Convert to chart data format
+      const chartDataPoints = updated.map((point, idx) => ({
+        time: new Date(point.timestamp).toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+        }),
+        total: formatMemoryMB(point.total),
+        used: formatMemoryMB(point.used),
+        available: formatMemoryMB(point.available),
+        index: idx + 1,
+      }));
+      
+      setChartData(chartDataPoints);
+      
+      // Save both buffer and chart data to localStorage
+      if (typeof window !== "undefined") {
+        localStorage.setItem("memoryHistoryBuffer", JSON.stringify(updated));
         localStorage.setItem("memoryChartData", JSON.stringify(chartDataPoints));
-
-        return currentHistory;
-      });
-    }
+      }
+      
+      return updated;
+    });
   }, [websocketData, hasMemoryData, config.enabled]);
 
   return (

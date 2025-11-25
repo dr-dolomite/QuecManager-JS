@@ -400,175 +400,183 @@ const SMSPage = () => {
   }, []);
 
   return (
-    <div className="grid gap-6">
-      <Card className="w-full max-w-screen">
-        <CardHeader>
-          <CardTitle>SMS Inbox</CardTitle>
-          <div className="text-sm text-muted-foreground">
-            <div className="flex justify-between items-center">
-              <span>View and manage SMS messages</span>
-              <div className="flex items-center space-x-1.5">
-                <Checkbox
-                  checked={
-                    messages.length > 0 &&
-                    selectedMessages.length ===
-                      messages.flatMap((m) => m.originalIndices || [m.index])
-                        .length
-                  }
-                  onCheckedChange={handleSelectAll}
-                />
-                <span className="text-sm">Select All</span>
+    <div className="container mx-auto p-6">
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold mb-2">Messages</h1>
+        <p className="text-muted-foreground">
+          View, send, reply to, and manage SMS messages on your device.
+        </p>
+      </div>
+      <div className="grid gap-6">
+        <Card className="w-full max-w-screen">
+          <CardHeader>
+            <CardTitle>SMS Inbox</CardTitle>
+            <div className="text-sm text-muted-foreground">
+              <div className="flex justify-between items-center">
+                <span>View and manage SMS messages</span>
+                <div className="flex items-center space-x-1.5">
+                  <Checkbox
+                    checked={
+                      messages.length > 0 &&
+                      selectedMessages.length ===
+                        messages.flatMap((m) => m.originalIndices || [m.index])
+                          .length
+                    }
+                    onCheckedChange={handleSelectAll}
+                  />
+                  <span className="text-sm">Select All</span>
+                </div>
               </div>
             </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <ScrollArea className="h-[400px] w-full xs:max-w-xs p-4 grid">
-            {loading ? (
-              <div className="flex flex-col items-center justify-center py-8">
-                <Loader2 className="h-8 w-8 animate-spin" />
-                <p className="mt-2">Loading messages...</p>
-              </div>
-            ) : messages.length === 0 ? (
-              <p className="text-center py-8 text-muted-foreground">
-                No messages found
-              </p>
-            ) : (
-              messages.map((sms) => {
-                const { date, time } = formatDateTime(sms.timestamp);
-                const indices = sms.originalIndices || [sms.index];
+          </CardHeader>
+          <CardContent>
+            <ScrollArea className="h-[400px] w-full xs:max-w-xs p-4 grid">
+              {loading ? (
+                <div className="flex flex-col items-center justify-center py-8">
+                  <Loader2 className="h-8 w-8 animate-spin" />
+                  <p className="mt-2">Loading messages...</p>
+                </div>
+              ) : messages.length === 0 ? (
+                <p className="text-center py-8 text-muted-foreground">
+                  No messages found
+                </p>
+              ) : (
+                messages.map((sms) => {
+                  const { date, time } = formatDateTime(sms.timestamp);
+                  const indices = sms.originalIndices || [sms.index];
 
-                return (
-                  <Dialog key={indices.join("-")}>
-                    <DialogTrigger className="w-full" asChild>
-                      <Card className="my-2 dark:hover:bg-slate-900 hover:bg-slate-100">
-                        <CardHeader>
-                          <div className="flex justify-between items-center">
-                            <CardTitle>{sms.sender}</CardTitle>
-                            <div
-                              className="flex items-center space-x-2"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <p className="text-muted-foreground font-medium text-xs">
-                                {indices.join(", ")}
-                              </p>
-                              <Checkbox
-                                checked={indices.every((index) =>
-                                  selectedMessages.includes(index)
-                                )}
-                                onCheckedChange={() =>
-                                  handleSelectMessage(indices)
-                                }
-                              />
+                  return (
+                    <Dialog key={indices.join("-")}>
+                      <DialogTrigger className="w-full" asChild>
+                        <Card className="my-2 dark:hover:bg-slate-900 hover:bg-slate-100">
+                          <CardHeader>
+                            <div className="flex justify-between items-center">
+                              <CardTitle>{sms.sender}</CardTitle>
+                              <div
+                                className="flex items-center space-x-2"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <p className="text-muted-foreground font-medium text-xs">
+                                  {indices.join(", ")}
+                                </p>
+                                <Checkbox
+                                  checked={indices.every((index) =>
+                                    selectedMessages.includes(index)
+                                  )}
+                                  onCheckedChange={() =>
+                                    handleSelectMessage(indices)
+                                  }
+                                />
+                              </div>
                             </div>
-                          </div>
-                          <CardDescription className="text-left">
+                            <CardDescription className="text-left">
+                              {date} at {time}
+                            </CardDescription>
+                          </CardHeader>
+                          <CardContent>
+                            <p className="line-clamp-3">{sms.message}</p>
+                          </CardContent>
+                        </Card>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>{sms.sender}</DialogTitle>
+                          <DialogDescription>
                             {date} at {time}
-                          </CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                          <p className="line-clamp-3">{sms.message}</p>
-                        </CardContent>
-                      </Card>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>{sms.sender}</DialogTitle>
-                        <DialogDescription>
-                          {date} at {time}
-                        </DialogDescription>
-                      </DialogHeader>
-                      <p className="whitespace-pre-line">{sms.message}</p>
-                      <Separator className="my-2" />
-                      <div className="space-y-4">
-                        <Textarea
-                          placeholder={`Reply to ${sms.sender}...`}
-                          className="h-24"
-                          value={replyMessage}
-                          onChange={(e) => setReplyMessage(e.target.value)}
-                        />
-                        <div className="flex justify-end">
-                          <Button
-                            onClick={() =>
-                              handleReply(sms.sender, replyMessage)
-                            }
-                            disabled={sending || !replyMessage.trim()}
-                          >
-                            {sending ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                              <Send className="h-4 w-4" />
-                            )}
-                            {sending ? "Sending..." : "Reply"}
-                          </Button>
+                          </DialogDescription>
+                        </DialogHeader>
+                        <p className="whitespace-pre-line">{sms.message}</p>
+                        <Separator className="my-2" />
+                        <div className="space-y-4">
+                          <Textarea
+                            placeholder={`Reply to ${sms.sender}...`}
+                            className="h-24"
+                            value={replyMessage}
+                            onChange={(e) => setReplyMessage(e.target.value)}
+                          />
+                          <div className="flex justify-end">
+                            <Button
+                              onClick={() =>
+                                handleReply(sms.sender, replyMessage)
+                              }
+                              disabled={sending || !replyMessage.trim()}
+                            >
+                              {sending ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Send className="h-4 w-4" />
+                              )}
+                              {sending ? "Sending..." : "Reply"}
+                            </Button>
+                          </div>
                         </div>
-                      </div>
-                    </DialogContent>
-                  </Dialog>
-                );
-              })
-            )}
-          </ScrollArea>
-        </CardContent>
-        <CardFooter className="border-t py-4">
-          <div className="flex w-full justify-between items-center">
-            <Button variant="outline" onClick={refreshSMS} disabled={loading}>
-              <RotateCw className="h-4 w-4" />
-              Refresh
-            </Button>
-            <Button
-              variant="destructive"
-              disabled={selectedMessages.length === 0 || loading}
-              onClick={deleteSelectedMessages}
-            >
-              <Trash2 className="h-4 w-4" />
-              Delete Selected
-            </Button>
-          </div>
-        </CardFooter>
-      </Card>
+                      </DialogContent>
+                    </Dialog>
+                  );
+                })
+              )}
+            </ScrollArea>
+          </CardContent>
+          <CardFooter className="border-t py-4">
+            <div className="flex w-full justify-between items-center">
+              <Button variant="outline" onClick={refreshSMS} disabled={loading}>
+                <RotateCw className="h-4 w-4" />
+                Refresh
+              </Button>
+              <Button
+                variant="destructive"
+                disabled={selectedMessages.length === 0 || loading}
+                onClick={deleteSelectedMessages}
+              >
+                <Trash2 className="h-4 w-4" />
+                Delete Selected
+              </Button>
+            </div>
+          </CardFooter>
+        </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Send SMS</CardTitle>
-          <CardDescription>Send a new SMS message</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-6">
-            {/* <Input
+        <Card>
+          <CardHeader>
+            <CardTitle>Send SMS</CardTitle>
+            <CardDescription>Send a new SMS message</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-6">
+              {/* <Input
               placeholder='Recipient number with country code not including "+" symbol.'
               value={sendTo}
               onChange={(e) => setSendTo(e.target.value)}
               required
             /> */}
-            <PhoneInput
-              value={sendTo}
-              onChange={(value) => setSendTo(value)}
-              placeholder="Enter recipient phone number"
-            />
-            <Textarea
-              placeholder="Type your SMS here..."
-              className="h-32"
-              value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
-              required
-            />
-            <div className="flex justify-end">
-              <Button
-                onClick={sendMessage}
-                disabled={sending || !sendTo.trim() || !newMessage.trim()}
-              >
-                {sending ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Send className="h-4 w-4" />
-                )}
-                {sending ? "Sending SMS..." : "Send SMS"}
-              </Button>
+              <PhoneInput
+                value={sendTo}
+                onChange={(value) => setSendTo(value)}
+                placeholder="Enter recipient phone number"
+              />
+              <Textarea
+                placeholder="Type your SMS here..."
+                className="h-32"
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                required
+              />
+              <div className="flex justify-end">
+                <Button
+                  onClick={sendMessage}
+                  disabled={sending || !sendTo.trim() || !newMessage.trim()}
+                >
+                  {sending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Send className="h-4 w-4" />
+                  )}
+                  {sending ? "Sending SMS..." : "Send SMS"}
+                </Button>
+              </div>
             </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 };

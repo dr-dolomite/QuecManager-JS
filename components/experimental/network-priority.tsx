@@ -96,9 +96,7 @@ const NetworkPriorityComponent = () => {
       const response = await atCommandSender(command);
 
       if (response.status === "error" || response.status === "timeout") {
-        throw new Error(
-          response.response || "Command execution failed"
-        );
+        throw new Error(response.response || "Command execution failed");
       }
 
       return response.status === "success";
@@ -198,7 +196,7 @@ const NetworkPriorityComponent = () => {
 
       // Wait a moment before sending reboot command
       await new Promise((resolve) => setTimeout(resolve, 1500));
-      
+
       const rebootDevice = await executeATCommand("AT+CFUN=1,1");
       if (rebootDevice) {
         toast({
@@ -220,14 +218,16 @@ const NetworkPriorityComponent = () => {
   }, []);
 
   return (
-    <div>
+    <div className="container mx-auto p-6">
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold mb-2">Network Priority Settings</h1>
+        <p className="text-muted-foreground">
+          Configure and prioritize network modes (RAT) for your device. Changes will take effect after a reboot.
+        </p>
+      </div>
       <Card>
         <CardHeader>
           <CardTitle>Network Priority</CardTitle>
-          <CardDescription>
-            Manage and prioritize network mode (RAT) for optimal performance.
-            Requires a device reboot to apply changes.
-          </CardDescription>
         </CardHeader>
         <CardContent>
           {fetching ? (

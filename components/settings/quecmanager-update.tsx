@@ -81,7 +81,9 @@ const QuecManagerUpdate = () => {
     }
     return [];
   });
-  const [isLoadingReleases, setIsLoadingReleases] = useState(releases.length === 0);
+  const [isLoadingReleases, setIsLoadingReleases] = useState(
+    releases.length === 0
+  );
   const { toast } = useToast();
 
   // Fetch GitHub releases with caching
@@ -101,7 +103,7 @@ const QuecManagerUpdate = () => {
       }
 
       const data: GitHubRelease[] = await response.json();
-      
+
       // Save to localStorage
       localStorage.setItem(
         "quecmanager_releases",
@@ -110,9 +112,9 @@ const QuecManagerUpdate = () => {
           timestamp: Date.now(),
         })
       );
-      
+
       setReleases(data);
-      
+
       // Only show error toast if this is not a background fetch and no cached data exists
       if (!isBackground && releases.length === 0) {
         // Success - data loaded
@@ -283,7 +285,7 @@ const QuecManagerUpdate = () => {
     };
 
     initializeData();
-    
+
     // Fetch releases in background (will update if new data available)
     fetchReleases(true);
   }, []);
@@ -301,161 +303,171 @@ const QuecManagerUpdate = () => {
 
   if (isLoading) {
     return (
-      <div className="space-y-4 grid">
-        <Card>
-          <CardHeader>
-            <CardTitle>QuecManager Update (Experimental)</CardTitle>
-            <CardDescription>
-              Keep your QuecManager up to date with the latest features and
-              improvements.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex items-center justify-center">
-            <Skeleton className="h-64 w-full" />
-          </CardContent>
-        </Card>
+      <div className="container mx-auto p-6 max-w-4xl">
+        <div className="mb-6">
+          <h1 className="text-3xl font-bold mb-2">QuecManager Update</h1>
+          <p className="text-muted-foreground">
+            Keep your QuecManager up to date with the latest features and
+            improvements.
+          </p>
+        </div>
+        <div className="space-y-4 grid">
+          <Card>
+            <CardHeader>
+              <CardTitle>QuecManager Update (Experimental)</CardTitle>
+            </CardHeader>
+            <CardContent className="flex items-center justify-center">
+              <Skeleton className="h-64 w-full" />
+            </CardContent>
+          </Card>
 
-        <UpdateReleaseNotes
-          releases={[]}
-          isLoading={true}
-          installedVersion={undefined}
-          packageType={undefined}
-        />
+          <UpdateReleaseNotes
+            releases={[]}
+            isLoading={true}
+            installedVersion={undefined}
+            packageType={undefined}
+          />
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-4 grid">
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            QuecManager Update
-          </CardTitle>
-          <CardDescription>
-            Keep your QuecManager up to date with the latest features and
-            improvements.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {packageInfo?.available.update_available ? (
-            <div className="space-y-4">
+    <div className="container mx-auto p-6 max-w-4xl">
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold mb-2">QuecManager Update</h1>
+        <p className="text-muted-foreground">
+          Keep your QuecManager up to date with the latest features and
+          improvements.
+        </p>
+      </div>
+      <div className="space-y-4 grid">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              QuecManager Update
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {packageInfo?.available.update_available ? (
+              <div className="space-y-4">
+                <Empty className="from-muted/50 to-background h-full bg-gradient-to-b from-30%">
+                  <EmptyHeader>
+                    <EmptyMedia variant="icon">
+                      <CloudDownloadIcon className="text-primary" />
+                    </EmptyMedia>
+                    <EmptyTitle>New Update Available</EmptyTitle>
+                    {packageInfo?.installed.type === "beta" ? (
+                      <EmptyDescription>
+                        A new version of QuecManager <strong>BETA</strong> is
+                        available.
+                      </EmptyDescription>
+                    ) : (
+                      <EmptyDescription>
+                        A new version of QuecManager <strong>STABLE</strong> is
+                        available.
+                      </EmptyDescription>
+                    )}
+                    <EmptyDescription>
+                      Update from{" "}
+                      <strong className="text-blue-500">
+                        {packageInfo?.installed.version}
+                      </strong>{" "}
+                      to{" "}
+                      <strong className="text-green-500">
+                        {packageInfo?.available.version}
+                      </strong>
+                      .
+                    </EmptyDescription>
+                  </EmptyHeader>
+                  <EmptyContent>
+                    <div className="grid grid-flow-row md:grid-cols-2 grid-cols-1 gap-2">
+                      <Button onClick={performUpgrade} disabled={isUpgrading}>
+                        {isUpgrading ? (
+                          <>
+                            <Loader2Icon className="animate-spin" />
+                            Upgrading...
+                          </>
+                        ) : (
+                          <>
+                            <CloudDownloadIcon />
+                            Install Update
+                          </>
+                        )}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={checkForUpdates}
+                        disabled={isChecking}
+                      >
+                        {isChecking ? (
+                          <>
+                            <Loader2Icon className="animate-spin" />
+                            Checking...
+                          </>
+                        ) : (
+                          <>
+                            <RefreshCcwIcon />
+                            Check Again
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </EmptyContent>
+                </Empty>
+              </div>
+            ) : (
               <Empty className="from-muted/50 to-background h-full bg-gradient-to-b from-30%">
                 <EmptyHeader>
                   <EmptyMedia variant="icon">
-                    <CloudDownloadIcon className="text-primary" />
+                    <CloudDownloadIcon />
                   </EmptyMedia>
-                  <EmptyTitle>New Update Available</EmptyTitle>
-                  {packageInfo?.installed.type === "beta" ? (
-                    <EmptyDescription>
-                      A new version of QuecManager <strong>BETA</strong> is
-                      available.
-                    </EmptyDescription>
-                  ) : (
-                    <EmptyDescription>
-                      A new version of QuecManager <strong>STABLE</strong> is
-                      available.
-                    </EmptyDescription>
-                  )}
+                  <EmptyTitle>No Updates Available</EmptyTitle>
                   <EmptyDescription>
-                    Update from{" "}
-                    <strong className="text-blue-500">
-                      {packageInfo?.installed.version}
-                    </strong>{" "}
-                    to{" "}
-                    <strong className="text-green-500">
-                      {packageInfo?.available.version}
-                    </strong>
+                    You are running the latest version of QuecManager. Your
+                    current version is {""}
+                    {packageInfo?.installed.version ? (
+                      <strong className="text-blue-500">
+                        {packageInfo.installed.version}
+                        {packageInfo.installed.type === "beta" ? (
+                          <span className="ml-1">BETA</span>
+                        ) : (
+                          <span className="ml-1">STABLE</span>
+                        )}
+                      </strong>
+                    ) : (
+                      <Skeleton className="ml-1 h-3 w-12 inline-block" />
+                    )}
                     .
                   </EmptyDescription>
                 </EmptyHeader>
                 <EmptyContent>
-                  <div className="grid grid-flow-row md:grid-cols-2 grid-cols-1 gap-2">
-                    <Button onClick={performUpgrade} disabled={isUpgrading}>
-                      {isUpgrading ? (
-                        <>
-                          <Loader2Icon className="animate-spin" />
-                          Upgrading...
-                        </>
-                      ) : (
-                        <>
-                          <CloudDownloadIcon />
-                          Install Update
-                        </>
-                      )}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={checkForUpdates}
-                      disabled={isChecking}
-                    >
-                      {isChecking ? (
-                        <>
-                          <Loader2Icon className="animate-spin" />
-                          Checking...
-                        </>
-                      ) : (
-                        <>
-                          <RefreshCcwIcon />
-                          Check Again
-                        </>
-                      )}
-                    </Button>
-                  </div>
+                  <Button onClick={checkForUpdates} disabled={isChecking}>
+                    {isChecking ? (
+                      <>
+                        <Loader2Icon className="animate-spin" />
+                        Checking...
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCcwIcon />
+                        Check for Updates
+                      </>
+                    )}
+                  </Button>
                 </EmptyContent>
               </Empty>
-            </div>
-          ) : (
-            <Empty className="from-muted/50 to-background h-full bg-gradient-to-b from-30%">
-              <EmptyHeader>
-                <EmptyMedia variant="icon">
-                  <CloudDownloadIcon />
-                </EmptyMedia>
-                <EmptyTitle>No Updates Available</EmptyTitle>
-                <EmptyDescription>
-                  You are running the latest version of QuecManager. Your
-                  current version is {""}
-                  {packageInfo?.installed.version ? (
-                    <strong className="text-blue-500">
-                      {packageInfo.installed.version}
-                      {packageInfo.installed.type === "beta" ? (
-                        <span className="ml-1">BETA</span>
-                      ) : (
-                        <span className="ml-1">STABLE</span>
-                      )}
-                    </strong>
-                  ) : (
-                    <Skeleton className="ml-1 h-3 w-12 inline-block" />
-                  )}
-                  .
-                </EmptyDescription>
-              </EmptyHeader>
-              <EmptyContent>
-                <Button onClick={checkForUpdates} disabled={isChecking}>
-                  {isChecking ? (
-                    <>
-                      <Loader2Icon className="animate-spin" />
-                      Checking...
-                    </>
-                  ) : (
-                    <>
-                      <RefreshCcwIcon />
-                      Check for Updates
-                    </>
-                  )}
-                </Button>
-              </EmptyContent>
-            </Empty>
-          )}
-        </CardContent>
-      </Card>
+            )}
+          </CardContent>
+        </Card>
 
-      <UpdateReleaseNotes
-        releases={releases}
-        isLoading={isLoadingReleases}
-        installedVersion={packageInfo?.installed.version}
-        packageType={packageInfo?.installed.type}
-      />
+        <UpdateReleaseNotes
+          releases={releases}
+          isLoading={isLoadingReleases}
+          installedVersion={packageInfo?.installed.version}
+          packageType={packageInfo?.installed.type}
+        />
+      </div>
     </div>
   );
 };

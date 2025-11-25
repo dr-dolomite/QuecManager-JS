@@ -366,8 +366,7 @@ const BasicSettings = () => {
 
       if (response.status === "error" || response.status === "timeout") {
         throw new Error(
-          response.response ||
-            `Command execution ${response.status}`
+          response.response || `Command execution ${response.status}`
         );
       }
 
@@ -558,451 +557,463 @@ const BasicSettings = () => {
   };
 
   return (
-    <div className="grid grid-cols-1 grid-flow-row gap-8">
-      <Card>
-        <form onSubmit={handleSavedSettings}>
-          <CardHeader>
-            <CardTitle>Network Settings</CardTitle>
-            <CardDescription>
-              Change the network settings of the device.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {activeProfile && hasProfileControlledSettings() && (
-              <Alert className="mb-6" variant="warning">
-                <LockIcon className="h-4 w-4" />
-                <AlertTitle>Profile Controlled Settings</AlertTitle>
-                <AlertDescription>
-                  Some settings are currently being managed by profile "
-                  {activeProfile.name}".
-                </AlertDescription>
-              </Alert>
-            )}
+    <div className="container mx-auto p-6">
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold mb-2">Basic Cell Settings</h1>
+        <p className="text-muted-foreground">
+          Configure basic cellular settings for your device.
+        </p>
+      </div>
+      <div className="grid grid-cols-1 grid-flow-row gap-8">
+        <Card>
+          <form onSubmit={handleSavedSettings}>
+            <CardHeader>
+              <CardTitle>Network Settings</CardTitle>
+              <CardDescription>
+                Change the network settings of the device.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {activeProfile && hasProfileControlledSettings() && (
+                <Alert className="mb-6" variant="warning">
+                  <LockIcon className="h-4 w-4" />
+                  <AlertTitle>Profile Controlled Settings</AlertTitle>
+                  <AlertDescription>
+                    Some settings are currently being managed by profile "
+                    {activeProfile.name}".
+                  </AlertDescription>
+                </Alert>
+              )}
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 grid-flow-row gap-6">
-              <div className="grid w-full max-w-sm items-center gap-2">
-                <Label htmlFor="APN">
-                  Current APN
-                  {profileControlledFields.currentAPN && (
-                    <span className="ml-2 text-xs text-muted-foreground">
-                      (Profile Controlled)
-                    </span>
-                  )}
-                </Label>
-                {isLoading ? (
-                  <Skeleton className="h-8" />
-                ) : (
-                  <Input
-                    type="text"
-                    id="APN"
-                    placeholder="Current APN"
-                    value={
-                      profileControlledFields.currentAPN && activeProfile
-                        ? activeProfile.apn
-                        : formData.currentAPN
-                    }
-                    onChange={(e) =>
-                      handleFieldChange("currentAPN", e.target.value)
-                    }
-                    disabled={profileControlledFields.currentAPN || isLoading}
-                    className={
-                      profileControlledFields.currentAPN
-                        ? "bg-muted cursor-not-allowed"
-                        : ""
-                    }
-                  />
-                )}
-              </div>
-
-              {/* APN Profiles Dropdown - New Component */}
-              <div className="grid w-full max-w-sm items-center gap-2">
-                <Label htmlFor="APNProfile">
-                  APN Profiles
-                  {profileControlledFields.currentAPN && (
-                    <span className="ml-2 text-xs text-muted-foreground">
-                      (Profile Controlled)
-                    </span>
-                  )}
-                </Label>
-                {isLoading ? (
-                  <Skeleton className="h-8" />
-                ) : (
-                  <Select
-                    disabled={
-                      profileControlledFields.currentAPN ||
-                      isLoading ||
-                      formData.apnProfiles.length <= 1
-                    }
-                    value={String(formData.selectedAPNProfileIndex)}
-                    onValueChange={handleAPNProfileSelection}
-                  >
-                    <SelectTrigger
+              <div className="grid grid-cols-1 lg:grid-cols-2 grid-flow-row gap-6">
+                <div className="grid w-full max-w-sm items-center gap-2">
+                  <Label htmlFor="APN">
+                    Current APN
+                    {profileControlledFields.currentAPN && (
+                      <span className="ml-2 text-xs text-muted-foreground">
+                        (Profile Controlled)
+                      </span>
+                    )}
+                  </Label>
+                  {isLoading ? (
+                    <Skeleton className="h-8" />
+                  ) : (
+                    <Input
+                      type="text"
+                      id="APN"
+                      placeholder="Current APN"
+                      value={
+                        profileControlledFields.currentAPN && activeProfile
+                          ? activeProfile.apn
+                          : formData.currentAPN
+                      }
+                      onChange={(e) =>
+                        handleFieldChange("currentAPN", e.target.value)
+                      }
+                      disabled={profileControlledFields.currentAPN || isLoading}
                       className={
+                        profileControlledFields.currentAPN
+                          ? "bg-muted cursor-not-allowed"
+                          : ""
+                      }
+                    />
+                  )}
+                </div>
+
+                {/* APN Profiles Dropdown - New Component */}
+                <div className="grid w-full max-w-sm items-center gap-2">
+                  <Label htmlFor="APNProfile">
+                    APN Profiles
+                    {profileControlledFields.currentAPN && (
+                      <span className="ml-2 text-xs text-muted-foreground">
+                        (Profile Controlled)
+                      </span>
+                    )}
+                  </Label>
+                  {isLoading ? (
+                    <Skeleton className="h-8" />
+                  ) : (
+                    <Select
+                      disabled={
                         profileControlledFields.currentAPN ||
+                        isLoading ||
                         formData.apnProfiles.length <= 1
-                          ? "bg-muted cursor-not-allowed"
-                          : ""
                       }
+                      value={String(formData.selectedAPNProfileIndex)}
+                      onValueChange={handleAPNProfileSelection}
                     >
-                      <SelectValue placeholder="Select APN Profile" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectGroup>
-                        <SelectLabel>Available APNs</SelectLabel>
-                        {formData.apnProfiles.map((apn, index) => (
-                          <SelectItem
-                            key={`apn-${index}`}
-                            value={String(index)}
-                          >
-                            {apn || "(blank APN)"}
-                            {index === 0 && " (Active)"}
-                          </SelectItem>
-                        ))}
-                      </SelectGroup>
-                    </SelectContent>
-                  </Select>
-                )}
-              </div>
-
-              <div className="grid w-full max-w-sm items-center gap-2">
-                <Label htmlFor="APN">
-                  APN PDP Type
-                  {profileControlledFields.apnPDPType && (
-                    <span className="ml-2 text-xs text-muted-foreground">
-                      (Profile Controlled)
-                    </span>
+                      <SelectTrigger
+                        className={
+                          profileControlledFields.currentAPN ||
+                          formData.apnProfiles.length <= 1
+                            ? "bg-muted cursor-not-allowed"
+                            : ""
+                        }
+                      >
+                        <SelectValue placeholder="Select APN Profile" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectGroup>
+                          <SelectLabel>Available APNs</SelectLabel>
+                          {formData.apnProfiles.map((apn, index) => (
+                            <SelectItem
+                              key={`apn-${index}`}
+                              value={String(index)}
+                            >
+                              {apn || "(blank APN)"}
+                              {index === 0 && " (Active)"}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
                   )}
-                </Label>
-                {isLoading ? (
-                  <Skeleton className="h-8" />
-                ) : (
-                  <Select
-                    key={`pdp-type-${
-                      profileControlledFields.apnPDPType && activeProfile
-                        ? activeProfile.pdp_type
-                        : formData.apnPDPType
-                    }`}
-                    value={
-                      profileControlledFields.apnPDPType && activeProfile
-                        ? activeProfile.pdp_type
-                        : formData.apnPDPType
-                    }
-                    onValueChange={(value) =>
-                      handleFieldChange("apnPDPType", value)
-                    }
-                    disabled={profileControlledFields.apnPDPType || isLoading}
-                  >
-                    <SelectTrigger
-                      className={
-                        profileControlledFields.apnPDPType
-                          ? "bg-muted cursor-not-allowed"
-                          : ""
+                </div>
+
+                <div className="grid w-full max-w-sm items-center gap-2">
+                  <Label htmlFor="APN">
+                    APN PDP Type
+                    {profileControlledFields.apnPDPType && (
+                      <span className="ml-2 text-xs text-muted-foreground">
+                        (Profile Controlled)
+                      </span>
+                    )}
+                  </Label>
+                  {isLoading ? (
+                    <Skeleton className="h-8" />
+                  ) : (
+                    <Select
+                      key={`pdp-type-${
+                        profileControlledFields.apnPDPType && activeProfile
+                          ? activeProfile.pdp_type
+                          : formData.apnPDPType
+                      }`}
+                      value={
+                        profileControlledFields.apnPDPType && activeProfile
+                          ? activeProfile.pdp_type
+                          : formData.apnPDPType
                       }
+                      onValueChange={(value) =>
+                        handleFieldChange("apnPDPType", value)
+                      }
+                      disabled={profileControlledFields.apnPDPType || isLoading}
                     >
-                      <SelectValue>
-                        {(
-                          profileControlledFields.apnPDPType && activeProfile
-                            ? activeProfile.pdp_type
-                            : formData.apnPDPType
-                        )
-                          ? getPDPTypeLabel(
-                              profileControlledFields.apnPDPType &&
-                                activeProfile
-                                ? activeProfile.pdp_type
-                                : formData.apnPDPType
-                            )
-                          : "Select PDP Type"}
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectGroup>
-                        <SelectLabel>PDP Type</SelectLabel>
-                        <SelectItem value="IP">IPv4 Only</SelectItem>
-                        <SelectItem value="IPV6">IPv6 Only</SelectItem>
-                        <SelectItem value="IPV4V6">IPv4 and IPv6</SelectItem>
-                        <SelectItem value="P2P">P2P Protocol</SelectItem>
-                      </SelectGroup>
-                    </SelectContent>
-                  </Select>
-                )}
-              </div>
+                      <SelectTrigger
+                        className={
+                          profileControlledFields.apnPDPType
+                            ? "bg-muted cursor-not-allowed"
+                            : ""
+                        }
+                      >
+                        <SelectValue>
+                          {(
+                            profileControlledFields.apnPDPType && activeProfile
+                              ? activeProfile.pdp_type
+                              : formData.apnPDPType
+                          )
+                            ? getPDPTypeLabel(
+                                profileControlledFields.apnPDPType &&
+                                  activeProfile
+                                  ? activeProfile.pdp_type
+                                  : formData.apnPDPType
+                              )
+                            : "Select PDP Type"}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectGroup>
+                          <SelectLabel>PDP Type</SelectLabel>
+                          <SelectItem value="IP">IPv4 Only</SelectItem>
+                          <SelectItem value="IPV6">IPv6 Only</SelectItem>
+                          <SelectItem value="IPV4V6">IPv4 and IPv6</SelectItem>
+                          <SelectItem value="P2P">P2P Protocol</SelectItem>
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
+                  )}
+                </div>
 
-              <div className="grid w-full max-w-sm items-center gap-2">
-                <Label htmlFor="MBNAutoSel">MBN Profile Auto Selection</Label>
-                {isLoading ? (
-                  <Skeleton className="h-8" />
-                ) : (
-                  <Select
-                    key={`auto-sel-${formData.autoSelState}`}
-                    value={formData.autoSelState}
-                    onValueChange={(value) =>
-                      handleFieldChange("autoSelState", value)
-                    }
-                    disabled={isLoading}
-                  >
-                    <SelectTrigger>
-                      <SelectValue>
-                        {formData.autoSelState
-                          ? getAutoSelStateLabel(formData.autoSelState)
-                          : "Select Auto Selection State"}
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectGroup>
-                        <SelectLabel>Auto Selection State</SelectLabel>
-                        <SelectItem value="1">Enabled</SelectItem>
-                        <SelectItem value="0">Disabled</SelectItem>
-                      </SelectGroup>
-                    </SelectContent>
-                  </Select>
-                )}
-              </div>
+                <div className="grid w-full max-w-sm items-center gap-2">
+                  <Label htmlFor="MBNAutoSel">MBN Profile Auto Selection</Label>
+                  {isLoading ? (
+                    <Skeleton className="h-8" />
+                  ) : (
+                    <Select
+                      key={`auto-sel-${formData.autoSelState}`}
+                      value={formData.autoSelState}
+                      onValueChange={(value) =>
+                        handleFieldChange("autoSelState", value)
+                      }
+                      disabled={isLoading}
+                    >
+                      <SelectTrigger>
+                        <SelectValue>
+                          {formData.autoSelState
+                            ? getAutoSelStateLabel(formData.autoSelState)
+                            : "Select Auto Selection State"}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectGroup>
+                          <SelectLabel>Auto Selection State</SelectLabel>
+                          <SelectItem value="1">Enabled</SelectItem>
+                          <SelectItem value="0">Disabled</SelectItem>
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
+                  )}
+                </div>
 
-              <div className="grid w-full max-w-sm items-center gap-2">
-                <Label htmlFor="MBNProfile">MBN Profile Selection</Label>
-                {isLoading ? (
-                  <Skeleton className="h-8" />
-                ) : (
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <div className="w-full">
-                          <Select
-                            value={formData.selectedMbnProfile || "0"}
-                            onValueChange={(value) =>
-                              handleFieldChange("selectedMbnProfile", value)
-                            }
-                            disabled={isLoading || formData.autoSelState === "1"}
-                          >
-                            <SelectTrigger
-                              className={
-                                formData.autoSelState === "1"
-                                  ? "bg-muted cursor-not-allowed"
-                                  : ""
+                <div className="grid w-full max-w-sm items-center gap-2">
+                  <Label htmlFor="MBNProfile">MBN Profile Selection</Label>
+                  {isLoading ? (
+                    <Skeleton className="h-8" />
+                  ) : (
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className="w-full">
+                            <Select
+                              value={formData.selectedMbnProfile || "0"}
+                              onValueChange={(value) =>
+                                handleFieldChange("selectedMbnProfile", value)
+                              }
+                              disabled={
+                                isLoading || formData.autoSelState === "1"
                               }
                             >
-                              <SelectValue placeholder="Select MBN Profile" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectGroup>
-                                <SelectLabel>Available MBN Profiles</SelectLabel>
-                                {formData.mbnProfilesList?.map(
-                                  (profile, index) => (
-                                    <SelectItem
-                                      key={`profile-${index}`}
-                                      value={String(index)}
-                                    >
-                                      {profile}
-                                    </SelectItem>
-                                  )
-                                )}
-                              </SelectGroup>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>
-                          {formData.autoSelState === "1" &&
-                            "Disable Auto Selection to manually select a profile"}
-                        </p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                )}
-              </div>
-
-              <Separator className="lg:col-span-2 col-span-1 my-2" />
-
-              <div className="grid w-full max-w-sm items-center gap-2">
-                <Label>
-                  Select Network (RAT) Mode
-                  {profileControlledFields.preferredNetworkType && (
-                    <span className="ml-2 text-xs text-muted-foreground">
-                      (Profile Controlled)
-                    </span>
+                              <SelectTrigger
+                                className={
+                                  formData.autoSelState === "1"
+                                    ? "bg-muted cursor-not-allowed"
+                                    : ""
+                                }
+                              >
+                                <SelectValue placeholder="Select MBN Profile" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectGroup>
+                                  <SelectLabel>
+                                    Available MBN Profiles
+                                  </SelectLabel>
+                                  {formData.mbnProfilesList?.map(
+                                    (profile, index) => (
+                                      <SelectItem
+                                        key={`profile-${index}`}
+                                        value={String(index)}
+                                      >
+                                        {profile}
+                                      </SelectItem>
+                                    )
+                                  )}
+                                </SelectGroup>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>
+                            {formData.autoSelState === "1" &&
+                              "Disable Auto Selection to manually select a profile"}
+                          </p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                   )}
-                </Label>
-                {isLoading ? (
-                  <Skeleton className="h-8" />
-                ) : (
-                  <Select
-                    key={`network-type-${
-                      profileControlledFields.preferredNetworkType &&
-                      activeProfile
-                        ? activeProfile.network_type
-                        : formData.preferredNetworkType
-                    }`}
-                    value={
-                      profileControlledFields.preferredNetworkType &&
-                      activeProfile
-                        ? activeProfile.network_type
-                        : formData.preferredNetworkType
-                    }
-                    onValueChange={(value) =>
-                      handleFieldChange("preferredNetworkType", value)
-                    }
-                    disabled={
-                      profileControlledFields.preferredNetworkType || isLoading
-                    }
-                  >
-                    <SelectTrigger
-                      className={
-                        profileControlledFields.preferredNetworkType
-                          ? "bg-muted cursor-not-allowed"
-                          : ""
+                </div>
+
+                <Separator className="lg:col-span-2 col-span-1 my-2" />
+
+                <div className="grid w-full max-w-sm items-center gap-2">
+                  <Label>
+                    Select Network (RAT) Mode
+                    {profileControlledFields.preferredNetworkType && (
+                      <span className="ml-2 text-xs text-muted-foreground">
+                        (Profile Controlled)
+                      </span>
+                    )}
+                  </Label>
+                  {isLoading ? (
+                    <Skeleton className="h-8" />
+                  ) : (
+                    <Select
+                      key={`network-type-${
+                        profileControlledFields.preferredNetworkType &&
+                        activeProfile
+                          ? activeProfile.network_type
+                          : formData.preferredNetworkType
+                      }`}
+                      value={
+                        profileControlledFields.preferredNetworkType &&
+                        activeProfile
+                          ? activeProfile.network_type
+                          : formData.preferredNetworkType
+                      }
+                      onValueChange={(value) =>
+                        handleFieldChange("preferredNetworkType", value)
+                      }
+                      disabled={
+                        profileControlledFields.preferredNetworkType ||
+                        isLoading
                       }
                     >
-                      <SelectValue>
-                        {(
-                          profileControlledFields.preferredNetworkType &&
-                          activeProfile
-                            ? activeProfile.network_type
-                            : formData.preferredNetworkType
-                        )
-                          ? getNetworkTypeLabel(
-                              profileControlledFields.preferredNetworkType &&
-                                activeProfile
-                                ? activeProfile.network_type
-                                : formData.preferredNetworkType
-                            )
-                          : "Select Network Type"}
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectGroup>
-                        <SelectLabel>Select Network Mode</SelectLabel>
-                        <SelectItem value="AUTO">Automatic</SelectItem>
-                        <SelectItem value="LTE">LTE Only</SelectItem>
-                        <SelectItem value="LTE:NR5G">NR5G-NSA</SelectItem>
-                        <SelectItem value="NR5G">NR5G-SA</SelectItem>
-                      </SelectGroup>
-                    </SelectContent>
-                  </Select>
-                )}
-              </div>
-
-              <div className="grid w-full max-w-sm items-center gap-2">
-                <Label>
-                  NR5G Mode Control
-                  {profileControlledFields.nr5gMode && (
-                    <span className="ml-2 text-xs text-muted-foreground">
-                      (Profile Controlled)
-                    </span>
+                      <SelectTrigger
+                        className={
+                          profileControlledFields.preferredNetworkType
+                            ? "bg-muted cursor-not-allowed"
+                            : ""
+                        }
+                      >
+                        <SelectValue>
+                          {(
+                            profileControlledFields.preferredNetworkType &&
+                            activeProfile
+                              ? activeProfile.network_type
+                              : formData.preferredNetworkType
+                          )
+                            ? getNetworkTypeLabel(
+                                profileControlledFields.preferredNetworkType &&
+                                  activeProfile
+                                  ? activeProfile.network_type
+                                  : formData.preferredNetworkType
+                              )
+                            : "Select Network Type"}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectGroup>
+                          <SelectLabel>Select Network Mode</SelectLabel>
+                          <SelectItem value="AUTO">Automatic</SelectItem>
+                          <SelectItem value="LTE">LTE Only</SelectItem>
+                          <SelectItem value="LTE:NR5G">NR5G-NSA</SelectItem>
+                          <SelectItem value="NR5G">NR5G-SA</SelectItem>
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
                   )}
-                </Label>
-                {isLoading ? (
-                  <Skeleton className="h-8" />
-                ) : (
-                  <Select
-                    key={`nr5g-mode-${formData.nr5gMode}`}
-                    value={formData.nr5gMode}
-                    onValueChange={(value) =>
-                      handleFieldChange("nr5gMode", value)
-                    }
-                    disabled={profileControlledFields.nr5gMode || isLoading}
-                  >
-                    <SelectTrigger
-                      className={
-                        profileControlledFields.nr5gMode
-                          ? "bg-muted cursor-not-allowed"
-                          : ""
+                </div>
+
+                <div className="grid w-full max-w-sm items-center gap-2">
+                  <Label>
+                    NR5G Mode Control
+                    {profileControlledFields.nr5gMode && (
+                      <span className="ml-2 text-xs text-muted-foreground">
+                        (Profile Controlled)
+                      </span>
+                    )}
+                  </Label>
+                  {isLoading ? (
+                    <Skeleton className="h-8" />
+                  ) : (
+                    <Select
+                      key={`nr5g-mode-${formData.nr5gMode}`}
+                      value={formData.nr5gMode}
+                      onValueChange={(value) =>
+                        handleFieldChange("nr5gMode", value)
+                      }
+                      disabled={profileControlledFields.nr5gMode || isLoading}
+                    >
+                      <SelectTrigger
+                        className={
+                          profileControlledFields.nr5gMode
+                            ? "bg-muted cursor-not-allowed"
+                            : ""
+                        }
+                      >
+                        <SelectValue>
+                          {formData.nr5gMode
+                            ? getNR5GModeLabel(formData.nr5gMode)
+                            : "Select NR5G Mode"}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectGroup>
+                          <SelectLabel>NR5G Mode</SelectLabel>
+                          <SelectItem value="0">
+                            NR5G-SA and NSA Enabled
+                          </SelectItem>
+                          <SelectItem value="1">NR5G-NSA Only</SelectItem>
+                          <SelectItem value="2">NR5G-SA Only</SelectItem>
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
+                  )}
+                </div>
+
+                <div className="grid w-full max-w-sm items-center gap-2">
+                  <Label>U-SIM Slot Configuration</Label>
+                  {isLoading ? (
+                    <Skeleton className="h-8" />
+                  ) : (
+                    <Select
+                      key={`sim-slot-${formData.simSlot}`}
+                      value={formData.simSlot}
+                      onValueChange={(value) =>
+                        handleFieldChange("simSlot", value)
                       }
                     >
-                      <SelectValue>
-                        {formData.nr5gMode
-                          ? getNR5GModeLabel(formData.nr5gMode)
-                          : "Select NR5G Mode"}
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectGroup>
-                        <SelectLabel>NR5G Mode</SelectLabel>
-                        <SelectItem value="0">
-                          NR5G-SA and NSA Enabled
-                        </SelectItem>
-                        <SelectItem value="1">NR5G-NSA Only</SelectItem>
-                        <SelectItem value="2">NR5G-SA Only</SelectItem>
-                      </SelectGroup>
-                    </SelectContent>
-                  </Select>
-                )}
-              </div>
+                      <SelectTrigger>
+                        <SelectValue>
+                          {formData.simSlot
+                            ? `U-SIM Slot ${formData.simSlot}`
+                            : "Select U-SIM Slot"}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectGroup>
+                          <SelectLabel>U-SIM Slot</SelectLabel>
+                          <SelectItem value="1">U-SIM Slot 1</SelectItem>
+                          <SelectItem value="2">U-SIM Slot 2</SelectItem>
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
+                  )}
+                </div>
 
-              <div className="grid w-full max-w-sm items-center gap-2">
-                <Label>U-SIM Slot Configuration</Label>
-                {isLoading ? (
-                  <Skeleton className="h-8" />
-                ) : (
-                  <Select
-                    key={`sim-slot-${formData.simSlot}`}
-                    value={formData.simSlot}
-                    onValueChange={(value) =>
-                      handleFieldChange("simSlot", value)
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue>
-                        {formData.simSlot
-                          ? `U-SIM Slot ${formData.simSlot}`
-                          : "Select U-SIM Slot"}
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectGroup>
-                        <SelectLabel>U-SIM Slot</SelectLabel>
-                        <SelectItem value="1">U-SIM Slot 1</SelectItem>
-                        <SelectItem value="2">U-SIM Slot 2</SelectItem>
-                      </SelectGroup>
-                    </SelectContent>
-                  </Select>
-                )}
+                <div className="grid w-full max-w-sm items-center gap-2">
+                  <Label>Cellular Functionality</Label>
+                  {isLoading ? (
+                    <Skeleton className="h-8" />
+                  ) : (
+                    <Select
+                      key={`sim-slot-${formData.cfunState}`}
+                      value={formData.cfunState}
+                      onValueChange={(value) =>
+                        handleFieldChange("cfunState", value)
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue>
+                          {formData.cfunState
+                            ? getCFUNStateLabel(formData.cfunState)
+                            : "Select CFUN State"}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectGroup>
+                          <SelectLabel>U-SIM Slot</SelectLabel>
+                          <SelectItem value="0">
+                            Minimum Functionality
+                          </SelectItem>
+                          <SelectItem value="1">Full Functionality</SelectItem>
+                          <SelectItem value="4">Disabled RX/TX</SelectItem>
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
+                  )}
+                </div>
               </div>
+            </CardContent>
+            <CardFooter className="grid border-t py-4">
+              <Button type="submit" disabled={isSaving}>
+                {isSaving ? "Saving..." : "Save"}
+              </Button>
+            </CardFooter>
+          </form>
+        </Card>
 
-              <div className="grid w-full max-w-sm items-center gap-2">
-                <Label>Cellular Functionality</Label>
-                {isLoading ? (
-                  <Skeleton className="h-8" />
-                ) : (
-                  <Select
-                    key={`sim-slot-${formData.cfunState}`}
-                    value={formData.cfunState}
-                    onValueChange={(value) =>
-                      handleFieldChange("cfunState", value)
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue>
-                        {formData.cfunState
-                          ? getCFUNStateLabel(formData.cfunState)
-                          : "Select CFUN State"}
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectGroup>
-                        <SelectLabel>U-SIM Slot</SelectLabel>
-                        <SelectItem value="0">Minimum Functionality</SelectItem>
-                        <SelectItem value="1">Full Functionality</SelectItem>
-                        <SelectItem value="4">Disabled RX/TX</SelectItem>
-                      </SelectGroup>
-                    </SelectContent>
-                  </Select>
-                )}
-              </div>
-            </div>
-          </CardContent>
-          <CardFooter className="grid border-t py-4">
-            <Button type="submit" disabled={isSaving}>
-              {isSaving ? "Saving..." : "Save"}
-            </Button>
-          </CardFooter>
-        </form>
-      </Card>
-
-      <AMBRCard
-      lteAMBR={formData.lteAMBR}
-      nr5gAMBR={formData.nr5gAMBR}
-      />
+        <AMBRCard lteAMBR={formData.lteAMBR} nr5gAMBR={formData.nr5gAMBR} />
+      </div>
     </div>
   );
 };

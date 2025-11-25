@@ -71,6 +71,16 @@ const ExperimentalLayout = ({ children }: ExperimentalLayoutProps) => {
           >
             Custom DNS
           </Link>
+                    <Link
+            href="/dashboard/experimental/fplmn-settings"
+            className={`${
+              currentPathName === "/dashboard/experimental/fplmn-settings/"
+                ? "font-semibold text-primary"
+                : "text-sm"
+            }`}
+          >
+            FLPMN Settings
+          </Link>
           <Link
             href="/dashboard/experimental/logs"
             className={`${

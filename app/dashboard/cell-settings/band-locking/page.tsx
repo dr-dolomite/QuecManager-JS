@@ -311,7 +311,6 @@ const BandLocking = () => {
       });
       return;
     }
-    
 
     try {
       // Set isSaving to true to indicate that a save operation is in progress
@@ -329,9 +328,7 @@ const BandLocking = () => {
         );
 
         if (nsaResult.status !== "success") {
-          throw new Error(
-            nsaResult.response || "Failed to lock NSA bands"
-          );
+          throw new Error(nsaResult.response || "Failed to lock NSA bands");
         }
 
         // Immediately restore SA bands configuration to preserve it
@@ -342,9 +339,7 @@ const BandLocking = () => {
           );
 
           if (saResult.status !== "success") {
-            throw new Error(
-              saResult.response || "Failed to restore SA bands"
-            );
+            throw new Error(saResult.response || "Failed to restore SA bands");
           }
         } else {
           // If no SA bands were selected, reset to default SA bands
@@ -376,8 +371,7 @@ const BandLocking = () => {
 
         if (result.status !== "success") {
           throw new Error(
-            result.response ||
-              `Failed to lock ${bandType.toUpperCase()} bands`
+            result.response || `Failed to lock ${bandType.toUpperCase()} bands`
           );
         }
 
@@ -445,9 +439,7 @@ const BandLocking = () => {
         );
 
         if (nsaResult.status !== "success") {
-          throw new Error(
-            nsaResult.response || "Failed to reset NSA bands"
-          );
+          throw new Error(nsaResult.response || "Failed to reset NSA bands");
         }
 
         // Preserve current SA bands configuration
@@ -459,9 +451,7 @@ const BandLocking = () => {
           );
 
           if (saResult.status !== "success") {
-            throw new Error(
-              saResult.response || "Failed to preserve SA bands"
-            );
+            throw new Error(saResult.response || "Failed to preserve SA bands");
           }
         }
       } else {
@@ -472,8 +462,7 @@ const BandLocking = () => {
 
         if (result.status !== "success") {
           throw new Error(
-            result.response ||
-              `Failed to reset ${bandType.toUpperCase()} bands`
+            result.response || `Failed to reset ${bandType.toUpperCase()} bands`
           );
         }
       }
@@ -581,31 +570,39 @@ const BandLocking = () => {
   );
 
   return (
-    <div className="grid gap-6">
-      <BandCard
-        title="4G LTE Band Locking"
-        description="Lock the device to specific LTE bands."
-        bandType="lte"
-        prefix="B"
-        isProfileControlled={profileControlled.lte}
-        profileName={activeProfile?.name || ""}
-      />
-      <BandCard
-        title="NR5G-NSA Band Locking"
-        description="Lock the device to specific NR5G-NSA bands."
-        bandType="nsa"
-        prefix="N"
-        isProfileControlled={profileControlled.nsa}
-        profileName={activeProfile?.name || ""}
-      />
-      <BandCard
-        title="NR5G-SA Band Locking"
-        description="Lock the device to specific NR5G-SA bands."
-        bandType="sa"
-        prefix="N"
-        isProfileControlled={profileControlled.sa}
-        profileName={activeProfile?.name || ""}
-      />
+    <div className="container mx-auto p-6">
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold mb-2">Band Locking Settings</h1>
+        <p className="text-muted-foreground">
+          Configure band locking options for 4G LTE and 5G NR on your device.
+        </p>
+      </div>
+      <div className="grid gap-6">
+        <BandCard
+          title="4G LTE Band Locking"
+          description="Lock the device to specific LTE bands."
+          bandType="lte"
+          prefix="B"
+          isProfileControlled={profileControlled.lte}
+          profileName={activeProfile?.name || ""}
+        />
+        <BandCard
+          title="NR5G-NSA Band Locking"
+          description="Lock the device to specific NR5G-NSA bands."
+          bandType="nsa"
+          prefix="N"
+          isProfileControlled={profileControlled.nsa}
+          profileName={activeProfile?.name || ""}
+        />
+        <BandCard
+          title="NR5G-SA Band Locking"
+          description="Lock the device to specific NR5G-SA bands."
+          bandType="sa"
+          prefix="N"
+          isProfileControlled={profileControlled.sa}
+          profileName={activeProfile?.name || ""}
+        />
+      </div>
     </div>
   );
 };

@@ -191,94 +191,103 @@ const KeepAliveCard = () => {
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Keep Alive</CardTitle>
-        <CardDescription>
-          Ensure uninterrupted connectivity by downloading test files at
-          scheduled intervals to keep your connection alive.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="grid lg:grid-cols-2 grid-cols-1 grid-flow-row gap-4">
-          <div className="grid w-full max-w-sm items-center gap-2">
-            <Label htmlFor="start-time">Start Time</Label>
-            <Input
-              type="time"
-              id="start-time"
-              value={startTime}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                setStartTime(e.target.value)
-              }
-              disabled={enabled || loading}
-            />
-          </div>
-          <div className="grid w-full max-w-sm items-center gap-2">
-            <Label htmlFor="end-time">End Time</Label>
-            <Input
-              type="time"
-              id="end-time"
-              value={endTime}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                setEndTime(e.target.value)
-              }
-              disabled={enabled || loading}
-            />
-          </div>
-          <div className="grid w-full max-w-sm items-center gap-2">
-            <Label htmlFor="interval">Interval (minutes)</Label>
-            <Input
-              type="number"
-              id="interval"
-              min={5}
-              value={interval}
-              onChange={handleIntervalChange}
-              placeholder="Enter minutes (minimum 5)"
-              disabled={enabled || loading}
-              className="[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-            />
-          </div>
-          {enabled ? (
-            <div className="lg:col-span-2 col-span-1 flex items-center gap-2">
-              <CircleCheck className="h-4 w-4 text-green-500 hidden md:block" />
-              <p className="text-sm text-gray-500">
-                Keep-alive scheduling is enabled.
-              </p>
+    <div className="container mx-auto p-6">
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold mb-2">Keep Alive</h1>
+        <p className="text-muted-foreground">
+          Configure keep-alive settings for your device to maintain a stable
+          internet connection by periodically downloading test files.
+        </p>
+      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Keep Alive</CardTitle>
+          <CardDescription>
+            Ensure uninterrupted connectivity by downloading test files at
+            scheduled intervals to keep your connection alive.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid lg:grid-cols-2 grid-cols-1 grid-flow-row gap-4">
+            <div className="grid w-full max-w-sm items-center gap-2">
+              <Label htmlFor="start-time">Start Time</Label>
+              <Input
+                type="time"
+                id="start-time"
+                value={startTime}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  setStartTime(e.target.value)
+                }
+                disabled={enabled || loading}
+              />
             </div>
-          ) : (
-            <div className="lg:col-span-2 col-span-1 flex items-center gap-2">
-              <TriangleAlert className="h-4 w-4 text-orange-500 hidden md:block" />
-              <p className="text-sm text-gray-500">
-                Downloads a
-                <a
-                  href="https://ash-speed.hetzner.com/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-500 hover:underline mx-1"
-                >
-                  100MB test file
-                </a>
-                at each interval. Please consider your data usage limits. The
-                minimum interval is 5 minutes.
-              </p>
+            <div className="grid w-full max-w-sm items-center gap-2">
+              <Label htmlFor="end-time">End Time</Label>
+              <Input
+                type="time"
+                id="end-time"
+                value={endTime}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  setEndTime(e.target.value)
+                }
+                disabled={enabled || loading}
+              />
             </div>
-          )}
-        </div>
-      </CardContent>
-      <CardFooter className="border-t py-4">
-        <Button
-          onClick={() => handleToggle(!enabled)}
-          disabled={loading || !startTime || !endTime || !interval}
-        >
-          <FaRunning className="h-4 w-4" />
-          {loading
-            ? "Processing..."
-            : enabled
-            ? "Disable Keep Alive"
-            : "Enable Keep Alive"}
-        </Button>
-      </CardFooter>
-    </Card>
+            <div className="grid w-full max-w-sm items-center gap-2">
+              <Label htmlFor="interval">Interval (minutes)</Label>
+              <Input
+                type="number"
+                id="interval"
+                min={5}
+                value={interval}
+                onChange={handleIntervalChange}
+                placeholder="Enter minutes (minimum 5)"
+                disabled={enabled || loading}
+                className="[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+              />
+            </div>
+            {enabled ? (
+              <div className="lg:col-span-2 col-span-1 flex items-center gap-2">
+                <CircleCheck className="h-4 w-4 text-green-500 hidden md:block" />
+                <p className="text-sm text-gray-500">
+                  Keep-alive scheduling is enabled.
+                </p>
+              </div>
+            ) : (
+              <div className="lg:col-span-2 col-span-1 flex items-center gap-2">
+                <TriangleAlert className="h-4 w-4 text-orange-500 hidden md:block" />
+                <p className="text-sm text-gray-500">
+                  Downloads a
+                  <a
+                    href="https://ash-speed.hetzner.com/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-500 hover:underline mx-1"
+                  >
+                    100MB test file
+                  </a>
+                  at each interval. Please consider your data usage limits. The
+                  minimum interval is 5 minutes.
+                </p>
+              </div>
+            )}
+          </div>
+        </CardContent>
+        <CardFooter className="border-t py-4">
+          <Button
+            onClick={() => handleToggle(!enabled)}
+            disabled={loading || !startTime || !endTime || !interval}
+          >
+            <FaRunning className="h-4 w-4" />
+            {loading
+              ? "Processing..."
+              : enabled
+              ? "Disable Keep Alive"
+              : "Enable Keep Alive"}
+          </Button>
+        </CardFooter>
+      </Card>
+    </div>
   );
 };
 

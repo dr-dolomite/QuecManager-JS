@@ -283,254 +283,267 @@ const LogsPage = () => {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Controls */}
-      <Card>
-        <CardHeader>
-          <CardTitle>System Logs</CardTitle>
-          <CardDescription>
-            View and analyze centralized logs from QuecManager services
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* First row - Category and Script selection */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="category">Category</Label>
-              <Select
-                value={selectedCategory}
-                onValueChange={setSelectedCategory}
-              >
-                <SelectTrigger id="category">
-                  <SelectValue placeholder="Select category..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {categories.map((category) => (
-                    <SelectItem key={category} value={category}>
-                      {category}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+    <div className="container mx-auto p-6">
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold mb-2">QuecManager Logs</h1>
+        <p className="text-muted-foreground">
+          View and analyze centralized logs from QuecManager services to monitor
+          system performance and troubleshoot issues effectively.
+        </p>
+      </div>
+      <div className="space-y-6">
+        {/* Controls */}
+        <Card>
+          <CardHeader>
+            <CardTitle>System Logs</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* First row - Category and Script selection */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="category">Category</Label>
+                <Select
+                  value={selectedCategory}
+                  onValueChange={setSelectedCategory}
+                >
+                  <SelectTrigger id="category">
+                    <SelectValue placeholder="Select category..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.map((category) => (
+                      <SelectItem key={category} value={category}>
+                        {category}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="script">Script</Label>
-              <Select
-                value={selectedScript}
-                onValueChange={setSelectedScript}
-                disabled={!selectedCategory}
-              >
-                <SelectTrigger id="script">
-                  <SelectValue placeholder="Select script..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {scripts.map((script) => (
-                    <SelectItem key={script} value={script}>
-                      {script}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          {/* Second row - Level, Lines, Sort Order, and Search */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="level">Log Level</Label>
-              <Select value={selectedLevel} onValueChange={setSelectedLevel}>
-                <SelectTrigger id="level">
-                  <SelectValue placeholder="All levels..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All levels</SelectItem>
-                  <SelectItem value="ERROR">Error</SelectItem>
-                  <SelectItem value="WARN">Warning</SelectItem>
-                  <SelectItem value="INFO">Info</SelectItem>
-                  <SelectItem value="DEBUG">Debug</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="lines">Max Lines</Label>
-              <Select value={maxLines} onValueChange={setMaxLines}>
-                <SelectTrigger id="lines">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="50">50 lines</SelectItem>
-                  <SelectItem value="100">100 lines</SelectItem>
-                  <SelectItem value="200">200 lines</SelectItem>
-                  <SelectItem value="500">500 lines</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="sortOrder">Sort Order</Label>
-              <Select value={sortOrder} onValueChange={setSortOrder}>
-                <SelectTrigger id="sortOrder">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="newest-first">Newest First</SelectItem>
-                  <SelectItem value="oldest-first">Oldest First</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="search">Search</Label>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="search"
-                  placeholder="Search messages..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
+              <div className="space-y-2">
+                <Label htmlFor="script">Script</Label>
+                <Select
+                  value={selectedScript}
+                  onValueChange={setSelectedScript}
+                  disabled={!selectedCategory}
+                >
+                  <SelectTrigger id="script">
+                    <SelectValue placeholder="Select script..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {scripts.map((script) => (
+                      <SelectItem key={script} value={script}>
+                        {script}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
-          </div>
 
-          {/* Third row - Actions */}
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="flex items-center gap-2">
-              <Button onClick={fetchLogs} disabled={loading || !selectedScript}>
-                <RefreshCw
-                  className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
-                />
-                Refresh
-              </Button>
-              <Button
-                onClick={exportLogs}
-                variant="outline"
-                disabled={logs.length === 0}
-              >
-                <Download className="h-4 w-4" />
-                Export
-              </Button>
-            </div>
+            {/* Second row - Level, Lines, Sort Order, and Search */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="level">Log Level</Label>
+                <Select value={selectedLevel} onValueChange={setSelectedLevel}>
+                  <SelectTrigger id="level">
+                    <SelectValue placeholder="All levels..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All levels</SelectItem>
+                    <SelectItem value="ERROR">Error</SelectItem>
+                    <SelectItem value="WARN">Warning</SelectItem>
+                    <SelectItem value="INFO">Info</SelectItem>
+                    <SelectItem value="DEBUG">Debug</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
 
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <span>Auto-refresh:</span>
-              <Button
-                variant={autoRefresh ? "default" : "outline"}
-                size="sm"
-                onClick={() => setAutoRefresh(!autoRefresh)}
-              >
-                {autoRefresh ? "On" : "Off"}
-              </Button>
-              {autoRefresh && (
-                <Select
-                  value={refreshInterval.toString()}
-                  onValueChange={(value) => setRefreshInterval(parseInt(value))}
-                >
-                  <SelectTrigger className="w-20">
+              <div className="space-y-2">
+                <Label htmlFor="lines">Max Lines</Label>
+                <Select value={maxLines} onValueChange={setMaxLines}>
+                  <SelectTrigger id="lines">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="5000">5s</SelectItem>
-                    <SelectItem value="10000">10s</SelectItem>
-                    <SelectItem value="30000">30s</SelectItem>
-                    <SelectItem value="60000">1m</SelectItem>
+                    <SelectItem value="50">50 lines</SelectItem>
+                    <SelectItem value="100">100 lines</SelectItem>
+                    <SelectItem value="200">200 lines</SelectItem>
+                    <SelectItem value="500">500 lines</SelectItem>
                   </SelectContent>
                 </Select>
-              )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="sortOrder">Sort Order</Label>
+                <Select value={sortOrder} onValueChange={setSortOrder}>
+                  <SelectTrigger id="sortOrder">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="newest-first">Newest First</SelectItem>
+                    <SelectItem value="oldest-first">Oldest First</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="search">Search</Label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="search"
+                    placeholder="Search messages..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+              </div>
             </div>
-          </div>
-        </CardContent>
-      </Card>
 
-      {/* Error Display */}
-      {error && (
-        <Alert variant="destructive">
-          <div className="flex items-center gap-x-2">
-            <AlertCircle className="size-5" />
-            <AlertTitle>{error}</AlertTitle>
-          </div>
-        </Alert>
-      )}
+            {/* Third row - Actions */}
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="flex items-center gap-2">
+                <Button
+                  onClick={fetchLogs}
+                  disabled={loading || !selectedScript}
+                >
+                  <RefreshCw
+                    className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
+                  />
+                  Refresh
+                </Button>
+                <Button
+                  onClick={exportLogs}
+                  variant="outline"
+                  disabled={logs.length === 0}
+                >
+                  <Download className="h-4 w-4" />
+                  Export
+                </Button>
+              </div>
 
-      {/* Log Display */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Log Entries</CardTitle>
-          <CardDescription>
-            {selectedScript ? (
-              <>
-                Showing {logs.length} of {totalLogs} entries from{" "}
-                {selectedScript} (
-                {sortOrder === "newest-first" ? "newest first" : "oldest first"}
-                ){searchTerm && ` (filtered by "${searchTerm}")`}
-              </>
-            ) : (
-              "Select a category and script to view logs"
-            )}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {selectedScript ? (
-            <ScrollArea className="h-[600px] w-full rounded-md border p-4">
-              {loading ? (
-                <div className="flex items-center justify-center h-32">
-                  <RefreshCw className="h-6 w-6 animate-spin mr-2" />
-                  Loading logs...
-                </div>
-              ) : logs.length > 0 ? (
-                <div className="space-y-2">
-                  {logs.map((log, index) => (
-                    <div
-                      key={index}
-                      className="flex items-start gap-3 p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors font-mono text-sm"
-                    >
-                      <div className="flex items-center gap-2 min-w-0 flex-shrink-0">
-                        {getLevelIcon(log.level)}
-                        <Badge
-                          {...getLevelBadgeProps(log.level)}
-                          className={`text-xs ${
-                            getLevelBadgeProps(log.level).className
-                          }`}
-                        >
-                          {log.level}
-                        </Badge>
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
-                          <span>{log.timestamp}</span>
-                          <span>•</span>
-                          <span>{log.script}</span>
-                          <span>•</span>
-                          <span>PID:{log.pid}</span>
-                        </div>
-                        <div className="break-words">{log.message}</div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <span>Auto-refresh:</span>
+                <Button
+                  variant={autoRefresh ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setAutoRefresh(!autoRefresh)}
+                >
+                  {autoRefresh ? "On" : "Off"}
+                </Button>
+                {autoRefresh && (
+                  <Select
+                    value={refreshInterval.toString()}
+                    onValueChange={(value) =>
+                      setRefreshInterval(parseInt(value))
+                    }
+                  >
+                    <SelectTrigger className="w-20">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="5000">5s</SelectItem>
+                      <SelectItem value="10000">10s</SelectItem>
+                      <SelectItem value="30000">30s</SelectItem>
+                      <SelectItem value="60000">1m</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Error Display */}
+        {error && (
+          <Alert variant="destructive">
+            <div className="flex items-center gap-x-2">
+              <AlertCircle className="size-5" />
+              <AlertTitle>{error}</AlertTitle>
+            </div>
+          </Alert>
+        )}
+
+        {/* Log Display */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Log Entries</CardTitle>
+            <CardDescription>
+              {selectedScript ? (
+                <>
+                  Showing {logs.length} of {totalLogs} entries from{" "}
+                  {selectedScript} (
+                  {sortOrder === "newest-first"
+                    ? "newest first"
+                    : "oldest first"}
+                  ){searchTerm && ` (filtered by "${searchTerm}")`}
+                </>
               ) : (
-                <div className="flex items-center justify-center h-32 text-muted-foreground">
-                  No log entries found
-                </div>
+                "Select a category and script to view logs"
               )}
-            </ScrollArea>
-          ) : (
-            <div className="flex items-center justify-center h-32 text-muted-foreground">
-              Select a category and script to view logs
-            </div>
-          )}
-        </CardContent>
-        <CardFooter>
-          {lastRefresh && (
-            <div className="text-sm text-muted-foreground">
-              Last updated: {lastRefresh.toLocaleTimeString()}
-            </div>
-          )}
-        </CardFooter>
-      </Card>
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {selectedScript ? (
+              <ScrollArea className="h-[600px] w-full rounded-md border p-4">
+                {loading ? (
+                  <div className="flex items-center justify-center h-32">
+                    <RefreshCw className="h-6 w-6 animate-spin mr-2" />
+                    Loading logs...
+                  </div>
+                ) : logs.length > 0 ? (
+                  <div className="space-y-2">
+                    {logs.map((log, index) => (
+                      <div
+                        key={index}
+                        className="flex items-start gap-3 p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors font-mono text-sm"
+                      >
+                        <div className="flex items-center gap-2 min-w-0 flex-shrink-0">
+                          {getLevelIcon(log.level)}
+                          <Badge
+                            {...getLevelBadgeProps(log.level)}
+                            className={`text-xs ${
+                              getLevelBadgeProps(log.level).className
+                            }`}
+                          >
+                            {log.level}
+                          </Badge>
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
+                            <span>{log.timestamp}</span>
+                            <span>•</span>
+                            <span>{log.script}</span>
+                            <span>•</span>
+                            <span>PID:{log.pid}</span>
+                          </div>
+                          <div className="break-words">{log.message}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center h-32 text-muted-foreground">
+                    No log entries found
+                  </div>
+                )}
+              </ScrollArea>
+            ) : (
+              <div className="flex items-center justify-center h-32 text-muted-foreground">
+                Select a category and script to view logs
+              </div>
+            )}
+          </CardContent>
+          <CardFooter>
+            {lastRefresh && (
+              <div className="text-sm text-muted-foreground">
+                Last updated: {lastRefresh.toLocaleTimeString()}
+              </div>
+            )}
+          </CardFooter>
+        </Card>
+      </div>
     </div>
   );
 };

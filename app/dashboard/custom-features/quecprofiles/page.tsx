@@ -947,14 +947,17 @@ const QuecProfilesPage = () => {
   };
 
   return (
-    <div>
+    <div className="container mx-auto p-6">
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold mb-2">QuecProfiles</h1>
+        <p className="text-muted-foreground">
+          Manage and configure personalized profiles for your SIM cards to
+          optimize connectivity and network settings.
+        </p>
+      </div>
       <Card>
         <CardHeader>
           <CardTitle>QuecProfiles</CardTitle>
-          <CardDescription>
-            Configure personalized profiles for your SIM cards to manage
-            connectivity settings and network preferences.
-          </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-y-8">
           <div className="flex items-center justify-between">

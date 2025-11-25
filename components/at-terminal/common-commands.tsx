@@ -112,57 +112,62 @@ const CommonATCommandsComponent = () => {
   }, []);
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Common AT Commands List</CardTitle>
-        <CardDescription>
-          Here are some common AT commands you can try:
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <Table>
-          <TableCaption>AT Command List</TableCaption>
-          <TableHeader>
-            <TableRow>
-              <TableHead>AT Command</TableHead>
-              <TableHead className="text-right">Description</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoadingCommands ? (
+    <div className="container mx-auto p-6">
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold mb-2">Common AT Commands</h1>
+        <p className="text-muted-foreground">
+          Below is a list of frequently used AT commands for your device.
+        </p>
+      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Common AT Commands List</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableCaption>AT Command List</TableCaption>
+            <TableHeader>
               <TableRow>
-                <TableCell colSpan={3} className="text-center">
-                  Loading commands...
-                </TableCell>
+                <TableHead>AT Command</TableHead>
+                <TableHead className="text-right">Description</TableHead>
               </TableRow>
-            ) : commonCommands.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={3} className="text-center">
-                  No commands available
-                </TableCell>
-              </TableRow>
-            ) : (
-              commonCommands.map((item, index) => (
-                <TableRow key={index}>
-                  <TableCell className="flex items-center gap-x-2">
-                    <p className="font-mono truncate max-w-6 md:max-w-md">
-                      {item.command}
-                    </p>
-                    <CopyIcon
-                      className="w-3 h-3 hover:text-purple-300 cursor-pointer"
-                      onClick={() => handleCopyCommand(item.command)}
-                    />
-                  </TableCell>
-                  <TableCell className="text-right max-w-10 md:max-w-lg">
-                    {item.description}
+            </TableHeader>
+            <TableBody>
+              {isLoadingCommands ? (
+                <TableRow>
+                  <TableCell colSpan={3} className="text-center">
+                    Loading commands...
                   </TableCell>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </CardContent>
-    </Card>
+              ) : commonCommands.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={3} className="text-center">
+                    No commands available
+                  </TableCell>
+                </TableRow>
+              ) : (
+                commonCommands.map((item, index) => (
+                  <TableRow key={index}>
+                    <TableCell className="flex items-center gap-x-2">
+                      <p className="font-mono truncate max-w-6 md:max-w-md">
+                        {item.command}
+                      </p>
+                      <CopyIcon
+                        className="w-3 h-3 hover:text-purple-300 cursor-pointer"
+                        onClick={() => handleCopyCommand(item.command)}
+                      />
+                    </TableCell>
+                    <TableCell className="text-right max-w-10 md:max-w-lg">
+                      {item.description}
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+    </div>
   );
 };
 

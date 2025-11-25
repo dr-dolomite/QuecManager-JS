@@ -6,9 +6,9 @@
 
 # UCI Configuration
 UCI_CONFIG="quecmanager"
-UCI_SECTION="preferences"
-UCI_OPTION="profile_dialog"
-DEFAULT_SETTING="show"
+UCI_SECTION="profile_dialog"
+UCI_OPTION="enabled"
+DEFAULT_SETTING="1"
 
 # HTTP headers
 echo "Content-Type: application/json"
@@ -117,9 +117,9 @@ handle_get() {
     local setting=$(get_setting)
     local is_default=$(is_default_setting)
     
-    # Convert show/hide to boolean
+    # Convert 1/0 to boolean
     local enabled="true"
-    [ "$setting" = "hide" ] && enabled="false"
+    [ "$setting" = "0" ] && enabled="false"
     
     send_success "Profile dialog setting retrieved successfully" "$enabled" "$is_default"
 }
@@ -137,13 +137,12 @@ handle_post() {
     local enabled=$(echo "$input" | grep -o '"enabled"[[:space:]]*:[[:space:]]*[^,}]*' | sed 's/.*:[[:space:]]*//' | tr -d '"' | tr -d ' ')
     
     if [ "$enabled" = "true" ]; then
-        save_setting "show"
+        save_setting "1"
         send_success "Profile dialog enabled successfully" "true" "false"
     elif [ "$enabled" = "false" ]; then
-        save_setting "hide"
+        save_setting "0"
         send_success "Profile dialog disabled successfully" "false" "false"
     else
-                else
         send_error "INVALID_VALUE" "Invalid value for enabled. Must be true or false."
     fi
 }
@@ -155,7 +154,7 @@ handle_delete() {
     # After deleting, get the current setting (will be default)
     local setting=$(get_setting)
     local enabled="true"
-    [ "$setting" = "hide" ] && enabled="false"
+    [ "$setting" = "0" ] && enabled="false"
     
     send_success "Profile dialog setting reset to default" "$enabled" "true"
 }
@@ -181,25 +180,3 @@ case "${REQUEST_METHOD:-GET}" in
 esac
 
 exit 0
-        
-    "DELETE")
-        # Reset to default (remove UCI option)
-        if uci -q get quecmanager.profile_dialog.enabled >/dev/null 2>&1; then
-            uci delete quecmanager.profile_dialog.enabled
-            uci commit quecmanager
-        fi
-        
-        current_setting=$(read_setting)
-        if [ "$current_setting" = "ENABLED" ]; then
-            enabled="true"
-        else
-            enabled="false"
-        fi
-        
-        json_response "success" "Profile dialog setting reset to default" "$enabled" "true"
-        ;;
-        
-    *)
-        json_response "error" "Method not allowed" "false" "true"
-        ;;
-esac

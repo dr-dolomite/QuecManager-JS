@@ -896,244 +896,251 @@ const EarfcnCalculator: React.FC = () => {
   };
 
   return (
-    <Card className="w-full">
-      <CardHeader>
-        <CardTitle>E/ARFCN Calculator</CardTitle>
-        <CardDescription>
-          Calculate frequency information from E/ARFCN for LTE and NR-ARFCN for
-          5G
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <Tabs
-          defaultValue="auto"
-          value={activeTab}
-          onValueChange={(value) =>
-            setActiveTab(value as "auto" | "lte" | "nr")
-          }
-          className="mb-6"
-        >
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="auto">Auto-Detect</TabsTrigger>
-            <TabsTrigger value="lte">LTE (4G)</TabsTrigger>
-            <TabsTrigger value="nr">NR (5G)</TabsTrigger>
-          </TabsList>
-        </Tabs>
+    <div className="container mx-auto p-6">
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold mb-2">
+          E/ARFCN & NR-ARFCN Calculator
+        </h1>
+        <p className="text-muted-foreground">
+          Calculate frequencies and bands from E-ARFCN (LTE) or NR-ARFCN (5G)
+          values.
+        </p>
+      </div>
+      <Card className="w-full">
+        <CardHeader>
+          <CardTitle>E/ARFCN Calculator</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Tabs
+            defaultValue="auto"
+            value={activeTab}
+            onValueChange={(value) =>
+              setActiveTab(value as "auto" | "lte" | "nr")
+            }
+            className="mb-6"
+          >
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="auto">Auto-Detect</TabsTrigger>
+              <TabsTrigger value="lte">LTE (4G)</TabsTrigger>
+              <TabsTrigger value="nr">NR (5G)</TabsTrigger>
+            </TabsList>
+          </Tabs>
 
-        <div className="flex space-x-4 mb-6">
-          <div className="flex-1">
-            <Label htmlFor="earfcn" className="mb-2 block">
-              {activeTab === "lte"
-                ? "E-ARFCN"
-                : activeTab === "nr"
-                ? "NR-ARFCN"
-                : "E/ARFCN Value"}
-            </Label>
-            <Input
-              id="earfcn"
-              type="number"
-              placeholder="Enter channel number"
-              value={earfcn}
-              onChange={(e) => setEarfcn(e.target.value)}
-              className="w-full"
-            />
-          </div>
-          <div className="flex items-end">
-            <Button onClick={handleCalculate}>Calculate</Button>
-          </div>
-        </div>
-
-        {error && (
-          <div className="p-3 mb-6 bg-red-50 border border-red-200 text-red-700 rounded">
-            {error}
-          </div>
-        )}
-
-        {result && (
-          <div className="p-4 border rounded-md bg-gray-50 dark:bg-gray-800">
-            <h3 className="text-lg font-semibold mb-3">Result</h3>
-            <div className="grid grid-cols-2 gap-y-1 gap-x-4 mb-8">
-              <div className="text-gray-600 dark:text-gray-400 font-medium">
-                Network Type
-              </div>
-              <div className="font-medium">{result.networkType}</div>
-
-              <div className="text-gray-600 dark:text-gray-400 font-medium">
-                {result.networkType === "LTE" ? "EARFCN" : "NR-ARFCN"}
-              </div>
-              <div className="font-medium">{result.earfcn}</div>
-
-              <div className="text-gray-600 dark:text-gray-400 font-medium">
-                Frequency
-              </div>
-              <div className="font-medium">{result.frequency} MHz</div>
+          <div className="flex space-x-4 mb-6">
+            <div className="flex-1">
+              <Label htmlFor="earfcn" className="mb-2 block">
+                {activeTab === "lte"
+                  ? "E-ARFCN"
+                  : activeTab === "nr"
+                  ? "NR-ARFCN"
+                  : "E/ARFCN Value"}
+              </Label>
+              <Input
+                id="earfcn"
+                type="number"
+                placeholder="Enter channel number"
+                value={earfcn}
+                onChange={(e) => setEarfcn(e.target.value)}
+                className="w-full"
+              />
             </div>
-
-            <h4 className="font-semibold mb-2">Possible Operating Bands</h4>
-            <div className="space-y-4">
-              {result.possibleBands.map((band, index) => (
-                <div
-                  key={index}
-                  className="border-t pt-2 first:border-t-0 first:pt-0"
-                >
-                  <div className="font-semibold">
-                    {result.networkType === "NR"
-                      ? `n${band.band}`
-                      : `Band ${band.band}`}{" "}
-                    ({band.name})
-                  </div>
-                  <div className="grid grid-cols-2 gap-y-1 gap-x-4 mt-1 text-sm">
-                    <div className="text-gray-600 dark:text-gray-400 font-medium">
-                      Duplex Mode
-                    </div>
-                    <div className="font-semibold">{band.duplexType}</div>
-
-                    <div className="text-gray-600 dark:text-gray-400 font-medium">
-                      Downlink Range
-                    </div>
-                    <div className="font-semibold">
-                      {band.dlLow} - {band.dlHigh} MHz
-                    </div>
-
-                    {band.duplexType === "FDD" && (
-                      <>
-                        <div className="text-gray-600 dark:text-gray-400 font-medium">
-                          Uplink Range
-                        </div>
-                        <div className="font-semibold">
-                          {band.ulLow} - {band.ulHigh} MHz
-                        </div>
-                      </>
-                    )}
-
-                    <div className="text-gray-600 dark:text-gray-400 font-medium">
-                      {result.networkType === "LTE"
-                        ? "EARFCN Range"
-                        : "NR-ARFCN Range"}
-                    </div>
-                    <div className="font-semibold">
-                      {result.networkType === "LTE"
-                        ? `${(band as LTEMatchingBand).earfcnRange[0]} - ${
-                            (band as LTEMatchingBand).earfcnRange[1]
-                          }`
-                        : `${(band as NRBand).nrarfcnRange[0]} - ${
-                            (band as NRBand).nrarfcnRange[1]
-                          }`}
-                    </div>
-
-                    {result.networkType === "LTE" && (
-                      <>
-                        <div className="text-gray-600 dark:text-gray-400 font-medium">
-                          Downlink Frequency
-                        </div>
-                        <div className="font-semibold">
-                          {(band as LTEMatchingBand).dlFrequency} MHz
-                        </div>
-
-                        <div className="text-gray-600 dark:text-gray-400 font-medium">
-                          Uplink Frequency
-                        </div>
-                        <div className="font-semibold">
-                          {(band as LTEMatchingBand).ulFrequency} MHz
-                        </div>
-
-                        {band.duplexType === "FDD" && (
-                          <>
-                            <div className="text-gray-600 dark:text-gray-400 font-medium">
-                              Uplink EARFCN
-                            </div>
-                            <div className="font-semibold">
-                              {(band as LTEMatchingBand).ulEarfcn}
-                            </div>
-                          </>
-                        )}
-                      </>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="text-xs text-gray-500 mt-4">
-              Calculation method:{" "}
-              {result.networkType === "NR"
-                ? "3GPP TS 38.104 Section 5.4.2.1"
-                : "3GPP TS 36.101 Section 5.7"}
+            <div className="flex items-end">
+              <Button onClick={handleCalculate}>Calculate</Button>
             </div>
           </div>
-        )}
 
-        <div className="mt-8">
-          <div className="flex justify-between items-center mb-2">
-            <h3 className="text-lg font-semibold">Calculation History</h3>
-            {history.length > 0 && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={clearHistory}
-                className="h-8"
-              >
-                <Trash2 className="h-4 w-4 mr-1" />
-                Clear All
-              </Button>
-            )}
-          </div>
-
-          {history.length === 0 ? (
-            <div className="text-center p-6 border rounded-md text-gray-500 dark:text-gray-400">
-              No calculation history yet. Enter an E/ARFCN value and click
-              Calculate.
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {history.map((entry) => (
-                <div
-                  key={entry.id}
-                  className="p-3 border rounded-md flex justify-between items-start bg-gray-50 dark:bg-gray-800"
-                >
-                  <div className="flex-1">
-                    <div className="flex items-center">
-                      <span className="font-semibold text-lg">
-                        {entry.earfcn}
-                      </span>
-                      <span className="mx-2 text-gray-400">•</span>
-                      <span className="text-sm">{entry.frequency} MHz</span>
-                      <span className="mx-2 text-gray-400">•</span>
-                      <span className="text-sm">{entry.networkType}</span>
-                    </div>
-                    {entry.possibleBands && (
-                      <div className="text-sm text-gray-600 dark:text-gray-400 font-medium mt-1">
-                        Bands:{" "}
-                        {entry.possibleBands
-                          .map((band) =>
-                            entry.networkType === "NR"
-                              ? `n${band.band}`
-                              : `${band.band}`
-                          )
-                          .join(", ")}
-                      </div>
-                    )}
-                    <div className="text-xs text-gray-500 dark:text-gray-500 mt-1">
-                      {entry.timestamp
-                        ? new Date(entry.timestamp).toLocaleString()
-                        : "No timestamp"}
-                    </div>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => deleteHistoryEntry(entry.id)}
-                    className="text-gray-500 h-8 w-8 p-0"
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-              ))}
+          {error && (
+            <div className="p-3 mb-6 bg-red-50 border border-red-200 text-red-700 rounded">
+              {error}
             </div>
           )}
-        </div>
-      </CardContent>
-    </Card>
+
+          {result && (
+            <div className="p-4 border rounded-md bg-gray-50 dark:bg-gray-800">
+              <h3 className="text-lg font-semibold mb-3">Result</h3>
+              <div className="grid grid-cols-2 gap-y-1 gap-x-4 mb-8">
+                <div className="text-gray-600 dark:text-gray-400 font-medium">
+                  Network Type
+                </div>
+                <div className="font-medium">{result.networkType}</div>
+
+                <div className="text-gray-600 dark:text-gray-400 font-medium">
+                  {result.networkType === "LTE" ? "EARFCN" : "NR-ARFCN"}
+                </div>
+                <div className="font-medium">{result.earfcn}</div>
+
+                <div className="text-gray-600 dark:text-gray-400 font-medium">
+                  Frequency
+                </div>
+                <div className="font-medium">{result.frequency} MHz</div>
+              </div>
+
+              <h4 className="font-semibold mb-2">Possible Operating Bands</h4>
+              <div className="space-y-4">
+                {result.possibleBands.map((band, index) => (
+                  <div
+                    key={index}
+                    className="border-t pt-2 first:border-t-0 first:pt-0"
+                  >
+                    <div className="font-semibold">
+                      {result.networkType === "NR"
+                        ? `n${band.band}`
+                        : `Band ${band.band}`}{" "}
+                      ({band.name})
+                    </div>
+                    <div className="grid grid-cols-2 gap-y-1 gap-x-4 mt-1 text-sm">
+                      <div className="text-gray-600 dark:text-gray-400 font-medium">
+                        Duplex Mode
+                      </div>
+                      <div className="font-semibold">{band.duplexType}</div>
+
+                      <div className="text-gray-600 dark:text-gray-400 font-medium">
+                        Downlink Range
+                      </div>
+                      <div className="font-semibold">
+                        {band.dlLow} - {band.dlHigh} MHz
+                      </div>
+
+                      {band.duplexType === "FDD" && (
+                        <>
+                          <div className="text-gray-600 dark:text-gray-400 font-medium">
+                            Uplink Range
+                          </div>
+                          <div className="font-semibold">
+                            {band.ulLow} - {band.ulHigh} MHz
+                          </div>
+                        </>
+                      )}
+
+                      <div className="text-gray-600 dark:text-gray-400 font-medium">
+                        {result.networkType === "LTE"
+                          ? "EARFCN Range"
+                          : "NR-ARFCN Range"}
+                      </div>
+                      <div className="font-semibold">
+                        {result.networkType === "LTE"
+                          ? `${(band as LTEMatchingBand).earfcnRange[0]} - ${
+                              (band as LTEMatchingBand).earfcnRange[1]
+                            }`
+                          : `${(band as NRBand).nrarfcnRange[0]} - ${
+                              (band as NRBand).nrarfcnRange[1]
+                            }`}
+                      </div>
+
+                      {result.networkType === "LTE" && (
+                        <>
+                          <div className="text-gray-600 dark:text-gray-400 font-medium">
+                            Downlink Frequency
+                          </div>
+                          <div className="font-semibold">
+                            {(band as LTEMatchingBand).dlFrequency} MHz
+                          </div>
+
+                          <div className="text-gray-600 dark:text-gray-400 font-medium">
+                            Uplink Frequency
+                          </div>
+                          <div className="font-semibold">
+                            {(band as LTEMatchingBand).ulFrequency} MHz
+                          </div>
+
+                          {band.duplexType === "FDD" && (
+                            <>
+                              <div className="text-gray-600 dark:text-gray-400 font-medium">
+                                Uplink EARFCN
+                              </div>
+                              <div className="font-semibold">
+                                {(band as LTEMatchingBand).ulEarfcn}
+                              </div>
+                            </>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="text-xs text-gray-500 mt-4">
+                Calculation method:{" "}
+                {result.networkType === "NR"
+                  ? "3GPP TS 38.104 Section 5.4.2.1"
+                  : "3GPP TS 36.101 Section 5.7"}
+              </div>
+            </div>
+          )}
+
+          <div className="mt-8">
+            <div className="flex justify-between items-center mb-2">
+              <h3 className="text-lg font-semibold">Calculation History</h3>
+              {history.length > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={clearHistory}
+                  className="h-8"
+                >
+                  <Trash2 className="h-4 w-4 mr-1" />
+                  Clear All
+                </Button>
+              )}
+            </div>
+
+            {history.length === 0 ? (
+              <div className="text-center p-6 border rounded-md text-gray-500 dark:text-gray-400">
+                No calculation history yet. Enter an E/ARFCN value and click
+                Calculate.
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {history.map((entry) => (
+                  <div
+                    key={entry.id}
+                    className="p-3 border rounded-md flex justify-between items-start bg-gray-50 dark:bg-gray-800"
+                  >
+                    <div className="flex-1">
+                      <div className="flex items-center">
+                        <span className="font-semibold text-lg">
+                          {entry.earfcn}
+                        </span>
+                        <span className="mx-2 text-gray-400">•</span>
+                        <span className="text-sm">{entry.frequency} MHz</span>
+                        <span className="mx-2 text-gray-400">•</span>
+                        <span className="text-sm">{entry.networkType}</span>
+                      </div>
+                      {entry.possibleBands && (
+                        <div className="text-sm text-gray-600 dark:text-gray-400 font-medium mt-1">
+                          Bands:{" "}
+                          {entry.possibleBands
+                            .map((band) =>
+                              entry.networkType === "NR"
+                                ? `n${band.band}`
+                                : `${band.band}`
+                            )
+                            .join(", ")}
+                        </div>
+                      )}
+                      <div className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                        {entry.timestamp
+                          ? new Date(entry.timestamp).toLocaleString()
+                          : "No timestamp"}
+                      </div>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => deleteHistoryEntry(entry.id)}
+                      className="text-gray-500 h-8 w-8 p-0"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 };
 

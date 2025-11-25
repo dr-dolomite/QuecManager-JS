@@ -75,17 +75,26 @@ const CustomDNSComponent = () => {
 
   if (loading) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Custom DNS Settings</CardTitle>
-          <CardDescription>
-            Configure custom DNS servers for your network
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Skeleton className="h-64 w-full" />
-        </CardContent>
-      </Card>
+      <div className="container mx-auto p-6">
+        <div className="mb-6">
+          <h1 className="text-3xl font-bold mb-2">DNS Settings</h1>
+          <p className="text-muted-foreground">
+            Configure custom DNS settings for your device to enhance network
+            performance and security.
+          </p>
+        </div>
+        <Card>
+          <CardHeader>
+            <CardTitle>Custom DNS Settings</CardTitle>
+            <CardDescription>
+              Configure custom DNS servers for your network
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Skeleton className="h-64 w-full" />
+          </CardContent>
+        </Card>
+      </div>
     );
   }
 

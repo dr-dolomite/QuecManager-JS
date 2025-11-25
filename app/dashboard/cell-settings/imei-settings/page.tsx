@@ -201,9 +201,7 @@ const IMEIManglingPage = () => {
       const rebootResult = await atCommandSender("AT+QPOWD=1", true);
 
       if (rebootResult.status !== "success") {
-        throw new Error(
-          rebootResult.response || "Failed to reboot device"
-        );
+        throw new Error(rebootResult.response || "Failed to reboot device");
       }
 
       toast({
@@ -229,85 +227,80 @@ const IMEIManglingPage = () => {
   };
 
   return (
-    <div className="grid gap-8">
-      <Card>
-        <form onSubmit={handleSubmit}>
-          <CardHeader>
-            <CardTitle>IMEI Settings</CardTitle>
-            <CardDescription className="flex items-center justify-between">
-              Change the IMEI of the device. Changing the IMEI may void your
-              warranty and is illegal in some jurisdictions. We do not take any
-              responsibility for any misuse.
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger>
-                    <TriangleAlert className="size-4 text-orange-500" />
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Do at your own risk!</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {isProfileControlled && activeProfile && (
-              <Alert className="mb-6" variant="warning">
-                <LockIcon className="h-4 w-4" />
-                <AlertTitle>Profile Controlled</AlertTitle>
-                <AlertDescription>
-                  IMEI is currently being managed by profile "
-                  {activeProfile.name}".
-                </AlertDescription>
-              </Alert>
-            )}
-
-            <div className="grid w-full max-w-sm items-center gap-2">
-              <Label htmlFor="IMEI">
-                Change Current IMEI
-                {isProfileControlled && (
-                  <span className="ml-2 text-xs text-muted-foreground">
-                    (Profile Controlled)
-                  </span>
-                )}
-              </Label>
-              {isLoading ? (
-                <Skeleton className="h-8" />
-              ) : (
-                <div className="grid gap-1.5">
-                  <Input
-                    type="text"
-                    id="IMEI"
-                    value={newIMEI}
-                    onChange={(e) =>
-                      !isProfileControlled && setNewIMEI(e.target.value)
-                    }
-                    placeholder={currentIMEI}
-                    disabled={isProfileControlled}
-                    className={
-                      isProfileControlled ? "bg-muted cursor-not-allowed" : ""
-                    }
-                  />
-                  <p className="text-xs text-muted-foreground font-medium">
-                    This will reboot the device.
-                  </p>
-                </div>
+    <div className="container mx-auto p-6">
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold mb-2">Device IMEI Settings</h1>
+        <p className="text-muted-foreground">
+          Change the IMEI of the device. Changing the IMEI may void your
+          warranty and is illegal in some jurisdictions. We do not take any
+          responsibility for any misuse.
+        </p>
+      </div>
+      <div className="grid gap-8">
+        <Card>
+          <form onSubmit={handleSubmit}>
+            <CardHeader>
+              <CardTitle>IMEI Settings</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {isProfileControlled && activeProfile && (
+                <Alert className="mb-6" variant="warning">
+                  <LockIcon className="h-4 w-4" />
+                  <AlertTitle>Profile Controlled</AlertTitle>
+                  <AlertDescription>
+                    IMEI is currently being managed by profile "
+                    {activeProfile.name}".
+                  </AlertDescription>
+                </Alert>
               )}
-            </div>
-          </CardContent>
-          <CardFooter className="grid border-t py-4">
-            <Button
-              type="submit"
-              className="w-full"
-              disabled={
-                isLoading || newIMEI === currentIMEI || isProfileControlled
-              }
-            >
-              {isLoading ? "Processing..." : "Change IMEI"}
-            </Button>
-          </CardFooter>
-        </form>
-      </Card>
+
+              <div className="grid w-full max-w-sm items-center gap-2">
+                <Label htmlFor="IMEI">
+                  Change Current IMEI
+                  {isProfileControlled && (
+                    <span className="ml-2 text-xs text-muted-foreground">
+                      (Profile Controlled)
+                    </span>
+                  )}
+                </Label>
+                {isLoading ? (
+                  <Skeleton className="h-8" />
+                ) : (
+                  <div className="grid gap-1.5">
+                    <Input
+                      type="text"
+                      id="IMEI"
+                      value={newIMEI}
+                      onChange={(e) =>
+                        !isProfileControlled && setNewIMEI(e.target.value)
+                      }
+                      placeholder={currentIMEI}
+                      disabled={isProfileControlled}
+                      className={
+                        isProfileControlled ? "bg-muted cursor-not-allowed" : ""
+                      }
+                    />
+                    <p className="text-xs text-muted-foreground font-medium">
+                      This will reboot the device.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+            <CardFooter className="grid border-t py-4">
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={
+                  isLoading || newIMEI === currentIMEI || isProfileControlled
+                }
+              >
+                {isLoading ? "Processing..." : "Change IMEI"}
+              </Button>
+            </CardFooter>
+          </form>
+        </Card>
+      </div>
     </div>
   );
 };

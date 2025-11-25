@@ -215,7 +215,7 @@ collect_minutely() {
         hourly_json="{\"channel\":\"ping\",\"timestamp\":\"$prev_hour_ts\",\"host\":\"$HOST\",\"latency\":$avg_latency,\"packet_loss\":$avg_packet_loss,\"sample_count\":$valid_count}"
 
         echo "$hourly_json" >> "$HOURLY_JSON" 2>/dev/null || true
-        log "Created hourly entry from realtime data: $hourly_json"
+        log "Created hourly aggregate (samples: $valid_count)" "debug"
 
         trim_file "$HOURLY_JSON" "$MAX_HOURLY_ENTRIES"
       fi
@@ -265,7 +265,7 @@ aggregate_hourly() {
           daily_json="{\"channel\":\"ping\",\"timestamp\":\"$prev_day_ts\",\"host\":\"$HOST\",\"latency\":$avg_latency,\"packet_loss\":$avg_packet_loss,\"sample_count\":$valid_count}"
 
           echo "$daily_json" >> "$DAILY_JSON" 2>/dev/null || true
-          log "Created daily aggregate from hourly data: $daily_json"
+          log "Created daily aggregate (samples: $valid_count)" "debug"
 
           trim_file "$DAILY_JSON" "$MAX_DAILY_ENTRIES"
         fi
@@ -328,8 +328,6 @@ while true; do
         echo "$json" | ${WS_CMD} 2>/dev/null || true
       fi
 
-      log "Wrote: $json"
-
       # Still perform aggregations
       collect_minutely
       aggregate_hourly
@@ -368,8 +366,6 @@ while true; do
   if command -v "${WEBSOCKET_SERVICE}" >/dev/null 2>&1; then
     echo "$json" | ${WS_CMD} 2>/dev/null || true
   fi
-
-  log "Wrote: $json"
 
   # Perform aggregations (these check internally if it's time to aggregate)
   collect_minutely  # Creates hourly data from realtime (every hour)
