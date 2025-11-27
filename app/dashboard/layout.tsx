@@ -7,6 +7,7 @@ import { useState, useEffect } from "react";
 import { RadioTower, User2Icon, Menu, Power } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import ChristmasGreeting from "@/components/seasonal/christmas-greeting";
 
 interface ProfilePictureResponse {
   status: string;
@@ -819,6 +820,8 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
         </ProtectedRoute>
         <LightRays />
       </main>
+      
+      <ChristmasGreeting />
     </div>
   );
 };
