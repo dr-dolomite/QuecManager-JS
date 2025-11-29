@@ -12,6 +12,8 @@ SERVINGCELL_FILE="/www/signal_graphs/servingcell.json"
 INTERPRETED_FILE="/tmp/interpreted_result.json"
 LAST_ENTRY_FILE="/tmp/last_qcainfo_entry.json"
 LAST_SERVINGCELL_ENTRY_FILE="/tmp/last_servingcell_entry.json"
+QUECWATCH_EVENTS_FILE="/tmp/quecwatch_events.json"
+LAST_QUECWATCH_ENTRY_FILE="/tmp/last_quecwatch_entry.json"
 LOCKFILE="/tmp/network_interpreter.lock"
 MAX_INTERPRETATIONS=50
 
@@ -430,13 +432,15 @@ compare_configurations() {
 add_interpretation() {
     local datetime="$1"
     local interpretation="$2"
+    local event_type="${3:-Configuration Change}"
     
-    # Determine event type based on interpretation content
-    local event_type="Configuration Change"
-    if echo "$interpretation" | grep -q "\[Network Event\]"; then
-        event_type="Network Event"
-        # Remove the event type prefix from the interpretation text
-        interpretation=$(echo "$interpretation" | sed 's/\[Network Event\] //')
+    # Determine event type based on interpretation content if not provided
+    if [ "$event_type" = "Configuration Change" ]; then
+        if echo "$interpretation" | grep -q "\[Network Event\]"; then
+            event_type="Network Event"
+            # Remove the event type prefix from the interpretation text
+            interpretation=$(echo "$interpretation" | sed 's/\[Network Event\] //')
+        fi
     fi
     
     # Initialize file if it doesn't exist
@@ -488,6 +492,69 @@ get_servingcell_entry_by_datetime() {
         sort_by(.datetime) | 
         last // empty
     ' "$SERVINGCELL_FILE" 2>/dev/null || echo ""
+}
+
+# Process Quecwatch events and add them to interpretations
+process_quecwatch_events() {
+    if [ ! -f "$QUECWATCH_EVENTS_FILE" ]; then
+        qm_log_debug "$LOG_CATEGORY" "$SCRIPT_NAME" "Quecwatch events file not found: $QUECWATCH_EVENTS_FILE"
+        return 0
+    fi
+    
+    # Get total number of events
+    local total_events=$(jq 'length' "$QUECWATCH_EVENTS_FILE" 2>/dev/null || echo "0")
+    
+    if [ "$total_events" -eq 0 ]; then
+        qm_log_debug "$LOG_CATEGORY" "$SCRIPT_NAME" "No Quecwatch events to process"
+        return 0
+    fi
+    
+    # Get the last processed event datetime
+    local last_processed=""
+    if [ -f "$LAST_QUECWATCH_ENTRY_FILE" ]; then
+        last_processed=$(cat "$LAST_QUECWATCH_ENTRY_FILE" 2>/dev/null)
+    fi
+    
+    # Process each event
+    local i=0
+    while [ "$i" -lt "$total_events" ]; do
+        local event=$(jq -r ".[$i]" "$QUECWATCH_EVENTS_FILE" 2>/dev/null)
+        local event_datetime=$(echo "$event" | jq -r '.datetime' 2>/dev/null)
+        local event_action=$(echo "$event" | jq -r '.action' 2>/dev/null)
+        local event_reason=$(echo "$event" | jq -r '.reason' 2>/dev/null)
+        local event_latency=$(echo "$event" | jq -r '.latency' 2>/dev/null)
+        
+        # Skip if already processed
+        if [ -n "$last_processed" ] && [ "$event_datetime" = "$last_processed" ]; then
+            i=$((i + 1))
+            continue
+        fi
+        
+        # Only process events after the last processed one
+        if [ -n "$last_processed" ]; then
+            if ! is_datetime_newer "$event_datetime" "$last_processed"; then
+                i=$((i + 1))
+                continue
+            fi
+        fi
+        
+        # Build interpretation message
+        local interpretation="QuecWatch: $event_action - $event_reason"
+        if [ -n "$event_latency" ] && [ "$event_latency" != "null" ]; then
+            interpretation="$interpretation (Latency: ${event_latency}ms)"
+        fi
+        
+        # Add to interpretations with QuecWatch Action event type
+        add_interpretation "$event_datetime" "$interpretation" "QuecWatch Action"
+        
+        i=$((i + 1))
+    done
+    
+    # Update last processed event
+    if [ "$total_events" -gt 0 ]; then
+        local last_datetime=$(jq -r '.[-1].datetime' "$QUECWATCH_EVENTS_FILE" 2>/dev/null)
+        echo "$last_datetime" > "$LAST_QUECWATCH_ENTRY_FILE"
+    fi
 }
 
 # Process QCAINFO entries and generate interpretations with servingcell support
@@ -585,7 +652,11 @@ monitor_qcainfo() {
         if (set -C; echo $$ > "$LOCKFILE") 2>/dev/null; then
             trap 'rm -f "$LOCKFILE"; exit' INT TERM EXIT
             
+            # Process network configuration changes
             process_qcainfo_data
+            
+            # Process Quecwatch events
+            process_quecwatch_events
             
             # Release lock
             rm -f "$LOCKFILE"
@@ -607,6 +678,7 @@ case "${1:-monitor}" in
     "process")
         qm_log_info "$LOG_CATEGORY" "$SCRIPT_NAME" "Starting in process mode (single run)"
         process_qcainfo_data
+        process_quecwatch_events
         ;;
     *)
         echo "Usage: $0 {monitor|process}"

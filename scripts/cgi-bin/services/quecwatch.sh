@@ -24,6 +24,7 @@ LOG_FILE="$LOG_DIR/quecwatch.log"
 PID_FILE="/var/run/quecwatch.pid"
 STATUS_FILE="/tmp/quecwatch_status.json"
 RETRY_COUNT_FILE="/tmp/quecwatch_retry_count"
+QUECWATCH_EVENTS_FILE="/tmp/quecwatch_events.json"
 UCI_CONFIG="quecmanager"
 MAX_TOKEN_ATTEMPTS=10  # Maximum attempts to acquire token
 TOKEN_TIMEOUT=30       # Token timeout in seconds
@@ -66,6 +67,38 @@ log_message() {
     
     # Log to system log
     logger -t quecwatch -p "daemon.$level" "$message"
+}
+
+# Function to log Quecwatch event for Network Insights
+log_quecwatch_event() {
+    local action="$1"
+    local reason="$2"
+    local latency="${3:-$CURRENT_LATENCY}"
+    
+    # Initialize file if it doesn't exist
+    if [ ! -f "$QUECWATCH_EVENTS_FILE" ]; then
+        echo "[]" > "$QUECWATCH_EVENTS_FILE"
+        chmod 644 "$QUECWATCH_EVENTS_FILE"
+    fi
+    
+    # Get current datetime in ISO format
+    local datetime=$(date -u +"%Y-%m-%d %H:%M:%S" 2>/dev/null || date +"%Y-%m-%d %H:%M:%S")
+    
+    # Add event to JSON file using jq, keep only last 50 events
+    local temp_file="${QUECWATCH_EVENTS_FILE}.tmp.$$"
+    if command -v jq >/dev/null 2>&1; then
+        jq --arg dt "$datetime" \
+           --arg act "$action" \
+           --arg rsn "$reason" \
+           --arg lat "$latency" \
+           '. + [{"datetime": $dt, "action": $act, "reason": $rsn, "latency": $lat}] | .[-50:]' \
+           "$QUECWATCH_EVENTS_FILE" > "$temp_file" 2>/dev/null && mv "$temp_file" "$QUECWATCH_EVENTS_FILE"
+    else
+        # Fallback without jq - simple append
+        echo "{\"datetime\":\"$datetime\",\"action\":\"$action\",\"reason\":\"$reason\",\"latency\":\"$latency\"}" >> "$QUECWATCH_EVENTS_FILE"
+    fi
+    
+    log_message "Logged Quecwatch event: $action - $reason (latency: ${latency}ms)" "debug"
 }
 
 # Function to update status
@@ -469,7 +502,7 @@ switch_sim_card() {
     
     # Detach from network
     log_message "Detaching from network" "debug"
-    execute_at_command "AT+COPS=2" 10 "$token_id"
+    execute_at_command "AT+CFUN=0" 10 "$token_id"
     sleep 2
     
     # Switch SIM slot
@@ -488,7 +521,7 @@ switch_sim_card() {
     
     # Reattach to network
     log_message "Reattaching to network" "debug"
-    execute_at_command "AT+COPS=0" 10 "$token_id"
+    execute_at_command "AT+CFUN=1" 10 "$token_id"
     
     # Release token
     release_token "$token_id"
@@ -512,11 +545,15 @@ perform_connection_recovery() {
     log_message "Starting connection recovery" "info"
     update_status "recovering" "Connection recovery in progress - monitoring paused" "$CURRENT_RETRIES" "$MAX_RETRIES" "$CURRENT_LATENCY" "$LATENCY_CEILING"
     
+    # Log event for Network Insights
+    log_quecwatch_event "Connection Refresh Started" "High latency detected: ${CURRENT_LATENCY}ms" "$CURRENT_LATENCY"
+    
     # Get token for AT commands
     token_id=$(acquire_token)
     if [ -z "$token_id" ]; then
         log_message "Failed to acquire token for connection recovery" "error"
         update_status "error" "Failed to acquire token for recovery" "$CURRENT_RETRIES" "$MAX_RETRIES" "$CURRENT_LATENCY" "$LATENCY_CEILING"
+        log_quecwatch_event "Connection Refresh Failed" "Failed to acquire AT command token" "$CURRENT_LATENCY"
         return 1
     fi
 
@@ -550,25 +587,25 @@ perform_connection_recovery() {
         sleep 2
     fi
     
-    # Detach from network
-    log_message "Detaching from network" "debug"
+    # Detach from network using CFUN
+    log_message "Detaching from network (CFUN=0)" "debug"
     update_status "recovering" "Detaching from network" "$CURRENT_RETRIES" "$MAX_RETRIES" "$CURRENT_LATENCY" "$LATENCY_CEILING"
-    execute_at_command "AT+COPS=2" 10 "$token_id"
-    sleep 2
+    execute_at_command "AT+CFUN=0" 10 "$token_id"
+    sleep 3
     
-    # Reattach to network
-    log_message "Reattaching to network" "debug"
+    # Reattach to network using CFUN
+    log_message "Reattaching to network (CFUN=1)" "debug"
     update_status "recovering" "Reattaching to network" "$CURRENT_RETRIES" "$MAX_RETRIES" "$CURRENT_LATENCY" "$LATENCY_CEILING"
-    execute_at_command "AT+COPS=0" 15 "$token_id"
-    sleep 1
+    execute_at_command "AT+CFUN=1" 15 "$token_id"
     
     # Release token
     release_token "$token_id"
     
-    # Wait for network to stabilize before verification
-    log_message "Waiting for network to stabilize (10 seconds)" "debug"
-    update_status "recovering" "Waiting for network to stabilize" "$CURRENT_RETRIES" "$MAX_RETRIES" "$CURRENT_LATENCY" "$LATENCY_CEILING"
-    sleep 10
+    # Wait longer for network to fully stabilize after CFUN=1
+    # Network registration and data connection can take 15-30 seconds
+    log_message "Waiting for network to fully stabilize (30 seconds)" "debug"
+    update_status "recovering" "Waiting for network registration and data connection" "$CURRENT_RETRIES" "$MAX_RETRIES" "$CURRENT_LATENCY" "$LATENCY_CEILING"
+    sleep 30
     
     # Verify recovery with appropriate check
     log_message "Verifying connection recovery" "debug"
@@ -594,6 +631,9 @@ perform_connection_recovery() {
         log_message "Connection recovery successful" "info"
         update_status "recovered" "Connection recovery successful" "$CURRENT_RETRIES" "$MAX_RETRIES" "$CURRENT_LATENCY" "$LATENCY_CEILING"
         
+        # Log successful recovery event for Network Insights
+        log_quecwatch_event "Connection Refresh Completed" "Recovery successful, latency improved to ${CURRENT_LATENCY}ms" "$CURRENT_LATENCY"
+        
         # Add grace period after successful recovery
         log_message "Grace period: waiting 20 seconds before resuming monitoring" "debug"
         sleep 20
@@ -602,6 +642,10 @@ perform_connection_recovery() {
     else
         log_message "Connection recovery failed" "error"
         update_status "error" "Connection recovery failed" "$CURRENT_RETRIES" "$MAX_RETRIES" "$CURRENT_LATENCY" "$LATENCY_CEILING"
+        
+        # Log failed recovery event for Network Insights
+        log_quecwatch_event "Connection Refresh Failed" "Recovery verification failed" "$CURRENT_LATENCY"
+        
         return 1
     fi
 }
