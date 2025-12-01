@@ -775,8 +775,9 @@ main() {
                     
                     # Check if latency failure threshold is reached
                     if [ $LATENCY_FAILURE_COUNT -ge $LATENCY_FAILURES ]; then
-                        log_message "Latency failure threshold reached ($LATENCY_FAILURE_COUNT/$LATENCY_FAILURES), treating as connectivity failure" "warn"
+                        log_message "Latency failure threshold reached ($LATENCY_FAILURE_COUNT/$LATENCY_FAILURES), triggering recovery" "warn"
                         connectivity_ok=0  # Treat as failure to trigger retry logic
+                        failure_count=$((LATENCY_FAILURES - 1))  # Set failure count so next increment triggers action
                         LATENCY_FAILURE_COUNT=0  # Reset latency failure counter
                     else
                         connectivity_ok=1  # Latency high but not threshold yet
