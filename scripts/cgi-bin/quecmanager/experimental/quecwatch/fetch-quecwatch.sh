@@ -35,13 +35,35 @@ check_service_status() {
     echo "stopped"
 }
 
-# Function to get last log entry
+# Function to get last activity from status file
 get_last_log() {
-    local LOG_FILE="/tmp/log/quecwatch/quecwatch.log"
-    if [ -f "$LOG_FILE" ]; then
-        tail -n 1 "$LOG_FILE" | sed 's/"/\\"/g'
+    local STATUS_FILE="/tmp/quecwatch_status.json"
+    
+    if [ -f "$STATUS_FILE" ]; then
+        # Get status message and timestamp from status file
+        local message=$(cat "$STATUS_FILE" | jsonfilter -e '@.message' 2>/dev/null)
+        local timestamp=$(cat "$STATUS_FILE" | jsonfilter -e '@.timestamp' 2>/dev/null)
+        local status=$(cat "$STATUS_FILE" | jsonfilter -e '@.status' 2>/dev/null)
+        local latency=$(cat "$STATUS_FILE" | jsonfilter -e '@.currentLatency' 2>/dev/null)
+        
+        if [ -n "$message" ] && [ -n "$timestamp" ]; then
+            # Convert epoch timestamp to readable format
+            local datetime=$(date -d "@$timestamp" '+%Y-%m-%d %H:%M:%S' 2>/dev/null)
+            if [ -z "$datetime" ]; then
+                datetime=$(date '+%Y-%m-%d %H:%M:%S')
+            fi
+            
+            # Format: [datetime] [STATUS] message (latency: Xms)
+            if [ -n "$latency" ] && [ "$latency" != "0" ]; then
+                echo "[$datetime] [$status] $message (latency: ${latency}ms)" | sed 's/"/\\"/g'
+            else
+                echo "[$datetime] [$status] $message" | sed 's/"/\\"/g'
+            fi
+        else
+            echo "No status available"
+        fi
     else
-        echo "No log entries found"
+        echo "QuecWatch not running"
     fi
 }
 
