@@ -106,6 +106,16 @@ interface TemperatureUnitResponse {
   };
 }
 
+interface BandwidthSettingsResponse {
+  status: string;
+  message: string;
+  data?: {
+    enabled: boolean;
+    running: boolean;
+    isDefault: boolean;
+  };
+}
+
 const PersonalizationPage = () => {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -135,6 +145,9 @@ const PersonalizationPage = () => {
     useState<boolean>(false);
   const [isProfileDialogDefault, setIsProfileDialogDefault] =
     useState<boolean>(true);
+  const [bandwidthEnabled, setBandwidthEnabled] = useState<boolean>(true);
+  const [isBandwidthLoading, setIsBandwidthLoading] = useState<boolean>(false);
+  const [isBandwidthDefault, setIsBandwidthDefault] = useState<boolean>(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Cache keys for localStorage
@@ -150,6 +163,7 @@ const PersonalizationPage = () => {
     fetchPingSettings();
     fetchMemorySettings();
     fetchProfileDialogSettings();
+    fetchBandwidthSettings();
   }, []);
 
   const loadCachedImage = () => {
@@ -1111,6 +1125,114 @@ const PersonalizationPage = () => {
     }
   };
 
+  // Bandwidth monitoring settings functions
+  const fetchBandwidthSettings = async () => {
+    try {
+      setIsBandwidthLoading(true);
+      const response = await fetch(
+        "/cgi-bin/quecmanager/settings/bandwidth_settings.sh"
+      );
+      const data: BandwidthSettingsResponse = await response.json();
+
+      if (data.status === "success" && data.data) {
+        setBandwidthEnabled(data.data.enabled);
+        setIsBandwidthDefault(data.data.isDefault);
+      }
+    } catch (error) {
+      console.error("Error fetching bandwidth settings:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load bandwidth monitoring settings.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsBandwidthLoading(false);
+    }
+  };
+
+  const updateBandwidthSettings = async (enabled: boolean) => {
+    try {
+      setIsBandwidthLoading(true);
+      const response = await fetch(
+        "/cgi-bin/quecmanager/settings/bandwidth_settings.sh",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ enabled }),
+        }
+      );
+      const data: BandwidthSettingsResponse = await response.json();
+
+      if (data.status === "success") {
+        setBandwidthEnabled(enabled);
+        setIsBandwidthDefault(false);
+        toast({
+          title: "Setting Updated",
+          description: `Live bandwidth monitoring has been ${
+            enabled ? "enabled" : "disabled"
+          }.`,
+        });
+
+        // Dispatch custom event to notify bandwidth card of the change
+        window.dispatchEvent(new CustomEvent("bandwidthSettingsUpdated"));
+      } else {
+        throw new Error(
+          data.message || "Failed to update bandwidth settings"
+        );
+      }
+    } catch (error) {
+      console.error("Error updating bandwidth settings:", error);
+      toast({
+        title: "Update Failed",
+        description: error instanceof Error ? error.message : "Unknown error",
+        variant: "destructive",
+      });
+    } finally {
+      setIsBandwidthLoading(false);
+    }
+  };
+
+  const resetBandwidthSettings = async () => {
+    try {
+      setIsBandwidthLoading(true);
+      const response = await fetch(
+        "/cgi-bin/quecmanager/settings/bandwidth_settings.sh",
+        {
+          method: "DELETE",
+        }
+      );
+      const data: BandwidthSettingsResponse = await response.json();
+
+      if (data.status === "success" && data.data) {
+        setBandwidthEnabled(data.data.enabled);
+        setIsBandwidthDefault(true);
+        toast({
+          title: "Setting Reset",
+          description:
+            "Bandwidth monitoring reset to system default (enabled).",
+        });
+
+        // Dispatch custom event to notify bandwidth card of the change
+        window.dispatchEvent(new CustomEvent("bandwidthSettingsUpdated"));
+      } else {
+        throw new Error(
+          data.message || "Failed to reset bandwidth settings"
+        );
+      }
+    } catch (error) {
+      console.error("Error resetting bandwidth settings:", error);
+      toast({
+        title: "Reset Failed",
+        description: error instanceof Error ? error.message : "Unknown error",
+        variant: "destructive",
+      });
+    } finally {
+      setIsBandwidthLoading(false);
+    }
+  };
+
   return (
     <div className="container mx-auto p-6 max-w-4xl">
       <div className="mb-6">
@@ -1572,6 +1694,53 @@ const PersonalizationPage = () => {
                     </p>
                   </div>
                 )}
+              </div>
+
+              <div className="grid w-full max-w-sm items-center gap-2">
+                <Label htmlFor="BandwidthSettings">Live Bandwidth Monitoring</Label>
+                {isBandwidthLoading ? (
+                  <Skeleton className="h-8" />
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    <div className="flex flex-row gap-2 items-center">
+                      <Select
+                        disabled={isBandwidthLoading}
+                        value={bandwidthEnabled ? "enabled" : "disabled"}
+                        onValueChange={(value: string) =>
+                          updateBandwidthSettings(value === "enabled")
+                        }
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue>
+                            {bandwidthEnabled ? "Enabled" : "Disabled"}
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectGroup>
+                            <SelectLabel>Bandwidth Monitoring</SelectLabel>
+                            <SelectItem value="enabled">
+                              Enable live bandwidth
+                            </SelectItem>
+                            <SelectItem value="disabled">
+                              Disable live bandwidth
+                            </SelectItem>
+                          </SelectGroup>
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        disabled={isBandwidthLoading || isBandwidthDefault}
+                        onClick={resetBandwidthSettings}
+                      >
+                        <Undo2Icon className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                <p className="text-sm text-muted-foreground">
+                  Controls whether the device measures live network bandwidth.
+                </p>
               </div>
             </div>
           </div>
