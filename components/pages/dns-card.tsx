@@ -36,6 +36,7 @@ const DNSCard = (currentSettings: DNSCardProps) => {
     dns2: "",
     dns3: "",
   });
+  const [initialMode, setInitialMode] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
   const activeNic = (currentSettings: DNSCardProps) =>
@@ -119,6 +120,10 @@ const DNSCard = (currentSettings: DNSCardProps) => {
             dns2: list[1] || "",
             dns3: list[2] || "",
           });
+          setInitialMode(result.mode);
+        } else {
+          // No DNS configured yet
+          setInitialMode(result.mode || "disabled");
         }
       } catch (error) {
         console.error("Failed to fetch DNS settings:", error);
@@ -209,10 +214,13 @@ const DNSCard = (currentSettings: DNSCardProps) => {
             disabled={
               isSaving ||
               isLoading ||
-              currentOptions.mode !== "enabled" ||
-              (!currentOptions.dns1 &&
+              // Disable if mode is "enabled" but no DNS servers provided
+              (currentOptions.mode === "enabled" &&
+                !currentOptions.dns1 &&
                 !currentOptions.dns2 &&
-                !currentOptions.dns3)
+                !currentOptions.dns3) ||
+              // Disable if nothing changed (mode is same as initial and was already disabled)
+              (currentOptions.mode === initialMode && currentOptions.mode === "disabled")
             }
           >
             {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

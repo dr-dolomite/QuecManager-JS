@@ -10,20 +10,13 @@ import {
   CardDescription,
 } from "@/components/ui/card";
 
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 
-import { Trash2, TriangleAlert, LockIcon } from "lucide-react";
+import { Trash2, TriangleAlert, LockIcon, Undo2, StepForwardIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { atCommandSender } from "@/utils/at-command";
 
@@ -52,6 +45,7 @@ const IMEIManglingPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [currentIMEI, setCurrentIMEI] = useState("");
   const [newIMEI, setNewIMEI] = useState("");
+  const [previousIMEI, setPreviousIMEI] = useState<string | null>(null);
   const [activeProfile, setActiveProfile] = useState<Profile | null>(null);
   const [isProfileControlled, setIsProfileControlled] = useState(false);
   const { toast } = useToast();
@@ -87,6 +81,22 @@ const IMEIManglingPage = () => {
       console.error(err);
     } finally {
       setIsLoading(false);
+    }
+  }, []);
+
+  const fetchPreviousIMEI = useCallback(async () => {
+    try {
+      const response = await fetch(
+        "/cgi-bin/quecmanager/cell-settings/imei_manager.sh"
+      );
+      if (response.ok) {
+        const data = await response.json();
+        if (data.status === "success" && data.previous_imei) {
+          setPreviousIMEI(data.previous_imei);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to fetch previous IMEI:", err);
     }
   }, []);
 
@@ -156,11 +166,23 @@ const IMEIManglingPage = () => {
   useEffect(() => {
     const initialize = async () => {
       await fetchIMEI();
+      await fetchPreviousIMEI();
       await checkActiveProfile();
     };
 
     initialize();
-  }, [fetchIMEI, checkActiveProfile]);
+  }, [fetchIMEI, fetchPreviousIMEI, checkActiveProfile]);
+
+  const savePreviousIMEI = async (imei: string) => {
+    try {
+      await fetch("/cgi-bin/quecmanager/cell-settings/imei_manager.sh", {
+        method: "POST",
+        body: `action=set_previous&imei=${imei}`,
+      });
+    } catch (err) {
+      console.error("Failed to save previous IMEI:", err);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -189,6 +211,11 @@ const IMEIManglingPage = () => {
     }
 
     try {
+      // Save current IMEI as previous before updating
+      if (currentIMEI) {
+        await savePreviousIMEI(currentIMEI);
+      }
+
       // Use atCommandSender instead of direct fetch
       const command = `AT+EGMR=1,7,"${newIMEI}"`;
       const result = await atCommandSender(command, true);
@@ -226,6 +253,16 @@ const IMEIManglingPage = () => {
     }
   };
 
+  const handleRestore = () => {
+    if (previousIMEI && previousIMEI !== currentIMEI) {
+      setNewIMEI(previousIMEI);
+      toast({
+        title: "Ready to Restore",
+        description: "Previous IMEI loaded. Click 'Change IMEI' to apply it.",
+      });
+    }
+  };
+
   return (
     <div className="container mx-auto p-6">
       <div className="mb-6">
@@ -255,14 +292,16 @@ const IMEIManglingPage = () => {
               )}
 
               <div className="grid w-full max-w-sm items-center gap-2">
-                <Label htmlFor="IMEI">
-                  Change Current IMEI
-                  {isProfileControlled && (
-                    <span className="ml-2 text-xs text-muted-foreground">
-                      (Profile Controlled)
-                    </span>
-                  )}
-                </Label>
+                <div className="flex justify-between items-center">
+                  <Label htmlFor="IMEI">
+                    Change Current IMEI
+                    {isProfileControlled && (
+                      <span className="ml-2 text-xs text-muted-foreground">
+                        (Profile Controlled)
+                      </span>
+                    )}
+                  </Label>
+                </div>
                 {isLoading ? (
                   <Skeleton className="h-8" />
                 ) : (
@@ -283,20 +322,38 @@ const IMEIManglingPage = () => {
                     <p className="text-xs text-muted-foreground font-medium">
                       This will reboot the device.
                     </p>
+                    {previousIMEI && previousIMEI !== currentIMEI && (
+                      <p className="text-sm text-muted-foreground">
+                        Stored backup IMEI: {previousIMEI}
+                      </p>
+                    )}
                   </div>
                 )}
               </div>
             </CardContent>
             <CardFooter className="grid border-t py-4">
-              <Button
-                type="submit"
-                className="w-full"
-                disabled={
-                  isLoading || newIMEI === currentIMEI || isProfileControlled
-                }
-              >
-                {isLoading ? "Processing..." : "Change IMEI"}
-              </Button>
+              <div className="flex items-center justify-end gap-4">
+                {previousIMEI && previousIMEI !== currentIMEI && !isProfileControlled && (
+                  <Button
+                    variant="secondary"
+                    onClick={handleRestore}
+                    disabled={isLoading || newIMEI === previousIMEI}
+                  >
+                    <Undo2 className="h-4 w-4" />
+                    Restore Previous
+                  </Button>
+                )}
+                <Button
+                  type="submit"
+                  disabled={
+                    isLoading || newIMEI === currentIMEI || isProfileControlled
+                  }
+                >
+                  <StepForwardIcon className="h-4 w-4" />
+                  {isLoading ? "Processing..." : "Change IMEI"}
+                </Button>
+              </div>
+
             </CardFooter>
           </form>
         </Card>
