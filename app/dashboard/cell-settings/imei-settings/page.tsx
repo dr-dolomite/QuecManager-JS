@@ -7,17 +7,26 @@ import {
   CardHeader,
   CardFooter,
   CardTitle,
-  CardDescription,
 } from "@/components/ui/card";
 
-
-import { Trash2, TriangleAlert, LockIcon, Undo2, StepForwardIcon } from "lucide-react";
+import { LockIcon, Undo2, StepForwardIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { atCommandSender } from "@/utils/at-command";
 
 interface Profile {
@@ -33,14 +42,6 @@ interface Profile {
   ttl: string;
 }
 
-interface ProfileStatus {
-  status: string;
-  message: string;
-  profile: string;
-  progress: number;
-  timestamp: number;
-}
-
 const IMEIManglingPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [currentIMEI, setCurrentIMEI] = useState("");
@@ -48,6 +49,7 @@ const IMEIManglingPage = () => {
   const [previousIMEI, setPreviousIMEI] = useState<string | null>(null);
   const [activeProfile, setActiveProfile] = useState<Profile | null>(null);
   const [isProfileControlled, setIsProfileControlled] = useState(false);
+  const [isRestoreDialogOpen, setIsRestoreDialogOpen] = useState(false);
   const { toast } = useToast();
 
   const fetchIMEI = useCallback(async () => {
@@ -253,13 +255,52 @@ const IMEIManglingPage = () => {
     }
   };
 
-  const handleRestore = () => {
-    if (previousIMEI && previousIMEI !== currentIMEI) {
-      setNewIMEI(previousIMEI);
+  const handleRestore = async () => {
+    if (!previousIMEI || previousIMEI === currentIMEI) return;
+    
+    setIsRestoreDialogOpen(false);
+    setIsLoading(true);
+
+    try {
+      // Save current IMEI as the new backup before restoring
+      if (currentIMEI) {
+        await savePreviousIMEI(currentIMEI);
+      }
+
+      // Use atCommandSender to set the previous IMEI
+      const command = `AT+EGMR=1,7,"${previousIMEI}"`;
+      const result = await atCommandSender(command, true);
+
+      if (result.status !== "success") {
+        throw new Error(result.response || "Failed to restore IMEI");
+      }
+
+      // Reboot the device
+      const rebootResult = await atCommandSender("AT+QPOWD=1", true);
+
+      if (rebootResult.status !== "success") {
+        throw new Error(rebootResult.response || "Failed to reboot device");
+      }
+
       toast({
-        title: "Ready to Restore",
-        description: "Previous IMEI loaded. Click 'Change IMEI' to apply it.",
+        title: "Success",
+        description: "IMEI has been restored successfully. Rebooting...",
+        duration: 90000,
       });
+
+      // After 90 seconds, refresh the page
+      setTimeout(() => {
+        window.location.reload();
+      }, 90000);
+    } catch (err) {
+      toast({
+        title: "Failed to restore IMEI",
+        description: "Failed to restore IMEI on the device",
+        variant: "destructive",
+      });
+      console.error(err);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -322,11 +363,6 @@ const IMEIManglingPage = () => {
                     <p className="text-xs text-muted-foreground font-medium">
                       This will reboot the device.
                     </p>
-                    {previousIMEI && previousIMEI !== currentIMEI && (
-                      <p className="text-sm text-muted-foreground">
-                        Stored backup IMEI: {previousIMEI}
-                      </p>
-                    )}
                   </div>
                 )}
               </div>
@@ -334,14 +370,32 @@ const IMEIManglingPage = () => {
             <CardFooter className="grid border-t py-4">
               <div className="flex items-center justify-end gap-4">
                 {previousIMEI && previousIMEI !== currentIMEI && !isProfileControlled && (
-                  <Button
-                    variant="secondary"
-                    onClick={handleRestore}
-                    disabled={isLoading || newIMEI === previousIMEI}
-                  >
-                    <Undo2 className="h-4 w-4" />
-                    Restore Previous
-                  </Button>
+                  <AlertDialog open={isRestoreDialogOpen} onOpenChange={setIsRestoreDialogOpen}>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        disabled={isLoading}
+                      >
+                        <Undo2 className="h-4 w-4" />
+                        Restore Previous
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Restore Previous IMEI?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This will restore the device IMEI to <span className="font-semibold">{previousIMEI}</span> and reboot the device. Your current IMEI will be saved as the new backup.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleRestore}>
+                          Restore & Reboot
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 )}
                 <Button
                   type="submit"
