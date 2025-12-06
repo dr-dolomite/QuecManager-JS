@@ -22,13 +22,29 @@
 
 ### Prerequisites for Contributing to the Project
 
-- Node.js 16+
-- Yarn or npm
+- [Bun](https://bun.sh/) (recommended) or Node.js 18+
 - Compatible cellular modem with AT command support
+
+### Development Setup
+
+```bash
+# Clone the repository
+git clone https://github.com/dr-dolomite/QuecManager-JS.git
+cd QuecManager-JS
+
+# Install dependencies
+bun install
+
+# Start development server
+bun run dev
+
+# Build for production
+bun run build
+```
 
 ### Installation
 
-To install QuecManager, refer to [this wiki](https://github.com/iamromulan/cellular-modem-wiki/discussions/116).
+To install QuecManager on your device, refer to [this wiki](https://github.com/iamromulan/cellular-modem-wiki/discussions/116).
 
 ---
 
@@ -54,6 +70,10 @@ For detailed documentation, please refer to the [Wiki](https://github.com/iamrom
   <br/>
   <a href="https://ko-fi.com/drdolomite" target="_blank">
     <img height="64" style="border:0;height:64px;" src="https://storage.ko-fi.com/cdn/kofi1.png?v=3" alt="Buy Me a Coffee at ko-fi.com" />
+  </a>
+  <br/><br/>
+  <a href="https://paypal.me/iamrusss" target="_blank">
+    <img height="40" src="https://img.shields.io/badge/PayPal-00457C?style=for-the-badge&logo=paypal&logoColor=white" alt="Donate via PayPal" />
   </a>
 </div>
 
