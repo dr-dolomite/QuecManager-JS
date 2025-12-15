@@ -40,6 +40,7 @@ import GithubButtonToast from "@/components/github-button";
 import { atCommandSender } from "@/utils/at-command";
 import { PowerIcon } from "lucide-react";
 import EthernetCard from "@/components/home/ethernet-card";
+import EthernetLinkLimitCard from "@/components/settings/ethernet-link-limit-card";
 import DNSCard from "@/components/pages/dns-card";
 
 interface MacAddress {
@@ -237,9 +238,7 @@ const ConnectivitySettingsPage = () => {
           window.location.reload();
         }, 90000);
       } else {
-        throw new Error(
-          rebootResult.response || "Failed to reboot device"
-        );
+        throw new Error(rebootResult.response || "Failed to reboot device");
       }
     } catch (err) {
       toast({
@@ -273,9 +272,7 @@ const ConnectivitySettingsPage = () => {
 
       // Check the flat response structure
       if (result.status !== "success") {
-        throw new Error(
-          result.response || "Command execution failed"
-        );
+        throw new Error(result.response || "Command execution failed");
       }
 
       setInitialSettings({ ...currentSettings });
@@ -327,178 +324,187 @@ const ConnectivitySettingsPage = () => {
   }, []);
 
   return (
-        <div className="container mx-auto p-6">
+    <div className="container mx-auto p-6">
       <div className="mb-6">
         <h1 className="text-3xl font-bold mb-2">
           Device Connectivity Settings
         </h1>
         <p className="text-muted-foreground">
-          Configure your device's connectivity options including IP Passthrough and USB Modem Protocol.
+          Configure your device's connectivity options including IP Passthrough
+          and USB Modem Protocol.
         </p>
       </div>
-    <div className="grid gap-4">
-      <Card>
-        <CardHeader>
-          <CardTitle>Connectivity Settings</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 lg:grid-cols-2 grid-flow-row gap-6">
-            <div className="grid w-full max-w-sm items-center gap-2">
-              <Label htmlFor="passthrough">IP Passthrough Mode</Label>
-              {loading ? (
-                <Skeleton className="w-full h-8" />
-              ) : (
-                <Select
-                  onValueChange={(value) =>
-                    setCurrentSettings((prev) => ({
-                      ...prev,
-                      passthrough: value,
-                    }))
-                  }
-                  value={currentSettings.passthrough || undefined}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select IP Passthrough Mode"></SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectGroup>
-                      <SelectLabel>Passthrough Mode</SelectLabel>
-                      <SelectItem value="disabled">Disabled</SelectItem>
-                      <SelectItem value="ETH">
-                        ETH Passthrough Enabled
-                      </SelectItem>
-                      <SelectItem value="USB">
-                        USB Passthrough Enabled
-                      </SelectItem>
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
-              )}
-            </div>
-
-            <div className="grid w-full max-w-sm items-center gap-2">
-              <Label htmlFor="mac">Connected MAC</Label>
-              {loading ? (
-                <Skeleton className="w-full h-8" />
-              ) : (
-                <Select
-                  onValueChange={(value) =>
-                    setCurrentSettings((prev) => ({
-                      ...prev,
-                      selectedMac: value,
-                    }))
-                  }
-                  value={currentSettings.selectedMac || undefined}
-                  disabled={
-                    !currentSettings.passthrough ||
-                    currentSettings.passthrough === "disabled"
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select Active MAC"></SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectGroup>
-                      <SelectLabel>Active MAC</SelectLabel>
-                      {macAddresses.map((item) => (
-                        <SelectItem key={item.mac} value={item.mac}>
-                          {`${item.hostname} - ${item.mac}`}
+      <div className="grid gap-4">
+        <Card>
+          <CardHeader>
+            <CardTitle>Connectivity Settings</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 lg:grid-cols-2 grid-flow-row gap-6">
+              <div className="grid w-full max-w-sm items-center gap-2">
+                <Label htmlFor="passthrough">IP Passthrough Mode</Label>
+                {loading ? (
+                  <Skeleton className="w-full h-8" />
+                ) : (
+                  <Select
+                    onValueChange={(value) =>
+                      setCurrentSettings((prev) => ({
+                        ...prev,
+                        passthrough: value,
+                      }))
+                    }
+                    value={currentSettings.passthrough || undefined}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select IP Passthrough Mode"></SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        <SelectLabel>Passthrough Mode</SelectLabel>
+                        <SelectItem value="disabled">Disabled</SelectItem>
+                        <SelectItem value="ETH">
+                          ETH Passthrough Enabled
                         </SelectItem>
-                      ))}
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
-              )}
+                        <SelectItem value="USB">
+                          USB Passthrough Enabled
+                        </SelectItem>
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+
+              <div className="grid w-full max-w-sm items-center gap-2">
+                <Label htmlFor="mac">Connected MAC</Label>
+                {loading ? (
+                  <Skeleton className="w-full h-8" />
+                ) : (
+                  <Select
+                    onValueChange={(value) =>
+                      setCurrentSettings((prev) => ({
+                        ...prev,
+                        selectedMac: value,
+                      }))
+                    }
+                    value={currentSettings.selectedMac || undefined}
+                    disabled={
+                      !currentSettings.passthrough ||
+                      currentSettings.passthrough === "disabled"
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select Active MAC"></SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        <SelectLabel>Active MAC</SelectLabel>
+                        {macAddresses.map((item) => (
+                          <SelectItem key={item.mac} value={item.mac}>
+                            {`${item.hostname} - ${item.mac}`}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+
+              <Separator className="lg:col-span-2 col-span-1 my-2" />
+
+              <div className="grid w-full max-w-sm items-center gap-2">
+                <Label htmlFor="modemProtocol">USB Modem Protocol</Label>
+                {loading ? (
+                  <Skeleton className="w-full h-8" />
+                ) : (
+                  <Select
+                    onValueChange={(value) =>
+                      setCurrentSettings((prev) => ({
+                        ...prev,
+                        modemProtocol: value,
+                      }))
+                    }
+                    value={currentSettings.modemProtocol || undefined}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select USB Modem Protocol"></SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        <SelectLabel>USB Modem Protocol</SelectLabel>
+                        <SelectItem value="rmnet">RMNET</SelectItem>
+                        <SelectItem value="ecm">ECM (Recommended)</SelectItem>
+                        <SelectItem value="mbim">MBIM</SelectItem>
+                        <SelectItem value="rndis">RNDIS</SelectItem>
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+
+              <div className="grid w-full max-w-sm items-center gap-2">
+                <Label htmlFor="dnsProxy">Onboard DNS Proxy Mode</Label>
+                {loading ? (
+                  <Skeleton className="w-full h-8" />
+                ) : (
+                  <Select
+                    onValueChange={(value) =>
+                      setCurrentSettings((prev) => ({
+                        ...prev,
+                        dnsProxy: value,
+                      }))
+                    }
+                    value={currentSettings.dnsProxy || undefined}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select DNS Proxy Mode"></SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        <SelectLabel>DNS Proxy Mode</SelectLabel>
+                        <SelectItem value="enabled">Enabled</SelectItem>
+                        <SelectItem value="disabled">
+                          Disabled (Recommended for Passthrough)
+                        </SelectItem>
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
             </div>
+          </CardContent>
+          <CardFooter className="grid border-t py-4">
+            <Button onClick={handleSave} disabled={!hasChanges() || !isValid()}>
+              Save
+            </Button>
+          </CardFooter>
+        </Card>
 
-            <Separator className="lg:col-span-2 col-span-1 my-2" />
+        {/* Ethernet Link Limit Component */}
+        <EthernetLinkLimitCard />
 
-            <div className="grid w-full max-w-sm items-center gap-2">
-              <Label htmlFor="modemProtocol">USB Modem Protocol</Label>
-              {loading ? (
-                <Skeleton className="w-full h-8" />
-              ) : (
-                <Select
-                  onValueChange={(value) =>
-                    setCurrentSettings((prev) => ({
-                      ...prev,
-                      modemProtocol: value,
-                    }))
-                  }
-                  value={currentSettings.modemProtocol || undefined}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select USB Modem Protocol"></SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectGroup>
-                      <SelectLabel>USB Modem Protocol</SelectLabel>
-                      <SelectItem value="rmnet">RMNET</SelectItem>
-                      <SelectItem value="ecm">ECM (Recommended)</SelectItem>
-                      <SelectItem value="mbim">MBIM</SelectItem>
-                      <SelectItem value="rndis">RNDIS</SelectItem>
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
-              )}
-            </div>
+        {/* Ethernet Status Component */}
+        <EthernetCard />
 
-            <div className="grid w-full max-w-sm items-center gap-2">
-              <Label htmlFor="dnsProxy">Onboard DNS Proxy Mode</Label>
-              {loading ? (
-                <Skeleton className="w-full h-8" />
-              ) : (
-                <Select
-                  onValueChange={(value) =>
-                    setCurrentSettings((prev) => ({ ...prev, dnsProxy: value }))
-                  }
-                  value={currentSettings.dnsProxy || undefined}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select DNS Proxy Mode"></SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectGroup>
-                      <SelectLabel>DNS Proxy Mode</SelectLabel>
-                      <SelectItem value="enabled">Enabled</SelectItem>
-                      <SelectItem value="disabled">
-                        Disabled (Recommended for Passthrough)
-                      </SelectItem>
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
-              )}
-            </div>
-          </div>
-        </CardContent>
-        <CardFooter className="grid border-t py-4">
-          <Button onClick={handleSave} disabled={!hasChanges() || !isValid()}>
-            Save
-          </Button>
-        </CardFooter>
-      </Card>
-
-      <EthernetCard/>
-      {/* <DNSCard passthrough={currentSettings.passthrough} /> */}
-      <AlertDialog open={showRebootDialog} onOpenChange={setShowRebootDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Reboot Required</AlertDialogTitle>
-            <AlertDialogDescription>
-              The changes you made require a device reboot to take effect. Would
-              you like to reboot now?
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Later</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmSave}>
-              <PowerIcon className="w-4 h-4" />
-              Save & Reboot Now
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </div>
+        {/* <DNSCard passthrough={currentSettings.passthrough} /> */}
+        <AlertDialog open={showRebootDialog} onOpenChange={setShowRebootDialog}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Reboot Required</AlertDialogTitle>
+              <AlertDialogDescription>
+                The changes you made require a device reboot to take effect.
+                Would you like to reboot now?
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Later</AlertDialogCancel>
+              <AlertDialogAction onClick={handleConfirmSave}>
+                <PowerIcon className="w-4 h-4" />
+                Save & Reboot Now
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
     </div>
   );
 };

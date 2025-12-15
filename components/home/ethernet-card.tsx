@@ -81,6 +81,9 @@ const EthernetCard = () => {
       <Card>
         <CardHeader>
           <CardTitle>Ethernet Information</CardTitle>
+          <CardDescription>
+            Shows the status of the Ethernet connection and its speed.
+          </CardDescription>
         </CardHeader>
         <CardContent className="flex items-center justify-center">
           <div className="text-red-500">{error}</div>
