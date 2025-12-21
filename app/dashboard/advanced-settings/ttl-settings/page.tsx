@@ -19,6 +19,7 @@ import { LockIcon } from "lucide-react";
 // Define interfaces for the API responses
 interface TTLData {
   currentValue: number;
+  hlValue: number;
   isEnabled: boolean;
   success?: boolean;
   error?: string;
@@ -52,6 +53,8 @@ interface ProfilesResponse {
 
 const TTLSettingsPage = () => {
   const [ttlValue, setTtlValue] = useState<string>("0");
+  const [hlValue, setHlValue] = useState<string>("0");
+  const [syncHl, setSyncHl] = useState<boolean>(true);
   const [ttlState, setTtlState] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string>("");
@@ -95,7 +98,13 @@ const TTLSettingsPage = () => {
         // Handle active profile with TTL
         let isControlled = false;
         let finalTtlValue = ttlData.currentValue.toString();
+        let finalHlValue = ttlData.hlValue?.toString() || ttlData.currentValue.toString();
         let finalTtlState = ttlData.isEnabled;
+
+        // Check if TTL and HL are different
+        if (finalTtlValue !== finalHlValue) {
+          setSyncHl(false);
+        }
 
         // Check if there's an active profile with TTL settings
         if (
@@ -124,6 +133,7 @@ const TTLSettingsPage = () => {
                 setActiveProfile(active);
                 isControlled = true;
                 finalTtlValue = active.ttl;
+                finalHlValue = active.ttl;
                 finalTtlState = true;
               }
             }
@@ -131,6 +141,7 @@ const TTLSettingsPage = () => {
         }
 
         setTtlValue(finalTtlValue);
+        setHlValue(finalHlValue);
         setTtlState(finalTtlState);
         setIsProfileControlled(isControlled);
       } catch (err) {
@@ -157,8 +168,9 @@ const TTLSettingsPage = () => {
     setError("");
     setSuccess("");
 
-    // Only send TTL value if state is enabled
-    const valueToSend = ttlState ? ttlValue : "0";
+    // Only send values if state is enabled
+    const ttlToSend = ttlState ? ttlValue : "0";
+    const hlToSend = ttlState ? (syncHl ? ttlValue : hlValue) : "0";
 
     try {
       const response = await fetch("/cgi-bin/quecmanager/advance/ttl.sh", {
@@ -166,7 +178,7 @@ const TTLSettingsPage = () => {
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",
         },
-        body: `ttl=${valueToSend}`,
+        body: `ttl=${ttlToSend}&hl=${hlToSend}`,
       });
 
       if (!response.ok) {
@@ -223,26 +235,68 @@ const TTLSettingsPage = () => {
           <form onSubmit={handleSubmit} className="space-y-8">
             <div className="space-y-6">
               <div>
-                <label className="text-sm font-medium">TTL Value</label>
+                <label className="text-sm font-medium">TTL Value (IPv4)</label>
                 <Input
                   type="number"
                   min="0"
                   max="255"
                   value={ttlValue}
-                  onChange={(e) => setTtlValue(e.target.value)}
+                  onChange={(e) => {
+                    setTtlValue(e.target.value);
+                    if (syncHl) {
+                      setHlValue(e.target.value);
+                    }
+                  }}
                   disabled={!ttlState || isProfileControlled || loading}
                   className="mt-1"
                 />
                 <p className="text-sm text-gray-500 mt-1">
-                  Set the TTL value for your connection (0-255).
+                  Set the TTL value for IPv4 packets (0-255).
                 </p>
               </div>
 
               <div className="flex items-center justify-between rounded-lg border p-4">
                 <div>
-                  <label className="text-base font-medium">TTL State</label>
+                  <label className="text-base font-medium">Sync HL with TTL</label>
                   <p className="text-sm text-gray-500">
-                    Toggle to enable or disable TTL mangling
+                    Use the same value for both IPv4 (TTL) and IPv6 (HL)
+                  </p>
+                </div>
+                <Switch
+                  checked={syncHl}
+                  onCheckedChange={(checked) => {
+                    setSyncHl(checked);
+                    if (checked) {
+                      setHlValue(ttlValue);
+                    }
+                  }}
+                  disabled={!ttlState || isProfileControlled || loading}
+                />
+              </div>
+
+              {!syncHl && (
+                <div>
+                  <label className="text-sm font-medium">HL Value (IPv6)</label>
+                  <Input
+                    type="number"
+                    min="0"
+                    max="255"
+                    value={hlValue}
+                    onChange={(e) => setHlValue(e.target.value)}
+                    disabled={!ttlState || isProfileControlled || loading}
+                    className="mt-1"
+                  />
+                  <p className="text-sm text-gray-500 mt-1">
+                    Set the Hop Limit value for IPv6 packets (0-255).
+                  </p>
+                </div>
+              )}
+
+              <div className="flex items-center justify-between rounded-lg border p-4">
+                <div>
+                  <label className="text-base font-medium">TTL/HL State</label>
+                  <p className="text-sm text-gray-500">
+                    Toggle to enable or disable TTL/HL mangling
                   </p>
                 </div>
                 <Switch
