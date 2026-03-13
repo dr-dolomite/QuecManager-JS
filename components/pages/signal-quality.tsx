@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { Bar, BarChart, LabelList, XAxis, YAxis } from "recharts";
 import {
   Card,
   CardContent,
@@ -9,22 +8,11 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Button } from "@/components/ui/button";
-import Link from "next/link";
-import { ChartContainer } from "@/components/ui/chart";
-import { Separator } from "@/components/ui/separator";
 import { Progress } from "@/components/ui/progress";
-import { ModeToggle } from "@/components/dark-mode-toggle";
 import { calculateSignalPercentage } from "@/utils/signalMetrics";
-import { ArrowRightIcon } from "@radix-ui/react-icons";
 
 import { useAuth } from "@/hooks/auth";
 import { AnimatedThemeToggler } from "../ui/animated-theme-toggler";
-
-interface ModemResponse {
-  response: string;
-}
 
 interface ChartDataItem {
   activity: string;
@@ -72,7 +60,7 @@ const processSignalValues = (matches: string[] | null): number | null => {
 
 const parseAntennaSignalData = (atResponses: AtCommandResponse[]): AntennaSignalData[] => {
   // Filter to only include signal measurement commands
-  const signalCommands = atResponses.filter(cmd => 
+  const signalCommands = atResponses.filter(cmd =>
     ['AT+QRSRP', 'AT+QRSRQ', 'AT+QSINR'].includes(cmd.command)
   );
 
@@ -117,8 +105,8 @@ const parseAntennaSignalData = (atResponses: AtCommandResponse[]): AntennaSignal
       rsrp: signalData['AT+QRSRP']?.values[i] || null,
       rsrq: signalData['AT+QRSRQ']?.values[i] || null,
       sinr: signalData['AT+QSINR']?.values[i] || null,
-      bandType: signalData['AT+QRSRP']?.bandType || 
-                signalData['AT+QRSRQ']?.bandType || 
+      bandType: signalData['AT+QRSRP']?.bandType ||
+                signalData['AT+QRSRQ']?.bandType ||
                 signalData['AT+QSINR']?.bandType || 'Unknown'
     });
   }
@@ -127,16 +115,16 @@ const parseAntennaSignalData = (atResponses: AtCommandResponse[]): AntennaSignal
 };
 
 // Signal strength bar component
-const SignalBar = ({ 
-  label, 
-  value, 
-  type, 
+const SignalBar = ({
+  label,
+  value,
+  type,
   unit,
-  bandType 
-}: { 
-  label: string; 
-  value: number | null; 
-  type: 'rsrp' | 'rsrq' | 'sinr'; 
+  bandType
+}: {
+  label: string;
+  value: number | null;
+  type: 'rsrp' | 'rsrq' | 'sinr';
   unit: string;
   bandType?: string;
 }) => {
@@ -173,7 +161,7 @@ const SignalBar = ({
         <span className="text-muted-foreground">{value}{unit}</span>
       </div>
       <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-        <div 
+        <div
           className={`h-2 rounded-full transition-all duration-300 ${getBarColor(percentage)}`}
           style={{ width: `${percentage}%` }}
         />
@@ -369,24 +357,24 @@ export default function ChartPreviewSignal() {
                   {getAntennaName(antenna.antenna)}
                 </div>
                 <div className="space-y-4">
-                  <SignalBar 
-                    label="RSRP" 
-                    value={antenna.rsrp} 
-                    type="rsrp" 
+                  <SignalBar
+                    label="RSRP"
+                    value={antenna.rsrp}
+                    type="rsrp"
                     unit=" dBm"
                     bandType={antenna.bandType}
                   />
-                  <SignalBar 
-                    label="RSRQ" 
-                    value={antenna.rsrq} 
-                    type="rsrq" 
+                  <SignalBar
+                    label="RSRQ"
+                    value={antenna.rsrq}
+                    type="rsrq"
                     unit=" dB"
                     bandType={antenna.bandType}
                   />
-                  <SignalBar 
-                    label="SINR" 
-                    value={antenna.sinr} 
-                    type="sinr" 
+                  <SignalBar
+                    label="SINR"
+                    value={antenna.sinr}
+                    type="sinr"
                     unit=" dB"
                     bandType={antenna.bandType}
                   />
