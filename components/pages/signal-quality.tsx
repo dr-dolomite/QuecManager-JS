@@ -65,7 +65,7 @@ const parseAntennaSignalData = (atResponses: AtCommandResponse[]): AntennaSignal
   );
 
   // Extract values and band type from each command
-  const signalData: { [key: string]: { values: number[], bandType: string } } = {};
+  const signalData: { [key: string]: { values: (number | null)[], bandType: string } } = {};
 
   signalCommands.forEach(cmd => {
     const responseLines = cmd.response.split('\n');
@@ -81,7 +81,7 @@ const parseAntennaSignalData = (atResponses: AtCommandResponse[]): AntennaSignal
         const antennaValues = parts.slice(0, 4).map(val => {
           const num = parseInt(val.trim());
           return (num === -32768 || num === -140) ? null : num;
-        }).filter(val => val !== null) as number[];
+        }) as (number | null)[];
 
         // Extract band type (last part)
         const bandType = parts[parts.length - 1]?.trim() || 'Unknown';
@@ -91,23 +91,18 @@ const parseAntennaSignalData = (atResponses: AtCommandResponse[]): AntennaSignal
     }
   });
 
-  // Create array of antenna objects
+  // Create array of antenna objects (always 4 antennas)
   const antennaArray: AntennaSignalData[] = [];
-  const maxAntennas = Math.max(
-    signalData['AT+QRSRP']?.values.length || 0,
-    signalData['AT+QRSRQ']?.values.length || 0,
-    signalData['AT+QSINR']?.values.length || 0
-  );
 
-  for (let i = 0; i < maxAntennas; i++) {
+  for (let i = 0; i < 4; i++) {
     antennaArray.push({
       antenna: i,
-      rsrp: signalData['AT+QRSRP']?.values[i] || null,
-      rsrq: signalData['AT+QRSRQ']?.values[i] || null,
-      sinr: signalData['AT+QSINR']?.values[i] || null,
-      bandType: signalData['AT+QRSRP']?.bandType ||
-                signalData['AT+QRSRQ']?.bandType ||
-                signalData['AT+QSINR']?.bandType || 'Unknown'
+      rsrp: signalData['AT+QRSRP']?.values[i] ?? null,
+      rsrq: signalData['AT+QRSRQ']?.values[i] ?? null,
+      sinr: signalData['AT+QSINR']?.values[i] ?? null,
+      bandType: signalData['AT+QRSRP']?.bandType ??
+                signalData['AT+QRSRQ']?.bandType ??
+                signalData['AT+QSINR']?.bandType ?? 'Unknown'
     });
   }
 
