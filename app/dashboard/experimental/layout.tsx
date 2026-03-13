@@ -102,6 +102,16 @@ const ExperimentalLayout = ({ children }: ExperimentalLayoutProps) => {
           >
             Keep Alive
           </Link>
+          <Link
+            href="/dashboard/experimental/antenna-insights"
+            className={`${
+              currentPathName === "/dashboard/experimental/antenna-insights/"
+                ? "font-semibold text-primary"
+                : "text-sm"
+            }`}
+          >
+            Antenna Insights
+          </Link>
         </nav>
         {children}
       </div>
